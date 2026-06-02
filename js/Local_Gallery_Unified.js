@@ -3,6 +3,7 @@ import { api } from "../../scripts/api.js";
 import * as loraApi from "./api/loraApi.js";
 import * as promptApi from "./api/promptApi.js";
 import { escapeHtml } from "./shared/dom.js";
+import { cloneJsonOr, parseJsonOr, stringifyJsonOr } from "./shared/json.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
 
 app.registerExtension({
@@ -374,7 +375,7 @@ const UnifiedLoraGalleryNode = {
             // Shared backend UI state is only for transient view controls.
             const persistSelectionData = () => {
                 const serializableData = this.loraData.map(({ element, ...rest }) => rest);
-                const selectionJson = JSON.stringify(serializableData);
+                const selectionJson = stringifyJsonOr(serializableData);
                 this.setProperty("lora_selection_data", selectionJson);
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
                 if (widget) widget.value = selectionJson;
@@ -1288,7 +1289,7 @@ const UnifiedLoraGalleryNode = {
                     
                     presetLink.onclick = (e) => {
                         e.preventDefault();
-                        this.loraData = JSON.parse(JSON.stringify(presets[name]));
+                        this.loraData = cloneJsonOr(presets[name], []);
 
                         renderSelectedList();
 
@@ -1481,7 +1482,7 @@ const UnifiedLoraGalleryNode = {
                 };
 
                 try {
-                    const savedSelection = JSON.parse(this.properties.lora_selection_data || "[]");
+                    const savedSelection = parseJsonOr(this.properties.lora_selection_data || "[]", []);
                     if (Array.isArray(savedSelection)) {
                         this.loraData = savedSelection;
                     }
@@ -3561,7 +3562,7 @@ const UnifiedPromptGalleryNode = {
             };
 
             function saveSelectionData(options = {}) {
-                const data = JSON.stringify(node_instance.promptData);
+                const data = stringifyJsonOr(node_instance.promptData);
                 node_instance.properties["prompt_selection_data"] = data;
                 selectionWidget.value = data;
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
@@ -3670,7 +3671,7 @@ const UnifiedPromptGalleryNode = {
                 node_instance.properties["wildcard_mode"] = String(mode || "off");
                 node_instance.properties["wildcard_categories"] = typeof categoriesValue === 'string'
                     ? categoriesValue
-                    : JSON.stringify(categoriesValue || []);
+                    : stringifyJsonOr(categoriesValue || []);
                 if (wildcardWidget) wildcardWidget.value = node_instance.properties["wildcard_mode"];
                 if (categoriesWidget) categoriesWidget.value = node_instance.properties["wildcard_categories"];
                 node_instance.setDirtyCanvas?.(true, true);
@@ -6521,7 +6522,7 @@ const UnifiedPromptGalleryNode = {
                         let savedData = [];
                         try {
                             const val = categoriesWidget?.value || "[]";
-                            savedData = JSON.parse(val);
+                            savedData = parseJsonOr(val, []);
                             if (!Array.isArray(savedData)) savedData = [];
                             if (savedData.length > 0 && typeof savedData[0] === 'string') {
                                 savedData = savedData.map(c => ({ category: c, weight: 1.0 }));
@@ -6589,7 +6590,7 @@ const UnifiedPromptGalleryNode = {
                                     selected.push({ category: catName, weight: weightVal });
                                 }
                             });
-                            saveWildcardState(currentWildcardMode, JSON.stringify(selected));
+                            saveWildcardState(currentWildcardMode, stringifyJsonOr(selected));
                         }
                     }
 
@@ -6612,7 +6613,7 @@ const UnifiedPromptGalleryNode = {
 
                 if (node_instance.properties && node_instance.properties.prompt_selection_data) {
                     try {
-                        node_instance.promptData = JSON.parse(node_instance.properties.prompt_selection_data);
+                        node_instance.promptData = parseJsonOr(node_instance.properties.prompt_selection_data, []);
                     } catch (e) {
                         node_instance.promptData = [];
                     }
@@ -6881,7 +6882,7 @@ const UnifiedPromptGalleryNode = {
                                     
                                     // Apply wildcard mode
                                     currentWildcardMode = presetData.wildcard_mode || 'off';
-                                    const presetCategoriesValue = JSON.stringify(presetData.wildcard_categories || []);
+                                    const presetCategoriesValue = stringifyJsonOr(presetData.wildcard_categories || []);
                                     saveWildcardState(currentWildcardMode, presetCategoriesValue);
                                     updateWildcardControlsUI();
                                     
@@ -6952,7 +6953,7 @@ const UnifiedPromptGalleryNode = {
                         const wildcardMode = currentWildcardMode || 'off';
                         let wildcardCategories = [];
                         try {
-                            wildcardCategories = JSON.parse(categoriesWidget?.value || '[]');
+                            wildcardCategories = parseJsonOr(categoriesWidget?.value || '[]', []);
                         } catch (e) {
                             wildcardCategories = [];
                         }

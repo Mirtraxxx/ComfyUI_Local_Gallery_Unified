@@ -29,6 +29,8 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Centralizes calls to legacy `/localpromptgallery/*` routes.
 - `js/shared/dom.js`
   - Holds shared frontend DOM helpers such as safe HTML escaping.
+- `js/shared/json.js`
+  - Holds safe JSON parse/stringify helpers for hidden workflow state.
 - `MAINTAINABILITY_AUDIT.md`
   - Reviews future-build risks and likely spaghetti points.
 - `REFACTOR_ROADMAP.md`
