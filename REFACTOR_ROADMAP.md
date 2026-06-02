@@ -177,7 +177,7 @@ Done means:
 
 ## Phase 4 - Split The Frontend Into Coarse Modules
 
-Status: Not started
+Status: Started
 
 Goal:
 
@@ -207,6 +207,12 @@ Important:
 - Move code first; improve code second.
 - After each file split, run a smoke test.
 - Avoid changing behavior while moving code.
+
+Implemented so far:
+
+- `js/tabs.js`
+  - extracted from `js/Local_Gallery_Unified.js`
+  - main file still owns extension registration and calls `setupUnifiedGalleryTabs()`
 
 Done means:
 
@@ -370,6 +376,6 @@ Avoid until after cleanup:
 
 The next safest implementation step is Phase 4:
 
-Split the frontend into coarse UI modules, starting with the smallest and least entangled part. The best next target is `tabs.js`, because the tab switcher is compact and has a clear responsibility.
+Continue splitting the frontend into coarse UI modules. The tab switcher has already moved to `tabs.js`; the next useful target is a shared state/helper module before attempting the larger Prompt or LoRA UI sections.
 
 After the tab module is stable, split larger Prompt and LoRA UI sections in separate checkpoints.

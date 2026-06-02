@@ -30,8 +30,9 @@ Current file sizes:
 | --- | ---: | ---: |
 | `Local_Gallery_Unified.py` | 119 | 3,784 bytes |
 | `__init__.py` | 9 | 276 bytes |
-| `AI_NODE_OVERVIEW.md` | 243 | 9,736 bytes |
-| `js/Local_Gallery_Unified.js` | 7,727 | 418,867 bytes |
+| `AI_NODE_OVERVIEW.md` | 245 | 9,844 bytes |
+| `js/Local_Gallery_Unified.js` | 7,658 | 414,879 bytes |
+| `js/tabs.js` | 67 | 3,787 bytes |
 | `js/api/loraApi.js` | 77 | 2,718 bytes |
 | `js/api/promptApi.js` | 249 | 8,900 bytes |
 | `js/shared/dom.js` | 8 | 239 bytes |
@@ -78,7 +79,7 @@ The frontend JavaScript file is the true merge:
 
 Severity: High
 
-`js/Local_Gallery_Unified.js` currently contains most UI, state, styling, modal creation, event binding, and ComfyUI lifecycle behavior. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`.
+`js/Local_Gallery_Unified.js` currently contains most UI, state, styling, modal creation, event binding, and ComfyUI lifecycle behavior. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`, and tab setup has been moved into `js/tabs.js`.
 
 Why this is risky:
 
