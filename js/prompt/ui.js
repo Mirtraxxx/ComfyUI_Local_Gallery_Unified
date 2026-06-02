@@ -10,6 +10,8 @@ import {
 } from "./constants.js";
 import {
     buildLastOutputPreviewUrl,
+    createManagedTextControlsHtml,
+    createPinnedManagedControlsHtml,
     extractPromptTextFromSourceNode,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
     getActiveSidebarWidth as resolveActiveSidebarWidth,
@@ -27,6 +29,7 @@ import {
     normalizePromptIdList,
     promotePromptsById,
     sortPromptsByPinnedOrder,
+    stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
@@ -2230,34 +2233,6 @@ const UnifiedPromptGalleryNode = {
                 await persistPinnedOrder(currentOrder);
             }
 
-            function createPinnedManagedControlsHtml(selectedEntry) {
-                const weight = selectedEntry?.weight || 1.0;
-                const isOn = selectedEntry?.on !== false;
-                return `
-                    <button class="managed-state-pill ${isOn ? 'on' : 'off'}" data-managed-action="toggle-on">${isOn ? 'ON' : 'OFF'}</button>
-                    <div class="managed-card-overlay">
-                        <div class="managed-card-controls">
-                        <button class="localprompt-inline-btn" data-managed-action="weight-down">-</button>
-                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>
-                        </div>
-                    </div>
-                `;
-            }
-
-            function createManagedTextControlsHtml(selectedEntry) {
-                const weight = selectedEntry?.weight || 1.0;
-                const isOn = selectedEntry?.on !== false;
-                return `
-                    <div class="managed-card-controls">
-                        <button class="managed-state-pill ${isOn ? 'on' : 'off'}" data-managed-action="toggle-on" style="position: static;">${isOn ? 'ON' : 'OFF'}</button>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-down">-</button>
-                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>
-                    </div>
-                `;
-            }
-
             function bindPinnedManagedControls(chip, prompt) {
                 chip.querySelectorAll('[data-managed-action]').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -2268,9 +2243,9 @@ const UnifiedPromptGalleryNode = {
                             if (action === 'toggle-on') {
                                 item.on = item.on === false;
                             } else if (action === 'weight-up') {
-                                item.weight = Math.min(2.0, Math.round(((item.weight || 1.0) + 0.1) * 10) / 10);
+                                item.weight = stepManagedPromptWeight(item.weight, 1);
                             } else if (action === 'weight-down') {
-                                item.weight = Math.max(0.1, Math.round(((item.weight || 1.0) - 0.1) * 10) / 10);
+                                item.weight = stepManagedPromptWeight(item.weight, -1);
                             }
                         }, { refreshOnly: true });
                     });
