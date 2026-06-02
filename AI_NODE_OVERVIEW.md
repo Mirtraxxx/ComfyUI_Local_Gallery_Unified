@@ -19,8 +19,11 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Delegates actual prompt and LoRA processing to the legacy nodes.
 - `js/Local_Gallery_Unified.js`
   - Defines the unified frontend UI.
-  - Embeds prompt gallery UI and LoRA gallery UI into the same node.
-  - Adds Prompt/LoRA tabs and hidden serialized widgets.
+  - Acts as the main frontend entrypoint.
+  - Still contains the Prompt Gallery UI.
+  - Registers tabs, LoRA UI, and Prompt UI in order.
+- `js/lora/ui.js`
+  - Contains the LoRA Gallery UI setup and rendering logic.
 - `js/tabs.js`
   - Defines the Prompt/LoRA tab switcher setup.
 - `js/api/loraApi.js`
