@@ -18,10 +18,10 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Defines the backend ComfyUI node.
   - Delegates actual prompt and LoRA processing to the legacy nodes.
 - `js/Local_Gallery_Unified.js`
-  - Defines the unified frontend UI.
   - Acts as the main frontend entrypoint.
-  - Still contains the Prompt Gallery UI.
   - Registers tabs, LoRA UI, and Prompt UI in order.
+- `js/prompt/ui.js`
+  - Contains the Prompt Gallery UI setup and rendering logic.
 - `js/lora/ui.js`
   - Contains the LoRA Gallery UI setup and rendering logic.
 - `js/tabs.js`

@@ -31,7 +31,8 @@ Current file sizes:
 | `Local_Gallery_Unified.py` | 119 | 3,784 bytes |
 | `__init__.py` | 9 | 276 bytes |
 | `AI_NODE_OVERVIEW.md` | 249 | 9,966 bytes |
-| `js/Local_Gallery_Unified.js` | 5,864 | 304,839 bytes |
+| `js/Local_Gallery_Unified.js` | 19 | 575 bytes |
+| `js/prompt/ui.js` | 5,847 | 304,417 bytes |
 | `js/lora/ui.js` | 1,790 | 109,199 bytes |
 | `js/tabs.js` | 67 | 3,787 bytes |
 | `js/api/loraApi.js` | 77 | 2,718 bytes |
@@ -40,7 +41,7 @@ Current file sizes:
 | `js/shared/json.js` | 19 | 400 bytes |
 | `js/shared/widgets.js` | 27 | 981 bytes |
 
-Important pattern counts in `js/Local_Gallery_Unified.js`:
+Important pattern counts across the frontend modules:
 
 | Pattern | Count | Why It Matters |
 | --- | ---: | --- |
@@ -68,33 +69,33 @@ The backend Python file is intentionally thin:
 - It calls legacy prompt logic second.
 - It returns updated `MODEL`, updated `CLIP`, `lora_trigger_words`, and `combined_prompt`.
 
-The frontend JavaScript file is the true merge:
+The frontend JavaScript is the true merge:
 
-- It adds the Prompt/LoRA tab switcher.
-- It embeds/adapts the old LoRA Gallery UI.
-- It embeds/adapts the old Prompt Gallery UI.
+- `js/tabs.js` adds the Prompt/LoRA tab switcher.
+- `js/lora/ui.js` embeds/adapts the old LoRA Gallery UI.
+- `js/prompt/ui.js` embeds/adapts the old Prompt Gallery UI.
 - It manages hidden widgets and node properties used by the backend.
 - It calls many legacy HTTP routes from both old nodes.
 
 ## Main Risks
 
-### Risk 1 - One Giant JavaScript File
+### Risk 1 - Large UI Modules
 
 Severity: High
 
-`js/Local_Gallery_Unified.js` currently contains the Prompt UI plus entrypoint registration. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`, tab setup has been moved into `js/tabs.js`, LoRA UI has been moved into `js/lora/ui.js`, and shared DOM/JSON/widget helpers now live under `js/shared/`.
+`js/Local_Gallery_Unified.js` is now a small frontend entrypoint. Prompt UI lives in `js/prompt/ui.js`, LoRA UI lives in `js/lora/ui.js`, tab setup lives in `js/tabs.js`, API route calls live in `js/api/`, and shared DOM/JSON/widget helpers live under `js/shared/`. The remaining size risk is concentrated mostly in `js/prompt/ui.js`.
 
 Why this is risky:
 
-- A small change can accidentally affect a far-away feature.
-- Search results are noisy because many concepts live in the same file.
+- A small prompt-side change can still accidentally affect a far-away prompt feature.
+- Search results inside `js/prompt/ui.js` are still noisy because many prompt concepts live in the same module.
 - Reusing logic is hard because much of it is trapped in local functions.
 - Future AI edits may patch the nearest matching code instead of the right code.
 - Merge conflicts will be painful if two changes touch the file at once.
 
 What to do:
 
-- Split the file by responsibility before adding many new features.
+- Continue splitting large UI modules by responsibility before adding many new features.
 - Keep the current baseline as the fallback point.
 - Move code in behavior-preserving steps, not as a visual redesign.
 

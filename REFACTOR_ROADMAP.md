@@ -220,6 +220,9 @@ Implemented so far:
 - `js/lora/ui.js`
   - extracted from `js/Local_Gallery_Unified.js`
   - main file calls `registerLoraGalleryUi(app)` to preserve registration order
+- `js/prompt/ui.js`
+  - extracted from `js/Local_Gallery_Unified.js`
+  - main file calls `registerPromptGalleryUi(app, api)` after the LoRA UI registration
 
 Done means:
 
@@ -385,4 +388,4 @@ The next safest implementation step is Phase 4:
 
 Continue splitting the frontend into coarse UI modules. The tab switcher has already moved to `tabs.js`; the next useful target is a shared state/helper module before attempting the larger Prompt or LoRA UI sections.
 
-The shared JSON and widget helper modules have also been added, and the LoRA UI has moved to `js/lora/ui.js`. The next large target is extracting the Prompt UI into its own module; do that in a separate checkpoint because it is the largest remaining section.
+The shared JSON and widget helper modules have also been added, and both major UI sections now live in dedicated modules. The next useful target is reducing the size of `js/prompt/ui.js` by extracting smaller prompt-side helpers, such as modal helpers, category/color helpers, or prompt state synchronization.
