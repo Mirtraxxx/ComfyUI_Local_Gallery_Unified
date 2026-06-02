@@ -1,14 +1,8 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-}
+import * as loraApi from "./api/loraApi.js";
+import * as promptApi from "./api/promptApi.js";
+import { escapeHtml } from "./shared/dom.js";
 
 const UnifiedGalleryTabs = {
     setup(nodeType) {
@@ -98,12 +92,7 @@ const UnifiedLoraGalleryNode = {
     async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], per_page = 50) {
         this.isLoading = true;
         try {
-            let url = `/localloragallery/get_loras?filter_tag=${encodeURIComponent(filter_tag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&per_page=${per_page}`;
-            selected_loras.forEach(lora => {
-                url += `&selected_loras=${encodeURIComponent(lora)}`;
-            });
-            const response = await api.fetchApi(url);
-            const data = await response.json();
+            const data = await loraApi.getLoras(filter_tag, mode, folder, page, selected_loras, per_page);
             this.totalPages = data.total_pages || 1;
             this.currentPage = data.current_page || 1;
             return data;
@@ -117,12 +106,7 @@ const UnifiedLoraGalleryNode = {
 
     async updateMetadata(lora_name, data) {
         try {
-            const body = { lora_name, ...data };
-            await api.fetchApi("/localloragallery/update_metadata", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
+            await loraApi.updateMetadata(lora_name, data);
         } catch(e) {
             console.error("LocalLoraGallery: Failed to update metadata", e);
         }
@@ -130,15 +114,7 @@ const UnifiedLoraGalleryNode = {
 
     async setUiState(nodeId, galleryId, state) {
         try {
-            await api.fetchApi("/localloragallery/set_ui_state", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    node_id: nodeId, 
-                    gallery_id: galleryId,
-                    state: state 
-                }),
-            });
+            await loraApi.setUiState(nodeId, galleryId, state);
         } catch(e) {
             console.error("LocalLoraGallery: Failed to set UI state", e);
         }
@@ -641,18 +617,7 @@ const UnifiedLoraGalleryNode = {
                 syncBtn.classList.add('loading');
             
                 try {
-                    const response = await api.fetchApi("/localloragallery/sync_civitai", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ lora_name: loraName }),
-                    });
-            
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                    }
-            
-                    const result = await response.json();
+                    const result = await loraApi.syncCivitai(loraName);
             
                     if (result.status === 'ok' && result.metadata) {
                         const { preview_url, preview_type, trigger_words, download_url, tags } = result.metadata;
@@ -1098,12 +1063,14 @@ const UnifiedLoraGalleryNode = {
             };
 
             const fetchCompactChooserLoras = async () => {
-                let url = `/localloragallery/get_loras?filter_tag=${encodeURIComponent(tagFilterInput.value)}&mode=${tagFilterModeBtn.textContent}&folder=${encodeURIComponent(folderFilterSelect.value)}&page=1&per_page=100000`;
-                this.loraData.forEach(item => {
-                    url += `&selected_loras=${encodeURIComponent(item.lora)}`;
-                });
-                const response = await api.fetchApi(url);
-                const data = await response.json();
+                const data = await loraApi.getLoras(
+                    tagFilterInput.value,
+                    tagFilterModeBtn.textContent,
+                    folderFilterSelect.value,
+                    1,
+                    this.loraData.map(item => item.lora),
+                    100000
+                );
                 const nameFilter = searchInput.value.toLowerCase();
                 return (data.loras || []).filter(lora => lora.name.toLowerCase().includes(nameFilter));
             };
@@ -1332,8 +1299,7 @@ const UnifiedLoraGalleryNode = {
 
             const loadAllTags = async () => {
                 try {
-                    const response = await api.fetchApi("/localloragallery/get_all_tags");
-                    const data = await response.json();
+                    const data = await loraApi.getAllTags();
                     multiSelectTagDropdown.innerHTML = '';
                     if (data.tags) {
                         data.tags.forEach(tag => {
@@ -1383,11 +1349,7 @@ const UnifiedLoraGalleryNode = {
                         e.stopPropagation();
                         e.preventDefault();
                         if (confirm(`Are you sure you want to delete preset "${name}"?`)) {
-                            const res = await api.fetchApi("/localloragallery/delete_preset", {
-                                method: "POST", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ name }),
-                            });
-                            const data = await res.json();
+                            const data = await loraApi.deletePreset(name);
                             renderPresets(data.presets);
                         }
                     };
@@ -1430,8 +1392,7 @@ const UnifiedLoraGalleryNode = {
             
             const loadPresets = async () => {
                 try {
-                    const res = await api.fetchApi("/localloragallery/get_presets");
-                    const presets = await res.json();
+                    const presets = await loraApi.getPresets();
                     renderPresets(presets);
                 } catch (e) { console.error("LocalLoraGallery: Failed to load presets", e); }
             };
@@ -1598,8 +1559,7 @@ const UnifiedLoraGalleryNode = {
                 }
 
                 try {
-                    const res = await api.fetchApi(`/localloragallery/get_ui_state?node_id=${this.id}&gallery_id=${this.properties.lora_gallery_unique_id}`);
-                    const loadedState = await res.json();
+                    const loadedState = await loraApi.getUiState(this.id, this.properties.lora_gallery_unique_id);
                     initialState = { ...initialState, ...loadedState };
                 } catch(e) { 
                     console.error("LocalLoraGallery: Failed to get initial UI state.", e); 
@@ -1819,11 +1779,7 @@ const UnifiedLoraGalleryNode = {
                 savePresetBtn.addEventListener("click", async () => {
                     const presetName = prompt("Enter a name for this preset:", "");
                     if (presetName && this.loraData.length > 0) {
-                        const res = await api.fetchApi("/localloragallery/save_preset", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name: presetName, data: this.loraData }),
-                        });
-                        const data = await res.json();
+                        const data = await loraApi.savePreset(presetName, this.loraData);
                         renderPresets(data.presets);
                     }
                 });
@@ -1951,13 +1907,7 @@ const UnifiedPromptGalleryNode = {
     async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE) {
         this.isLoading = true;
         try {
-            const category = (filter_category === "All Categories") ? "" : (filter_category || "");
-            let url = `/localpromptgallery/get_prompts?filter_name=${encodeURIComponent(filter_name)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favorites_only ? 1 : 0}&category=${encodeURIComponent(category)}`;
-            selected_prompts.forEach(prompt => {
-                url += `&selected_prompts=${encodeURIComponent(prompt)}`;
-            });
-            const response = await api.fetchApi(url);
-            const data = await response.json();
+            const data = await promptApi.getPrompts(filter_name, mode, page, selected_prompts, filter_category, favorites_only, perPage);
             this.totalPages = data.total_pages || 1;
             this.currentPage = data.current_page || 1;
             return data;
@@ -1971,9 +1921,7 @@ const UnifiedPromptGalleryNode = {
 
     async getPrompt(prompt_id) {
         try {
-            const response = await api.fetchApi(`/localpromptgallery/get_prompt?prompt_id=${encodeURIComponent(prompt_id)}`);
-            const data = await response.json();
-            return data.prompt || null;
+            return await promptApi.getPrompt(prompt_id);
         } catch (error) {
             console.error("LocalPromptGallery: Error fetching prompt:", error);
             return null;
@@ -1982,16 +1930,7 @@ const UnifiedPromptGalleryNode = {
 
     async getPromptsByIds(prompt_ids = []) {
         try {
-            if (!Array.isArray(prompt_ids) || prompt_ids.length === 0) {
-                return [];
-            }
-            const response = await api.fetchApi("/localpromptgallery/get_prompts_by_ids", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt_ids }),
-            });
-            const data = await response.json();
-            return data.prompts || [];
+            return await promptApi.getPromptsByIds(prompt_ids);
         } catch (error) {
             console.error("LocalPromptGallery: Error fetching prompts by ids:", error);
             return [];
@@ -2000,9 +1939,7 @@ const UnifiedPromptGalleryNode = {
 
     async getCategories() {
         try {
-            const response = await api.fetchApi("/localpromptgallery/get_categories");
-            const data = await response.json();
-            return data.categories || [];
+            return await promptApi.getCategories();
         } catch (error) {
             console.error("LocalPromptGallery: Error fetching categories:", error);
             return [];
@@ -2011,17 +1948,7 @@ const UnifiedPromptGalleryNode = {
 
     async updateMetadata(prompt_id, data) {
         try {
-            const body = { prompt_id, ...data };
-            const response = await api.fetchApi("/localpromptgallery/update_metadata", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            const result = await response.json();
-            if (!response.ok || result?.status === 'error') {
-                throw new Error(result?.message || 'Failed to update metadata');
-            }
-            return result;
+            return await promptApi.updateMetadata(prompt_id, data);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to update metadata", e);
             throw e;
@@ -2030,12 +1957,7 @@ const UnifiedPromptGalleryNode = {
 
     async createPrompt(name, prompt_text, category = "") {
         try {
-            const response = await api.fetchApi("/localpromptgallery/create_prompt", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, prompt_text, category }),
-            });
-            return await response.json();
+            return await promptApi.createPrompt(name, prompt_text, category);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to create prompt", e);
             return { status: "error", message: e.toString() };
@@ -2044,17 +1966,7 @@ const UnifiedPromptGalleryNode = {
 
     async createPromptFromOutput(name, prompt_text, category = "", lastOutput = null) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/create_prompt_from_output", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name,
-                    prompt_text,
-                    category,
-                    last_output: lastOutput
-                }),
-            });
-            return await response.json();
+            return await promptApi.createPromptFromOutput(name, prompt_text, category, lastOutput);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to create prompt from output", e);
             return { status: "error", message: e.toString() };
@@ -2063,12 +1975,7 @@ const UnifiedPromptGalleryNode = {
 
     async deletePrompt(prompt_id) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/delete_prompt", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt_id }),
-            });
-            return await response.json();
+            return await promptApi.deletePrompt(prompt_id);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to delete prompt", e);
             return { status: "error", message: e.toString() };
@@ -2077,12 +1984,7 @@ const UnifiedPromptGalleryNode = {
 
     async deletePromptsBulk(prompt_ids) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/delete_prompts_bulk", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt_ids }),
-            });
-            return await response.json();
+            return await promptApi.deletePromptsBulk(prompt_ids);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to bulk delete prompts", e);
             return { status: "error", message: e.toString() };
@@ -2091,15 +1993,7 @@ const UnifiedPromptGalleryNode = {
 
     async uploadThumbnail(prompt_id, file) {
         try {
-            const formData = new FormData();
-            formData.append('prompt_id', prompt_id);
-            formData.append('file', file);
-
-            const response = await api.fetchApi("/localpromptgallery/upload_thumbnail", {
-                method: "POST",
-                body: formData,
-            });
-            return await response.json();
+            return await promptApi.uploadThumbnail(prompt_id, file);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to upload thumbnail", e);
             return { status: "error", message: e.toString() };
@@ -2108,14 +2002,7 @@ const UnifiedPromptGalleryNode = {
 
     async toggleFavorite(prompt_id, category = null) {
         try {
-            const body = { prompt_id };
-            if (category) body.category = category;
-            const response = await api.fetchApi("/localpromptgallery/toggle_favorite", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            return await response.json();
+            return await promptApi.toggleFavorite(prompt_id, category);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to toggle favorite", e);
             return { status: "error", message: e.toString() };
@@ -2124,12 +2011,7 @@ const UnifiedPromptGalleryNode = {
 
     async setFavoriteColor(prompt_id, color) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/set_favorite_color", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt_id, color }),
-            });
-            return await response.json();
+            return await promptApi.setFavoriteColor(prompt_id, color);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to set favorite color", e);
             return { status: "error", message: e.toString() };
@@ -2138,14 +2020,7 @@ const UnifiedPromptGalleryNode = {
 
     async uploadWildcardFile(file) {
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await api.fetchApi("/localpromptgallery/upload_wildcard_file", {
-                method: "POST",
-                body: formData,
-            });
-            return await response.json();
+            return await promptApi.uploadWildcardFile(file);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to upload wildcard file", e);
             return { status: "error", message: e.toString() };
@@ -2154,12 +2029,7 @@ const UnifiedPromptGalleryNode = {
 
     async importWildcardFile(filename, category) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/import_wildcard_file", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filename, category }),
-            });
-            return await response.json();
+            return await promptApi.importWildcardFile(filename, category);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to import wildcard file", e);
             return { status: "error", message: e.toString() };
@@ -2168,12 +2038,7 @@ const UnifiedPromptGalleryNode = {
 
     async deleteCategory(category) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/delete_category", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ category }),
-            });
-            return await response.json();
+            return await promptApi.deleteCategory(category);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to delete category", e);
             return { status: "error", message: e.toString() };
@@ -2182,12 +2047,7 @@ const UnifiedPromptGalleryNode = {
 
     async renameCategory(oldCategory, newCategory) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/rename_category", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ old_category: oldCategory, new_category: newCategory }),
-            });
-            return await response.json();
+            return await promptApi.renameCategory(oldCategory, newCategory);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to rename category", e);
             return { status: "error", message: e.toString() };
@@ -2196,9 +2056,7 @@ const UnifiedPromptGalleryNode = {
 
     async getMostUsed(count = 10) {
         try {
-            const response = await api.fetchApi(`/localpromptgallery/get_most_used?count=${count}`);
-            const data = await response.json();
-            return data.prompts || [];
+            return await promptApi.getMostUsed(count);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to get most used", e);
             return [];
@@ -2207,8 +2065,7 @@ const UnifiedPromptGalleryNode = {
 
     async getUiPrefs() {
         try {
-            const response = await api.fetchApi("/localpromptgallery/get_ui_prefs");
-            return await response.json();
+            return await promptApi.getUiPrefs();
         } catch (e) {
             console.error("LocalPromptGallery: Failed to get UI prefs", e);
             return {
@@ -2229,12 +2086,7 @@ const UnifiedPromptGalleryNode = {
 
     async saveUiPrefs(prefs) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/save_ui_prefs", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(prefs),
-            });
-            return await response.json();
+            return await promptApi.saveUiPrefs(prefs);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to save UI prefs", e);
             return { status: "error", message: e.toString() };
@@ -2244,9 +2096,7 @@ const UnifiedPromptGalleryNode = {
     // ========== PRESET API ==========
     async getPresets() {
         try {
-            const response = await api.fetchApi("/localpromptgallery/get_presets");
-            const data = await response.json();
-            return data.presets || [];
+            return await promptApi.getPresets();
         } catch (e) {
             console.error("LocalPromptGallery: Failed to get presets", e);
             return [];
@@ -2255,17 +2105,7 @@ const UnifiedPromptGalleryNode = {
 
     async savePreset(name, selection, wildcardMode, wildcardCategories) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/save_preset", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name,
-                    selection,
-                    wildcard_mode: wildcardMode,
-                    wildcard_categories: wildcardCategories
-                }),
-            });
-            return await response.json();
+            return await promptApi.savePreset(name, selection, wildcardMode, wildcardCategories);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to save preset", e);
             return { status: "error", message: e.toString() };
@@ -2274,12 +2114,7 @@ const UnifiedPromptGalleryNode = {
 
     async getOrCreatePrompts(prompts) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/get_or_create_prompts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompts }),
-            });
-            return await response.json();
+            return await promptApi.getOrCreatePrompts(prompts);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to get or create prompts", e);
             return { status: "error", message: e.toString() };
@@ -2288,12 +2123,7 @@ const UnifiedPromptGalleryNode = {
 
     async loadPreset(name) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/load_preset", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name }),
-            });
-            return await response.json();
+            return await promptApi.loadPreset(name);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to load preset", e);
             return { status: "error", message: e.toString() };
@@ -2302,12 +2132,7 @@ const UnifiedPromptGalleryNode = {
 
     async deletePreset(name) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/delete_preset", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name }),
-            });
-            return await response.json();
+            return await promptApi.deletePreset(name);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to delete preset", e);
             return { status: "error", message: e.toString() };
@@ -2316,12 +2141,7 @@ const UnifiedPromptGalleryNode = {
 
     async resetUsageCount(prompt_id) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/reset_usage_count", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt_id }),
-            });
-            return await response.json();
+            return await promptApi.resetUsageCount(prompt_id);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to reset usage count", e);
             return { status: "error", message: e.toString() };
@@ -2330,17 +2150,7 @@ const UnifiedPromptGalleryNode = {
 
     async assignThumbnail(prompt_id, lastOutput) {
         try {
-            const response = await api.fetchApi("/localpromptgallery/assign_thumbnail", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    prompt_id,
-                    filename: lastOutput.filename,
-                    subfolder: lastOutput.subfolder,
-                    type: lastOutput.type
-                }),
-            });
-            return await response.json();
+            return await promptApi.assignThumbnail(prompt_id, lastOutput);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to assign thumbnail", e);
             return { status: "error", message: e.toString() };

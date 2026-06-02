@@ -55,7 +55,7 @@ Done means:
 
 ## Phase 2 - Add Shared Safety Helpers
 
-Status: Started
+Status: Done for first pass
 
 Goal:
 
@@ -71,9 +71,9 @@ Recommended scope:
   - safe URL/media assignment
   - basic notification/confirmation wrappers
 
-Initial guardrails already added:
+Implemented guardrails:
 
-- Shared `escapeHtml()` helper in `js/Local_Gallery_Unified.js`.
+- Shared `escapeHtml()` helper in `js/shared/dom.js`.
 - Escaping applied to selected high-risk metadata render spots:
   - synced LoRA preview URLs
   - LoRA card names
@@ -127,7 +127,7 @@ Done means:
 
 ## Phase 3 - Split API Clients From UI
 
-Status: Not started
+Status: Done for first pass
 
 Goal:
 
@@ -137,6 +137,15 @@ Suggested files:
 
 - `js/api/loraApi.js`
 - `js/api/promptApi.js`
+
+Implemented:
+
+- `js/api/loraApi.js`
+  - centralizes legacy `/localloragallery/*` route calls used by the unified UI
+- `js/api/promptApi.js`
+  - centralizes legacy `/localpromptgallery/*` route calls used by the unified UI
+- `js/Local_Gallery_Unified.js`
+  - now calls `loraApi.*` and `promptApi.*` instead of embedding route URLs directly
 
 Move these responsibilities:
 
@@ -359,8 +368,8 @@ Avoid until after cleanup:
 
 ## Recommended Next Practical Step
 
-The next safest implementation step is Phase 2:
+The next safest implementation step is Phase 4:
 
-Add shared safety helpers and use them only in the highest-risk rendering spots first. This improves reliability without moving thousands of lines at once.
+Split the frontend into coarse UI modules, starting with the smallest and least entangled part. The best next target is `tabs.js`, because the tab switcher is compact and has a clear responsibility.
 
-After Phase 2 is stable, split API clients. After API clients are split, split UI modules.
+After the tab module is stable, split larger Prompt and LoRA UI sections in separate checkpoints.

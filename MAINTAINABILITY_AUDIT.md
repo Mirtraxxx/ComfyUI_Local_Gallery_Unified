@@ -30,8 +30,11 @@ Current file sizes:
 | --- | ---: | ---: |
 | `Local_Gallery_Unified.py` | 119 | 3,784 bytes |
 | `__init__.py` | 9 | 276 bytes |
-| `AI_NODE_OVERVIEW.md` | 237 | 9,299 bytes |
-| `js/Local_Gallery_Unified.js` | 7,917 | 428,103 bytes |
+| `AI_NODE_OVERVIEW.md` | 243 | 9,736 bytes |
+| `js/Local_Gallery_Unified.js` | 7,727 | 418,867 bytes |
+| `js/api/loraApi.js` | 77 | 2,718 bytes |
+| `js/api/promptApi.js` | 249 | 8,900 bytes |
+| `js/shared/dom.js` | 8 | 239 bytes |
 
 Important pattern counts in `js/Local_Gallery_Unified.js`:
 
@@ -75,7 +78,7 @@ The frontend JavaScript file is the true merge:
 
 Severity: High
 
-`js/Local_Gallery_Unified.js` currently contains almost all UI, state, styling, API calls, modal creation, event binding, and ComfyUI lifecycle behavior.
+`js/Local_Gallery_Unified.js` currently contains most UI, state, styling, modal creation, event binding, and ComfyUI lifecycle behavior. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`.
 
 Why this is risky:
 
@@ -330,4 +333,3 @@ When modifying this node:
   - LoRA Gallery tab opens
   - selections persist after workflow reload
   - execution returns model, clip, trigger words, and combined prompt
-
