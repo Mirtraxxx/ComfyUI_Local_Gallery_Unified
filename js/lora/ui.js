@@ -183,9 +183,12 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-lora-item .lora-label { font-size: 10px; color: var(--node-text-color); }
                     #${uniqueId} .locallora-lora-item .remove-lora-btn { background: #555; color: #fff; border: none; border-radius: 10%; text-align: center; cursor: pointer; margin-left: auto; flex-shrink: 0; }
                     #${uniqueId} .locallora-lora-item .remove-lora-btn:hover { background: #ff4444; }
-                    #${uniqueId} .locallora-lora-item.dragging { opacity: 0.45; background: #555; }
-                    #${uniqueId} .locallora-lora-item.drag-over-before { box-shadow: inset 0 2px 0 #4A90E2; }
-                    #${uniqueId} .locallora-lora-item.drag-over-after { box-shadow: inset 0 -2px 0 #4A90E2; }
+                    #${uniqueId} .locallora-lora-item.dragging,
+                    #${uniqueId} .locallora-lora-row.dragging { opacity: 0.45; background: #555; }
+                    #${uniqueId} .locallora-lora-item.drag-over-before,
+                    #${uniqueId} .locallora-lora-row.drag-over-before { box-shadow: inset 0 2px 0 #4A90E2; }
+                    #${uniqueId} .locallora-lora-item.drag-over-after,
+                    #${uniqueId} .locallora-lora-row.drag-over-after { box-shadow: inset 0 -2px 0 #4A90E2; }
                     
                     /* --- Controls & Inputs --- */
                     #${uniqueId} .locallora-controls-row input[type=text], #${uniqueId} .locallora-controls-row select { background: #222; color: #ccc; border: 1px solid #555; padding: 4px; border-radius: 4px; }
@@ -395,6 +398,15 @@ const UnifiedLoraGalleryNode = {
             };
             
             let draggedIndex = -1;
+            const moveSelectedLora = (fromIndex, targetIndex, insertAfter) => {
+                if (fromIndex < 0 || fromIndex === targetIndex) return false;
+
+                const [movedItem] = this.loraData.splice(fromIndex, 1);
+                let insertIndex = targetIndex + (insertAfter ? 1 : 0);
+                if (fromIndex < targetIndex) insertIndex -= 1;
+                this.loraData.splice(Math.max(0, insertIndex), 0, movedItem);
+                return true;
+            };
 
             const renderSelectedList = () => {
                 selectedListEl.innerHTML = "";
@@ -514,13 +526,11 @@ const UnifiedLoraGalleryNode = {
                         if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const insertAfter = e.clientY > rect.top + rect.height / 2;
-                            const [movedItem] = this.loraData.splice(draggedIndex, 1);
-                            let insertIndex = targetIndex + (insertAfter ? 1 : 0);
-                            if (draggedIndex < targetIndex) insertIndex -= 1;
-                            this.loraData.splice(Math.max(0, insertIndex), 0, movedItem);
-                            updateSelection();
-                            renderSelectedList();
-                            renderCompact();
+                            if (moveSelectedLora(draggedIndex, targetIndex, insertAfter)) {
+                                updateSelection();
+                                renderSelectedList();
+                                renderCompact();
+                            }
                         }
                     });
 
@@ -1074,7 +1084,9 @@ const UnifiedLoraGalleryNode = {
                     row.dataset.tags = (lora.tags || []).join(',');
                     row.dataset.triggerWords = lora.trigger_words || "";
                     row.dataset.downloadUrl = lora.download_url || "";
-                    row.title = item.lora;
+                    row.title = `${item.lora}\nDrag the name to change LoRA load order`;
+                    row.draggable = true;
+                    row.dataset.index = index;
 
                     const modelStrength = item.strength ?? 1.0;
                     const clipStrength = item.strength_clip ?? item.strength ?? 1.0;
@@ -1155,6 +1167,49 @@ const UnifiedLoraGalleryNode = {
 
                     row.querySelectorAll("input, select, button, a").forEach(control => {
                         control.addEventListener("click", e => e.stopPropagation());
+                    });
+                    const clearCompactDragMarkers = () => {
+                        galleryEl.querySelectorAll(".drag-over-before, .drag-over-after").forEach(rowEl => {
+                            rowEl.classList.remove("drag-over-before", "drag-over-after");
+                        });
+                    };
+                    row.addEventListener("dragstart", (e) => {
+                        if (!e.target?.closest?.(".compact-lora-name")) {
+                            e.preventDefault();
+                            return;
+                        }
+                        draggedIndex = parseInt(e.currentTarget.dataset.index);
+                        e.currentTarget.classList.add("dragging");
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", item.lora);
+                    });
+                    row.addEventListener("dragend", (e) => {
+                        e.currentTarget.classList.remove("dragging");
+                        clearCompactDragMarkers();
+                        draggedIndex = -1;
+                    });
+                    row.addEventListener("dragover", (e) => {
+                        e.preventDefault();
+                        clearCompactDragMarkers();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const insertAfter = e.clientY > rect.top + rect.height / 2;
+                        e.currentTarget.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
+                    });
+                    row.addEventListener("dragleave", clearCompactDragMarkers);
+                    row.addEventListener("drop", (e) => {
+                        e.preventDefault();
+                        clearCompactDragMarkers();
+                        const targetIndex = parseInt(e.currentTarget.dataset.index);
+                        if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const insertAfter = e.clientY > rect.top + rect.height / 2;
+                            if (moveSelectedLora(draggedIndex, targetIndex, insertAfter)) {
+                                renderSelectedList();
+                                renderCompact();
+                                updateSelection();
+                                updatePresetButtonText(null);
+                            }
+                        }
                     });
                     row.querySelector(".lora-card-link-btn")?.addEventListener("click", e => e.stopPropagation());
                     row.querySelector(".sync-civitai-btn").addEventListener("click", e => {
