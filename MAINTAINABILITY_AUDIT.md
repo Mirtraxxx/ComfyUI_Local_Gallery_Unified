@@ -70,6 +70,7 @@ The backend Python file is intentionally thin:
 - It calls legacy LoRA logic first.
 - It calls legacy prompt logic second.
 - It returns updated `MODEL`, updated `CLIP`, `lora_trigger_words`, and `combined_prompt`.
+- It caches the most recent applied LoRA stack by base model, base CLIP, and legacy LoRA signature so prompt-only reruns do not reload identical LoRAs.
 
 The frontend JavaScript is the true merge:
 

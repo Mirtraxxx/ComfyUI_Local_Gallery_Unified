@@ -83,9 +83,10 @@ The Python backend looks these up from `nodes.NODE_CLASS_MAPPINGS`. If either ma
 
 1. The frontend stores LoRA choices in `lora_selection_data`.
 2. The frontend stores prompt choices in `prompt_selection_data`.
-3. On execution, `LocalGalleryPromptLora.process()` instantiates the legacy node classes.
+3. On execution, `LocalGalleryPromptLora.process()` resolves the legacy node classes.
 4. LoRA processing runs first:
-   - Calls `LocalLoraGallery.load_loras(model, clip, "unified-gallery", lora_selection_data)`.
+   - Reuses a cached LoRA stack when the base `model`, base `clip`, and legacy LoRA change signature are unchanged.
+   - Otherwise calls `LocalLoraGallery.load_loras(model, clip, "unified-gallery", lora_selection_data)`.
    - Receives updated `model`, updated `clip`, and LoRA trigger words.
 5. Prompt processing runs second:
    - Calls `LocalPromptGallery.process(seed, selection_data, wildcard_categories, wildcard_mode)`.
@@ -103,6 +104,8 @@ The Python backend looks these up from `nodes.NODE_CLASS_MAPPINGS`. If either ma
 - seed
 
 This causes ComfyUI to re-run the node when selected assets, wildcard state, or seed changes.
+
+Because prompt seed/wildcard changes can re-run the merged node even when LoRAs are unchanged, the Python wrapper keeps a small LoRA-output cache. The cache key is `(id(model), id(clip), legacy_lora_signature)`, so prompt-only reruns can refresh `combined_prompt` without reapplying the same LoRA stack.
 
 ## Frontend Architecture
 

@@ -2,6 +2,9 @@ import json
 
 
 class LocalGalleryPromptLora:
+    _LORA_CACHE_KEY = None
+    _LORA_CACHE_VALUE = None
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -27,6 +30,33 @@ class LocalGalleryPromptLora:
     CATEGORY = "Asset Gallery"
 
     @classmethod
+    def _get_lora_change_signature(cls, lora_cls, lora_selection_data):
+        if lora_cls and hasattr(lora_cls, "IS_CHANGED"):
+            try:
+                return lora_cls.IS_CHANGED(lora_selection_data)
+            except Exception:
+                pass
+        return lora_selection_data
+
+    @classmethod
+    def _get_cached_lora_outputs(cls, model, clip, lora_cls, lora_selection_data):
+        lora_signature = cls._get_lora_change_signature(lora_cls, lora_selection_data)
+        cache_key = (id(model), id(clip), lora_signature)
+        if cls._LORA_CACHE_KEY == cache_key and cls._LORA_CACHE_VALUE is not None:
+            print("LocalGalleryPromptLora: Reusing cached LoRA stack.")
+            return cls._LORA_CACHE_VALUE
+
+        lora_outputs = lora_cls().load_loras(
+            model,
+            clip,
+            "unified-gallery",
+            lora_selection_data or "[]",
+        )
+        cls._LORA_CACHE_KEY = cache_key
+        cls._LORA_CACHE_VALUE = lora_outputs
+        return lora_outputs
+
+    @classmethod
     def IS_CHANGED(
         cls,
         model,
@@ -43,10 +73,7 @@ class LocalGalleryPromptLora:
             from nodes import NODE_CLASS_MAPPINGS
 
             lora_cls = NODE_CLASS_MAPPINGS.get("LocalLoraGallery")
-            if lora_cls and hasattr(lora_cls, "IS_CHANGED"):
-                lora_changed = lora_cls.IS_CHANGED(lora_selection_data)
-            else:
-                lora_changed = lora_selection_data
+            lora_changed = cls._get_lora_change_signature(lora_cls, lora_selection_data)
         except Exception:
             lora_changed = lora_selection_data
 
@@ -82,13 +109,12 @@ class LocalGalleryPromptLora:
         if prompt_cls is None:
             raise RuntimeError("LocalGalleryPromptLora requires the legacy Local Prompt Gallery node to be enabled.")
 
-        lora_node = lora_cls()
         prompt_node = prompt_cls()
 
-        model_out, clip_out, lora_trigger_words = lora_node.load_loras(
+        model_out, clip_out, lora_trigger_words = self._get_cached_lora_outputs(
             model,
             clip,
-            "unified-gallery",
+            lora_cls,
             lora_selection_data or "[]",
         )
 
