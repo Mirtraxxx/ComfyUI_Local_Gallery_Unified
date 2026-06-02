@@ -22,6 +22,8 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Registers tabs, LoRA UI, and Prompt UI in order.
 - `js/prompt/ui.js`
   - Contains the Prompt Gallery UI setup and rendering logic.
+- `js/prompt/constants.js`
+  - Holds prompt UI constants such as page size, favorite colors, category palette, and thumbnail bounds.
 - `js/lora/ui.js`
   - Contains the LoRA Gallery UI setup and rendering logic.
 - `js/tabs.js`

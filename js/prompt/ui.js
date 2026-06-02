@@ -1,41 +1,30 @@
 ﻿import * as promptApi from "../api/promptApi.js";
+import {
+    CATEGORY_ROLE_PALETTE,
+    FAVORITE_COLORS,
+    PER_PAGE,
+    THUMBNAIL_SIZE_DEFAULT,
+    THUMBNAIL_SIZE_LEGACY_PRESETS,
+    THUMBNAIL_SIZE_MAX,
+    THUMBNAIL_SIZE_MIN,
+} from "./constants.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
 import { collapseWidget, hideWidget } from "../shared/widgets.js";
 
 export function registerPromptGalleryUi(app, api) {
-const PER_PAGE = 10;
-
 const UnifiedPromptGalleryNode = {
     name: "LocalGalleryPromptLora.PromptUI",
     isLoading: false,
     currentPage: 1,
     totalPages: 1,
     lastOutput: null, // Stores { filename, subfolder, type } of last generation
-    FAVORITE_COLORS: [
-        { name: 'Red', value: '#ff6b6b' },
-        { name: 'Orange', value: '#ffa94d' },
-        { name: 'Yellow', value: '#ffd43b' },
-        { name: 'Green', value: '#69db7c' },
-        { name: 'Blue', value: '#74c0fc' },
-        { name: 'Purple', value: '#b197fc' },
-        { name: 'Pink', value: '#f783ac' },
-        { name: 'None', value: null }
-    ],
-    CATEGORY_ROLE_PALETTE: [
-        '#e03131', '#f76707', '#f08c00', '#e9c46a', '#74b816',
-        '#2f9e44', '#12b886', '#0ca678', '#15aabf', '#1c7ed6',
-        '#4263eb', '#5f3dc4', '#862e9c', '#c2255c', '#d6336c',
-        '#b08968', '#8d99ae', '#6c757d', '#495057', '#adb5bd'
-    ],
-    THUMBNAIL_SIZE_MIN: 70,
-    THUMBNAIL_SIZE_MAX: 180,
-    THUMBNAIL_SIZE_DEFAULT: 96,
-    THUMBNAIL_SIZE_LEGACY_PRESETS: {
-        small: 81,
-        medium: 96,
-        large: 115,
-    },
+    FAVORITE_COLORS,
+    CATEGORY_ROLE_PALETTE,
+    THUMBNAIL_SIZE_MIN,
+    THUMBNAIL_SIZE_MAX,
+    THUMBNAIL_SIZE_DEFAULT,
+    THUMBNAIL_SIZE_LEGACY_PRESETS,
 
     async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE) {
         this.isLoading = true;
@@ -5845,3 +5834,4 @@ app.registerExtension({
     }
 });
 }
+
