@@ -1,4 +1,4 @@
-﻿import * as loraApi from "../api/loraApi.js";
+import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, parseJsonOr, stringifyJsonOr } from "../shared/json.js";
 import { collapseWidget } from "../shared/widgets.js";
@@ -530,7 +530,11 @@ const UnifiedLoraGalleryNode = {
             
             const syncWithCivitai = async (loraName, card) => {
                 const syncBtn = card.querySelector('.sync-civitai-btn');
-                syncBtn.textContent = 'Sync';
+                const isRow = card.classList.contains("locallora-lora-row");
+                const defaultText = isRow ? 'S' : '☁️';
+                const errorText = isRow ? 'ERR' : '❌';
+
+                syncBtn.textContent = '🔄';
                 syncBtn.classList.add('loading');
             
                 try {
@@ -580,7 +584,7 @@ const UnifiedLoraGalleryNode = {
                             linkBtn.target = '_blank';
                             linkBtn.className = card.classList.contains("locallora-lora-row") ? 'row-action-btn lora-card-link-btn' : 'card-btn lora-card-link-btn';
                             linkBtn.title = 'Open download page';
-                            linkBtn.innerHTML = 'Link';
+                            linkBtn.innerHTML = isRow ? 'L' : '🔗';
                             linkBtn.addEventListener('click', e => e.stopPropagation());
                             const compactActions = card.querySelector('.compact-actions');
                             if (compactActions) compactActions.prepend(linkBtn);
@@ -595,11 +599,11 @@ const UnifiedLoraGalleryNode = {
             
                 } catch (error) {
                     console.error("LocalLoraGallery: Failed to sync with Civitai:", error);
-                    syncBtn.textContent = 'ERR';
-                    setTimeout(() => syncBtn.textContent = 'Sync', 2000);
+                    syncBtn.textContent = errorText;
+                    setTimeout(() => syncBtn.textContent = defaultText, 2000);
                 } finally {
                     syncBtn.classList.remove('loading');
-                    if(syncBtn.textContent !== 'ERR') syncBtn.textContent = 'Sync';
+                    if(syncBtn.textContent !== errorText) syncBtn.textContent = defaultText;
                 }
             };
 
@@ -792,7 +796,7 @@ const UnifiedLoraGalleryNode = {
                         mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
                     }
                     
-                    const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">Link</a>` : '';
+                    const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">🔗</a>` : '';
 
                     let presetDropdownHTML = '';
                     if (lora.trigger_presets && Object.keys(lora.trigger_presets).length > 0) {
@@ -817,7 +821,7 @@ const UnifiedLoraGalleryNode = {
                     }
 
                     card.innerHTML = `
-                        <div class="card-btn sync-civitai-btn" title="Sync with Civitai">Sync</div>
+                        <div class="card-btn sync-civitai-btn" title="Sync with Civitai">☁️</div>
                         ${linkBtnHTML}
                         <div class="locallora-media-container">${mediaHTML}</div>
                         <div class="locallora-lora-card-info">
@@ -826,7 +830,7 @@ const UnifiedLoraGalleryNode = {
                             ${presetDropdownHTML}
                             <div class="lora-card-tags"></div>
                         </div>
-                        <div class="card-btn edit-tags-btn">Edit</div>
+                        <div class="card-btn edit-tags-btn">✏️</div>
                     `;
 
                     const presetSelect = card.querySelector('.lora-card-preset-select');
@@ -1587,7 +1591,7 @@ const UnifiedLoraGalleryNode = {
                                 linkBtn = document.createElement('a');
                                 linkBtn.className = selectedCard.classList.contains("locallora-lora-row") ? 'row-action-btn lora-card-link-btn' : 'card-btn lora-card-link-btn';
                                 linkBtn.title = 'Open download page';
-                                linkBtn.innerHTML = 'Link';
+                                linkBtn.innerHTML = selectedCard.classList.contains("locallora-lora-row") ? 'L' : '🔗';
                                 linkBtn.target = '_blank';
                                 linkBtn.addEventListener("click", (e) => e.stopPropagation());
                                 const compactActions = selectedCard.querySelector('.compact-actions');
