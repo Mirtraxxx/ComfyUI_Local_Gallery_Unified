@@ -25,7 +25,7 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
 - `js/prompt/constants.js`
   - Holds prompt UI constants such as page size, favorite colors, category palette, and thumbnail bounds.
 - `js/prompt/helpers.js`
-  - Holds pure prompt UI helpers for prompt text extraction/normalization, color conversion, palette matching, thumbnail sizing, and output preview URLs.
+  - Holds pure prompt UI helpers for prompt text extraction/normalization, color conversion, palette matching, thumbnail sizing, pinned ordering, library tab filtering, and output preview URLs.
 - `js/lora/ui.js`
   - Contains the LoRA Gallery UI setup and rendering logic.
 - `js/lora/helpers.js`

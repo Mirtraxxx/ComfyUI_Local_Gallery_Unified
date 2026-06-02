@@ -12,12 +12,17 @@ import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
+    getLibraryTabsFromPrefs,
     getNearestPaletteColor,
     getThumbnailSizePx as resolveThumbnailSizePx,
     getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
     normalizePromptText,
+    normalizePromptIdList,
+    promotePromptsById,
+    sortPromptsByPinnedOrder,
+    syncPinnedOrderWithPromptIds,
 } from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
@@ -2029,9 +2034,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getPinnedOrder() {
-                const pinnedOrder = node_instance.uiPrefs?.pinned_order;
-                if (!Array.isArray(pinnedOrder)) return [];
-                return [...new Set(pinnedOrder.map(id => String(id)).filter(Boolean))];
+                return normalizePromptIdList(node_instance.uiPrefs?.pinned_order);
             }
 
             function getCategoryColorMap() {
@@ -2088,8 +2091,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getLibraryTabs() {
-                const storedTabs = Array.isArray(node_instance.uiPrefs?.library_tabs) ? node_instance.uiPrefs.library_tabs : [];
-                return storedTabs.filter(tab => tab && tab !== 'active' && !isUtilityLibraryTab(tab));
+                return getLibraryTabsFromPrefs(node_instance.uiPrefs, getUtilityLibraryTabs());
             }
 
             function getUtilityLibraryTabs() {
@@ -2178,42 +2180,26 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function persistPinnedOrder(nextOrder) {
-                node_instance.uiPrefs.pinned_order = [...new Set(nextOrder.map(id => String(id)).filter(Boolean))];
+                node_instance.uiPrefs.pinned_order = normalizePromptIdList(nextOrder);
                 await saveUiPrefs();
             }
 
             function syncPinnedOrderWithPrompts(prompts) {
-                const promptIds = prompts.map(prompt => String(prompt.id));
-                const promptIdSet = new Set(promptIds);
-                const orderedPinned = getPinnedOrder().filter(id => promptIdSet.has(id));
-                const missingIds = promptIds.filter(id => !orderedPinned.includes(id));
-                const nextOrder = [...orderedPinned, ...missingIds];
+                const nextOrder = syncPinnedOrderWithPromptIds(
+                    getPinnedOrder(),
+                    prompts.map(prompt => prompt.id)
+                );
                 node_instance.uiPrefs.pinned_order = nextOrder;
                 return nextOrder;
             }
 
             function sortPinnedPrompts(prompts) {
                 const orderedIds = syncPinnedOrderWithPrompts(prompts);
-                const promptMap = new Map(prompts.map(prompt => [String(prompt.id), prompt]));
-                const selectedPrompts = getSelectedPromptIdsInOrder()
-                    .map(id => promptMap.get(String(id)))
-                    .filter(Boolean);
-                const selectedSet = new Set(selectedPrompts.map(prompt => String(prompt.id)));
-                const unselectedPrompts = orderedIds
-                    .filter(id => !selectedSet.has(id))
-                    .map(id => promptMap.get(id))
-                    .filter(Boolean);
-                return [...selectedPrompts, ...unselectedPrompts];
+                return sortPromptsByPinnedOrder(prompts, orderedIds, getSelectedPromptIdsInOrder());
             }
 
             function promoteSelectedPrompts(prompts) {
-                const promptMap = new Map(prompts.map(prompt => [String(prompt.id), prompt]));
-                const selectedPrompts = getSelectedPromptIdsInOrder()
-                    .map(id => promptMap.get(String(id)))
-                    .filter(Boolean);
-                const selectedSet = new Set(selectedPrompts.map(prompt => String(prompt.id)));
-                const unselectedPrompts = prompts.filter(prompt => !selectedSet.has(String(prompt.id)));
-                return [...selectedPrompts, ...unselectedPrompts];
+                return promotePromptsById(prompts, getSelectedPromptIdsInOrder());
             }
 
             function clearAllSelections() {

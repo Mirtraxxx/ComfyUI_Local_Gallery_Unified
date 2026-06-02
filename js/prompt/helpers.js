@@ -129,6 +129,49 @@ export function getThumbnailVariables(sizePx) {
     };
 }
 
+export function normalizePromptIdList(ids) {
+    if (!Array.isArray(ids)) {
+        return [];
+    }
+    return [...new Set(ids.map(id => String(id)).filter(Boolean))];
+}
+
+export function getLibraryTabsFromPrefs(uiPrefs, utilityTabs = ["most_used", "pinned"]) {
+    const storedTabs = Array.isArray(uiPrefs?.library_tabs) ? uiPrefs.library_tabs : [];
+    return storedTabs.filter(tab => tab && tab !== "active" && !utilityTabs.includes(tab));
+}
+
+export function syncPinnedOrderWithPromptIds(pinnedOrder, promptIds) {
+    const normalizedPromptIds = normalizePromptIdList(promptIds);
+    const promptIdSet = new Set(normalizedPromptIds);
+    const orderedPinned = normalizePromptIdList(pinnedOrder).filter(id => promptIdSet.has(id));
+    const missingIds = normalizedPromptIds.filter(id => !orderedPinned.includes(id));
+    return [...orderedPinned, ...missingIds];
+}
+
+export function promotePromptsById(prompts, selectedIds) {
+    const promptMap = new Map(prompts.map(prompt => [String(prompt.id), prompt]));
+    const selectedPrompts = normalizePromptIdList(selectedIds)
+        .map(id => promptMap.get(id))
+        .filter(Boolean);
+    const selectedSet = new Set(selectedPrompts.map(prompt => String(prompt.id)));
+    const unselectedPrompts = prompts.filter(prompt => !selectedSet.has(String(prompt.id)));
+    return [...selectedPrompts, ...unselectedPrompts];
+}
+
+export function sortPromptsByPinnedOrder(prompts, pinnedOrder, selectedIds = []) {
+    const promptMap = new Map(prompts.map(prompt => [String(prompt.id), prompt]));
+    const selectedPrompts = normalizePromptIdList(selectedIds)
+        .map(id => promptMap.get(id))
+        .filter(Boolean);
+    const selectedSet = new Set(selectedPrompts.map(prompt => String(prompt.id)));
+    const unselectedPrompts = normalizePromptIdList(pinnedOrder)
+        .filter(id => !selectedSet.has(id))
+        .map(id => promptMap.get(id))
+        .filter(Boolean);
+    return [...selectedPrompts, ...unselectedPrompts];
+}
+
 export function buildLastOutputPreviewUrl(lastOutput) {
     if (!lastOutput?.filename) {
         return "";
