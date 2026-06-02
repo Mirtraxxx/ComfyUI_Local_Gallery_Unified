@@ -129,6 +129,34 @@ export function getThumbnailVariables(sizePx) {
     };
 }
 
+export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = 392) {
+    const rawWidth = Number(properties?.active_sidebar_width ?? uiPrefs?.active_sidebar_width);
+    return Number.isFinite(rawWidth) ? rawWidth : fallbackWidth;
+}
+
+export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, { minWidth = 220, fallbackWidth = 500, reservedWidth = 180 } = {}) {
+    const availableWidth = shellWidth || nodeWidth || fallbackWidth;
+    const maxWidth = Math.max(minWidth + 20, availableWidth - reservedWidth);
+    return { minWidth, maxWidth };
+}
+
+export function clampActiveSidebarWidth(width, bounds) {
+    return Math.max(bounds.minWidth, Math.min(bounds.maxWidth, Math.round(width)));
+}
+
+export function getCategoryColorMap(uiPrefs) {
+    const colorMap = uiPrefs?.category_colors;
+    return colorMap && typeof colorMap === "object" ? colorMap : {};
+}
+
+export function getCategoryRoleColor(promptOrCategory, colorMap) {
+    const category = typeof promptOrCategory === "string"
+        ? promptOrCategory
+        : promptOrCategory?.category;
+    if (!category) return null;
+    return colorMap?.[category] || null;
+}
+
 export function normalizePromptIdList(ids) {
     if (!Array.isArray(ids)) {
         return [];

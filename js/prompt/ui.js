@@ -12,12 +12,17 @@ import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
+    getActiveSidebarWidth as resolveActiveSidebarWidth,
+    getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
+    getCategoryColorMap as resolveCategoryColorMap,
+    getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
     getNearestPaletteColor,
     getThumbnailSizePx as resolveThumbnailSizePx,
     getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
+    clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     normalizePromptText,
     normalizePromptIdList,
     promotePromptsById,
@@ -2005,24 +2010,16 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getActiveSidebarWidth() {
-                const rawWidth = Number(
-                    node_instance.properties?.active_sidebar_width
-                    ?? node_instance.uiPrefs?.active_sidebar_width
-                );
-                return Number.isFinite(rawWidth) ? rawWidth : 392;
+                return resolveActiveSidebarWidth(node_instance.properties, node_instance.uiPrefs);
             }
 
             function getActiveSidebarWidthBounds() {
                 const shell = widgetContainer.querySelector('.localprompt-body-shell');
-                const shellWidth = shell?.clientWidth || node_instance.size?.[0] || 500;
-                const minWidth = 220;
-                const maxWidth = Math.max(minWidth + 20, shellWidth - 180);
-                return { minWidth, maxWidth };
+                return resolveActiveSidebarWidthBounds(shell?.clientWidth, node_instance.size?.[0]);
             }
 
             function clampActiveSidebarWidth(width) {
-                const { minWidth, maxWidth } = getActiveSidebarWidthBounds();
-                return Math.max(minWidth, Math.min(maxWidth, Math.round(width)));
+                return clampActiveSidebarWidthToBounds(width, getActiveSidebarWidthBounds());
             }
 
             function applyActiveSidebarWidthPreference() {
@@ -2038,16 +2035,11 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getCategoryColorMap() {
-                const colorMap = node_instance.uiPrefs?.category_colors;
-                return colorMap && typeof colorMap === 'object' ? colorMap : {};
+                return resolveCategoryColorMap(node_instance.uiPrefs);
             }
 
             function getCategoryRoleColor(promptOrCategory) {
-                const category = typeof promptOrCategory === 'string'
-                    ? promptOrCategory
-                    : promptOrCategory?.category;
-                if (!category) return null;
-                return getCategoryColorMap()[category] || null;
+                return resolveCategoryRoleColor(promptOrCategory, getCategoryColorMap());
             }
 
             function applyCategoryRoleStyling(element, prompt, { soften = false } = {}) {

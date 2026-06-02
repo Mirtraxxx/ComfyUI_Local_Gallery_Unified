@@ -227,7 +227,7 @@ Implemented so far:
 - `js/prompt/constants.js`
   - extracted prompt UI constants such as pagination, favorite colors, category palette, and thumbnail bounds
 - `js/prompt/helpers.js`
-  - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, thumbnail sizing, pinned ordering, library tab filtering, and last-output preview URLs
+  - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, thumbnail/sidebar sizing, category role colors, pinned ordering, library tab filtering, and last-output preview URLs
 - `js/lora/helpers.js`
   - extracted pure LoRA helpers for selected-LoRA reorder behavior
 
