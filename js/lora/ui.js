@@ -412,7 +412,7 @@ const UnifiedLoraGalleryNode = {
             const bindMouseReorderHandle = (row, handle, rowSelector, root, onMoved) => {
                 if (!handle) return;
 
-                handle.addEventListener("mousedown", (event) => {
+                handle.addEventListener("pointerdown", (event) => {
                     if (event.button !== 0) return;
                     event.preventDefault();
                     event.stopPropagation();
@@ -421,6 +421,7 @@ const UnifiedLoraGalleryNode = {
                     draggedIndex = parseInt(row.dataset.index);
                     row.classList.add("dragging");
                     document.body.style.userSelect = "none";
+                    handle.setPointerCapture?.(event.pointerId);
 
                     const getTargetRow = (moveEvent) => {
                         const rows = Array.from(root.querySelectorAll(rowSelector));
@@ -455,12 +456,12 @@ const UnifiedLoraGalleryNode = {
                         return { targetRow, insertAfter };
                     };
 
-                    const onMouseMove = (moveEvent) => {
+                    const onPointerMove = (moveEvent) => {
                         moveEvent.preventDefault();
                         updateMarker(moveEvent);
                     };
 
-                    const onMouseUp = (upEvent) => {
+                    const onPointerUp = (upEvent) => {
                         upEvent.preventDefault();
                         const marker = updateMarker(upEvent);
                         if (marker && draggedIndex >= 0) {
@@ -475,13 +476,18 @@ const UnifiedLoraGalleryNode = {
                         clearDragMarkers(root);
                         draggedIndex = -1;
                         document.body.style.userSelect = "";
-                        document.removeEventListener("mousemove", onMouseMove);
-                        document.removeEventListener("mouseup", onMouseUp);
+                        if (handle.hasPointerCapture?.(event.pointerId)) {
+                            handle.releasePointerCapture?.(event.pointerId);
+                        }
+                        handle.removeEventListener("pointermove", onPointerMove);
+                        handle.removeEventListener("pointerup", onPointerUp);
+                        handle.removeEventListener("pointercancel", cleanupMouseReorder);
                         cleanupMouseReorder = null;
                     };
 
-                    document.addEventListener("mousemove", onMouseMove);
-                    document.addEventListener("mouseup", onMouseUp);
+                    handle.addEventListener("pointermove", onPointerMove);
+                    handle.addEventListener("pointerup", onPointerUp);
+                    handle.addEventListener("pointercancel", cleanupMouseReorder);
                 });
             };
 
