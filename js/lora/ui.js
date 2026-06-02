@@ -141,6 +141,8 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-lora-row.disabled { opacity: 0.45; }
                     #${uniqueId} .locallora-lora-row.selected-edit { border-color: #FFD700; box-shadow: 0 0 6px #FFD700; }
                     #${uniqueId} .compact-lora-name, #${uniqueId} .compact-trigger-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--node-text-color); font-size: 11px; }
+                    #${uniqueId} .compact-lora-name { cursor: grab; }
+                    #${uniqueId} .compact-lora-name:active { cursor: grabbing; }
                     #${uniqueId} .compact-trigger-preview { color: #a5a5a5; }
                     #${uniqueId} .compact-strength { display: flex; align-items: center; gap: 3px; }
                     #${uniqueId} .compact-strength label { color: var(--node-text-color); font-size: 9px; }
@@ -399,13 +401,78 @@ const UnifiedLoraGalleryNode = {
             };
             
             let draggedIndex = -1;
+            let cleanupMouseReorder = null;
+
+            const clearDragMarkers = (root = widgetContainer) => {
+                root.querySelectorAll(".drag-over-before, .drag-over-after").forEach(row => {
+                    row.classList.remove("drag-over-before", "drag-over-after");
+                });
+            };
+
+            const bindMouseReorderHandle = (row, handle, rowSelector, root, onMoved) => {
+                if (!handle) return;
+
+                handle.addEventListener("mousedown", (event) => {
+                    if (event.button !== 0) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    cleanupMouseReorder?.();
+                    draggedIndex = parseInt(row.dataset.index);
+                    row.classList.add("dragging");
+                    document.body.style.userSelect = "none";
+
+                    const getTargetRow = (moveEvent) => {
+                        const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+                        const targetRow = target?.closest?.(rowSelector);
+                        return targetRow && root.contains(targetRow) ? targetRow : null;
+                    };
+
+                    const updateMarker = (moveEvent) => {
+                        clearDragMarkers(root);
+                        const targetRow = getTargetRow(moveEvent);
+                        if (!targetRow) return null;
+                        const rect = targetRow.getBoundingClientRect();
+                        const insertAfter = moveEvent.clientY > rect.top + rect.height / 2;
+                        targetRow.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
+                        return { targetRow, insertAfter };
+                    };
+
+                    const onMouseMove = (moveEvent) => {
+                        moveEvent.preventDefault();
+                        updateMarker(moveEvent);
+                    };
+
+                    const onMouseUp = (upEvent) => {
+                        upEvent.preventDefault();
+                        const marker = updateMarker(upEvent);
+                        if (marker && draggedIndex >= 0) {
+                            const targetIndex = parseInt(marker.targetRow.dataset.index);
+                            onMoved(draggedIndex, targetIndex, marker.insertAfter);
+                        }
+                        cleanupMouseReorder?.();
+                    };
+
+                    cleanupMouseReorder = () => {
+                        row.classList.remove("dragging");
+                        clearDragMarkers(root);
+                        draggedIndex = -1;
+                        document.body.style.userSelect = "";
+                        document.removeEventListener("mousemove", onMouseMove);
+                        document.removeEventListener("mouseup", onMouseUp);
+                        cleanupMouseReorder = null;
+                    };
+
+                    document.addEventListener("mousemove", onMouseMove);
+                    document.addEventListener("mouseup", onMouseUp);
+                });
+            };
 
             const renderSelectedList = () => {
                 selectedListEl.innerHTML = "";
                 this.loraData.forEach((item, index) => {
                     const el = document.createElement("div");
                     el.className = "locallora-lora-item";
-                    el.draggable = true;
                     el.dataset.index = index;
                     
                     const toggle = document.createElement("input");
@@ -478,51 +545,11 @@ const UnifiedLoraGalleryNode = {
                     });
                     el.appendChild(removeBtn);
 
-                    toggle.draggable = false;
-                    strengthModelInput.draggable = false;
-                    removeBtn.draggable = false;
-
-                    const clearDragMarkers = () => {
-                        selectedListEl.querySelectorAll(".drag-over-before, .drag-over-after").forEach(row => {
-                            row.classList.remove("drag-over-before", "drag-over-after");
-                        });
-                    };
-
-                    el.addEventListener('dragstart', (e) => {
-                        if (!e.target?.classList?.contains("lora-name")) {
-                            e.preventDefault();
-                            return;
-                        }
-                        draggedIndex = parseInt(e.currentTarget.dataset.index);
-                        e.currentTarget.classList.add('dragging');
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', item.lora);
-                    });
-                    el.addEventListener('dragend', (e) => {
-                        e.currentTarget.classList.remove('dragging');
-                        clearDragMarkers();
-                        draggedIndex = -1;
-                    });
-                    el.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        clearDragMarkers();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const insertAfter = e.clientY > rect.top + rect.height / 2;
-                        e.currentTarget.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
-                    });
-                    el.addEventListener('dragleave', clearDragMarkers);
-                    el.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        clearDragMarkers();
-                        const targetIndex = parseInt(e.currentTarget.dataset.index);
-                        if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const insertAfter = e.clientY > rect.top + rect.height / 2;
-                            if (moveSelectedLora(this.loraData, draggedIndex, targetIndex, insertAfter)) {
-                                updateSelection();
-                                renderSelectedList();
-                                renderCompact();
-                            }
+                    bindMouseReorderHandle(el, nameLabel, ".locallora-lora-item", selectedListEl, (fromIndex, targetIndex, insertAfter) => {
+                        if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
+                            updateSelection();
+                            renderSelectedList();
+                            renderCompact();
                         }
                     });
 
@@ -1077,7 +1104,6 @@ const UnifiedLoraGalleryNode = {
                     row.dataset.triggerWords = lora.trigger_words || "";
                     row.dataset.downloadUrl = lora.download_url || "";
                     row.title = `${item.lora}\nDrag the name to change LoRA load order`;
-                    row.draggable = true;
                     row.dataset.index = index;
 
                     const modelStrength = item.strength ?? 1.0;
@@ -1160,47 +1186,12 @@ const UnifiedLoraGalleryNode = {
                     row.querySelectorAll("input, select, button, a").forEach(control => {
                         control.addEventListener("click", e => e.stopPropagation());
                     });
-                    const clearCompactDragMarkers = () => {
-                        galleryEl.querySelectorAll(".drag-over-before, .drag-over-after").forEach(rowEl => {
-                            rowEl.classList.remove("drag-over-before", "drag-over-after");
-                        });
-                    };
-                    row.addEventListener("dragstart", (e) => {
-                        if (!e.target?.closest?.(".compact-lora-name")) {
-                            e.preventDefault();
-                            return;
-                        }
-                        draggedIndex = parseInt(e.currentTarget.dataset.index);
-                        e.currentTarget.classList.add("dragging");
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", item.lora);
-                    });
-                    row.addEventListener("dragend", (e) => {
-                        e.currentTarget.classList.remove("dragging");
-                        clearCompactDragMarkers();
-                        draggedIndex = -1;
-                    });
-                    row.addEventListener("dragover", (e) => {
-                        e.preventDefault();
-                        clearCompactDragMarkers();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const insertAfter = e.clientY > rect.top + rect.height / 2;
-                        e.currentTarget.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
-                    });
-                    row.addEventListener("dragleave", clearCompactDragMarkers);
-                    row.addEventListener("drop", (e) => {
-                        e.preventDefault();
-                        clearCompactDragMarkers();
-                        const targetIndex = parseInt(e.currentTarget.dataset.index);
-                        if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const insertAfter = e.clientY > rect.top + rect.height / 2;
-                            if (moveSelectedLora(this.loraData, draggedIndex, targetIndex, insertAfter)) {
-                                renderSelectedList();
-                                renderCompact();
-                                updateSelection();
-                                updatePresetButtonText(null);
-                            }
+                    bindMouseReorderHandle(row, row.querySelector(".compact-lora-name"), ".locallora-lora-row", galleryEl, (fromIndex, targetIndex, insertAfter) => {
+                        if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
+                            renderSelectedList();
+                            renderCompact();
+                            updateSelection();
+                            updatePresetButtonText(null);
                         }
                     });
                     row.querySelector(".lora-card-link-btn")?.addEventListener("click", e => e.stopPropagation());
