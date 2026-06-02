@@ -423,9 +423,26 @@ const UnifiedLoraGalleryNode = {
                     document.body.style.userSelect = "none";
 
                     const getTargetRow = (moveEvent) => {
-                        const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
-                        const targetRow = target?.closest?.(rowSelector);
-                        return targetRow && root.contains(targetRow) ? targetRow : null;
+                        const rows = Array.from(root.querySelectorAll(rowSelector));
+                        if (!rows.length) return null;
+
+                        const rowUnderPointer = rows.find(candidate => {
+                            const rect = candidate.getBoundingClientRect();
+                            return moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom;
+                        });
+                        if (rowUnderPointer) return rowUnderPointer;
+
+                        return rows.reduce((nearestRow, candidate) => {
+                            const rect = candidate.getBoundingClientRect();
+                            const distance = Math.min(
+                                Math.abs(moveEvent.clientY - rect.top),
+                                Math.abs(moveEvent.clientY - rect.bottom)
+                            );
+                            if (!nearestRow || distance < nearestRow.distance) {
+                                return { row: candidate, distance };
+                            }
+                            return nearestRow;
+                        }, null)?.row || null;
                     };
 
                     const updateMarker = (moveEvent) => {
@@ -549,7 +566,7 @@ const UnifiedLoraGalleryNode = {
                         if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
                             updateSelection();
                             renderSelectedList();
-                            renderCompact();
+                            renderCurrentView(false);
                         }
                     });
 
@@ -1189,7 +1206,7 @@ const UnifiedLoraGalleryNode = {
                     bindMouseReorderHandle(row, row.querySelector(".compact-lora-name"), ".locallora-lora-row", galleryEl, (fromIndex, targetIndex, insertAfter) => {
                         if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
                             renderSelectedList();
-                            renderCompact();
+                            renderCurrentView(false);
                             updateSelection();
                             updatePresetButtonText(null);
                         }
