@@ -8,6 +8,14 @@ import {
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
 } from "./constants.js";
+import {
+    buildLastOutputPreviewUrl,
+    extractPromptTextFromSourceNode,
+    getNearestPaletteColor,
+    hexToRgba,
+    isShowTextNode,
+    normalizePromptText,
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
 import { collapseWidget, hideWidget } from "../shared/widgets.js";
@@ -1752,11 +1760,6 @@ const UnifiedPromptGalleryNode = {
                 if (app.graph) app.graph.change();
             }
 
-            function isShowTextNode(node) {
-                const comfyClass = String(node?.comfyClass || node?.type || '').toLowerCase();
-                const title = String(node?.title || '').toLowerCase();
-                return comfyClass.includes('showtext') || title.includes('show text');
-            }
 
             function getPromptSourceNode() {
                 const sourceId = node_instance.properties?.prompt_source_node_id;
@@ -1764,53 +1767,7 @@ const UnifiedPromptGalleryNode = {
                 return app.graph?.getNodeById?.(sourceId) || null;
             }
 
-            function extractPromptTextFromSourceNode(node) {
-                if (!node) return '';
 
-                const widgetValues = Array.isArray(node.widgets_values) ? node.widgets_values : [];
-                for (const value of widgetValues) {
-                    if (typeof value === 'string' && value.trim()) {
-                        return value.trim();
-                    }
-                }
-
-                const widgets = Array.isArray(node.widgets) ? node.widgets : [];
-                for (const widget of widgets) {
-                    if (typeof widget?.value === 'string' && widget.value.trim()) {
-                        return widget.value.trim();
-                    }
-                }
-
-                return '';
-            }
-
-            function normalizePromptText(rawText) {
-                if (!rawText) return '';
-
-                const parts = String(rawText)
-                    .split(/[\n,]+/)
-                    .map(part => part.trim())
-                    .filter(Boolean);
-
-                const seen = new Set();
-                const cleaned = [];
-
-                for (const part of parts) {
-                    if (/^embedding\s*:/i.test(part)) {
-                        continue;
-                    }
-
-                    const key = part.toLowerCase();
-                    if (seen.has(key)) {
-                        continue;
-                    }
-
-                    seen.add(key);
-                    cleaned.push(part);
-                }
-
-                return cleaned.join(', ');
-            }
 
             function updatePromptSourceStatus() {
                 const statusEls = document.querySelectorAll(`#${uniqueId}-prompt-source-status`);
@@ -2106,58 +2063,8 @@ const UnifiedPromptGalleryNode = {
                 return node_instance.uiPrefs?.library_tab_layout === 'wrap' ? 'wrap' : 'scroll';
             }
 
-            function hexToRgba(hex, alpha) {
-                if (!hex || typeof hex !== 'string') return `rgba(255,255,255,${alpha})`;
-                let normalized = hex.trim().replace('#', '');
-                if (normalized.length === 3) {
-                    normalized = normalized.split('').map(char => char + char).join('');
-                }
-                if (normalized.length !== 6) return `rgba(255,255,255,${alpha})`;
-                const intValue = Number.parseInt(normalized, 16);
-                if (Number.isNaN(intValue)) return `rgba(255,255,255,${alpha})`;
-                const r = (intValue >> 16) & 255;
-                const g = (intValue >> 8) & 255;
-                const b = intValue & 255;
-                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            }
 
-            function parseHexColor(hex) {
-                if (!hex || typeof hex !== 'string') return null;
-                let normalized = hex.trim().replace('#', '');
-                if (normalized.length === 3) {
-                    normalized = normalized.split('').map(char => char + char).join('');
-                }
-                if (normalized.length !== 6) return null;
-                const intValue = Number.parseInt(normalized, 16);
-                if (Number.isNaN(intValue)) return null;
-                return {
-                    r: (intValue >> 16) & 255,
-                    g: (intValue >> 8) & 255,
-                    b: intValue & 255,
-                };
-            }
 
-            function getNearestCategoryPaletteColor(color) {
-                const palette = UnifiedPromptGalleryNode.CATEGORY_ROLE_PALETTE || [];
-                const source = parseHexColor(color);
-                if (!source || !palette.length) return palette[0] || '#6c757d';
-
-                let bestColor = palette[0];
-                let bestDistance = Number.POSITIVE_INFINITY;
-                palette.forEach(candidate => {
-                    const parsed = parseHexColor(candidate);
-                    if (!parsed) return;
-                    const distance =
-                        ((parsed.r - source.r) ** 2) +
-                        ((parsed.g - source.g) ** 2) +
-                        ((parsed.b - source.b) ** 2);
-                    if (distance < bestDistance) {
-                        bestDistance = distance;
-                        bestColor = candidate;
-                    }
-                });
-                return bestColor;
-            }
 
             function applyLibraryTabLayoutPreference() {
                 const barContainer = widgetContainer.querySelector('.localprompt-library-bar-container');
@@ -3978,17 +3885,6 @@ const UnifiedPromptGalleryNode = {
                 });
             }
 
-            function buildLastOutputPreviewUrl(lastOutput) {
-                if (!lastOutput?.filename) {
-                    return "";
-                }
-
-                let url = `/view?filename=${encodeURIComponent(lastOutput.filename)}&type=${encodeURIComponent(lastOutput.type || "output")}`;
-                if (lastOutput.subfolder) {
-                    url += `&subfolder=${encodeURIComponent(lastOutput.subfolder)}`;
-                }
-                return url;
-            }
 
             async function showFromLastOutputDialog() {
                 if (!UnifiedPromptGalleryNode.lastOutput?.filename) {
@@ -5656,8 +5552,9 @@ const UnifiedPromptGalleryNode = {
 
                     const openCategoryColorPopover = (anchor, category) => {
                         closeCategoryColorPopover();
-                        const currentColor = getNearestCategoryPaletteColor(
-                            draftCategoryColors[category] || getCategoryRoleColor(category) || '#6c757d'
+                        const currentColor = getNearestPaletteColor(
+                            draftCategoryColors[category] || getCategoryRoleColor(category) || '#6c757d',
+                            UnifiedPromptGalleryNode.CATEGORY_ROLE_PALETTE || []
                         );
                         const rect = anchor.getBoundingClientRect();
                         const popover = document.createElement('div');
@@ -5729,8 +5626,9 @@ const UnifiedPromptGalleryNode = {
                         }
                         orderList.innerHTML = '';
                         currentCategoryTabs.forEach((category) => {
-                            const roleColor = getNearestCategoryPaletteColor(
-                                draftCategoryColors[category] || getCategoryRoleColor(category) || '#6c757d'
+                            const roleColor = getNearestPaletteColor(
+                                draftCategoryColors[category] || getCategoryRoleColor(category) || '#6c757d',
+                                UnifiedPromptGalleryNode.CATEGORY_ROLE_PALETTE || []
                             );
                             const row = document.createElement('div');
                             row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;';

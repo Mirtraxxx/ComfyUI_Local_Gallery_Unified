@@ -32,8 +32,9 @@ Current file sizes:
 | `__init__.py` | 9 | 276 bytes |
 | `AI_NODE_OVERVIEW.md` | 249 | 9,966 bytes |
 | `js/Local_Gallery_Unified.js` | 19 | 575 bytes |
-| `js/prompt/ui.js` | 5,837 | 309,728 bytes |
+| `js/prompt/ui.js` | 5,735 | 305,147 bytes |
 | `js/prompt/constants.js` | 28 | 882 bytes |
+| `js/prompt/helpers.js` | 117 | 3,606 bytes |
 | `js/lora/ui.js` | 1,794 | 110,407 bytes |
 | `js/tabs.js` | 53 | 3,030 bytes |
 | `js/api/loraApi.js` | 77 | 2,718 bytes |
@@ -84,7 +85,7 @@ The frontend JavaScript is the true merge:
 
 Severity: High
 
-`js/Local_Gallery_Unified.js` is now a small frontend entrypoint. Prompt UI lives in `js/prompt/ui.js`, prompt constants live in `js/prompt/constants.js`, LoRA UI lives in `js/lora/ui.js`, tab setup lives in `js/tabs.js`, API route calls live in `js/api/`, and shared DOM/JSON/widget helpers live under `js/shared/`. The remaining size risk is concentrated mostly in `js/prompt/ui.js`.
+`js/Local_Gallery_Unified.js` is now a small frontend entrypoint. Prompt UI lives in `js/prompt/ui.js`, prompt constants/helpers live in `js/prompt/constants.js` and `js/prompt/helpers.js`, LoRA UI lives in `js/lora/ui.js`, tab setup lives in `js/tabs.js`, API route calls live in `js/api/`, and shared DOM/JSON/widget helpers live under `js/shared/`. The remaining size risk is concentrated mostly in `js/prompt/ui.js`.
 
 Why this is risky:
 

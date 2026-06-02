@@ -225,6 +225,8 @@ Implemented so far:
   - main file calls `registerPromptGalleryUi(app, api)` after the LoRA UI registration
 - `js/prompt/constants.js`
   - extracted prompt UI constants such as pagination, favorite colors, category palette, and thumbnail bounds
+- `js/prompt/helpers.js`
+  - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, and last-output preview URLs
 
 Done means:
 
@@ -390,4 +392,4 @@ The next safest implementation step is Phase 4:
 
 Continue splitting the frontend into coarse UI modules. The tab switcher has already moved to `tabs.js`; the next useful target is a shared state/helper module before attempting the larger Prompt or LoRA UI sections.
 
-The shared JSON and widget helper modules have also been added, both major UI sections now live in dedicated modules, and prompt constants have moved to `js/prompt/constants.js`. The next useful target is reducing the size of `js/prompt/ui.js` by extracting smaller prompt-side helpers, such as modal helpers, category/color helpers, or prompt state synchronization.
+The shared JSON and widget helper modules have also been added, both major UI sections now live in dedicated modules, and prompt constants/pure helpers have moved to `js/prompt/constants.js` and `js/prompt/helpers.js`. The next useful target is reducing the size of `js/prompt/ui.js` by extracting heavier prompt-side helpers, such as modal helpers or prompt state synchronization.
