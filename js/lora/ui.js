@@ -1,6 +1,6 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
-import { cloneJsonOr, parseJsonOr, stringifyJsonOr } from "../shared/json.js";
+import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import { collapseWidget } from "../shared/widgets.js";
 
 export function registerLoraGalleryUi(app) {
@@ -363,7 +363,7 @@ const UnifiedLoraGalleryNode = {
             // Shared backend UI state is only for transient view controls.
             const persistSelectionData = () => {
                 const serializableData = this.loraData.map(({ element, ...rest }) => rest);
-                const selectionJson = stringifyJsonOr(serializableData);
+                const selectionJson = writeSelectionArray(serializableData);
                 this.setProperty("lora_selection_data", selectionJson);
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
                 if (widget) widget.value = selectionJson;
@@ -1526,10 +1526,7 @@ const UnifiedLoraGalleryNode = {
                 };
 
                 try {
-                    const savedSelection = parseJsonOr(this.properties.lora_selection_data || "[]", []);
-                    if (Array.isArray(savedSelection)) {
-                        this.loraData = savedSelection;
-                    }
+                    this.loraData = readSelectionArray(this.properties.lora_selection_data, []);
                 } catch (e) {
                     console.warn("LocalLoraGallery: Failed to parse lora_selection_data, resetting.", e);
                 }

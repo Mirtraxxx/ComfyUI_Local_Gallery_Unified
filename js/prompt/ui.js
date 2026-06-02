@@ -20,7 +20,7 @@ import {
     normalizePromptText,
 } from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
-import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
+import { parseJsonOr, readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 import { collapseWidget, hideWidget } from "../shared/widgets.js";
 
 export function registerPromptGalleryUi(app, api) {
@@ -1751,7 +1751,7 @@ const UnifiedPromptGalleryNode = {
             };
 
             function saveSelectionData(options = {}) {
-                const data = stringifyJsonOr(node_instance.promptData);
+                const data = writeSelectionArray(node_instance.promptData);
                 node_instance.properties["prompt_selection_data"] = data;
                 selectionWidget.value = data;
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
@@ -4685,7 +4685,7 @@ const UnifiedPromptGalleryNode = {
 
                 if (node_instance.properties && node_instance.properties.prompt_selection_data) {
                     try {
-                        node_instance.promptData = parseJsonOr(node_instance.properties.prompt_selection_data, []);
+                        node_instance.promptData = readSelectionArray(node_instance.properties.prompt_selection_data, []);
                     } catch (e) {
                         node_instance.promptData = [];
                     }

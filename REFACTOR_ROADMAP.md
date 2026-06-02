@@ -82,6 +82,7 @@ Implemented guardrails:
   - LoRA trigger text/title
   - selected prompt item name/title
 - Hidden selection/wildcard JSON state now uses shared parse/stringify helpers in the main UI file.
+- Hidden LoRA/prompt selection state now reads through shared compatibility helpers that accept both raw legacy arrays and future `{ "version": 1, "items": [] }` objects while still saving legacy arrays.
 - Hidden/collapsed ComfyUI widgets now use shared helper functions instead of repeated inline `type`, `draw`, and `computeSize` assignments.
 
 Suggested helpers:
@@ -297,6 +298,7 @@ Target compatibility:
 - Continue reading old raw arrays.
 - Allow new versioned objects.
 - Save new versioned objects only after testing migration thoroughly.
+- Current helper state: `readSelectionArray()` already accepts both raw arrays and object-wrapped `items`; `writeSelectionArray()` still saves raw arrays for compatibility.
 
 Migration reader idea:
 
@@ -316,7 +318,7 @@ function readSelectionState(rawValue) {
 Done means:
 
 - Old workflows still load.
-- New workflows can carry version information.
+- Version-wrapped selection data can be read.
 - Future data shape changes have a migration place.
 
 ## Phase 7 - Add A Smoke Test Checklist

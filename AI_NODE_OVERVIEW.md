@@ -228,9 +228,11 @@ Important graph/prompt state is stored as ComfyUI node properties and hidden wid
 
 - `lora_selection_data`
   - JSON array of selected LoRA entries.
+  - Read through a compatibility helper that also accepts future object-wrapped `items`.
   - Expected to include LoRA filename/name, enabled state, strengths, and preset/trigger settings.
 - `prompt_selection_data`
   - JSON array of selected prompt entries.
+  - Read through a compatibility helper that also accepts future object-wrapped `items`.
   - Expected to include prompt identifiers/text plus per-selection controls.
 - `wildcard_mode`
   - String state for wildcard generation.

@@ -152,6 +152,12 @@ What to do:
 - Keep backwards compatibility with the current raw arrays.
 - Add safe parse helpers that return both data and parse errors.
 
+Current mitigation:
+
+- `js/shared/json.js` now includes `readSelectionArray()` and `writeSelectionArray()`.
+- LoRA and prompt selection loading can read old raw arrays or future object-wrapped `items`.
+- Selection saving still writes old raw arrays to avoid a workflow migration before runtime testing.
+
 Recommended future shape:
 
 ```json
