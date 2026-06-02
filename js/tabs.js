@@ -1,3 +1,5 @@
+import { hideWidget, setDomWidgetVisible } from "./shared/widgets.js";
+
 export function setupUnifiedGalleryTabs(nodeType) {
     const onNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
@@ -26,9 +28,7 @@ export function setupUnifiedGalleryTabs(nodeType) {
 
         const activeTabWidget = node.addWidget("text", "active_tab", node.properties.active_tab, () => {}, {});
         activeTabWidget.serializeValue = () => node.properties.active_tab || "prompt";
-        activeTabWidget.type = "hidden";
-        activeTabWidget.computeSize = () => [0, -4];
-        activeTabWidget.draw = function() {};
+        hideWidget(activeTabWidget);
 
         const applyTab = (tab) => {
             const nextTab = tab === "lora" ? "lora" : "prompt";
@@ -39,22 +39,8 @@ export function setupUnifiedGalleryTabs(nodeType) {
             });
             const promptWidget = node.widgets?.find((w) => w.name === "prompt_gallery");
             const loraWidget = node.widgets?.find((w) => w.name === "lora_gallery");
-            const setWidgetVisible = (widget, visible) => {
-                if (!widget) return;
-                delete widget.computeSize;
-                widget.type = visible ? "div" : "hidden";
-                widget.options.getMinHeight = () => visible ? 260 : 0;
-                widget.options.getMaxHeight = () => visible ? 100000 : 0;
-                if (widget.element) {
-                    widget.element.style.display = visible ? "" : "none";
-                    widget.element.style.height = visible ? "100%" : "0";
-                    widget.element.style.maxHeight = visible ? "none" : "0";
-                    widget.element.style.overflow = "hidden";
-                    widget.element.style.pointerEvents = visible ? "auto" : "none";
-                }
-            };
-            setWidgetVisible(promptWidget, nextTab === "prompt");
-            setWidgetVisible(loraWidget, nextTab === "lora");
+            setDomWidgetVisible(promptWidget, nextTab === "prompt");
+            setDomWidgetVisible(loraWidget, nextTab === "lora");
             node.setDirtyCanvas?.(true, true);
         };
 

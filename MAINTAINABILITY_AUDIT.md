@@ -37,6 +37,7 @@ Current file sizes:
 | `js/api/promptApi.js` | 249 | 8,900 bytes |
 | `js/shared/dom.js` | 8 | 239 bytes |
 | `js/shared/json.js` | 19 | 400 bytes |
+| `js/shared/widgets.js` | 27 | 981 bytes |
 
 Important pattern counts in `js/Local_Gallery_Unified.js`:
 
@@ -80,7 +81,7 @@ The frontend JavaScript file is the true merge:
 
 Severity: High
 
-`js/Local_Gallery_Unified.js` currently contains most UI, state, styling, modal creation, event binding, and ComfyUI lifecycle behavior. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`, tab setup has been moved into `js/tabs.js`, and shared DOM/JSON helpers now live under `js/shared/`.
+`js/Local_Gallery_Unified.js` currently contains most UI, state, styling, modal creation, event binding, and ComfyUI lifecycle behavior. First-pass API route calls have been moved into `js/api/loraApi.js` and `js/api/promptApi.js`, tab setup has been moved into `js/tabs.js`, and shared DOM/JSON/widget helpers now live under `js/shared/`.
 
 Why this is risky:
 

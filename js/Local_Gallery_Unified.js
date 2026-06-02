@@ -4,6 +4,7 @@ import * as loraApi from "./api/loraApi.js";
 import * as promptApi from "./api/promptApi.js";
 import { escapeHtml } from "./shared/dom.js";
 import { cloneJsonOr, parseJsonOr, stringifyJsonOr } from "./shared/json.js";
+import { collapseWidget, hideWidget } from "./shared/widgets.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
 
 app.registerExtension({
@@ -74,10 +75,7 @@ const UnifiedLoraGalleryNode = {
                 return this.properties.lora_gallery_unique_id;
             };
 
-            galleryIdWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-            galleryIdWidget.computeSize = function(width) {
-                return [0, -4];
-            }
+            collapseWidget(galleryIdWidget);
             
             const HEADER_HEIGHT = 90;
             const MIN_NODE_WIDTH = 600;
@@ -100,8 +98,7 @@ const UnifiedLoraGalleryNode = {
             selectionWidget.serializeValue = () => {
                 return node_instance.properties["lora_selection_data"] || "[]";
             };
-            selectionWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-            selectionWidget.computeSize = function(width) { return [0, -4]; };
+            collapseWidget(selectionWidget);
 
             const widgetContainer = document.createElement("div");
             widgetContainer.className = "locallora-container-wrapper";
@@ -2120,8 +2117,7 @@ const UnifiedPromptGalleryNode = {
                 return this.properties.prompt_gallery_unique_id;
             };
 
-            galleryIdWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
-            galleryIdWidget.computeSize = function (width) { return [0, -4]; };
+            collapseWidget(galleryIdWidget);
 
             this.size = [500, 450];
             let widgetContainer = null;
@@ -2169,8 +2165,7 @@ const UnifiedPromptGalleryNode = {
                 return node_instance.properties["prompt_selection_data"] || "[]";
             };
 
-            selectionWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
-            selectionWidget.computeSize = function (width) { return [0, -4]; };
+            collapseWidget(selectionWidget);
 
             const activeSidebarWidthWidget = this.addWidget(
                 "number",
@@ -2182,9 +2177,7 @@ const UnifiedPromptGalleryNode = {
             activeSidebarWidthWidget.serializeValue = () => {
                 return Number(node_instance.properties.active_sidebar_width) || 392;
             };
-            activeSidebarWidthWidget.type = "hidden";
-            activeSidebarWidthWidget.computeSize = () => [0, -4];
-            activeSidebarWidthWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+            hideWidget(activeSidebarWidthWidget);
 
             // ADD DOM WIDGET HERE - before hidden data widgets
             widgetContainer = document.createElement("div");
@@ -2206,9 +2199,7 @@ const UnifiedPromptGalleryNode = {
             wildcardWidget.serializeValue = () => {
                 return node_instance.properties["wildcard_mode"] || "off";
             };
-            wildcardWidget.type = "hidden";
-            wildcardWidget.computeSize = () => [0, -4];
-            wildcardWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+            hideWidget(wildcardWidget);
 
             // Wildcard Categories
             let categoriesWidget = this.widgets?.find(w => w.name === 'wildcard_categories');
@@ -2223,18 +2214,14 @@ const UnifiedPromptGalleryNode = {
             categoriesWidget.serializeValue = () => {
                 return node_instance.properties["wildcard_categories"] || "[]";
             };
-            categoriesWidget.type = "hidden";
-            categoriesWidget.computeSize = () => [0, -4];
-            categoriesWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+            hideWidget(categoriesWidget);
 
             // Seed
             let seedWidget = this.widgets?.find(w => w.name === 'seed');
             if (!seedWidget) {
                 seedWidget = this.addWidget("number", "seed", 0, (v) => { }, { min: 0, max: 0xffffffffffffffff });
             }
-            seedWidget.type = "hidden";
-            seedWidget.computeSize = () => [0, -4];
-            seedWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+            hideWidget(seedWidget);
 
             // Control After Generate
             let controlWidget = this.widgets?.find(w => w.name === 'control_after_generate');
@@ -2244,9 +2231,7 @@ const UnifiedPromptGalleryNode = {
                     { values: ["fixed", "increment", "decrement", "randomize"] }
                 );
             }
-            controlWidget.type = "hidden";
-            controlWidget.computeSize = () => [0, -4];
-            controlWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+            hideWidget(controlWidget);
 
 
             const uniqueId = `localprompt-gallery-${this.id}`;

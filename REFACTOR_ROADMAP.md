@@ -75,12 +75,14 @@ Implemented guardrails:
 
 - Shared `escapeHtml()` helper in `js/shared/dom.js`.
 - Shared JSON helpers in `js/shared/json.js`.
+- Shared ComfyUI widget visibility/collapse helpers in `js/shared/widgets.js`.
 - Escaping applied to selected high-risk metadata render spots:
   - synced LoRA preview URLs
   - LoRA card names
   - LoRA trigger text/title
   - selected prompt item name/title
 - Hidden selection/wildcard JSON state now uses shared parse/stringify helpers in the main UI file.
+- Hidden/collapsed ComfyUI widgets now use shared helper functions instead of repeated inline `type`, `draw`, and `computeSize` assignments.
 
 Suggested helpers:
 
@@ -380,4 +382,4 @@ The next safest implementation step is Phase 4:
 
 Continue splitting the frontend into coarse UI modules. The tab switcher has already moved to `tabs.js`; the next useful target is a shared state/helper module before attempting the larger Prompt or LoRA UI sections.
 
-The shared JSON helper module has also been added. The next useful target is a small state helper module for hidden ComfyUI widget/property synchronization before attempting the larger Prompt or LoRA UI sections.
+The shared JSON and widget helper modules have also been added. The next useful target is a small state helper module for hidden ComfyUI widget/property synchronization before attempting the larger Prompt or LoRA UI sections.

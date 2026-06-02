@@ -31,6 +31,8 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Holds shared frontend DOM helpers such as safe HTML escaping.
 - `js/shared/json.js`
   - Holds safe JSON parse/stringify helpers for hidden workflow state.
+- `js/shared/widgets.js`
+  - Holds shared ComfyUI widget visibility/collapse helpers.
 - `MAINTAINABILITY_AUDIT.md`
   - Reviews future-build risks and likely spaghetti points.
 - `REFACTOR_ROADMAP.md`
