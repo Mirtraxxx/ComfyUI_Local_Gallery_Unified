@@ -11,7 +11,10 @@ import {
 import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
+    getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
     getNearestPaletteColor,
+    getThumbnailSizePx as resolveThumbnailSizePx,
+    getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
     normalizePromptText,
@@ -1921,31 +1924,26 @@ const UnifiedPromptGalleryNode = {
             setupActiveSidebarResize();
 
             function getThumbnailSizePx() {
-                const legacySize = node_instance.uiPrefs?.thumbnail_size;
-                const fallbackSize = UnifiedPromptGalleryNode.THUMBNAIL_SIZE_LEGACY_PRESETS[legacySize]
-                    || UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT;
-                const rawSize = Number(node_instance.uiPrefs?.thumbnail_size_px ?? fallbackSize);
-                return Math.max(
-                    UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
-                    Math.min(UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX, Math.round(Number.isFinite(rawSize) ? rawSize : fallbackSize))
-                );
+                return resolveThumbnailSizePx(node_instance.uiPrefs, {
+                    legacyPresets: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_LEGACY_PRESETS,
+                    defaultSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
+                    minSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
+                    maxSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX,
+                });
             }
 
             function getActiveThumbnailSizePx() {
-                const fallbackSize = getThumbnailSizePx();
-                const rawSize = Number(node_instance.uiPrefs?.active_thumbnail_size_px ?? fallbackSize);
-                return Math.max(
-                    UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
-                    Math.min(UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX, Math.round(Number.isFinite(rawSize) ? rawSize : fallbackSize))
-                );
+                return resolveActiveThumbnailSizePx(node_instance.uiPrefs, getThumbnailSizePx(), {
+                    minSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
+                    maxSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX,
+                });
             }
 
             function applyThumbnailVariables(target, sizePx) {
-                const height = Math.round(sizePx * 1.46);
-                const label = Math.max(8, Math.min(13, Math.round(sizePx / 11)));
-                target.style.setProperty('--localprompt-thumb-height', `${height}px`);
-                target.style.setProperty('--localprompt-thumb-width', `${sizePx}px`);
-                target.style.setProperty('--localprompt-thumb-label-size', `${label}px`);
+                const variables = getThumbnailVariables(sizePx);
+                target.style.setProperty('--localprompt-thumb-height', `${variables.height}px`);
+                target.style.setProperty('--localprompt-thumb-width', `${variables.width}px`);
+                target.style.setProperty('--localprompt-thumb-label-size', `${variables.label}px`);
             }
 
             function syncThumbnailSizeSliders() {

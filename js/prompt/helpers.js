@@ -104,6 +104,31 @@ export function getNearestPaletteColor(color, palette, fallback = "#6c757d") {
     return bestColor;
 }
 
+export function clampThumbnailSize(rawSize, fallbackSize, minSize, maxSize) {
+    const normalizedSize = Math.round(Number.isFinite(rawSize) ? rawSize : fallbackSize);
+    return Math.max(minSize, Math.min(maxSize, normalizedSize));
+}
+
+export function getThumbnailSizePx(uiPrefs, { legacyPresets, defaultSize, minSize, maxSize }) {
+    const legacySize = uiPrefs?.thumbnail_size;
+    const fallbackSize = legacyPresets[legacySize] || defaultSize;
+    const rawSize = Number(uiPrefs?.thumbnail_size_px ?? fallbackSize);
+    return clampThumbnailSize(rawSize, fallbackSize, minSize, maxSize);
+}
+
+export function getActiveThumbnailSizePx(uiPrefs, thumbnailSizePx, { minSize, maxSize }) {
+    const rawSize = Number(uiPrefs?.active_thumbnail_size_px ?? thumbnailSizePx);
+    return clampThumbnailSize(rawSize, thumbnailSizePx, minSize, maxSize);
+}
+
+export function getThumbnailVariables(sizePx) {
+    return {
+        height: Math.round(sizePx * 1.46),
+        width: sizePx,
+        label: Math.max(8, Math.min(13, Math.round(sizePx / 11))),
+    };
+}
+
 export function buildLastOutputPreviewUrl(lastOutput) {
     if (!lastOutput?.filename) {
         return "";

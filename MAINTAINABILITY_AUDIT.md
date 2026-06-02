@@ -32,9 +32,9 @@ Current file sizes:
 | `__init__.py` | 9 | 276 bytes |
 | `AI_NODE_OVERVIEW.md` | 249 | 9,966 bytes |
 | `js/Local_Gallery_Unified.js` | 19 | 575 bytes |
-| `js/prompt/ui.js` | 5,735 | 305,147 bytes |
+| `js/prompt/ui.js` | 5,733 | 304,871 bytes |
 | `js/prompt/constants.js` | 28 | 882 bytes |
-| `js/prompt/helpers.js` | 117 | 3,606 bytes |
+| `js/prompt/helpers.js` | 142 | 4,655 bytes |
 | `js/lora/ui.js` | 1,794 | 110,407 bytes |
 | `js/tabs.js` | 53 | 3,030 bytes |
 | `js/api/loraApi.js` | 77 | 2,718 bytes |

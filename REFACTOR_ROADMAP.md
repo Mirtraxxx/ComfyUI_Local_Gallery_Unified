@@ -226,7 +226,7 @@ Implemented so far:
 - `js/prompt/constants.js`
   - extracted prompt UI constants such as pagination, favorite colors, category palette, and thumbnail bounds
 - `js/prompt/helpers.js`
-  - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, and last-output preview URLs
+  - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, thumbnail sizing, and last-output preview URLs
 
 Done means:
 
