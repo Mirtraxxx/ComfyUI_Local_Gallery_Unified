@@ -10,6 +10,8 @@ import {
 } from "./constants.js";
 import {
     buildLastOutputPreviewUrl,
+    buildPromptHoverPreviewHtml,
+    buildPromptPreviewMediaHtml,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     extractPromptTextFromSourceNode,
@@ -19,6 +21,7 @@ import {
     getCategoryColorMap as resolveCategoryColorMap,
     getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
+    getFloatingPreviewPosition,
     getNearestPaletteColor,
     getThumbnailSizePx as resolveThumbnailSizePx,
     getThumbnailVariables,
@@ -3387,33 +3390,8 @@ const UnifiedPromptGalleryNode = {
                     return null;
                 }
 
-                let previewHTML = '';
-
-                if (prompt.preview_type === "image" && prompt.preview_url) {
-                    previewHTML = `<img src="${prompt.preview_url}">`;
-                } else if (prompt.preview_type === "video" && prompt.preview_url) {
-                    previewHTML = `<video src="${prompt.preview_url}" loop muted autoplay></video>`;
-                }
-
                 const roleColor = getCategoryRoleColor(prompt);
-                const previewPills = [];
-                if (prompt.category) {
-                    const categoryStyle = roleColor ? ` style="--role-color: ${roleColor};"` : '';
-                    previewPills.push(`<span class="preview-pill category-pill"${categoryStyle}>Category: ${escapeHtml(prompt.category)}</span>`);
-                }
-                if (prompt.favorite) {
-                    previewPills.push('<span class="preview-pill">Pinned</span>');
-                }
-                if (prompt.usage_count > 0) {
-                    previewPills.push(`<span class="preview-pill">${prompt.usage_count} uses</span>`);
-                }
-                previewHTML += `
-                    <div class="preview-meta"${roleColor ? ` style="--role-color: ${roleColor};"` : ''}>
-                        <div class="preview-name">${escapeHtml(prompt.name)}</div>
-                        ${previewPills.length ? `<div class="preview-pill-row">${previewPills.join('')}</div>` : ''}
-                        ${prompt.prompt_text ? `<div class="preview-text">${escapeHtml(prompt.prompt_text)}</div>` : ''}
-                    </div>
-                `;
+                const previewHTML = buildPromptHoverPreviewHtml(prompt, roleColor);
 
                 hoverPreview.innerHTML = previewHTML;
                 hoverPreview.classList.add('active');
@@ -3421,29 +3399,13 @@ const UnifiedPromptGalleryNode = {
                 const updatePosition = () => {
                     const previewRect = hoverPreview.getBoundingClientRect();
                     const anchorRect = anchorElement?.getBoundingClientRect?.();
-                    const gap = 12;
-                    let x = event.clientX + gap;
-                    let y = event.clientY + gap;
-
-                    if (anchorRect) {
-                        x = anchorRect.right + gap;
-                        y = anchorRect.top;
-                        if (y + previewRect.height > window.innerHeight - 10) {
-                            y = Math.max(10, window.innerHeight - previewRect.height - 10);
-                        }
-                    }
-                    if (x + previewRect.width > window.innerWidth - 10) {
-                        x = window.innerWidth - previewRect.width - 10;
-                    }
-                    if (y + previewRect.height > window.innerHeight - 10) {
-                        y = window.innerHeight - previewRect.height - 10;
-                    }
-                    if (x < 10) {
-                        x = 10;
-                    }
-                    if (y < 10) {
-                        y = 10;
-                    }
+                    const { x, y } = getFloatingPreviewPosition({
+                        event,
+                        previewRect,
+                        anchorRect,
+                        viewportWidth: window.innerWidth,
+                        viewportHeight: window.innerHeight,
+                    });
                     hoverPreview.style.left = `${x}px`;
                     hoverPreview.style.top = `${y}px`;
                 };
@@ -3489,13 +3451,10 @@ const UnifiedPromptGalleryNode = {
                         div.classList.add("selected");
                     }
 
-                    let previewHtml = '<div class="localprompt-item-preview no-preview">No Preview</div>';
-
-                    if (prompt.preview_type === "image" && prompt.preview_url) {
-                        previewHtml = `<div class="localprompt-item-preview"><img src="${prompt.preview_url}" alt="${prompt.name}"></div>`;
-                    } else if (prompt.preview_type === "video" && prompt.preview_url) {
-                        previewHtml = `<div class="localprompt-item-preview"><video src="${prompt.preview_url}" loop muted></video></div>`;
-                    }
+                    const previewHtml = buildPromptPreviewMediaHtml(prompt, {
+                        wrapperClass: "localprompt-item-preview",
+                        noPreviewText: "No Preview",
+                    });
 
                     const categoryText = prompt.category ? ` [${prompt.category}]` : "";
                     const isFavorited = prompt.favorite || false;

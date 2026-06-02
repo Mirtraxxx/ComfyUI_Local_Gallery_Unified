@@ -1,3 +1,5 @@
+import { escapeHtml } from "../shared/dom.js";
+
 export function isShowTextNode(node) {
     const comfyClass = String(node?.comfyClass || node?.type || "").toLowerCase();
     const title = String(node?.title || "").toLowerCase();
@@ -236,6 +238,75 @@ export function createManagedTextControlsHtml(selectedEntry) {
                         <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>
                     </div>
                 `;
+}
+
+export function buildPromptPreviewMediaHtml(prompt, { wrapperClass = "", noPreviewText = "", autoplay = false } = {}) {
+    if (prompt?.preview_type === "image" && prompt.preview_url) {
+        const imageHtml = `<img src="${escapeHtml(prompt.preview_url)}" alt="${escapeHtml(prompt.name || "")}">`;
+        return wrapperClass ? `<div class="${wrapperClass}">${imageHtml}</div>` : imageHtml;
+    }
+
+    if (prompt?.preview_type === "video" && prompt.preview_url) {
+        const autoplayAttrs = autoplay ? " autoplay" : "";
+        const videoHtml = `<video src="${escapeHtml(prompt.preview_url)}" loop muted${autoplayAttrs}></video>`;
+        return wrapperClass ? `<div class="${wrapperClass}">${videoHtml}</div>` : videoHtml;
+    }
+
+    return wrapperClass ? `<div class="${wrapperClass} no-preview">${noPreviewText}</div>` : "";
+}
+
+export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
+    if (!prompt?.preview_url || !prompt.preview_type) {
+        return "";
+    }
+
+    const mediaHtml = buildPromptPreviewMediaHtml(prompt, { autoplay: true });
+    const previewPills = [];
+    if (prompt.category) {
+        const categoryStyle = roleColor ? ` style="--role-color: ${escapeHtml(roleColor)};"` : "";
+        previewPills.push(`<span class="preview-pill category-pill"${categoryStyle}>Category: ${escapeHtml(prompt.category)}</span>`);
+    }
+    if (prompt.favorite) {
+        previewPills.push("<span class=\"preview-pill\">Pinned</span>");
+    }
+    if (prompt.usage_count > 0) {
+        previewPills.push(`<span class="preview-pill">${prompt.usage_count} uses</span>`);
+    }
+
+    const roleStyle = roleColor ? ` style="--role-color: ${escapeHtml(roleColor)};"` : "";
+    return `${mediaHtml}
+                    <div class="preview-meta"${roleStyle}>
+                        <div class="preview-name">${escapeHtml(prompt.name)}</div>
+                        ${previewPills.length ? `<div class="preview-pill-row">${previewPills.join("")}</div>` : ""}
+                        ${prompt.prompt_text ? `<div class="preview-text">${escapeHtml(prompt.prompt_text)}</div>` : ""}
+                    </div>
+                `;
+}
+
+export function getFloatingPreviewPosition({ event, previewRect, anchorRect = null, viewportWidth, viewportHeight, gap = 12, margin = 10 }) {
+    let x = event.clientX + gap;
+    let y = event.clientY + gap;
+
+    if (anchorRect) {
+        x = anchorRect.right + gap;
+        y = anchorRect.top;
+        if (y + previewRect.height > viewportHeight - margin) {
+            y = Math.max(margin, viewportHeight - previewRect.height - margin);
+        }
+    }
+    if (x + previewRect.width > viewportWidth - margin) {
+        x = viewportWidth - previewRect.width - margin;
+    }
+    if (y + previewRect.height > viewportHeight - margin) {
+        y = viewportHeight - previewRect.height - margin;
+    }
+    if (x < margin) {
+        x = margin;
+    }
+    if (y < margin) {
+        y = margin;
+    }
+    return { x, y };
 }
 
 export function buildLastOutputPreviewUrl(lastOutput) {
