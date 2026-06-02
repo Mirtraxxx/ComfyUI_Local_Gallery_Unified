@@ -1,6 +1,15 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
 const UnifiedGalleryTabs = {
     setup(nodeType) {
         const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -660,12 +669,12 @@ const UnifiedLoraGalleryNode = {
                         const mediaContainer = card.querySelector('.locallora-media-container');
                         if (mediaContainer) {
                             if (preview_type === 'video' && preview_url) {
-                                mediaContainer.innerHTML = `<video muted loop playsinline src="${preview_url}"></video>`;
+                                mediaContainer.innerHTML = `<video muted loop playsinline src="${escapeHtml(preview_url)}"></video>`;
                                 const video = mediaContainer.querySelector('video');
                                 card.addEventListener('mouseenter', () => video.play().catch(e => {}));
                                 card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
                             } else if (preview_type === 'image' && preview_url) {
-                                mediaContainer.innerHTML = `<img src="${preview_url}">`;
+                                mediaContainer.innerHTML = `<img src="${escapeHtml(preview_url)}">`;
                             } else {
                                 const empty_lora_image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                                 mediaContainer.innerHTML = `<img src="${empty_lora_image}">`;
@@ -930,8 +939,8 @@ const UnifiedLoraGalleryNode = {
                         ${linkBtnHTML}
                         <div class="locallora-media-container">${mediaHTML}</div>
                         <div class="locallora-lora-card-info">
-                            <p>${lora.name}</p>
-                            <div class="lora-card-triggers" title="${lora.trigger_words}">${lora.trigger_words || 'No triggers'}</div>
+                            <p>${escapeHtml(lora.name)}</p>
+                            <div class="lora-card-triggers" title="${escapeHtml(lora.trigger_words)}">${escapeHtml(lora.trigger_words || 'No triggers')}</div>
                             ${presetDropdownHTML}
                             <div class="lora-card-tags"></div>
                         </div>
@@ -4173,15 +4182,6 @@ const UnifiedPromptGalleryNode = {
                 }
             }
 
-            function escapeHtml(value) {
-                return String(value ?? '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
-            }
-
             function getLibraryTabLayoutMode() {
                 return node_instance.uiPrefs?.library_tab_layout === 'wrap' ? 'wrap' : 'scroll';
             }
@@ -4587,7 +4587,7 @@ const UnifiedPromptGalleryNode = {
 
                     div.innerHTML = `
                         <button class="toggle-btn ${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</button>
-                        <span class="item-name" title="${item.name}">${item.name}</span>
+                        <span class="item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
                         <div class="item-controls">
                             <button class="weight-btn" data-action="weight-down">-</button>
                             <span class="weight-val">${weight.toFixed(1)}</span>

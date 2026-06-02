@@ -21,6 +21,10 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Defines the unified frontend UI.
   - Embeds prompt gallery UI and LoRA gallery UI into the same node.
   - Adds Prompt/LoRA tabs and hidden serialized widgets.
+- `MAINTAINABILITY_AUDIT.md`
+  - Reviews future-build risks and likely spaghetti points.
+- `REFACTOR_ROADMAP.md`
+  - Lists a staged cleanup path that preserves the working baseline.
 
 ## Backend Node Contract
 
