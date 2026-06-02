@@ -28,19 +28,20 @@ Current file sizes:
 
 | File | Lines | Size |
 | --- | ---: | ---: |
-| `Local_Gallery_Unified.py` | 119 | 3,784 bytes |
+| `Local_Gallery_Unified.py` | 145 | 4,732 bytes |
 | `__init__.py` | 9 | 276 bytes |
-| `AI_NODE_OVERVIEW.md` | 249 | 9,966 bytes |
+| `AI_NODE_OVERVIEW.md` | 267 | 11,082 bytes |
 | `js/Local_Gallery_Unified.js` | 19 | 575 bytes |
-| `js/prompt/ui.js` | 5,733 | 304,871 bytes |
+| `js/prompt/ui.js` | 5,733 | 304,908 bytes |
 | `js/prompt/constants.js` | 28 | 882 bytes |
 | `js/prompt/helpers.js` | 142 | 4,655 bytes |
-| `js/lora/ui.js` | 1,794 | 110,407 bytes |
+| `js/lora/ui.js` | 1,838 | 112,966 bytes |
+| `js/lora/helpers.js` | 14 | 541 bytes |
 | `js/tabs.js` | 53 | 3,030 bytes |
 | `js/api/loraApi.js` | 77 | 2,718 bytes |
 | `js/api/promptApi.js` | 249 | 8,900 bytes |
 | `js/shared/dom.js` | 8 | 239 bytes |
-| `js/shared/json.js` | 19 | 400 bytes |
+| `js/shared/json.js` | 34 | 860 bytes |
 | `js/shared/widgets.js` | 27 | 981 bytes |
 
 Important pattern counts across the frontend modules:

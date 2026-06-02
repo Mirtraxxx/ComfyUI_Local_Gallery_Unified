@@ -28,6 +28,8 @@ The unified node is exposed as `LocalGalleryPromptLora` with display name **Loca
   - Holds pure prompt UI helpers for prompt text extraction/normalization, color conversion, palette matching, thumbnail sizing, and output preview URLs.
 - `js/lora/ui.js`
   - Contains the LoRA Gallery UI setup and rendering logic.
+- `js/lora/helpers.js`
+  - Holds pure LoRA UI helpers such as selected-LoRA reorder logic.
 - `js/tabs.js`
   - Defines the Prompt/LoRA tab switcher setup.
 - `js/api/loraApi.js`

@@ -2,6 +2,7 @@ import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import { collapseWidget } from "../shared/widgets.js";
+import { moveSelectedLora } from "./helpers.js";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -398,15 +399,6 @@ const UnifiedLoraGalleryNode = {
             };
             
             let draggedIndex = -1;
-            const moveSelectedLora = (fromIndex, targetIndex, insertAfter) => {
-                if (fromIndex < 0 || fromIndex === targetIndex) return false;
-
-                const [movedItem] = this.loraData.splice(fromIndex, 1);
-                let insertIndex = targetIndex + (insertAfter ? 1 : 0);
-                if (fromIndex < targetIndex) insertIndex -= 1;
-                this.loraData.splice(Math.max(0, insertIndex), 0, movedItem);
-                return true;
-            };
 
             const renderSelectedList = () => {
                 selectedListEl.innerHTML = "";
@@ -526,7 +518,7 @@ const UnifiedLoraGalleryNode = {
                         if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const insertAfter = e.clientY > rect.top + rect.height / 2;
-                            if (moveSelectedLora(draggedIndex, targetIndex, insertAfter)) {
+                            if (moveSelectedLora(this.loraData, draggedIndex, targetIndex, insertAfter)) {
                                 updateSelection();
                                 renderSelectedList();
                                 renderCompact();
@@ -1203,7 +1195,7 @@ const UnifiedLoraGalleryNode = {
                         if (draggedIndex >= 0 && draggedIndex !== targetIndex) {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const insertAfter = e.clientY > rect.top + rect.height / 2;
-                            if (moveSelectedLora(draggedIndex, targetIndex, insertAfter)) {
+                            if (moveSelectedLora(this.loraData, draggedIndex, targetIndex, insertAfter)) {
                                 renderSelectedList();
                                 renderCompact();
                                 updateSelection();
