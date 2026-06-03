@@ -46,6 +46,7 @@ import {
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
 } from "./previews.js";
+import { renderActiveSidebar as renderPromptActiveSidebar } from "./activeSidebar.js";
 import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
@@ -2477,130 +2478,24 @@ const UnifiedPromptGalleryNode = {
             let activeLibraryTab = null;
 
             async function renderActiveSidebar() {
-                const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
-                const container = widgetContainer.querySelector(`#${uniqueId}-active-chips`);
-                if (!sidebar || !container) return;
-
-                const scrollHost = container.closest('.localprompt-active-sidebar-content') || container;
-                const previousScrollTop = scrollHost.scrollTop;
-                applyActiveSidebarPreference();
-                if (!isActiveSidebarOpen()) {
-                    container.innerHTML = '';
-                    return;
-                }
-
-                hideHoverPreview();
-                container.ondragover = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                };
-                container.ondrop = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                };
-
-                const prompts = await getActivePromptModels();
-                const nextContent = document.createDocumentFragment();
-
-                if (prompts.length === 0) {
-                    const emptyState = document.createElement('div');
-                    emptyState.className = 'localprompt-empty-state';
-                    emptyState.textContent = 'No active prompts selected.';
-                    container.replaceChildren(emptyState);
-                    requestAnimationFrame(() => {
-                        scrollHost.scrollTop = previousScrollTop;
-                    });
-                    return;
-                }
-
-                const displayMode = node_instance.uiPrefs.display_mode || 'text';
-                let draggedSelectedPromptId = null;
-
-                prompts.forEach(prompt => {
-                    const selectedEntry = getSelectedPromptEntry(prompt.id);
-                    if (!selectedEntry) return;
-
-                    const promptId = String(prompt.id);
-                    let chip;
-                    const roleColor = getCategoryRoleColor(prompt);
-
-                    if (displayMode === 'thumbnails' && prompt.preview_url) {
-                        chip = document.createElement('div');
-                        chip.className = 'localprompt-chip-thumb selected pinned-managed';
-                        chip.innerHTML = `
-                            <button class="localprompt-info-btn" title="View Info">!</button>
-                            <div class="managed-thumb-media">
-                                <img src="${prompt.preview_url}" alt="${prompt.name}">
-                                <span class="thumb-label">${prompt.name}</span>
-                            </div>
-                            ${createPinnedManagedControlsHtml(selectedEntry)}
-                        `;
-                        const chipImage = chip.querySelector('img');
-                        if (chipImage) chipImage.draggable = false;
-                    } else {
-                        chip = document.createElement('div');
-                        chip.className = 'localprompt-chip selected pinned-managed';
-                        chip.innerHTML = `
-                            <button class="localprompt-info-btn" title="View Info">!</button>
-                            <div class="managed-card-name" title="${prompt.name}">${prompt.name}</div>
-                            ${createManagedTextControlsHtml(selectedEntry)}
-                        `;
-                    }
-
-                    chip.draggable = true;
-                    chip.dataset.promptId = promptId;
-                    applyCategoryRoleStyling(chip, prompt, { soften: true });
-                    bindPinnedManagedControls(chip, prompt);
-
-                    chip.addEventListener('dragstart', (e) => {
-                        draggedSelectedPromptId = promptId;
-                        chip.classList.add('pinned-dragging');
-                        if (e.dataTransfer) {
-                            e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('application/x-localpromptgallery-selected', promptId);
-                        }
-                    });
-                    chip.addEventListener('dragover', (e) => {
-                        if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        chip.classList.add('pinned-drop-target');
-                    });
-                    chip.addEventListener('dragleave', () => {
-                        chip.classList.remove('pinned-drop-target');
-                    });
-                    chip.addEventListener('drop', (e) => {
-                        if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        chip.classList.remove('pinned-drop-target');
-                        const currentOrder = [...node_instance.promptData];
-                        const fromIndex = currentOrder.findIndex(item => String(item.prompt_id) === draggedSelectedPromptId);
-                        const toIndex = currentOrder.findIndex(item => String(item.prompt_id) === promptId);
-                        if (fromIndex < 0 || toIndex < 0) return;
-                        const [movedItem] = currentOrder.splice(fromIndex, 1);
-                        currentOrder.splice(toIndex, 0, movedItem);
-                        node_instance.promptData = currentOrder;
-                        saveSelectionData();
-                        renderPrompts();
-                        if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
-                    });
-                    chip.addEventListener('dragend', () => {
-                        chip.classList.remove('pinned-dragging', 'pinned-drop-target');
-                        draggedSelectedPromptId = null;
-                    });
-                    chip.addEventListener('click', (e) => {
-                        if (e.target.closest('[data-managed-action]')) return;
-                        addPromptToSelection(prompt);
-                    });
-                    attachInfoPopup(chip, prompt);
-                    attachContextMenu(chip, prompt);
-                    nextContent.appendChild(chip);
-                });
-                container.replaceChildren(nextContent);
-                requestAnimationFrame(() => {
-                    scrollHost.scrollTop = previousScrollTop;
+                await renderPromptActiveSidebar({
+                    widgetContainer,
+                    uniqueId,
+                    nodeInstance: node_instance,
+                    applyActiveSidebarPreference,
+                    isActiveSidebarOpen,
+                    hideHoverPreview,
+                    getActivePromptModels,
+                    getSelectedPromptEntry,
+                    applyCategoryRoleStyling,
+                    bindPinnedManagedControls,
+                    saveSelectionData,
+                    renderPrompts,
+                    getActiveLibraryTab: () => activeLibraryTab,
+                    renderLibraryDrawer,
+                    addPromptToSelection,
+                    attachInfoPopup,
+                    attachContextMenu,
                 });
             }
 
