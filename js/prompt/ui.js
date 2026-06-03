@@ -46,7 +46,11 @@ import {
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
 } from "./previews.js";
-import { renderGallery as renderPromptGallery } from "./gallery.js";
+import {
+    loadCategories as loadPromptGalleryCategories,
+    promptMatchesCurrentGallery as promptMatchesPromptGallery,
+    renderGallery as renderPromptGallery,
+} from "./gallery.js";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js";
 import { showWildcardsModal } from "./wildcards.js";
@@ -3224,23 +3228,11 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function loadCategories() {
-                const categories = await UnifiedPromptGalleryNode.getCategories();
-                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
-                if (!categorySelect) return;
-
-                const currentValue = categorySelect.value;
-                categorySelect.innerHTML = '<option value="">All Categories</option>';
-
-                categories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    categorySelect.appendChild(option);
+                await loadPromptGalleryCategories({
+                    widgetContainer,
+                    uniqueId,
+                    galleryNode: UnifiedPromptGalleryNode,
                 });
-
-                if (currentValue && categories.includes(currentValue)) {
-                    categorySelect.value = currentValue;
-                }
             }
 
             async function loadPromptsForGallery(page = 1) {
@@ -3269,34 +3261,12 @@ const UnifiedPromptGalleryNode = {
             }
 
             function promptMatchesCurrentGallery(prompt) {
-                const filterInput = widgetContainer.querySelector(`#${uniqueId}-filter-input`);
-                const modeSelect = widgetContainer.querySelector(`#${uniqueId}-filter-mode`);
-                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
-
-                if (node_instance.showFavoritesOnly && !prompt.favorite) {
-                    return false;
-                }
-
-                const selectedCategory = categorySelect ? categorySelect.value : "";
-                if (selectedCategory && prompt.category !== selectedCategory) {
-                    return false;
-                }
-
-                const filterName = filterInput ? filterInput.value.trim().toLowerCase() : "";
-                if (!filterName) {
-                    return true;
-                }
-
-                const haystack = `${prompt.name || ""} ${prompt.prompt_text || ""}`.toLowerCase();
-                const terms = filterName.split(/\s+/).filter(Boolean);
-                if (!terms.length) {
-                    return true;
-                }
-
-                const mode = modeSelect ? modeSelect.value : "OR";
-                return mode === "AND"
-                    ? terms.every(term => haystack.includes(term))
-                    : terms.some(term => haystack.includes(term));
+                return promptMatchesPromptGallery({
+                    prompt,
+                    widgetContainer,
+                    uniqueId,
+                    nodeInstance: node_instance,
+                });
             }
 
             function insertPromptIntoCurrentGallery(prompt) {

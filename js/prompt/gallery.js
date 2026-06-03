@@ -1,5 +1,65 @@
 import { buildPromptPreviewMediaHtml } from "./helpers.js";
 
+export async function loadCategories({
+    widgetContainer,
+    uniqueId,
+    galleryNode,
+}) {
+    const categories = await galleryNode.getCategories();
+    const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+    if (!categorySelect) return;
+
+    const currentValue = categorySelect.value;
+    categorySelect.innerHTML = '<option value="">All Categories</option>';
+
+    categories.forEach(category => {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        categorySelect.appendChild(option);
+    });
+
+    if (currentValue && categories.includes(currentValue)) {
+        categorySelect.value = currentValue;
+    }
+}
+
+export function promptMatchesCurrentGallery({
+    prompt,
+    widgetContainer,
+    uniqueId,
+    nodeInstance,
+}) {
+    const filterInput = widgetContainer.querySelector(`#${uniqueId}-filter-input`);
+    const modeSelect = widgetContainer.querySelector(`#${uniqueId}-filter-mode`);
+    const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+
+    if (nodeInstance.showFavoritesOnly && !prompt.favorite) {
+        return false;
+    }
+
+    const selectedCategory = categorySelect ? categorySelect.value : "";
+    if (selectedCategory && prompt.category !== selectedCategory) {
+        return false;
+    }
+
+    const filterName = filterInput ? filterInput.value.trim().toLowerCase() : "";
+    if (!filterName) {
+        return true;
+    }
+
+    const haystack = `${prompt.name || ""} ${prompt.prompt_text || ""}`.toLowerCase();
+    const terms = filterName.split(/\s+/).filter(Boolean);
+    if (!terms.length) {
+        return true;
+    }
+
+    const mode = modeSelect ? modeSelect.value : "OR";
+    return mode === "AND"
+        ? terms.every(term => haystack.includes(term))
+        : terms.some(term => haystack.includes(term));
+}
+
 export function renderGallery({
     uniqueId,
     nodeInstance,
