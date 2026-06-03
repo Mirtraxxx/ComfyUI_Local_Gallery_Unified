@@ -2,50 +2,80 @@
 
 ## Purpose
 
-This custom node combines two existing ComfyUI gallery nodes into one workflow node:
+This custom node combines the legacy local prompt and LoRA galleries into one ComfyUI workflow node:
 
-- `LocalPromptGallery`: prompt library, prompt selection, wildcard/category prompt generation.
-- `LocalLoraGallery`: LoRA browser, LoRA selection, strength settings, trigger words, and LoRA application.
+- `LocalPromptGallery`: prompt library, prompt selection, wildcard/category prompt generation, prompt metadata, prompt thumbnails, presets, and prompt UI preferences.
+- `LocalLoraGallery`: LoRA browser, LoRA selection, strength settings, trigger words, metadata editing, Civitai sync, presets, and LoRA application.
 
 The unified node is exposed as `LocalGalleryPromptLora` with display name **Local Gallery: Prompt + LoRA** in the **Asset Gallery** category.
 
-## Files
+This project is still a unification wrapper. It depends on the legacy Python node classes and legacy HTTP routes for the actual prompt and LoRA gallery data.
+
+## Main Files
 
 - `__init__.py`
-  - Registers the Python node mappings.
-  - Exposes `WEB_DIRECTORY = "./js"` so ComfyUI loads the frontend extension.
+  - Registers `LocalGalleryPromptLora`.
+  - Exposes `WEB_DIRECTORY = "./js"` so ComfyUI loads the frontend.
 - `Local_Gallery_Unified.py`
   - Defines the backend ComfyUI node.
-  - Delegates actual prompt and LoRA processing to the legacy nodes.
+  - Delegates LoRA loading to `LocalLoraGallery`.
+  - Delegates prompt generation to `LocalPromptGallery`.
+  - Caches unchanged LoRA outputs so prompt-only reruns do not reapply the same LoRA stack.
 - `js/Local_Gallery_Unified.js`
-  - Acts as the main frontend entrypoint.
-  - Registers tabs, LoRA UI, and Prompt UI in order.
-- `js/prompt/ui.js`
-  - Contains the Prompt Gallery UI setup and rendering logic.
-- `js/prompt/constants.js`
-  - Holds prompt UI constants such as page size, favorite colors, category palette, and thumbnail bounds.
-- `js/prompt/helpers.js`
-  - Holds pure prompt UI helpers for prompt text extraction/normalization, color conversion, palette matching, thumbnail/sidebar sizing, category role colors, pinned ordering, library tab filtering, managed prompt controls, prompt previews, and output preview URLs.
-- `js/lora/ui.js`
-  - Contains the LoRA Gallery UI setup and rendering logic.
-- `js/lora/helpers.js`
-  - Holds pure LoRA UI helpers such as selected-LoRA reorder logic.
+  - Main frontend entrypoint.
+  - Registers tab setup, LoRA UI, and Prompt UI.
 - `js/tabs.js`
-  - Defines the Prompt/LoRA tab switcher setup.
-- `js/api/loraApi.js`
-  - Centralizes calls to legacy `/localloragallery/*` routes.
+  - Adds the Prompt/LoRA tab switcher and stores the selected tab in `active_tab`.
+
+## Prompt Frontend Modules
+
+- `js/prompt/ui.js`
+  - Main prompt UI registration and orchestration.
+  - Owns node/widget setup, hidden widget binding, prompt selection state, wildcard controls, prompt source selection, pagination wiring, and callbacks passed to extracted modules.
+- `js/prompt/constants.js`
+  - Prompt UI constants such as page size, favorite colors, category palette, thumbnail bounds, and defaults.
+- `js/prompt/helpers.js`
+  - Pure prompt helpers for text extraction/normalization, color conversion, thumbnail sizing, active sidebar sizing math, pinned ordering, managed prompt control HTML, prompt preview HTML, and output preview URLs.
+- `js/prompt/dialogs.js`
+  - Add prompt, edit prompt, upload thumbnail, import wildcard file, and create-from-last-output dialogs.
+- `js/prompt/contextMenus.js`
+  - Prompt card/context action menus.
+- `js/prompt/previews.js`
+  - Hover/info preview show/hide helpers.
+- `js/prompt/gallery.js`
+  - Main prompt gallery card renderer and simple category/filter helpers.
+- `js/prompt/library.js`
+  - Prompt library tab bar, drawer data loading, and drawer renderer.
+- `js/prompt/activeSidebar.js`
+  - Active prompt sidebar renderer, open-state styling, width preference handling, and resize drag handling.
+- `js/prompt/browse.js`
+  - Browse modal.
+- `js/prompt/presets.js`
+  - Prompt preset modal.
+- `js/prompt/settings.js`
+  - Prompt settings modal.
+- `js/prompt/wildcards.js`
+  - Wildcard category selection modal.
+
+## LoRA Frontend Modules
+
+- `js/lora/ui.js`
+  - Main LoRA UI registration, rendering, filtering, metadata editing, Civitai sync UI, presets, and selected LoRA workflow state.
+- `js/lora/helpers.js`
+  - Focused LoRA helpers, currently including selected-LoRA reorder logic.
+
+## Shared Frontend Modules
+
 - `js/api/promptApi.js`
   - Centralizes calls to legacy `/localpromptgallery/*` routes.
+- `js/api/loraApi.js`
+  - Centralizes calls to legacy `/localloragallery/*` routes.
 - `js/shared/dom.js`
-  - Holds shared frontend DOM helpers such as safe HTML escaping.
+  - Shared DOM utilities such as HTML escaping.
 - `js/shared/json.js`
-  - Holds safe JSON parse/stringify helpers for hidden workflow state.
+  - Safe JSON parse/stringify helpers for hidden widget state.
 - `js/shared/widgets.js`
-  - Holds shared ComfyUI widget visibility/collapse helpers.
-- `MAINTAINABILITY_AUDIT.md`
-  - Reviews future-build risks and likely spaghetti points.
-- `REFACTOR_ROADMAP.md`
-  - Lists a staged cleanup path that preserves the working baseline.
+  - ComfyUI widget hide/collapse helpers.
 
 ## Backend Node Contract
 
@@ -74,26 +104,26 @@ Outputs:
 
 ## Runtime Dependencies
 
-This node requires the legacy nodes to already be enabled in ComfyUI:
+This node requires both legacy nodes to be enabled in ComfyUI:
 
 - `LocalLoraGallery`
 - `LocalPromptGallery`
 
-The Python backend looks these up from `nodes.NODE_CLASS_MAPPINGS`. If either mapping is missing, execution raises a runtime error explaining which legacy gallery is required.
+The backend looks them up from `nodes.NODE_CLASS_MAPPINGS`. If either class is missing, execution raises a runtime error explaining which legacy gallery is required.
 
 ## Backend Data Flow
 
 1. The frontend stores LoRA choices in `lora_selection_data`.
 2. The frontend stores prompt choices in `prompt_selection_data`.
-3. On execution, `LocalGalleryPromptLora.process()` resolves the legacy node classes.
+3. `LocalGalleryPromptLora.process()` resolves the legacy node classes.
 4. LoRA processing runs first:
-   - Reuses a cached LoRA stack when the base `model`, base `clip`, and legacy LoRA change signature are unchanged.
+   - Builds a cache key from `id(model)`, `id(clip)`, and the legacy LoRA change signature.
+   - Reuses cached LoRA outputs when the LoRA stack is unchanged.
    - Otherwise calls `LocalLoraGallery.load_loras(model, clip, "unified-gallery", lora_selection_data)`.
-   - Receives updated `model`, updated `clip`, and LoRA trigger words.
 5. Prompt processing runs second:
    - Calls `LocalPromptGallery.process(seed, selection_data, wildcard_categories, wildcard_mode)`.
    - Extracts the first prompt result as `combined_prompt`.
-6. Returns updated model/clip plus both text outputs.
+6. Returns updated model/clip, LoRA trigger words, and combined prompt text.
 
 ## Change Detection
 
@@ -105,77 +135,62 @@ The Python backend looks these up from `nodes.NODE_CLASS_MAPPINGS`. If either ma
 - wildcard mode
 - seed
 
-This causes ComfyUI to re-run the node when selected assets, wildcard state, or seed changes.
+`active_tab` is accepted by the backend contract but is not included in the change signature because switching the visible tab should not rerun generation.
 
-Because prompt seed/wildcard changes can re-run the merged node even when LoRAs are unchanged, the Python wrapper keeps a small LoRA-output cache. The cache key is `(id(model), id(clip), legacy_lora_signature)`, so prompt-only reruns can refresh `combined_prompt` without reapplying the same LoRA stack.
+Prompt seed/wildcard changes can rerun the unified node even when the selected LoRAs are unchanged. The LoRA cache prevents prompt-only reruns from reapplying the same LoRA stack.
 
-## Frontend Architecture
+## Frontend Registration
 
-`js/Local_Gallery_Unified.js` registers three ComfyUI extensions against `LocalGalleryPromptLora`:
+`js/Local_Gallery_Unified.js` registers:
 
 - `LocalGalleryPromptLora.Tabs`
-  - Adds a two-tab switcher: **Prompt Gallery** and **LoRA Gallery**.
+  - Adds the Prompt Gallery / LoRA Gallery tab switcher.
   - Stores selected tab in hidden `active_tab`.
   - Shows one gallery DOM widget while hiding the other.
-- `LocalGalleryPromptLora.LoraUI`
-  - Ports/adapts the legacy LoRA gallery UI into the unified node.
+- `registerLoraGalleryUi(app)`
+  - Registers `LocalGalleryPromptLora.LoraUI`.
   - Adds hidden `lora_selection_data`.
-  - Adds a per-node `lora_gallery_unique_id`.
-- `LocalGalleryPromptLora.PromptUI`
-  - Ports/adapts the legacy prompt gallery UI into the unified node.
+  - Adds a per-node LoRA gallery id.
+- `registerPromptGalleryUi(app, api)`
+  - Registers `LocalGalleryPromptLora.PromptUI`.
   - Adds hidden `prompt_selection_data`, `wildcard_mode`, and `wildcard_categories`.
-  - Adds a per-node `prompt_gallery_unique_id`.
-  - Tracks the last generated image/video from ComfyUI execution events for thumbnail/prompt creation features.
+  - Adds a per-node prompt gallery id.
+  - Tracks the last generated image/video from ComfyUI execution events for thumbnail and prompt creation features.
 
 ## LoRA UI Capabilities
 
-The LoRA gallery side supports:
+The LoRA side supports:
 
 - Searching/filtering LoRAs by tag and folder.
 - OR/AND tag filter modes.
-- Pagination and large-list compact chooser.
+- Pagination and compact chooser flows.
 - Card view and compact row view.
 - Selecting multiple LoRAs into the workflow.
-- Reordering selected LoRAs.
+- Drag reordering selected LoRAs.
 - Enabling/disabling selected LoRAs.
-- Editing model strength and clip strength.
+- Editing model and CLIP strengths.
 - Model-only mode awareness from node name checks.
 - Trigger words display/editing.
-- Metadata editing:
-  - tags
-  - trigger words
-  - trigger presets
-  - download URL
+- Metadata editing for tags, trigger words, trigger presets, and download URL.
 - Civitai metadata sync.
 - Presets for LoRA selection stacks.
-- Per-node UI state persistence via legacy LoRA gallery endpoints.
-
-Primary backend endpoints expected from the legacy LoRA node:
-
-- `GET /localloragallery/get_loras`
-- `GET /localloragallery/get_all_tags`
-- `GET /localloragallery/get_presets`
-- `GET /localloragallery/get_ui_state`
-- `POST /localloragallery/set_ui_state`
-- `POST /localloragallery/update_metadata`
-- `POST /localloragallery/sync_civitai`
-- `POST /localloragallery/save_preset`
-- `POST /localloragallery/delete_preset`
+- Per-node UI state persistence through legacy LoRA gallery endpoints.
 
 ## Prompt UI Capabilities
 
-The prompt gallery side supports:
+The prompt side supports:
 
 - Prompt search/filtering.
 - Category filtering.
-- Active selected prompt list.
+- Main gallery card rendering.
+- Active selected prompt list and active sidebar.
 - Prompt library tabs:
-  - active
   - most used
   - pinned/favorites
   - custom categories
-- Category tab ordering and custom colors.
+- Category tab ordering and category colors.
 - Prompt selection ordering.
+- Per-selection enable/disable and weight controls.
 - Prompt editing and metadata updates.
 - Prompt creation.
 - Prompt creation from the last generated output.
@@ -183,6 +198,7 @@ The prompt gallery side supports:
 - Prompt deletion and bulk deletion.
 - Category rename/delete.
 - Favorite/pinned prompt handling.
+- Pinned prompt ordering.
 - Most-used prompt tracking.
 - Presets containing selected prompts plus wildcard settings.
 - Prompt source node selection from compatible text/show-text nodes.
@@ -195,7 +211,9 @@ Wildcard support:
 - `wildcard_categories` stores selected categories and weights.
 - Wildcard files can be uploaded/imported through the prompt UI.
 
-Primary backend endpoints expected from the legacy prompt node:
+## Primary Legacy Prompt Routes
+
+Expected from the legacy prompt node:
 
 - `GET /localpromptgallery/get_prompts`
 - `GET /localpromptgallery/get_prompt`
@@ -224,6 +242,20 @@ Primary backend endpoints expected from the legacy prompt node:
 - `POST /localpromptgallery/reset_usage_count`
 - `POST /localpromptgallery/assign_thumbnail`
 
+## Primary Legacy LoRA Routes
+
+Expected from the legacy LoRA node:
+
+- `GET /localloragallery/get_loras`
+- `GET /localloragallery/get_all_tags`
+- `GET /localloragallery/get_presets`
+- `GET /localloragallery/get_ui_state`
+- `POST /localloragallery/set_ui_state`
+- `POST /localloragallery/update_metadata`
+- `POST /localloragallery/sync_civitai`
+- `POST /localloragallery/save_preset`
+- `POST /localloragallery/delete_preset`
+
 ## Serialized State
 
 Important graph/prompt state is stored as ComfyUI node properties and hidden widgets:
@@ -241,21 +273,11 @@ Important graph/prompt state is stored as ComfyUI node properties and hidden wid
 - `wildcard_categories`
   - Serialized category selection data, including weights when enabled.
 - `active_tab`
-  - Frontend-only convenience state for restoring Prompt/LoRA tab visibility.
+  - Frontend convenience state for restoring Prompt/LoRA tab visibility.
 - `prompt_gallery_unique_id` and `lora_gallery_unique_id`
   - Per-node identifiers for persisted UI state.
 
-## Important Design Detail
-
-This is a unification wrapper, not a full standalone replacement for the legacy galleries.
-
-The unified node depends on:
-
-- legacy Python node classes for execution
-- legacy HTTP routes for gallery data and metadata
-- copied/adapted frontend logic for both gallery UIs
-
-Any future AI or maintainer should avoid changing the serialized JSON shapes casually, because those shapes are consumed by the legacy `load_loras()` and `process()` methods.
+Avoid changing these JSON shapes casually. The legacy Python nodes and existing saved workflows depend on them.
 
 ## Maintenance Notes
 
@@ -263,5 +285,7 @@ Any future AI or maintainer should avoid changing the serialized JSON shapes cas
 - If the UI loads but gallery data is empty, inspect the legacy `/localloragallery/*` and `/localpromptgallery/*` routes.
 - If workflows reload with missing selections, inspect hidden widget serialization for `lora_selection_data` and `prompt_selection_data`.
 - If prompt output does not update, check `IS_CHANGED()` inputs, especially seed, wildcard settings, and prompt selection JSON.
-- If LoRA output does not update, check whether legacy `LocalLoraGallery.IS_CHANGED()` is returning a stable signature for changed selection data.
-- The JavaScript file is large because it contains both adapted gallery frontends. Refactoring should preserve extension registration order and widget names.
+- If LoRA output does not update, check whether legacy `LocalLoraGallery.IS_CHANGED()` is returning a changed signature for changed LoRA selection data.
+- If prompt-only generations are slow, verify the LoRA cache key is stable for unchanged base model, CLIP, and LoRA selection data.
+- After frontend refactors, smoke test workflow load, Prompt/LoRA tab switching, LoRA selected-list reorder, prompt library tabs, pinned drawer reorder, selected prompt reorder, active sidebar open/resize, context menus, and prompt creation from last output.
+- Keep extension registration order simple: tabs setup first, then LoRA UI, then Prompt UI.
