@@ -42,6 +42,10 @@ import {
     showImportDialog as openImportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
 } from "./dialogs.js";
+import {
+    showPromptActionContextMenu as openPromptActionContextMenu,
+    showPromptContextMenu as openPromptContextMenu,
+} from "./contextMenus.js";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js";
 import { showWildcardsModal } from "./wildcards.js";
@@ -3128,132 +3132,58 @@ const UnifiedPromptGalleryNode = {
 
             // Context menu function (global)
             function showContextMenu(prompt, x, y, customRefresh = null) {
-                const promptId = prompt?.id ?? prompt?.prompt_id;
-                if (!promptId) {
-                    alert('This prompt has no saved prompt id, so it cannot be edited.');
-                    return;
-                }
-                prompt = { ...prompt, id: promptId };
-
-                // Remove any existing context menu
-                const existingMenu = document.querySelector('.localprompt-context-menu');
-                if (existingMenu) existingMenu.remove();
-                const existingSub = document.querySelector('.localprompt-submenu');
-                if (existingSub) existingSub.remove();
-
-                const menu = document.createElement('div');
-                menu.className = 'localprompt-context-menu';
-                menu.style.cssText = `
-                    position: fixed;
-                    left: ${x}px;
-                    top: ${y}px;
-                    background: #2a2a2a;
-                    border: 1px solid #555;
-                    border-radius: 6px;
-                    padding: 4px 0;
-                    z-index: 25001;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-                    min-width: 150px;
-                `;
-
-                const menuItems = [
-                    { label: 'Edit Prompt', action: 'edit' },
-                    { label: 'Upload Thumbnail', action: 'thumbnail' },
-                    {
-                        label: 'Use Last Result as Thumbnail',
-                        action: 'use_last_output',
-                        disabled: !UnifiedPromptGalleryNode.lastOutput
-                    },
-                    { label: 'Toggle Favorite', action: 'favorite' },
-                    { label: 'Reset Usage Count', action: 'reset_usage' },
-                    { label: 'Delete Prompt', action: 'delete' },
-                ];
-
-                menuItems.forEach(({ label, action }, index) => {
-                    const item = document.createElement('div');
-                    item.textContent = label;
-                    item.style.cssText = `
-                        padding: 8px 16px;
-                        cursor: ${menuItems[index].disabled ? 'default' : 'pointer'};
-                        font-size: 12px;
-                        color: ${menuItems[index].disabled ? '#555' : '#ddd'};
-                    `;
-                    item.addEventListener('mouseenter', () => {
-                        if (!menuItems[index].disabled) {
-                            item.style.background = '#3a3a3a';
-                        }
-                    });
-                    item.addEventListener('mouseleave', () => item.style.background = 'transparent');
-                    item.addEventListener('click', async () => {
-                        if (menuItems[index].disabled) return;
-                        menu.remove();
-                        if (action === 'edit') {
+                const refresh = customRefresh || refreshAllSections;
+                openPromptActionContextMenu({
+                    prompt,
+                    x,
+                    y,
+                    hasLastOutput: !!UnifiedPromptGalleryNode.lastOutput,
+                    actions: {
+                        edit: async (selectedPrompt) => {
                             try {
-                                const editablePrompt = await ensurePromptExistsForEdit(prompt);
-                                showEditPromptDialog(editablePrompt, customRefresh || refreshAllSections);
+                                const editablePrompt = await ensurePromptExistsForEdit(selectedPrompt);
+                                showEditPromptDialog(editablePrompt, refresh);
                             } catch (e) {
                                 alert('Error preparing prompt for edit: ' + e.message);
                             }
-                        } else if (action === 'thumbnail') {
-                            showUploadThumbnailDialog(prompt, customRefresh || refreshAllSections);
-                        } else if (action === 'favorite') {
-                            const result = await UnifiedPromptGalleryNode.toggleFavorite(prompt.id);
+                        },
+                        thumbnail: async (selectedPrompt) => {
+                            showUploadThumbnailDialog(selectedPrompt, refresh);
+                        },
+                        favorite: async (selectedPrompt) => {
+                            const result = await UnifiedPromptGalleryNode.toggleFavorite(selectedPrompt.id);
                             if (result?.status === 'ok') {
-                                await syncPinnedOrderForFavorite(prompt.id, result.favorite);
+                                await syncPinnedOrderForFavorite(selectedPrompt.id, result.favorite);
                             }
-                            if (customRefresh) await customRefresh();
-                            else await refreshAllSections();
-                        } else if (action === 'reset_usage') {
-                            await UnifiedPromptGalleryNode.resetUsageCount(prompt.id);
-                            if (customRefresh) await customRefresh();
-                            else await refreshAllSections();
-                        } else if (action === 'use_last_output') {
+                            await refresh();
+                        },
+                        reset_usage: async (selectedPrompt) => {
+                            await UnifiedPromptGalleryNode.resetUsageCount(selectedPrompt.id);
+                            await refresh();
+                        },
+                        use_last_output: async (selectedPrompt) => {
                             if (UnifiedPromptGalleryNode.lastOutput) {
-                                const res = await UnifiedPromptGalleryNode.assignThumbnail(prompt.id, UnifiedPromptGalleryNode.lastOutput);
+                                const res = await UnifiedPromptGalleryNode.assignThumbnail(selectedPrompt.id, UnifiedPromptGalleryNode.lastOutput);
                                 if (res.status === 'ok') {
-                                    if (customRefresh) await customRefresh();
-                                    else await refreshAllSections();
+                                    await refresh();
                                 } else {
                                     alert('Error: ' + res.message);
                                 }
                             }
-                        } else if (action === 'delete') {
-                            if (confirm(`Delete prompt "${prompt.name}"?`)) {
-                                await UnifiedPromptGalleryNode.deletePrompt(prompt.id);
-                                const idx = node_instance.promptData.findIndex(p => p.prompt_id === prompt.id);
+                        },
+                        delete: async (selectedPrompt) => {
+                            if (confirm(`Delete prompt "${selectedPrompt.name}"?`)) {
+                                await UnifiedPromptGalleryNode.deletePrompt(selectedPrompt.id);
+                                const idx = node_instance.promptData.findIndex(p => p.prompt_id === selectedPrompt.id);
                                 if (idx >= 0) {
                                     node_instance.promptData.splice(idx, 1);
                                     saveSelectionData();
                                 }
-                                if (customRefresh) await customRefresh();
-                                else await refreshAllSections();
+                                await refresh();
                             }
-                        }
-                    });
-                    menu.appendChild(item);
+                        },
+                    },
                 });
-
-                document.body.appendChild(menu);
-
-                // Ensure menu stays within viewport
-                const menuRect = menu.getBoundingClientRect();
-                if (x + menuRect.width > window.innerWidth) {
-                    menu.style.left = `${window.innerWidth - menuRect.width - 10}px`;
-                }
-                if (y + menuRect.height > window.innerHeight) {
-                    menu.style.top = `${window.innerHeight - menuRect.height - 10}px`;
-                }
-
-                // Close menu on click outside
-                const closeMenu = (e) => {
-                    const sub = document.querySelector('.localprompt-submenu');
-                    if (!menu.contains(e.target) && (!sub || !sub.contains(e.target))) {
-                        menu.remove();
-                        if (sub) sub.remove();
-                        document.removeEventListener('click', closeMenu);
-                    }
-                };
-                setTimeout(() => document.addEventListener('click', closeMenu), 10);
             }
 
             // Legacy edit dialog kept for older flows; the active gallery edit dialog is defined below.
@@ -3654,58 +3584,13 @@ const UnifiedPromptGalleryNode = {
             }
 
             function showPromptContextMenu(event, prompt) {
-                const existingMenu = document.querySelector('.localprompt-context-menu');
-                if (existingMenu) existingMenu.remove();
-
-                const menu = document.createElement('div');
-                menu.className = 'localprompt-context-menu';
-                menu.style.cssText = `
-                    position: fixed;
-                    left: ${event.clientX}px;
-                    top: ${event.clientY}px;
-                    background: #2a2a2a;
-                    border: 1px solid #555;
-                    border-radius: 4px;
-                    padding: 4px 0;
-                    z-index: 10000;
-                    min-width: 150px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                `;
-
-                const options = [
-                    { label: 'Edit', action: () => showEditPromptDialog(prompt) },
-                    { label: 'Upload Thumbnail', action: () => showUploadThumbnailDialog(prompt) },
-                    { label: 'Delete', action: () => deletePromptWithConfirm(prompt) }
-                ];
-
-                options.forEach(opt => {
-                    const item = document.createElement('div');
-                    item.textContent = opt.label;
-                    item.style.cssText = `
-                        padding: 8px 16px;
-                        cursor: pointer;
-                        font-size: 12px;
-                        color: #ddd;
-                    `;
-                    item.addEventListener('mouseenter', () => item.style.background = '#3a3a3a');
-                    item.addEventListener('mouseleave', () => item.style.background = 'transparent');
-                    item.addEventListener('click', () => {
-                        opt.action();
-                        menu.remove();
-                    });
-                    menu.appendChild(item);
+                openPromptContextMenu({
+                    event,
+                    prompt,
+                    showEditPromptDialog,
+                    showUploadThumbnailDialog,
+                    deletePromptWithConfirm,
                 });
-
-                document.body.appendChild(menu);
-
-                const closeMenu = (e) => {
-                    if (!menu.contains(e.target)) {
-                        menu.remove();
-                        document.removeEventListener('click', closeMenu);
-                    }
-                };
-
-                setTimeout(() => document.addEventListener('click', closeMenu), 0);
             }
 
             async function showEditPromptDialog(prompt, onRefresh = null) {
