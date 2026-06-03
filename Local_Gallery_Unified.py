@@ -43,7 +43,6 @@ class LocalGalleryPromptLora:
         lora_signature = cls._get_lora_change_signature(lora_cls, lora_selection_data)
         cache_key = (id(model), id(clip), lora_signature)
         if cls._LORA_CACHE_KEY == cache_key and cls._LORA_CACHE_VALUE is not None:
-            print("LocalGalleryPromptLora: Reusing cached LoRA stack.")
             return cls._LORA_CACHE_VALUE
 
         lora_outputs = lora_cls().load_loras(
