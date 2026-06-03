@@ -19,6 +19,8 @@ The node is much safer than the original merged file:
 - The prompt context menu bodies now live in `js/prompt/contextMenus.js`.
 - The prompt hover/info preview helpers now live in `js/prompt/previews.js`.
 - The main prompt gallery renderer and simple gallery filter helpers now live in `js/prompt/gallery.js`.
+- The library tab bar, drawer data loading, and drawer renderer now live in `js/prompt/library.js`.
+- The active sidebar renderer, open-state styling, width preference, and resize handling now live in `js/prompt/activeSidebar.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - A baseline tag/commit exists for fallback.
 
@@ -32,14 +34,13 @@ This is still the largest risk.
 
 Current approximate size:
 
-- Around 3,575 lines.
-- Around 188 KB.
+- Around 3,120 lines.
+- Around 158 KB.
 
 It still contains many responsibilities:
 
 - Prompt gallery data loading and pagination wrappers.
-- Active sidebar rendering.
-- Library bar and library drawer logic.
+- Thin wrappers for extracted active sidebar and library renderers.
 - Context menu wrappers remain in `js/prompt/ui.js`, but menu bodies live in `js/prompt/contextMenus.js`.
 - Dialog wrappers remain in `js/prompt/ui.js`, but the modal bodies live in `js/prompt/dialogs.js`.
 - Wildcard toggle/seed controls.
@@ -50,10 +51,10 @@ It still contains many responsibilities:
 
 Recommended next steps:
 
-1. Extract modal/dialog helpers only after another smoke test.
-2. Split prompt library drawer logic into its own module.
+1. Smoke test the current prompt node in ComfyUI.
+2. Fix any behavior bugs found before extracting another large UI area.
 3. Continue splitting wildcard UI only if the remaining toggle/seed controls need changes.
-4. Extract small prompt gallery helpers before trying library drawer rendering again.
+4. Consider selected prompt list rendering as the next prompt-side extraction.
 5. Keep pure helpers in `js/prompt/helpers.js` when they do not need DOM or node state.
 
 Avoid doing all of this in one pass.
