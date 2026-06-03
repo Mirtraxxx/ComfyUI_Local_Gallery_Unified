@@ -18,6 +18,7 @@ The node is much safer than the original merged file:
 - The add/import/edit/upload/from-last-output prompt dialogs now live in `js/prompt/dialogs.js`.
 - The prompt context menu bodies now live in `js/prompt/contextMenus.js`.
 - The prompt hover/info preview helpers now live in `js/prompt/previews.js`.
+- The main prompt gallery renderer and simple gallery filter helpers now live in `js/prompt/gallery.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - A baseline tag/commit exists for fallback.
 
@@ -31,12 +32,12 @@ This is still the largest risk.
 
 Current approximate size:
 
-- Around 3,660 lines.
-- Around 193 KB.
+- Around 3,575 lines.
+- Around 188 KB.
 
 It still contains many responsibilities:
 
-- Prompt gallery rendering.
+- Prompt gallery data loading and pagination wrappers.
 - Active sidebar rendering.
 - Library bar and library drawer logic.
 - Context menu wrappers remain in `js/prompt/ui.js`, but menu bodies live in `js/prompt/contextMenus.js`.
