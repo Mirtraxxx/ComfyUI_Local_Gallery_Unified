@@ -421,10 +421,12 @@ const UnifiedLoraGalleryNode = {
                     draggedIndex = parseInt(row.dataset.index);
                     row.classList.add("dragging");
                     document.body.style.userSelect = "none";
+                    const pointerId = event.pointerId;
                     handle.setPointerCapture?.(event.pointerId);
+                    let lastDropMarker = null;
 
                     const getTargetRow = (moveEvent) => {
-                        const rows = Array.from(root.querySelectorAll(rowSelector));
+                        const rows = Array.from(root.querySelectorAll(rowSelector)).filter(candidate => candidate !== row);
                         if (!rows.length) return null;
 
                         const rowUnderPointer = rows.find(candidate => {
@@ -453,22 +455,29 @@ const UnifiedLoraGalleryNode = {
                         const rect = targetRow.getBoundingClientRect();
                         const insertAfter = moveEvent.clientY > rect.top + rect.height / 2;
                         targetRow.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
-                        return { targetRow, insertAfter };
+                        lastDropMarker = { targetRow, insertAfter };
+                        return lastDropMarker;
                     };
 
                     const onPointerMove = (moveEvent) => {
+                        if (moveEvent.pointerId !== pointerId) return;
                         moveEvent.preventDefault();
+                        moveEvent.stopPropagation();
                         updateMarker(moveEvent);
                     };
 
                     const onPointerUp = (upEvent) => {
+                        if (upEvent.pointerId !== pointerId) return;
                         upEvent.preventDefault();
-                        const marker = updateMarker(upEvent);
-                        if (marker && draggedIndex >= 0) {
-                            const targetIndex = parseInt(marker.targetRow.dataset.index);
-                            onMoved(draggedIndex, targetIndex, marker.insertAfter);
-                        }
+                        upEvent.stopPropagation();
+                        const marker = updateMarker(upEvent) || lastDropMarker;
+                        const fromIndex = draggedIndex;
+                        const targetIndex = marker ? parseInt(marker.targetRow.dataset.index) : -1;
+                        const insertAfter = marker?.insertAfter;
                         cleanupMouseReorder?.();
+                        if (marker && fromIndex >= 0) {
+                            onMoved(fromIndex, targetIndex, insertAfter);
+                        }
                     };
 
                     cleanupMouseReorder = () => {
@@ -476,18 +485,20 @@ const UnifiedLoraGalleryNode = {
                         clearDragMarkers(root);
                         draggedIndex = -1;
                         document.body.style.userSelect = "";
-                        if (handle.hasPointerCapture?.(event.pointerId)) {
-                            handle.releasePointerCapture?.(event.pointerId);
+                        if (handle.hasPointerCapture?.(pointerId)) {
+                            handle.releasePointerCapture?.(pointerId);
                         }
-                        handle.removeEventListener("pointermove", onPointerMove);
-                        handle.removeEventListener("pointerup", onPointerUp);
-                        handle.removeEventListener("pointercancel", cleanupMouseReorder);
+                        document.removeEventListener("pointermove", onPointerMove, true);
+                        document.removeEventListener("pointerup", onPointerUp, true);
+                        document.removeEventListener("pointercancel", cleanupMouseReorder, true);
+                        window.removeEventListener("blur", cleanupMouseReorder);
                         cleanupMouseReorder = null;
                     };
 
-                    handle.addEventListener("pointermove", onPointerMove);
-                    handle.addEventListener("pointerup", onPointerUp);
-                    handle.addEventListener("pointercancel", cleanupMouseReorder);
+                    document.addEventListener("pointermove", onPointerMove, true);
+                    document.addEventListener("pointerup", onPointerUp, true);
+                    document.addEventListener("pointercancel", cleanupMouseReorder, true);
+                    window.addEventListener("blur", cleanupMouseReorder);
                 });
             };
 
@@ -570,13 +581,22 @@ const UnifiedLoraGalleryNode = {
 
                     bindMouseReorderHandle(el, nameLabel, ".locallora-lora-item", selectedListEl, (fromIndex, targetIndex, insertAfter) => {
                         if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
+                            repaintLoraOrder();
                             updateSelection();
-                            renderSelectedList();
-                            renderCurrentView(false);
                         }
                     });
 
                     selectedListEl.appendChild(el);
+                });
+            };
+
+            const repaintLoraOrder = () => {
+                renderSelectedList();
+                renderCurrentView(false);
+                requestAnimationFrame(() => {
+                    renderSelectedList();
+                    renderCurrentView(false);
+                    this.setDirtyCanvas(true, true);
                 });
             };
             
@@ -1211,8 +1231,7 @@ const UnifiedLoraGalleryNode = {
                     });
                     bindMouseReorderHandle(row, row.querySelector(".compact-lora-name"), ".locallora-lora-row", galleryEl, (fromIndex, targetIndex, insertAfter) => {
                         if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
-                            renderSelectedList();
-                            renderCurrentView(false);
+                            repaintLoraOrder();
                             updateSelection();
                             updatePresetButtonText(null);
                         }

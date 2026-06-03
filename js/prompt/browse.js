@@ -1,0 +1,325 @@
+import { escapeHtml } from "../shared/dom.js";
+
+function closeOnOverlayClick(overlay) {
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            overlay.remove();
+        }
+    });
+}
+
+function populateCategorySelect(categorySelect, categories, selectedCategory = "") {
+    categorySelect.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(category => {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        categorySelect.appendChild(option);
+    });
+    if (selectedCategory && categories.includes(selectedCategory)) {
+        categorySelect.value = selectedCategory;
+    }
+}
+
+function updateCategoryActionButtons(overlay, categoryValue) {
+    const renameCategoryBtn = overlay.querySelector("#browse-rename-category");
+    const deleteCategoryBtn = overlay.querySelector("#browse-delete-category");
+    if (renameCategoryBtn) {
+        renameCategoryBtn.style.display = categoryValue ? "block" : "none";
+    }
+    if (deleteCategoryBtn) {
+        deleteCategoryBtn.style.display = categoryValue ? "block" : "none";
+    }
+}
+
+function buildPromptCardHtml(prompt, hasPreview) {
+    const safeName = escapeHtml(prompt.name);
+    const previewHtml = hasPreview
+        ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
+        : "No Preview";
+    return `
+        <button class="localprompt-info-btn" title="View Info">!</button>
+        <div class="item-preview ${hasPreview ? "" : "no-img"}">
+            ${previewHtml}
+        </div>
+        <div class="item-info">
+            <div class="item-name" title="${safeName}">${safeName}</div>
+        </div>
+        <button class="favorite-btn ${prompt.favorite ? "favorited" : ""}" title="Pin/Unpin">*</button>
+    `;
+}
+
+export async function showBrowseModal({
+    app,
+    nodeInstance,
+    galleryNode,
+    saveSelectionData,
+    loadCategories,
+    refreshAllSections,
+    addPromptToSelection,
+    syncPinnedOrderForFavorite,
+    attachInfoPopup,
+    showContextMenu,
+    renameCategoryWithPrompt,
+    getCategoryRoleColor,
+}) {
+    let browseManageMode = false;
+    const bulkSelectedPromptIds = new Set();
+    const overlay = document.createElement("div");
+    overlay.className = "localprompt-modal-overlay";
+    overlay.innerHTML = `
+        <div class="localprompt-modal">
+            <div class="localprompt-modal-header">
+                <h3>Browse Prompts</h3>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="browse-filter" placeholder="Search..." style="padding: 4px 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px; width: 150px;">
+                    <select id="browse-category" style="padding: 4px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px;"></select>
+                    <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 4px 8px;">Manage</button>
+                    <button id="browse-rename-category" class="localprompt-btn" style="padding: 4px 8px; display: none;" title="Rename category">Rename</button>
+                    <button id="browse-delete-category" class="localprompt-btn" style="padding: 4px 8px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
+                    <button class="localprompt-modal-close">x</button>
+                </div>
+            </div>
+            <div class="localprompt-modal-content">
+                <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
+                    <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
+                    <button id="browse-select-visible" class="localprompt-btn">Select Visible</button>
+                    <button id="browse-clear-selected" class="localprompt-btn">Clear Selection</button>
+                    <button id="browse-delete-selected" class="localprompt-btn localprompt-clear-btn" style="background: #6a3a3a; border-color: #8a4a4a;">Delete Selected</button>
+                </div>
+                <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
+            </div>
+            <div style="padding: 10px 16px; border-top: 1px solid #444; display: flex; justify-content: center; gap: 8px;">
+                <button id="browse-prev" class="localprompt-btn">Prev</button>
+                <span id="browse-page-info" style="font-size: 11px; color: #888; padding: 5px 10px;">Page 1 of 1</span>
+                <button id="browse-next" class="localprompt-btn">Next</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector(".localprompt-modal-close");
+    const filterInput = overlay.querySelector("#browse-filter");
+    const categorySelect = overlay.querySelector("#browse-category");
+    const manageToggleBtn = overlay.querySelector("#browse-manage-toggle");
+    const bulkToolbar = overlay.querySelector("#browse-bulk-toolbar");
+    const bulkSummary = overlay.querySelector("#browse-bulk-summary");
+    const selectVisibleBtn = overlay.querySelector("#browse-select-visible");
+    const clearSelectedBtn = overlay.querySelector("#browse-clear-selected");
+    const deleteSelectedBtn = overlay.querySelector("#browse-delete-selected");
+    const grid = overlay.querySelector("#browse-gallery-grid");
+    const prevBtn = overlay.querySelector("#browse-prev");
+    const nextBtn = overlay.querySelector("#browse-next");
+    const pageInfo = overlay.querySelector("#browse-page-info");
+
+    let currentPage = 1;
+    let totalPages = 1;
+
+    function updateBrowseBulkToolbar() {
+        if (bulkToolbar) {
+            bulkToolbar.style.display = browseManageMode ? "flex" : "none";
+        }
+        if (bulkSummary) {
+            bulkSummary.textContent = `${bulkSelectedPromptIds.size} selected`;
+        }
+        if (manageToggleBtn) {
+            manageToggleBtn.classList.toggle("active", browseManageMode);
+            manageToggleBtn.textContent = browseManageMode ? "Done" : "Manage";
+        }
+        if (clearSelectedBtn) clearSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
+        if (deleteSelectedBtn) deleteSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
+    }
+
+    async function loadBrowseGallery(page = 1) {
+        const filter = filterInput.value;
+        const category = categorySelect.value;
+        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30);
+
+        currentPage = data.current_page || 1;
+        totalPages = data.total_pages || 1;
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+
+        const selectedIds = new Set(nodeInstance.promptData.map(prompt => String(prompt.prompt_id)));
+        grid.innerHTML = "";
+        updateBrowseBulkToolbar();
+
+        (data.prompts || []).forEach(prompt => {
+            const promptId = String(prompt.id);
+            const item = document.createElement("div");
+            item.className = `localprompt-gallery-item ${selectedIds.has(promptId) ? "selected" : ""}`;
+            if (browseManageMode) item.classList.add("manage-mode");
+            if (bulkSelectedPromptIds.has(promptId)) item.classList.add("selected");
+            item.dataset.promptId = promptId;
+            item.style.position = "relative";
+
+            const roleColor = getCategoryRoleColor(prompt);
+            if (roleColor) {
+                item.style.borderColor = roleColor;
+                item.style.boxShadow = `inset 0 0 0 1px ${roleColor}55`;
+            }
+
+            const hasPreview = prompt.preview_type && prompt.preview_url;
+            item.innerHTML = buildPromptCardHtml(prompt, hasPreview);
+
+            item.addEventListener("click", (event) => {
+                if (event.target.classList.contains("favorite-btn")) return;
+                if (browseManageMode) {
+                    if (bulkSelectedPromptIds.has(promptId)) {
+                        bulkSelectedPromptIds.delete(promptId);
+                        item.classList.remove("selected");
+                    } else {
+                        bulkSelectedPromptIds.add(promptId);
+                        item.classList.add("selected");
+                    }
+                    updateBrowseBulkToolbar();
+                    return;
+                }
+                addPromptToSelection(prompt);
+                item.classList.toggle("selected", nodeInstance.promptData.some(entry => String(entry.prompt_id) === promptId));
+            });
+
+            item.querySelector(".favorite-btn").addEventListener("click", async (event) => {
+                event.stopPropagation();
+                const button = event.target;
+                const wasFavorited = button.classList.contains("favorited");
+                button.classList.toggle("favorited", !wasFavorited);
+
+                galleryNode.toggleFavorite(prompt.id).then(async (result) => {
+                    if (result?.status === "ok") {
+                        await syncPinnedOrderForFavorite(prompt.id, result.favorite);
+                    }
+                    refreshAllSections();
+                });
+            });
+
+            attachInfoPopup(item, prompt);
+
+            item.addEventListener("contextmenu", (event) => {
+                event.preventDefault();
+                showContextMenu(prompt, event.clientX, event.clientY, async () => {
+                    await loadBrowseGallery(currentPage);
+                    refreshAllSections();
+                });
+            });
+
+            grid.appendChild(item);
+        });
+    }
+
+    closeBtn.addEventListener("click", () => overlay.remove());
+    closeOnOverlayClick(overlay);
+
+    populateCategorySelect(categorySelect, await galleryNode.getCategories());
+
+    manageToggleBtn?.addEventListener("click", () => {
+        browseManageMode = !browseManageMode;
+        if (!browseManageMode) {
+            bulkSelectedPromptIds.clear();
+        }
+        updateBrowseBulkToolbar();
+        loadBrowseGallery(currentPage);
+    });
+
+    selectVisibleBtn?.addEventListener("click", () => {
+        grid.querySelectorAll(".localprompt-gallery-item[data-prompt-id]").forEach(item => {
+            bulkSelectedPromptIds.add(item.dataset.promptId);
+        });
+        updateBrowseBulkToolbar();
+        loadBrowseGallery(currentPage);
+    });
+
+    clearSelectedBtn?.addEventListener("click", () => {
+        bulkSelectedPromptIds.clear();
+        updateBrowseBulkToolbar();
+        loadBrowseGallery(currentPage);
+    });
+
+    deleteSelectedBtn?.addEventListener("click", async () => {
+        if (bulkSelectedPromptIds.size === 0) return;
+        const idsToDelete = Array.from(bulkSelectedPromptIds);
+        const confirmed = confirm(`Delete ${idsToDelete.length} selected prompts?`);
+        if (!confirmed) return;
+
+        const result = await galleryNode.deletePromptsBulk(idsToDelete);
+        if (!result || result.status !== "ok") {
+            alert(`Bulk delete failed: ${result?.message || "Unknown error"}`);
+            return;
+        }
+
+        nodeInstance.promptData = nodeInstance.promptData.filter(
+            entry => !bulkSelectedPromptIds.has(String(entry.prompt_id))
+        );
+        saveSelectionData();
+        bulkSelectedPromptIds.clear();
+        await loadCategories();
+        await loadBrowseGallery(1);
+        await refreshAllSections();
+        if (Array.isArray(result.missing_ids) && result.missing_ids.length) {
+            alert(`Deleted ${result.deleted_count || 0} prompt(s). ${result.missing_ids.length} item(s) were already missing.`);
+        }
+    });
+
+    let filterTimeout = null;
+    filterInput.addEventListener("input", () => {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => loadBrowseGallery(1), 300);
+    });
+
+    categorySelect.addEventListener("change", () => {
+        loadBrowseGallery(1);
+        updateCategoryActionButtons(overlay, categorySelect.value);
+    });
+
+    prevBtn.addEventListener("click", () => loadBrowseGallery(currentPage - 1));
+    nextBtn.addEventListener("click", () => loadBrowseGallery(currentPage + 1));
+
+    overlay.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
+        await renameCategoryWithPrompt(categorySelect.value, async (newCategory) => {
+            const newCategories = await galleryNode.getCategories();
+            populateCategorySelect(categorySelect, newCategories, newCategory);
+            updateCategoryActionButtons(overlay, categorySelect.value);
+            await loadBrowseGallery(1);
+            refreshAllSections();
+        });
+    });
+
+    overlay.querySelector("#browse-delete-category")?.addEventListener("click", async () => {
+        const categoryToDelete = categorySelect.value;
+        if (!categoryToDelete) {
+            alert("Please select a category to delete.");
+            return;
+        }
+
+        const confirmed = confirm(
+            `DELETE ENTIRE CATEGORY\n\n` +
+            `Are you sure you want to delete the category "${categoryToDelete}" and ALL prompts within it?\n\n` +
+            `This action cannot be undone!`
+        );
+        if (!confirmed) return;
+
+        const doubleConfirmed = confirm(
+            `Final confirmation:\n\nDelete ALL prompts in "${categoryToDelete}"?`
+        );
+        if (!doubleConfirmed) return;
+
+        try {
+            const result = await galleryNode.deleteCategory(categoryToDelete);
+            if (result.status === "ok") {
+                alert(result.message);
+                populateCategorySelect(categorySelect, await galleryNode.getCategories());
+                updateCategoryActionButtons(overlay, "");
+                await loadBrowseGallery(1);
+                refreshAllSections();
+            } else {
+                alert("Error: " + (result.message || "Failed to delete category"));
+            }
+        } catch (error) {
+            console.error("Error deleting category:", error);
+            alert("Error deleting category: " + error.message);
+        }
+    });
+
+    await loadBrowseGallery(1);
+}

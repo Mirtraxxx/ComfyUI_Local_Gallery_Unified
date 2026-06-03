@@ -11,6 +11,10 @@ The node is much safer than the original merged file:
 - API calls live in `js/api/`.
 - Shared DOM, JSON, widget, selection-state, and reorder helpers exist.
 - Prompt constants and many pure prompt helpers have been extracted.
+- The wildcard category selection modal now lives in `js/prompt/wildcards.js`.
+- The prompt settings modal now lives in `js/prompt/settings.js`.
+- The prompt presets modal now lives in `js/prompt/presets.js`.
+- The prompt browse modal now lives in `js/prompt/browse.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - A baseline tag/commit exists for fallback.
 
@@ -24,8 +28,8 @@ This is still the largest risk.
 
 Current approximate size:
 
-- Around 5,600 lines.
-- Around 300 KB.
+- Around 4,700 lines.
+- Around 250 KB.
 
 It still contains many responsibilities:
 
@@ -34,18 +38,18 @@ It still contains many responsibilities:
 - Library bar and library drawer logic.
 - Context menus.
 - Add/edit/import dialogs.
-- Wildcard controls.
-- Preset modal.
-- Browse modal.
-- Settings modal.
+- Wildcard toggle/seed controls.
+- Preset modal is now extracted to `js/prompt/presets.js`.
+- Browse modal is now extracted to `js/prompt/browse.js`.
+- Settings modal is now extracted to `js/prompt/settings.js`.
 - Many direct DOM event listeners.
 
 Recommended next steps:
 
 1. Extract modal/dialog helpers only after another smoke test.
 2. Split prompt library drawer logic into its own module.
-3. Split prompt settings modal logic into its own module.
-4. Split wildcard UI logic into its own module.
+3. Extract remaining add/edit/import dialogs where they have clear boundaries.
+4. Continue splitting wildcard UI only if the remaining toggle/seed controls need changes.
 5. Keep pure helpers in `js/prompt/helpers.js` when they do not need DOM or node state.
 
 Avoid doing all of this in one pass.
@@ -115,10 +119,6 @@ Best next safe sequence:
 1. Test the current node in ComfyUI.
 2. Fix any real behavior bugs first.
 3. Extract one prompt-side UI area at a time:
-   - wildcard UI
-   - settings modal
-   - browse modal
-   - preset modal
    - library drawer
 4. After each extraction:
    - run JS syntax checks
