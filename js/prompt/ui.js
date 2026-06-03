@@ -12,8 +12,6 @@ import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
-    getActiveSidebarWidth as resolveActiveSidebarWidth,
-    getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getCategoryColorMap as resolveCategoryColorMap,
     getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
@@ -22,7 +20,6 @@ import {
     getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
-    clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     normalizePromptIdList,
     promotePromptsById,
     sortPromptsByPinnedOrder,
@@ -46,7 +43,14 @@ import {
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
 } from "./previews.js";
-import { renderActiveSidebar as renderPromptActiveSidebar } from "./activeSidebar.js";
+import {
+    applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
+    applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
+    getActiveSidebarWidth as getPromptActiveSidebarWidth,
+    isActiveSidebarOpen as isPromptActiveSidebarOpen,
+    renderActiveSidebar as renderPromptActiveSidebar,
+    setupActiveSidebarResize as setupPromptActiveSidebarResize,
+} from "./activeSidebar.js";
 import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
@@ -2043,24 +2047,15 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getActiveSidebarWidth() {
-                return resolveActiveSidebarWidth(node_instance.properties, node_instance.uiPrefs);
-            }
-
-            function getActiveSidebarWidthBounds() {
-                const shell = widgetContainer.querySelector('.localprompt-body-shell');
-                return resolveActiveSidebarWidthBounds(shell?.clientWidth, node_instance.size?.[0]);
-            }
-
-            function clampActiveSidebarWidth(width) {
-                return clampActiveSidebarWidthToBounds(width, getActiveSidebarWidthBounds());
+                return getPromptActiveSidebarWidth({ nodeInstance: node_instance });
             }
 
             function applyActiveSidebarWidthPreference() {
-                const width = clampActiveSidebarWidth(getActiveSidebarWidth());
-                widgetContainer.style.setProperty('--localprompt-active-sidebar-width', `${width}px`);
-                node_instance.uiPrefs.active_sidebar_width = width;
-                node_instance.properties.active_sidebar_width = width;
-                if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = width;
+                applyPromptActiveSidebarWidthPreference({
+                    widgetContainer,
+                    nodeInstance: node_instance,
+                    activeSidebarWidthWidget,
+                });
             }
 
             function getPinnedOrder() {
@@ -2124,21 +2119,16 @@ const UnifiedPromptGalleryNode = {
             }
 
             function isActiveSidebarOpen() {
-                return node_instance.uiPrefs?.active_sidebar_open === true;
+                return isPromptActiveSidebarOpen({ nodeInstance: node_instance });
             }
 
             function applyActiveSidebarPreference() {
-                const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
-                const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
-                const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
-                const isOpen = isActiveSidebarOpen();
-                if (sidebar) sidebar.classList.toggle('active', isOpen);
-                if (splitter) splitter.classList.toggle('active', isOpen);
-                if (toggleBtn) {
-                    toggleBtn.classList.toggle('active', isOpen);
-                    toggleBtn.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
-                }
-                applyActiveSidebarWidthPreference();
+                applyPromptActiveSidebarPreference({
+                    widgetContainer,
+                    uniqueId,
+                    nodeInstance: node_instance,
+                    activeSidebarWidthWidget,
+                });
             }
 
             async function setActiveSidebarOpen(nextOpen) {
@@ -2156,41 +2146,12 @@ const UnifiedPromptGalleryNode = {
             }
 
             function setupActiveSidebarResize() {
-                const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
-                if (!splitter) return;
-
-                let startX = 0;
-                let startWidth = 0;
-
-                const onMouseMove = (e) => {
-                    const nextWidth = clampActiveSidebarWidth(startWidth + (e.clientX - startX));
-                    widgetContainer.style.setProperty('--localprompt-active-sidebar-width', `${nextWidth}px`);
-                };
-
-                const onMouseUp = async (e) => {
-                    const finalWidth = clampActiveSidebarWidth(startWidth + (e.clientX - startX));
-                    node_instance.uiPrefs.active_sidebar_width = finalWidth;
-                    node_instance.properties.active_sidebar_width = finalWidth;
-                    if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = finalWidth;
-                    widgetContainer.style.setProperty('--localprompt-active-sidebar-width', `${finalWidth}px`);
-                    splitter.classList.remove('dragging');
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-                    await saveUiPrefs();
-                };
-
-                splitter.addEventListener('mousedown', (e) => {
-                    if (!isActiveSidebarOpen()) return;
-                    e.preventDefault();
-                    startX = e.clientX;
-                    startWidth = clampActiveSidebarWidth(getActiveSidebarWidth());
-                    splitter.classList.add('dragging');
-                    document.body.style.cursor = 'ew-resize';
-                    document.body.style.userSelect = 'none';
-                    document.addEventListener('mousemove', onMouseMove);
-                    document.addEventListener('mouseup', onMouseUp);
+                setupPromptActiveSidebarResize({
+                    widgetContainer,
+                    uniqueId,
+                    nodeInstance: node_instance,
+                    activeSidebarWidthWidget,
+                    saveUiPrefs,
                 });
             }
 

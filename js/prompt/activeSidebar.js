@@ -1,7 +1,126 @@
 import {
+    clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
+    getActiveSidebarWidth as resolveActiveSidebarWidth,
+    getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
 } from "./helpers.js";
+
+export function getActiveSidebarWidth({ nodeInstance }) {
+    return resolveActiveSidebarWidth(nodeInstance.properties, nodeInstance.uiPrefs);
+}
+
+export function getActiveSidebarWidthBounds({ widgetContainer, nodeInstance }) {
+    const shell = widgetContainer.querySelector(".localprompt-body-shell");
+    return resolveActiveSidebarWidthBounds(shell?.clientWidth, nodeInstance.size?.[0]);
+}
+
+export function clampActiveSidebarWidth({ widgetContainer, nodeInstance, width }) {
+    return clampActiveSidebarWidthToBounds(
+        width,
+        getActiveSidebarWidthBounds({ widgetContainer, nodeInstance })
+    );
+}
+
+export function applyActiveSidebarWidthPreference({
+    widgetContainer,
+    nodeInstance,
+    activeSidebarWidthWidget,
+}) {
+    const width = clampActiveSidebarWidth({
+        widgetContainer,
+        nodeInstance,
+        width: getActiveSidebarWidth({ nodeInstance }),
+    });
+    widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${width}px`);
+    nodeInstance.uiPrefs.active_sidebar_width = width;
+    nodeInstance.properties.active_sidebar_width = width;
+    if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = width;
+}
+
+export function isActiveSidebarOpen({ nodeInstance }) {
+    return nodeInstance.uiPrefs?.active_sidebar_open === true;
+}
+
+export function applyActiveSidebarPreference({
+    widgetContainer,
+    uniqueId,
+    nodeInstance,
+    activeSidebarWidthWidget,
+}) {
+    const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
+    const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
+    const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
+    const isOpen = isActiveSidebarOpen({ nodeInstance });
+    if (sidebar) sidebar.classList.toggle("active", isOpen);
+    if (splitter) splitter.classList.toggle("active", isOpen);
+    if (toggleBtn) {
+        toggleBtn.classList.toggle("active", isOpen);
+        toggleBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
+    }
+    applyActiveSidebarWidthPreference({
+        widgetContainer,
+        nodeInstance,
+        activeSidebarWidthWidget,
+    });
+}
+
+export function setupActiveSidebarResize({
+    widgetContainer,
+    uniqueId,
+    nodeInstance,
+    activeSidebarWidthWidget,
+    saveUiPrefs,
+}) {
+    const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
+    if (!splitter) return;
+
+    let startX = 0;
+    let startWidth = 0;
+
+    const onMouseMove = (event) => {
+        const nextWidth = clampActiveSidebarWidth({
+            widgetContainer,
+            nodeInstance,
+            width: startWidth + (event.clientX - startX),
+        });
+        widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${nextWidth}px`);
+    };
+
+    const onMouseUp = async (event) => {
+        const finalWidth = clampActiveSidebarWidth({
+            widgetContainer,
+            nodeInstance,
+            width: startWidth + (event.clientX - startX),
+        });
+        nodeInstance.uiPrefs.active_sidebar_width = finalWidth;
+        nodeInstance.properties.active_sidebar_width = finalWidth;
+        if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = finalWidth;
+        widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${finalWidth}px`);
+        splitter.classList.remove("dragging");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        await saveUiPrefs();
+    };
+
+    splitter.addEventListener("mousedown", (event) => {
+        if (!isActiveSidebarOpen({ nodeInstance })) return;
+        event.preventDefault();
+        startX = event.clientX;
+        startWidth = clampActiveSidebarWidth({
+            widgetContainer,
+            nodeInstance,
+            width: getActiveSidebarWidth({ nodeInstance }),
+        });
+        splitter.classList.add("dragging");
+        document.body.style.cursor = "ew-resize";
+        document.body.style.userSelect = "none";
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    });
+}
 
 export async function renderActiveSidebar({
     widgetContainer,
