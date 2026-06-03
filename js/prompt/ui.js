@@ -9,7 +9,6 @@ import {
     THUMBNAIL_SIZE_MIN,
 } from "./constants.js";
 import {
-    buildPromptHoverPreviewHtml,
     buildPromptPreviewMediaHtml,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
@@ -19,7 +18,6 @@ import {
     getCategoryColorMap as resolveCategoryColorMap,
     getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
-    getFloatingPreviewPosition,
     getNearestPaletteColor,
     getThumbnailSizePx as resolveThumbnailSizePx,
     getThumbnailVariables,
@@ -44,6 +42,11 @@ import {
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
 } from "./contextMenus.js";
+import {
+    attachInfoPopup as attachPromptInfoPopup,
+    hideHoverPreview as hidePromptHoverPreview,
+    showHoverPreview as showPromptHoverPreview,
+} from "./previews.js";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js";
 import { showWildcardsModal } from "./wildcards.js";
@@ -3005,27 +3008,12 @@ const UnifiedPromptGalleryNode = {
 
             // Helper to attach info popup to element
             function attachInfoPopup(element, prompt) {
-                const infoBtn = element.querySelector('.localprompt-info-btn');
-                if (!infoBtn) return;
-
-                infoBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // prevent adding to selection or playing video
-                    const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
-                    const isShowing = hoverPreview && hoverPreview.classList.contains('active');
-
-                    if (isShowing) {
-                        hideHoverPreview();
-                    } else {
-                        showHoverPreview(prompt, e, element);
-
-                        const closePreview = (evt) => {
-                            if (!hoverPreview.contains(evt.target) && evt.target !== infoBtn) {
-                                hideHoverPreview();
-                                document.removeEventListener('click', closePreview);
-                            }
-                        };
-                        setTimeout(() => document.addEventListener('click', closePreview), 10);
-                    }
+                attachPromptInfoPopup({
+                    element,
+                    prompt,
+                    uniqueId,
+                    showHoverPreview,
+                    hideHoverPreview,
                 });
             }
 
@@ -3208,43 +3196,17 @@ const UnifiedPromptGalleryNode = {
             }
 
             function showHoverPreview(prompt, event, anchorElement = null) {
-                const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
-                if (!hoverPreview) return;
-                if (anchorElement && !anchorElement.isConnected) return;
-
-                // Only show if there's a preview (image/video)
-                if (!prompt.preview_url || !prompt.preview_type) {
-                    return null;
-                }
-
-                const roleColor = getCategoryRoleColor(prompt);
-                const previewHTML = buildPromptHoverPreviewHtml(prompt, roleColor);
-
-                hoverPreview.innerHTML = previewHTML;
-                hoverPreview.classList.add('active');
-
-                const updatePosition = () => {
-                    const previewRect = hoverPreview.getBoundingClientRect();
-                    const anchorRect = anchorElement?.getBoundingClientRect?.();
-                    const { x, y } = getFloatingPreviewPosition({
-                        event,
-                        previewRect,
-                        anchorRect,
-                        viewportWidth: window.innerWidth,
-                        viewportHeight: window.innerHeight,
-                    });
-                    hoverPreview.style.left = `${x}px`;
-                    hoverPreview.style.top = `${y}px`;
-                };
-
-                updatePosition(event);
+                return showPromptHoverPreview({
+                    prompt,
+                    event,
+                    anchorElement,
+                    uniqueId,
+                    getCategoryRoleColor,
+                });
             }
 
             function hideHoverPreview() {
-                const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
-                if (hoverPreview) {
-                    hoverPreview.classList.remove('active');
-                }
+                hidePromptHoverPreview({ uniqueId });
             }
 
             function renderGallery() {
