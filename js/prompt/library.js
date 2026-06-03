@@ -145,3 +145,22 @@ export async function renderLibraryBar({
     utilityTabs.forEach(tabContent => renderTabButton(tabContent, utilityContainer, "utility"));
     categoryTabs.forEach(tabContent => renderTabButton(tabContent, tabsContainer, "category"));
 }
+
+export async function getLibraryDrawerPrompts({
+    galleryNode,
+    tabName,
+    maxCount,
+}) {
+    if (tabName === "most_used") {
+        return await galleryNode.getMostUsed(maxCount);
+    }
+    if (tabName === "pinned") {
+        const data = await galleryNode.getPrompts("", "OR", 1, [], "", true, maxCount);
+        return data.prompts || [];
+    }
+
+    const data = await galleryNode.getPrompts("", "OR", 1, [], tabName, false, 200);
+    const categoryPrompts = data.prompts || [];
+    categoryPrompts.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
+    return categoryPrompts;
+}

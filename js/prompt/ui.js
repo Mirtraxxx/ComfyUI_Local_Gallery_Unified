@@ -53,6 +53,7 @@ import {
 } from "./gallery.js";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
+    getLibraryDrawerPrompts,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderLibraryBar as renderPromptLibraryBar,
@@ -2649,23 +2650,12 @@ const UnifiedPromptGalleryNode = {
                     container.ondrop = null;
                 }
 
-                let prompts = [];
                 const maxCount = node_instance.uiPrefs.most_used_count || 10;
-                
-                if (tabName === 'most_used') {
-                    prompts = await UnifiedPromptGalleryNode.getMostUsed(maxCount);
-                } else if (tabName === 'pinned') {
-                    const data = await UnifiedPromptGalleryNode.getPrompts("", "OR", 1, [], "", true, maxCount);
-                    prompts = data.prompts || [];
-                } else {
-                    // Category tab: fetch all prompts for category
-                    const data = await UnifiedPromptGalleryNode.getPrompts("", "OR", 1, [], tabName, false, 200);
-                    let catPrompts = data.prompts || [];
-                    
-                    catPrompts.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
-                    
-                    prompts = catPrompts;
-                }
+                let prompts = await getLibraryDrawerPrompts({
+                    galleryNode: UnifiedPromptGalleryNode,
+                    tabName,
+                    maxCount,
+                });
 
                 const nextContent = document.createDocumentFragment();
 
