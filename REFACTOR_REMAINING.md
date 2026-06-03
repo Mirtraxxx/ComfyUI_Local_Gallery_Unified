@@ -15,7 +15,7 @@ The node is much safer than the original merged file:
 - The prompt settings modal now lives in `js/prompt/settings.js`.
 - The prompt presets modal now lives in `js/prompt/presets.js`.
 - The prompt browse modal now lives in `js/prompt/browse.js`.
-- The add/import/edit/upload prompt dialogs now live in `js/prompt/dialogs.js`.
+- The add/import/edit/upload/from-last-output prompt dialogs now live in `js/prompt/dialogs.js`.
 - The prompt context menu bodies now live in `js/prompt/contextMenus.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - A baseline tag/commit exists for fallback.
@@ -30,8 +30,8 @@ This is still the largest risk.
 
 Current approximate size:
 
-- Around 3,930 lines.
-- Around 212 KB.
+- Around 3,800 lines.
+- Around 202 KB.
 
 It still contains many responsibilities:
 
@@ -39,7 +39,7 @@ It still contains many responsibilities:
 - Active sidebar rendering.
 - Library bar and library drawer logic.
 - Context menu wrappers remain in `js/prompt/ui.js`, but menu bodies live in `js/prompt/contextMenus.js`.
-- From-last-output dialog.
+- Dialog wrappers remain in `js/prompt/ui.js`, but the modal bodies live in `js/prompt/dialogs.js`.
 - Wildcard toggle/seed controls.
 - Preset modal is now extracted to `js/prompt/presets.js`.
 - Browse modal is now extracted to `js/prompt/browse.js`.
@@ -50,8 +50,8 @@ Recommended next steps:
 
 1. Extract modal/dialog helpers only after another smoke test.
 2. Split prompt library drawer logic into its own module.
-3. Extract the from-last-output dialog when its source-node and preview dependencies are ready to move cleanly.
-4. Continue splitting wildcard UI only if the remaining toggle/seed controls need changes.
+3. Continue splitting wildcard UI only if the remaining toggle/seed controls need changes.
+4. Extract small prompt gallery helpers before trying library drawer rendering again.
 5. Keep pure helpers in `js/prompt/helpers.js` when they do not need DOM or node state.
 
 Avoid doing all of this in one pass.

@@ -9,12 +9,10 @@ import {
     THUMBNAIL_SIZE_MIN,
 } from "./constants.js";
 import {
-    buildLastOutputPreviewUrl,
     buildPromptHoverPreviewHtml,
     buildPromptPreviewMediaHtml,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
-    extractPromptTextFromSourceNode,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
@@ -28,7 +26,6 @@ import {
     hexToRgba,
     isShowTextNode,
     clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
-    normalizePromptText,
     normalizePromptIdList,
     promotePromptsById,
     sortPromptsByPinnedOrder,
@@ -39,6 +36,7 @@ import { showBrowseModal as openBrowseModal } from "./browse.js";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
+    showFromLastOutputDialog as openFromLastOutputDialog,
     showImportDialog as openImportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
 } from "./dialogs.js";
@@ -3607,165 +3605,12 @@ const UnifiedPromptGalleryNode = {
 
 
             async function showFromLastOutputDialog() {
-                if (!UnifiedPromptGalleryNode.lastOutput?.filename) {
-                    alert("No previous output found yet.");
-                    return;
-                }
-
-                const sourceNode = getPromptSourceNode();
-                if (!sourceNode) {
-                    alert("No prompt source selected. Select your Show Text node first, then click Pick Prompt Source.");
-                    return;
-                }
-
-                const capturedPromptText = normalizePromptText(extractPromptTextFromSourceNode(sourceNode));
-                if (!capturedPromptText) {
-                    alert("The selected prompt source has no text yet. Run the workflow once so the Show Text node updates.");
-                    return;
-                }
-
-                const categories = await UnifiedPromptGalleryNode.getCategories();
-                const defaultNameMode = node_instance.uiPrefs?.from_last_output_name_default === 'blank' ? 'blank' : 'time';
-                const timeCardName = `Last Output ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-                const defaultCardName = defaultNameMode === 'blank' ? '' : timeCardName;
-                const previewUrl = buildLastOutputPreviewUrl(UnifiedPromptGalleryNode.lastOutput);
-
-                const overlay = document.createElement('div');
-                overlay.style.cssText = `
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(0,0,0,0.7);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 10000;
-                `;
-
-                const dialog = document.createElement('div');
-                dialog.style.cssText = `
-                    background: #2a2a2a;
-                    border: 1px solid #555;
-                    border-radius: 8px;
-                    padding: 16px;
-                    width: 560px;
-                    max-width: 92%;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                `;
-
-                const categoryOptions = ['<option value="">Uncategorized</option>']
-                    .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
-                    .join("");
-
-                dialog.innerHTML = `
-                    <h3 style="margin: 0 0 12px 0; color: #ddd;">From Last Output</h3>
-                    <div style="display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px;">
-                        <div style="width: 96px; flex: 0 0 96px;">
-                            <div style="width: 96px; height: 96px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
-                                <img src="${previewUrl}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                            </div>
-                        </div>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="margin-bottom: 10px;">
-                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
-                                <input type="text" id="from-last-output-name" value="${escapeHtml(defaultCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                            </div>
-                            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                                <div style="flex: 1; min-width: 0;">
-                                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
-                                    <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                                        <option value="time" ${defaultNameMode === 'time' ? 'selected' : ''}>Time</option>
-                                        <option value="blank" ${defaultNameMode === 'blank' ? 'selected' : ''}>Blank</option>
-                                    </select>
-                                </div>
-                                <div style="flex: 1; min-width: 0;">
-                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
-                                <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                                    ${categoryOptions}
-                                </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
-                        <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-                    </div>
-                    <div style="min-height: 16px; color: #999; font-size: 11px; margin-bottom: 12px;">
-                        Using prompt source: ${escapeHtml(sourceNode.title || sourceNode.type || `Node ${sourceNode.id}`)}
-                    </div>
-                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                        <button id="from-last-output-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-                        <button id="from-last-output-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>
-                    </div>
-                `;
-
-                overlay.appendChild(dialog);
-                document.body.appendChild(overlay);
-
-                const nameInput = dialog.querySelector('#from-last-output-name');
-                const nameDefaultSelect = dialog.querySelector('#from-last-output-name-default');
-                const categorySelect = dialog.querySelector('#from-last-output-category');
-                const promptTextarea = dialog.querySelector('#from-last-output-prompt');
-                const cancelBtn = dialog.querySelector('#from-last-output-cancel');
-                const saveBtn = dialog.querySelector('#from-last-output-save');
-
-                promptTextarea.value = capturedPromptText;
-
-                if (node_instance.uiPrefs?.last_created_category) {
-                    categorySelect.value = node_instance.uiPrefs.last_created_category;
-                }
-
-                cancelBtn.addEventListener('click', () => overlay.remove());
-                nameDefaultSelect.addEventListener('change', () => {
-                    const mode = nameDefaultSelect.value === 'blank' ? 'blank' : 'time';
-                    node_instance.uiPrefs.from_last_output_name_default = mode;
-                    nameInput.value = mode === 'blank' ? '' : timeCardName;
-                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs).catch(e => {
-                        console.warn("LocalPromptGallery: Failed to save from last output name default", e);
-                    });
-                });
-
-                saveBtn.addEventListener('click', async () => {
-                    const promptText = promptTextarea.value.trim();
-                    const name = nameInput.value.trim() || promptText;
-                    const category = categorySelect.value;
-
-                    if (!promptText) {
-                        alert('Prompt text is empty.');
-                        return;
-                    }
-
-                    saveBtn.disabled = true;
-                    saveBtn.style.opacity = '0.6';
-
-                    try {
-                        const createResult = await UnifiedPromptGalleryNode.createPromptFromOutput(
-                            name,
-                            promptText,
-                            category,
-                            UnifiedPromptGalleryNode.lastOutput
-                        );
-                        if (createResult?.status !== 'ok') {
-                            throw new Error(createResult?.message || 'Failed to create prompt');
-                        }
-
-                        // Save last used category
-                        node_instance.uiPrefs.last_created_category = category;
-                        node_instance.uiPrefs.from_last_output_name_default = nameDefaultSelect.value === 'blank' ? 'blank' : 'time';
-                        UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs).catch(e => {
-                            console.warn("LocalPromptGallery: Failed to save last created category", e);
-                        });
-
-                        overlay.remove();
-                        if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
-                            await loadPromptsForGallery(1);
-                        }
-                    } catch (error) {
-                        console.error("Error creating prompt from last output:", error);
-                        alert(`Error: ${error.message}`);
-                        saveBtn.disabled = false;
-                        saveBtn.style.opacity = '1';
-                    }
+                await openFromLastOutputDialog({
+                    galleryNode: UnifiedPromptGalleryNode,
+                    nodeInstance: node_instance,
+                    getPromptSourceNode,
+                    insertPromptIntoCurrentGallery,
+                    loadPromptsForGallery,
                 });
             }
 
