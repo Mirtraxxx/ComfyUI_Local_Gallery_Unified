@@ -53,10 +53,10 @@ import {
 } from "./gallery.js";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
-    getLibraryDrawerPrompts,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderLibraryBar as renderPromptLibraryBar,
+    renderLibraryDrawer as renderPromptLibraryDrawer,
 } from "./library.js";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js";
@@ -2627,283 +2627,32 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function renderLibraryDrawer(tabName) {
-                const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
-                if (!container) return;
-                hideHoverPreview();
-                const previousTabName = container.dataset.renderedTab || '';
-                const shouldRestoreScroll = previousTabName === tabName;
-                const previousScrollTop = shouldRestoreScroll ? container.scrollTop : 0;
-                container.dataset.renderedTab = tabName;
-
-                if (tabName === 'pinned') {
-                    container.ondragover = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                    };
-                    container.ondrop = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    };
-                } else {
-                    container.ondragover = null;
-                    container.ondrop = null;
-                }
-
-                const maxCount = node_instance.uiPrefs.most_used_count || 10;
-                let prompts = await getLibraryDrawerPrompts({
-                    galleryNode: UnifiedPromptGalleryNode,
+                await renderPromptLibraryDrawer({
+                    widgetContainer,
+                    uniqueId,
                     tabName,
-                    maxCount,
+                    nodeInstance: node_instance,
+                    galleryNode: UnifiedPromptGalleryNode,
+                    hideHoverPreview,
+                    getSelectedPromptIdsInOrder,
+                    getSelectedPromptEntry,
+                    applyCategoryRoleStyling,
+                    sortPinnedPrompts,
+                    promoteSelectedPrompts,
+                    clearAllSelections,
+                    toggleFavorite: UnifiedPromptGalleryNode.toggleFavorite,
+                    syncPinnedOrderForFavorite,
+                    getPinnedOrder,
+                    persistPinnedOrder,
+                    saveSelectionData,
+                    renderPrompts,
+                    getActiveLibraryTab: () => activeLibraryTab,
+                    rerenderLibraryDrawer: renderLibraryDrawer,
+                    bindPinnedManagedControls,
+                    addPromptToSelection,
+                    attachInfoPopup,
+                    attachContextMenu,
                 });
-
-                const nextContent = document.createDocumentFragment();
-
-                const selectedIds = new Set(getSelectedPromptIdsInOrder().map(id => String(id)));
-                const selectedIdStrings = selectedIds;
-                const displayMode = node_instance.uiPrefs.display_mode || 'text';
-
-                if (tabName === 'pinned') {
-                    prompts = sortPinnedPrompts(prompts);
-                } else {
-                    prompts = promoteSelectedPrompts(prompts);
-                }
-
-                const drawerToolbar = document.createElement('div');
-                drawerToolbar.className = 'localprompt-drawer-toolbar';
-                drawerToolbar.innerHTML = `
-                    <span class="localprompt-drawer-summary">Selected (${node_instance.promptData.length})</span>
-                    <button class="localprompt-btn localprompt-clear-btn" style="padding: 2px 6px; font-size: 9px; background: #4a2a2a; border-color: #6a3a3a;" ${node_instance.promptData.length ? '' : 'disabled'}>Clear All</button>
-                `;
-                const drawerClearBtn = drawerToolbar.querySelector('button');
-                if (drawerClearBtn) {
-                    drawerClearBtn.addEventListener('click', () => {
-                        if (node_instance.promptData.length > 0 && confirm("Remove all prompts from selection?")) {
-                            clearAllSelections();
-                        }
-                    });
-                }
-                nextContent.appendChild(drawerToolbar);
-
-                if (prompts.length === 0) {
-                    const emptyState = document.createElement('span');
-                    emptyState.style.fontSize = '11px';
-                    emptyState.style.color = '#555';
-                    emptyState.style.padding = '4px';
-                    emptyState.textContent = 'No prompts found here.';
-                    nextContent.appendChild(emptyState);
-                    container.replaceChildren(nextContent);
-                    if (shouldRestoreScroll) {
-                        requestAnimationFrame(() => {
-                            container.scrollTop = previousScrollTop;
-                        });
-                    }
-                    return;
-                }
-
-                let draggedPinnedId = null;
-                let dragReordered = false;
-                let draggedSelectedPromptId = null;
-                const visibleUnselectedPinnedIds = tabName === 'pinned'
-                    ? prompts.filter(prompt => !selectedIdStrings.has(String(prompt.id))).map(prompt => String(prompt.id))
-                    : [];
-
-                prompts.forEach(prompt => {
-                    const isSelected = selectedIds.has(String(prompt.id));
-                    const promptId = String(prompt.id);
-                    let chip;
-                    const roleColor = getCategoryRoleColor(prompt);
-                    
-                    const isGlobalPinned = prompt.favorite;
-                    const selectedEntry = isSelected ? getSelectedPromptEntry(prompt.id) : null;
-
-                    if (displayMode === 'thumbnails' && prompt.preview_url) {
-                        chip = document.createElement('div');
-                        chip.className = `localprompt-chip-thumb ${isSelected ? 'selected' : ''}`;
-                        
-                        let content = '';
-                        if (tabName !== 'most_used' && (tabName !== 'pinned' || !isSelected)) {
-                            const pinFilter = isGlobalPinned ? 'none' : 'grayscale(100%) opacity(0.3)';
-                            content += `<button class="chip-pin-btn" style="filter: ${pinFilter};">&#9733;</button>`;
-                        }
-
-                        if (isSelected && selectedEntry) {
-                            chip.classList.add('pinned-managed');
-                            content += `
-                                <div class="managed-thumb-media">
-                                    <img src="${prompt.preview_url}" alt="${prompt.name}">
-                                    <span class="thumb-label">${prompt.name}</span>
-                                </div>
-                                ${createPinnedManagedControlsHtml(selectedEntry)}
-                            `;
-                        } else {
-                            content += `
-                                <button class="localprompt-info-btn" title="View Info">!</button>
-                                <img src="${prompt.preview_url}" alt="${prompt.name}">
-                                <span class="thumb-label">${prompt.name}</span>
-                            `;
-                        }
-                        chip.innerHTML = content;
-                        const chipImage = chip.querySelector('img');
-                        if (chipImage) chipImage.draggable = false;
-                        applyCategoryRoleStyling(chip, prompt, { soften: isSelected });
-                        chip.removeAttribute('title');
-                    } else {
-                        chip = document.createElement('div');
-                        chip.className = `localprompt-chip ${isSelected ? 'selected' : ''}`;
-                        
-                        let content = '';
-                        if (tabName !== 'most_used' && (tabName !== 'pinned' || !isSelected)) {
-                            const pinFilter = isGlobalPinned ? 'none' : 'grayscale(100%) opacity(0.3)';
-                            content += `<button class="chip-pin-btn" style="filter: ${pinFilter};">&#9733;</button>`;
-                        }
-
-                        if (isSelected && selectedEntry) {
-                            chip.classList.add('pinned-managed');
-                            content += `
-                                <div class="managed-card-name" title="${prompt.name}">${prompt.name}</div>
-                                ${createManagedTextControlsHtml(selectedEntry)}
-                            `;
-                        } else {
-                            content += `<button class="localprompt-info-btn" title="View Info">!</button> ${prompt.name}`;
-                        }
-                        if (tabName === 'most_used' || (prompt.usage_count > 0 && tabName !== 'pinned')) {
-                            content += ` <span class="usage-count">x${prompt.usage_count || 0}</span>`;
-                        }
-                        chip.innerHTML = content;
-                        applyCategoryRoleStyling(chip, prompt, { soften: isSelected });
-                        chip.removeAttribute('title');
-                    }
-                    chip.dataset.promptId = promptId;
-
-                    // Add event listener to pin button
-                    const pinBtn = chip.querySelector('.chip-pin-btn');
-                    if (pinBtn) {
-                        pinBtn.addEventListener('click', async (e) => {
-                            e.stopPropagation();
-                            const result = await UnifiedPromptGalleryNode.toggleFavorite(prompt.id);
-                            if (result?.status === 'ok') {
-                                await syncPinnedOrderForFavorite(prompt.id, result.favorite);
-                            }
-                            renderLibraryDrawer(tabName);
-                        });
-                    }
-
-                    if (tabName === 'pinned' && !isSelected) {
-                        chip.classList.add('pinned-draggable');
-                        chip.draggable = true;
-                        chip.dataset.promptId = promptId;
-                        chip.addEventListener('dragstart', (e) => {
-                            e.stopPropagation();
-                            draggedPinnedId = promptId;
-                            dragReordered = false;
-                            chip.classList.add('pinned-dragging');
-                            if (e.dataTransfer) {
-                                e.dataTransfer.effectAllowed = 'move';
-                                e.dataTransfer.setData('application/x-localpromptgallery-pinned', promptId);
-                            }
-                        });
-                        chip.addEventListener('dragover', (e) => {
-                            if (!draggedPinnedId || draggedPinnedId === promptId) return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            chip.classList.add('pinned-drop-target');
-                            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                        });
-                        chip.addEventListener('dragleave', () => {
-                            chip.classList.remove('pinned-drop-target');
-                        });
-                        chip.addEventListener('drop', async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            chip.classList.remove('pinned-drop-target');
-                            if (!draggedPinnedId || draggedPinnedId === promptId) return;
-
-                            const nextOrder = visibleUnselectedPinnedIds.filter(id => id !== draggedPinnedId);
-                            const targetIndex = nextOrder.indexOf(promptId);
-                            nextOrder.splice(targetIndex, 0, draggedPinnedId);
-                            const hiddenPinnedIds = getPinnedOrder().filter(id => !visibleUnselectedPinnedIds.includes(id) && id !== draggedPinnedId);
-
-                            dragReordered = true;
-                            await persistPinnedOrder([...nextOrder, ...hiddenPinnedIds]);
-                            await renderLibraryDrawer(tabName);
-                        });
-                        chip.addEventListener('dragend', () => {
-                            chip.classList.remove('pinned-dragging', 'pinned-drop-target');
-                            draggedPinnedId = null;
-                            if (dragReordered) {
-                                node_instance._suppressPinnedClickUntil = Date.now() + 150;
-                            }
-                        });
-                    }
-
-                    if (isSelected) {
-                        chip.draggable = true;
-                        chip.addEventListener('dragstart', (e) => {
-                            draggedSelectedPromptId = promptId;
-                            chip.classList.add('pinned-dragging');
-                            if (e.dataTransfer) {
-                                e.dataTransfer.effectAllowed = 'move';
-                                e.dataTransfer.setData('application/x-localpromptgallery-selected', promptId);
-                            }
-                        });
-                        chip.addEventListener('dragover', (e) => {
-                            if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-                            e.preventDefault();
-                            chip.classList.add('pinned-drop-target');
-                        });
-                        chip.addEventListener('dragleave', () => {
-                            chip.classList.remove('pinned-drop-target');
-                        });
-                        chip.addEventListener('drop', (e) => {
-                            if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-                            e.preventDefault();
-                            chip.classList.remove('pinned-drop-target');
-                            const currentOrder = [...node_instance.promptData];
-                            const fromIndex = currentOrder.findIndex(item => String(item.prompt_id) === draggedSelectedPromptId);
-                            const toIndex = currentOrder.findIndex(item => String(item.prompt_id) === promptId);
-                            if (fromIndex < 0 || toIndex < 0) return;
-                            const [movedItem] = currentOrder.splice(fromIndex, 1);
-                            currentOrder.splice(toIndex, 0, movedItem);
-                            node_instance.promptData = currentOrder;
-                            saveSelectionData();
-                            renderPrompts();
-                            if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
-                        });
-                        chip.addEventListener('dragend', () => {
-                            chip.classList.remove('pinned-dragging', 'pinned-drop-target');
-                            draggedSelectedPromptId = null;
-                        });
-                    }
-
-                    if (isSelected) {
-                        bindPinnedManagedControls(chip, prompt);
-                        chip.addEventListener('click', (e) => {
-                            if (e.target.closest('[data-managed-action]')) return;
-                            addPromptToSelection(prompt);
-                        });
-                    } else {
-                        chip.addEventListener('click', () => addPromptToSelection(prompt));
-                    }
-                    if (tabName === 'pinned') {
-                        chip.addEventListener('click', (e) => {
-                            if ((node_instance._suppressPinnedClickUntil || 0) > Date.now()) {
-                                e.stopImmediatePropagation();
-                            }
-                        }, true);
-                    }
-                    attachInfoPopup(chip, prompt);
-                    attachContextMenu(chip, prompt);
-                    nextContent.appendChild(chip);
-                });
-
-                container.replaceChildren(nextContent);
-
-                if (shouldRestoreScroll) {
-                    requestAnimationFrame(() => {
-                        container.scrollTop = previousScrollTop;
-                    });
-                }
             }
 
             // Helper to attach info popup to element
