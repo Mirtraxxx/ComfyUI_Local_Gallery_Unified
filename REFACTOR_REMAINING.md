@@ -17,6 +17,7 @@ The node is much safer than the original merged file:
 - The prompt browse modal now lives in `js/prompt/browse.js`.
 - The add/import/edit/upload/from-last-output prompt dialogs now live in `js/prompt/dialogs.js`.
 - The prompt context menu bodies now live in `js/prompt/contextMenus.js`.
+- The prompt hover/info preview helpers now live in `js/prompt/previews.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - A baseline tag/commit exists for fallback.
 
@@ -30,8 +31,8 @@ This is still the largest risk.
 
 Current approximate size:
 
-- Around 3,800 lines.
-- Around 202 KB.
+- Around 3,660 lines.
+- Around 193 KB.
 
 It still contains many responsibilities:
 
