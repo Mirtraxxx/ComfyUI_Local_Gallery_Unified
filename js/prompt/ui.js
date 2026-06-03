@@ -9,7 +9,6 @@ import {
     THUMBNAIL_SIZE_MIN,
 } from "./constants.js";
 import {
-    buildPromptPreviewMediaHtml,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
@@ -47,6 +46,7 @@ import {
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
 } from "./previews.js";
+import { renderGallery as renderPromptGallery } from "./gallery.js";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js";
 import { showWildcardsModal } from "./wildcards.js";
@@ -3210,95 +3210,16 @@ const UnifiedPromptGalleryNode = {
             }
 
             function renderGallery() {
-                const gallery = document.getElementById(`${uniqueId}-gallery`);
-                if (!gallery) return;
-
-                gallery.innerHTML = "";
-
-                const selectedIds = new Set(node_instance.promptData.map(p => p.prompt_id));
-
-                let prompts = node_instance.availablePrompts;
-
-                // Filter by favorites if active
-                if (node_instance.showFavoritesOnly) {
-                    prompts = prompts.filter(p => p.favorite);
-                }
-
-                // Sort selected items to the front
-                prompts.sort((a, b) => {
-                    const aSel = selectedIds.has(a.id);
-                    const bSel = selectedIds.has(b.id);
-                    if (aSel && !bSel) return -1;
-                    if (!aSel && bSel) return 1;
-                    return 0; // preserve relative order otherwise
-                });
-
-                prompts.forEach(prompt => {
-                    const div = document.createElement("div");
-                    div.className = "localprompt-item";
-                    if (selectedIds.has(prompt.id)) {
-                        div.classList.add("selected");
-                    }
-
-                    const previewHtml = buildPromptPreviewMediaHtml(prompt, {
-                        wrapperClass: "localprompt-item-preview",
-                        noPreviewText: "No Preview",
-                    });
-
-                    const categoryText = prompt.category ? ` [${prompt.category}]` : "";
-                    const isFavorited = prompt.favorite || false;
-
-                    div.innerHTML = `
-                        <button class="localprompt-info-btn" title="View Info">!</button>
-                        ${previewHtml}
-                        <button class="localprompt-favorite-star ${isFavorited ? 'favorited' : ''}" data-prompt-id="${prompt.id}">*</button>
-                        <div class="localprompt-item-info">
-                            <div class="localprompt-item-name">${prompt.name}${categoryText}</div>
-                        </div>
-                    `;
-
-                    const video = div.querySelector('video');
-                    if (video) {
-                        div.addEventListener('mouseenter', () => video.play());
-                        div.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
-                    }
-
-                    // Favorite star button
-                    const starBtn = div.querySelector('.localprompt-favorite-star');
-                    starBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const result = await UnifiedPromptGalleryNode.toggleFavorite(prompt.id);
-                        if (result.status === 'ok') {
-                            await syncPinnedOrderForFavorite(prompt.id, result.favorite);
-                            await loadPromptsForGallery(UnifiedPromptGalleryNode.currentPage);
-                        }
-                    });
-
-                    attachInfoPopup(div, prompt);
-
-                    div.addEventListener('click', () => {
-                        if (selectedIds.has(prompt.id)) {
-                            node_instance.promptData = node_instance.promptData.filter(p => p.prompt_id !== prompt.id);
-                            div.classList.remove("selected");
-                        } else {
-                            node_instance.promptData.push({
-                                prompt_id: prompt.id,
-                                name: prompt.name,
-                                on: true,
-                                weight: 1.0
-                            });
-                            div.classList.add("selected");
-                        }
-                        saveSelectionData();
-                        renderPrompts();
-                    });
-
-                    div.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        showPromptContextMenu(e, prompt);
-                    });
-
-                    gallery.appendChild(div);
+                renderPromptGallery({
+                    uniqueId,
+                    nodeInstance: node_instance,
+                    galleryNode: UnifiedPromptGalleryNode,
+                    syncPinnedOrderForFavorite,
+                    loadPromptsForGallery,
+                    attachInfoPopup,
+                    showPromptContextMenu,
+                    saveSelectionData,
+                    renderPrompts,
                 });
             }
 
