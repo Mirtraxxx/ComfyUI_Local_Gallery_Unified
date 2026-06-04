@@ -9,6 +9,32 @@ function closeOnOverlayClick(overlay) {
     });
 }
 
+function createPresetSurface({ workspaceContainer, onClose }) {
+    if (!workspaceContainer) {
+        const overlay = document.createElement("div");
+        overlay.className = "localprompt-modal-overlay";
+        document.body.appendChild(overlay);
+        return {
+            root: overlay,
+            close: () => overlay.remove(),
+            isWorkspace: false,
+        };
+    }
+
+    workspaceContainer.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "localprompt-workspace-panel";
+    workspaceContainer.appendChild(root);
+    return {
+        root,
+        close: () => {
+            root.remove();
+            onClose?.();
+        },
+        isWorkspace: true,
+    };
+}
+
 function normalizePresetPrompt(presetPrompt) {
     const promptId = presetPrompt.prompt_id || presetPrompt.id;
     return {
@@ -184,47 +210,53 @@ export async function showPresetsModal({
     renderPrompts,
     getActiveLibraryTab,
     renderLibraryDrawer,
+    workspaceContainer = null,
+    onClose = null,
 }) {
-    const overlay = document.createElement("div");
-    overlay.className = "localprompt-modal-overlay";
-    overlay.innerHTML = `
-        <div class="localprompt-modal" style="width: 450px;">
-            <div class="localprompt-modal-header">
-                <h3>Presets</h3>
-                <button class="localprompt-modal-close">x</button>
+    const surface = createPresetSurface({ workspaceContainer, onClose });
+    const { root, close, isWorkspace } = surface;
+    root.innerHTML = `
+        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 450px;">
+            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
+                <div class="localprompt-workspace-title">
+                    <h3>Library / Presets</h3>
+                    ${isWorkspace ? "<p>Save, load, edit, and create prompt preset stacks.</p>" : ""}
+                </div>
+                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
             </div>
-            <div class="localprompt-modal-content">
-                <div style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
+            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
                     <h4 style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;">Preset Management</h4>
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <input type="text" id="preset-name-input" placeholder="Preset name..." style="flex: 1; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                         <button id="save-preset-btn" class="localprompt-btn active" style="padding: 8px 16px;">Save Current</button>
                     </div>
                 </div>
-                <div style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
                     <h4 id="combo-header" style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;">Combo Preset</h4>
                     <p style="font-size: 10px; color: #aaa; margin: 0 0 8px 0;">Paste comma-separated prompts to automatically create cards and a preset for them.</p>
                     <textarea id="combo-prompts-input" placeholder="e.g. parted bangs, elf, very long hair" style="width: 100%; height: 60px; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; resize: vertical; margin-bottom: 8px;"></textarea>
                     <button id="create-combo-btn" class="localprompt-btn active" style="width: 100%; padding: 8px;">Create & Load Combo</button>
                 </div>
-                <div style="margin-bottom: 8px; font-size: 11px; color: #888;">Saved Presets:</div>
-                <div id="presets-list" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; padding: 8px;">
-                    <div style="color: #666; font-size: 11px; text-align: center; padding: 20px;">Loading...</div>
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 0;">
+                    <div style="margin-bottom: 8px; font-size: 11px; color: #888;">Saved Presets</div>
+                    <div id="presets-list" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; padding: 8px;">
+                        <div style="color: #666; font-size: 11px; text-align: center; padding: 20px;">Loading...</div>
+                    </div>
                 </div>
             </div>
         </div>
     `;
-    document.body.appendChild(overlay);
 
-    const closeBtn = overlay.querySelector(".localprompt-modal-close");
-    closeBtn.addEventListener("click", () => overlay.remove());
-    closeOnOverlayClick(overlay);
+    const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
+    closeBtn.addEventListener("click", close);
+    if (!isWorkspace) closeOnOverlayClick(root);
 
-    const presetsList = overlay.querySelector("#presets-list");
-    const presetNameInput = overlay.querySelector("#preset-name-input");
-    const savePresetBtn = overlay.querySelector("#save-preset-btn");
-    const comboPromptsInput = overlay.querySelector("#combo-prompts-input");
-    const createComboBtn = overlay.querySelector("#create-combo-btn");
+    const presetsList = root.querySelector("#presets-list");
+    const presetNameInput = root.querySelector("#preset-name-input");
+    const savePresetBtn = root.querySelector("#save-preset-btn");
+    const comboPromptsInput = root.querySelector("#combo-prompts-input");
+    const createComboBtn = root.querySelector("#create-combo-btn");
 
     const loadPreset = async (preset) => {
         const result = await galleryNode.loadPreset(preset.name);
@@ -254,7 +286,7 @@ export async function showPresetsModal({
             renderLibraryDrawer,
             app,
         });
-        overlay.remove();
+        close();
     };
 
     async function renderPresetsList() {
@@ -269,7 +301,7 @@ export async function showPresetsModal({
         presets.forEach(preset => {
             presetsList.appendChild(renderPresetRow({
                 preset,
-                overlay,
+                overlay: root,
                 presetNameInput,
                 renderPresetsList,
                 loadPreset,

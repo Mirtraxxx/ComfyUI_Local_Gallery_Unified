@@ -8,6 +8,32 @@ function closeOnOverlayClick(overlay) {
     });
 }
 
+function createSettingsSurface({ workspaceContainer, onClose }) {
+    if (!workspaceContainer) {
+        const overlay = document.createElement("div");
+        overlay.className = "localprompt-modal-overlay";
+        document.body.appendChild(overlay);
+        return {
+            root: overlay,
+            close: () => overlay.remove(),
+            isWorkspace: false,
+        };
+    }
+
+    workspaceContainer.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "localprompt-workspace-panel";
+    workspaceContainer.appendChild(root);
+    return {
+        root,
+        close: () => {
+            root.remove();
+            onClose?.();
+        },
+        isWorkspace: true,
+    };
+}
+
 function populatePromptSourceSelect({
     sourceSelect,
     app,
@@ -154,6 +180,42 @@ function createCategoryColorRow({
     return row;
 }
 
+function createPinnedCategoryManagerRow({
+    category,
+    roleColor,
+    buttons,
+}) {
+    const row = document.createElement("div");
+    row.style.cssText = "display: flex; align-items: center; gap: 6px; padding: 7px; background: #151515; border: 1px solid #333; border-radius: 6px;";
+    const label = document.createElement("div");
+    label.textContent = category;
+    label.title = category;
+    label.style.cssText = `
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: ${roleColor};
+        font-size: 11px;
+    `;
+    row.appendChild(label);
+
+    buttons.forEach(({ label: text, title, disabled, onClick }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "localprompt-btn";
+        button.textContent = text;
+        button.title = title || text;
+        button.disabled = !!disabled;
+        button.style.cssText = "padding: 3px 7px; font-size: 10px;";
+        button.addEventListener("click", onClick);
+        row.appendChild(button);
+    });
+
+    return row;
+}
+
 export async function showSettingsModal({
     uniqueId,
     app,
@@ -173,62 +235,73 @@ export async function showSettingsModal({
     renderLibraryBar,
     getActiveLibraryTab,
     renderLibraryDrawer,
+    getPinnedCategories = null,
+    savePinnedCategories = null,
+    workspaceContainer = null,
+    onClose = null,
 }) {
-    const overlay = document.createElement("div");
-    overlay.className = "localprompt-modal-overlay";
+    const surface = createSettingsSurface({ workspaceContainer, onClose });
+    const { root, close, isWorkspace } = surface;
     const currentCategoryTabs = getLibraryTabs().filter(tab => !["active", "most_used", "pinned"].includes(tab));
-    overlay.innerHTML = `
-        <div class="localprompt-modal" style="width: 460px;">
-            <div class="localprompt-modal-header">
-                <h3>Settings</h3>
-                <button class="localprompt-modal-close">x</button>
+    const allCategories = await galleryNode.getCategories();
+    root.innerHTML = `
+        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 460px;">
+            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
+                <div class="localprompt-workspace-title">
+                    <h3>Settings</h3>
+                    ${isWorkspace ? "<p>Adjust prompt source, display, and category preferences.</p>" : ""}
+                </div>
+                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
             </div>
-            <div class="localprompt-modal-content">
-                <div style="margin-bottom: 16px; padding: 12px; background: #1f1f1f; border: 1px solid #333; border-radius: 6px;">
+            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; padding: 12px; background: #1f1f1f; border: 1px solid #333; border-radius: 6px;">
                     <div style="font-size: 12px; font-weight: 500; color: #ddd; margin-bottom: 8px;">Prompt Source Configuration</div>
                     <select id="${uniqueId}-settings-prompt-source-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                         <option value="">-- None Selected --</option>
                     </select>
                     <div id="${uniqueId}-prompt-source-status" style="font-size: 11px; color: #aaa; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No prompt source</div>
                 </div>
-                <div style="margin-bottom: 16px;">
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
+                    <h4>Display</h4>
                     <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Display Mode</label>
                     <select id="settings-display-mode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                         <option value="text">Text Only</option>
                         <option value="thumbnails">With Thumbnails</option>
                     </select>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Most Used Count</label>
+                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Most Used Count</label>
                     <input type="number" id="settings-most-used-count" min="1" max="50" value="10" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                 </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Category Tab Layout</label>
-                    <select id="settings-library-tab-layout" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="scroll">Scroll</option>
-                        <option value="wrap">Wrap To Rows</option>
-                    </select>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Category Tab Colors</label>
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
+                    <h4>Categories</h4>
+                    <div style="font-size: 10px; color: #777; margin-bottom: 10px;">Manage which categories appear in the top row. Extra pinned categories appear under All Categories.</div>
+                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Visible pinned categories</label>
+                    <input type="number" id="settings-visible-pinned-category-count" min="1" max="20" value="5" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
+                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Category Colors</label>
                     <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Drag category tabs directly on the node to reorder them.</div>
                     <div id="settings-category-order-list" style="max-height: 180px; overflow-y: auto; padding: 10px; background: #151515; border: 1px solid #333; border-radius: 6px;"></div>
+                    <div style="height: 1px; background: #333; margin: 14px 0;"></div>
+                    <h4 style="margin-top: 0;">Pinned Categories</h4>
+                    <div style="font-size: 10px; color: #777; margin-bottom: 8px;">Pinned categories appear in the top row in this order.</div>
+                    <div id="settings-pinned-category-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;"></div>
+                    <h4 style="margin-top: 0;">Available Categories</h4>
+                    <div id="settings-available-category-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
                 </div>
-                <button id="settings-save" class="localprompt-btn active" style="width: 100%; padding: 10px;">Save Settings</button>
+            </div>
+            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="${isWorkspace ? "" : "padding: 0 16px 16px;"}">
+                <button id="settings-save" class="localprompt-btn active" style="padding: 10px 16px;">Save Settings</button>
             </div>
         </div>
     `;
-    document.body.appendChild(overlay);
 
-    const closeBtn = overlay.querySelector(".localprompt-modal-close");
-    const displayModeSelect = overlay.querySelector("#settings-display-mode");
-    const mostUsedCountInput = overlay.querySelector("#settings-most-used-count");
-    const tabLayoutSelect = overlay.querySelector("#settings-library-tab-layout");
-    const saveBtn = overlay.querySelector("#settings-save");
+    const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
+    const displayModeSelect = root.querySelector("#settings-display-mode");
+    const mostUsedCountInput = root.querySelector("#settings-most-used-count");
+    const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
+    const saveBtn = root.querySelector("#settings-save");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
 
     populatePromptSourceSelect({
-        sourceSelect: overlay.querySelector(`#${uniqueId}-settings-prompt-source-select`),
+        sourceSelect: root.querySelector(`#${uniqueId}-settings-prompt-source-select`),
         app,
         nodeInstance,
         isShowTextNode,
@@ -239,12 +312,18 @@ export async function showSettingsModal({
 
     displayModeSelect.value = nodeInstance.uiPrefs.display_mode || "text";
     mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
-    tabLayoutSelect.value = getLibraryTabLayoutMode();
+    visiblePinnedCountInput.value = Math.max(1, Math.min(20, parseInt(nodeInstance.uiPrefs.visible_pinned_category_count, 10) || 5));
 
-    const orderList = overlay.querySelector("#settings-category-order-list");
+    const orderList = root.querySelector("#settings-category-order-list");
+    const pinnedCategoryList = root.querySelector("#settings-pinned-category-list");
+    const availableCategoryList = root.querySelector("#settings-available-category-list");
     const draftCategoryColors = {
         ...(nodeInstance.uiPrefs.category_colors || {})
     };
+    let draftPinnedCategories = typeof getPinnedCategories === "function"
+        ? getPinnedCategories(allCategories)
+        : (Array.isArray(nodeInstance.uiPrefs?.pinned_categories) ? [...nodeInstance.uiPrefs.pinned_categories] : []);
+    draftPinnedCategories = [...new Set(draftPinnedCategories.filter(category => allCategories.includes(category)))];
     let activeCategoryColorPopover = null;
 
     const closeCategoryColorPopover = () => {
@@ -289,8 +368,83 @@ export async function showSettingsModal({
     };
     renderCategoryTabOrderList();
 
-    closeBtn.addEventListener("click", () => overlay.remove());
-    closeOnOverlayClick(overlay);
+    const renderPinnedCategoryManager = () => {
+        if (!pinnedCategoryList || !availableCategoryList) return;
+        const categoryColor = category => getNearestPaletteColor(
+            draftCategoryColors[category] || getCategoryRoleColor(category) || "#aaa",
+            palette
+        );
+
+        pinnedCategoryList.innerHTML = "";
+        availableCategoryList.innerHTML = "";
+
+        if (!draftPinnedCategories.length) {
+            pinnedCategoryList.innerHTML = '<div style="font-size: 11px; color: #666; padding: 8px;">No pinned categories.</div>';
+        }
+
+        draftPinnedCategories.forEach((category, index) => {
+            pinnedCategoryList.appendChild(createPinnedCategoryManagerRow({
+                category,
+                roleColor: categoryColor(category),
+                buttons: [
+                    {
+                        label: "↑",
+                        title: "Move up",
+                        disabled: index === 0,
+                        onClick: () => {
+                            if (index === 0) return;
+                            [draftPinnedCategories[index - 1], draftPinnedCategories[index]] = [draftPinnedCategories[index], draftPinnedCategories[index - 1]];
+                            renderPinnedCategoryManager();
+                        },
+                    },
+                    {
+                        label: "↓",
+                        title: "Move down",
+                        disabled: index === draftPinnedCategories.length - 1,
+                        onClick: () => {
+                            if (index >= draftPinnedCategories.length - 1) return;
+                            [draftPinnedCategories[index + 1], draftPinnedCategories[index]] = [draftPinnedCategories[index], draftPinnedCategories[index + 1]];
+                            renderPinnedCategoryManager();
+                        },
+                    },
+                    {
+                        label: "Unpin",
+                        onClick: () => {
+                            draftPinnedCategories = draftPinnedCategories.filter(item => item !== category);
+                            renderPinnedCategoryManager();
+                        },
+                    },
+                ],
+            }));
+        });
+
+        const pinnedSet = new Set(draftPinnedCategories);
+        const availableCategories = allCategories.filter(category => !pinnedSet.has(category));
+        if (!availableCategories.length) {
+            availableCategoryList.innerHTML = '<div style="font-size: 11px; color: #666; padding: 8px;">All categories are pinned.</div>';
+            return;
+        }
+
+        availableCategories.forEach(category => {
+            availableCategoryList.appendChild(createPinnedCategoryManagerRow({
+                category,
+                roleColor: categoryColor(category),
+                buttons: [
+                    {
+                        label: "Pin",
+                        onClick: () => {
+                            draftPinnedCategories = [...draftPinnedCategories, category];
+                            renderPinnedCategoryManager();
+                        },
+                    },
+                ],
+            }));
+        });
+    };
+    renderPinnedCategoryManager();
+
+    closeBtn.addEventListener("click", close);
+    if (!isWorkspace) closeOnOverlayClick(root);
 
     saveBtn.addEventListener("click", async () => {
         const categoryColors = {
@@ -305,17 +459,22 @@ export async function showSettingsModal({
             ...nodeInstance.uiPrefs,
             display_mode: displayModeSelect.value,
             most_used_count: parseInt(mostUsedCountInput.value) || 10,
-            library_tab_layout: tabLayoutSelect.value === "wrap" ? "wrap" : "scroll",
+            visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
+            library_tab_layout: getLibraryTabLayoutMode(),
             thumbnail_size_px: getThumbnailSizePx(),
             active_thumbnail_size_px: getActiveThumbnailSizePx(),
             library_tabs: ["active", "most_used", "pinned", ...currentCategoryTabs],
+            pinned_categories: draftPinnedCategories,
             category_colors: categoryColors
         };
         await galleryNode.saveUiPrefs(newPrefs);
         nodeInstance.uiPrefs = newPrefs;
+        if (typeof savePinnedCategories === "function") {
+            await savePinnedCategories(draftPinnedCategories);
+        }
         applyThumbnailSizePreference();
         applyLibraryTabLayoutPreference();
-        renderLibraryBar();
+        await renderLibraryBar();
 
         const activeLibraryTab = getActiveLibraryTab();
         if (activeLibraryTab) {
@@ -323,6 +482,6 @@ export async function showSettingsModal({
         }
 
         closeCategoryColorPopover();
-        overlay.remove();
+        close();
     });
 }

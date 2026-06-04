@@ -36,6 +36,37 @@ function createDialog(width = 500) {
     return dialog;
 }
 
+function createWorkspaceDialogSurface({ workspaceContainer, onClose, width = 500 }) {
+    if (!workspaceContainer) {
+        const overlay = createCenteredOverlay();
+        const dialog = createDialog(width);
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        return {
+            dialog,
+            close: () => overlay.remove(),
+            isWorkspace: false,
+        };
+    }
+
+    workspaceContainer.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "localprompt-workspace-panel";
+    const dialog = document.createElement("div");
+    dialog.className = "localprompt-workspace-page";
+    dialog.style.width = `${width}px`;
+    root.appendChild(dialog);
+    workspaceContainer.appendChild(root);
+    return {
+        dialog,
+        close: () => {
+            root.remove();
+            onClose?.();
+        },
+        isWorkspace: true,
+    };
+}
+
 async function populateCategoryDatalist(galleryNode, datalist) {
     if (!datalist) return;
     try {
@@ -267,48 +298,57 @@ export async function showImportDialog({
     galleryNode,
     loadCategories,
     loadPromptsForGallery,
+    workspaceContainer = null,
+    onClose = null,
 }) {
-    const overlay = createCenteredOverlay();
-    const dialog = createDialog(450);
+    const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+        workspaceContainer,
+        onClose,
+        width: 450,
+    });
 
     dialog.innerHTML = `
-         <h3 style="margin: 0 0 16px 0; color: #ddd;">Import Wildcard File (Batch Import)</h3>
-         <p style="font-size: 11px; color: #aaa; margin-bottom: 12px;">
-             Select a .txt file. Each line will be converted into a separate prompt card.
-         </p>
-         
-         <div style="margin-bottom: 12px;">
-             <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Select File:</label>
-             <input type="file" id="import-file-input" accept=".txt" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;">
+         <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
+             <div class="localprompt-workspace-title">
+                 <h3>Library / Import TXT</h3>
+                 ${isWorkspace ? "<p>Create a new category from a wildcard-style text file.</p>" : ""}
+             </div>
+             <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
          </div>
-         
-         <div style="margin-bottom: 12px;">
-             <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category Name:</label>
-             <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;" list="import-category-datalist">
-             <datalist id="import-category-datalist"></datalist>
+         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
+             <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 12px;">
+                 <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
+                     Import a wildcard-style .txt file. Each line will become one prompt card in a new category.
+                 </p>
+                 <div style="margin-bottom: 12px;">
+                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Select File</label>
+                     <input type="file" id="import-file-input" accept=".txt" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;">
+                 </div>
+                 <div style="margin-bottom: 12px;">
+                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category Name</label>
+                     <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;" list="import-category-datalist">
+                     <datalist id="import-category-datalist"></datalist>
+                 </div>
+                 <div style="font-size: 11px; color: #999; padding: 8px; background: #151515; border: 1px solid #333; border-radius: 4px;">Import behavior: Create new category</div>
+             </div>
+             <div id="import-status" style="
+                 margin: 12px 0;
+                 padding: 8px;
+                 background: #151515;
+                 border: 1px solid #444;
+                 border-radius: 4px;
+                 min-height: 40px;
+                 font-size: 11px;
+                 color: #aaa;
+                 white-space: pre-wrap;
+                 display: none;
+             "></div>
          </div>
-         
-         <div id="import-status" style="
-             margin: 12px 0;
-             padding: 8px;
-             background: #151515;
-             border: 1px solid #444;
-             border-radius: 4px;
-             min-height: 40px;
-             font-size: 11px;
-             color: #aaa;
-             white-space: pre-wrap;
-             display: none;
-         "></div>
-         
-         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+         <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
              <button id="import-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-             <button id="import-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Upload & Import</button>
+             <button id="import-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Import</button>
          </div>
      `;
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
 
     await populateCategoryDatalist(galleryNode, dialog.querySelector("#import-category-datalist"));
 
@@ -324,7 +364,8 @@ export async function showImportDialog({
         statusDiv.style.color = isError ? "#ff6b6b" : "#aaa";
     };
 
-    cancelBtn.addEventListener("click", () => overlay.remove());
+    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
+    cancelBtn.addEventListener("click", close);
 
     saveBtn.addEventListener("click", async () => {
         const file = fileInput.files[0];
@@ -363,7 +404,7 @@ export async function showImportDialog({
             await loadPromptsForGallery(1);
 
             setTimeout(() => {
-                overlay.remove();
+                close();
             }, 2000);
         } catch (error) {
             updateStatus("Error: " + error.message, true);
@@ -379,6 +420,8 @@ export async function showFromLastOutputDialog({
     getPromptSourceNode,
     insertPromptIntoCurrentGallery,
     loadPromptsForGallery,
+    workspaceContainer = null,
+    onClose = null,
 }) {
     if (!galleryNode.lastOutput?.filename) {
         alert("No previous output found yet.");
@@ -403,77 +446,69 @@ export async function showFromLastOutputDialog({
     const defaultCardName = defaultNameMode === "blank" ? "" : timeCardName;
     const previewUrl = buildLastOutputPreviewUrl(galleryNode.lastOutput);
 
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-    `;
-
-    const dialog = document.createElement("div");
-    dialog.style.cssText = `
-        background: #2a2a2a;
-        border: 1px solid #555;
-        border-radius: 8px;
-        padding: 16px;
-        width: 560px;
-        max-width: 92%;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    `;
+    const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+        workspaceContainer,
+        onClose,
+        width: 560,
+    });
+    if (!isWorkspace) {
+        dialog.style.padding = "16px";
+    }
 
     const categoryOptions = ['<option value="">Uncategorized</option>']
         .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
         .join("");
 
     dialog.innerHTML = `
-        <h3 style="margin: 0 0 12px 0; color: #ddd;">From Last Output</h3>
-        <div style="display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px;">
-            <div style="width: 96px; flex: 0 0 96px;">
-                <div style="width: 96px; height: 96px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
-                    <img src="${previewUrl}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                </div>
+        <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -16px -16px 12px;"}">
+            <div class="localprompt-workspace-title">
+                <h3>From Last Output</h3>
+                ${isWorkspace ? "<p>Create a prompt card from the latest generated output.</p>" : ""}
             </div>
-            <div style="flex: 1; min-width: 0;">
-                <div style="margin-bottom: 10px;">
-                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
-                    <input type="text" id="from-last-output-name" value="${escapeHtml(defaultCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                </div>
-                <div style="display: flex; gap: 10px; align-items: flex-end;">
-                    <div style="flex: 1; min-width: 0;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
-                        <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                            <option value="time" ${defaultNameMode === "time" ? "selected" : ""}>Time</option>
-                            <option value="blank" ${defaultNameMode === "blank" ? "selected" : ""}>Blank</option>
-                        </select>
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
-                    <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                        ${categoryOptions}
-                    </select>
+            <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
+        </div>
+        <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
+            <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
+                <div style="width: 104px;">
+                    <div style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
+                        <img src="${previewUrl}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                     </div>
                 </div>
+                <div style="min-width: 0;">
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
+                        <input type="text" id="from-last-output-name" value="${escapeHtml(defaultCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                        <div style="min-width: 0;">
+                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
+                            <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                                <option value="time" ${defaultNameMode === "time" ? "selected" : ""}>Time</option>
+                                <option value="blank" ${defaultNameMode === "blank" ? "selected" : ""}>Blank</option>
+                            </select>
+                        </div>
+                        <div style="min-width: 0;">
+                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
+                            <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                                ${categoryOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 8px;">
+                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
+                <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+                <div style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
+                    Using prompt source: ${escapeHtml(sourceNode.title || sourceNode.type || `Node ${sourceNode.id}`)}
+                </div>
             </div>
         </div>
-        <div style="margin-bottom: 8px;">
-            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
-            <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-        </div>
-        <div style="min-height: 16px; color: #999; font-size: 11px; margin-bottom: 12px;">
-            Using prompt source: ${escapeHtml(sourceNode.title || sourceNode.type || `Node ${sourceNode.id}`)}
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end;">
             <button id="from-last-output-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
             <button id="from-last-output-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>
         </div>
     `;
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
 
     const nameInput = dialog.querySelector("#from-last-output-name");
     const nameDefaultSelect = dialog.querySelector("#from-last-output-name-default");
@@ -488,7 +523,8 @@ export async function showFromLastOutputDialog({
         categorySelect.value = nodeInstance.uiPrefs.last_created_category;
     }
 
-    cancelBtn.addEventListener("click", () => overlay.remove());
+    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
+    cancelBtn.addEventListener("click", close);
     nameDefaultSelect.addEventListener("change", () => {
         const mode = nameDefaultSelect.value === "blank" ? "blank" : "time";
         nodeInstance.uiPrefs.from_last_output_name_default = mode;
@@ -528,7 +564,7 @@ export async function showFromLastOutputDialog({
                 console.warn("LocalPromptGallery: Failed to save last created category", error);
             });
 
-            overlay.remove();
+            close();
             if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
                 await loadPromptsForGallery(1);
             }

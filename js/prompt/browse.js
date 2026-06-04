@@ -8,6 +8,32 @@ function closeOnOverlayClick(overlay) {
     });
 }
 
+function createBrowseSurface({ workspaceContainer, onClose }) {
+    if (!workspaceContainer) {
+        const overlay = document.createElement("div");
+        overlay.className = "localprompt-modal-overlay";
+        document.body.appendChild(overlay);
+        return {
+            root: overlay,
+            close: () => overlay.remove(),
+            isWorkspace: false,
+        };
+    }
+
+    workspaceContainer.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "localprompt-workspace-panel";
+    workspaceContainer.appendChild(root);
+    return {
+        root,
+        close: () => {
+            root.remove();
+            onClose?.();
+        },
+        isWorkspace: true,
+    };
+}
+
 function populateCategorySelect(categorySelect, categories, selectedCategory = "") {
     categorySelect.innerHTML = '<option value="">All Categories</option>';
     categories.forEach(category => {
@@ -62,25 +88,30 @@ export async function showBrowseModal({
     showContextMenu,
     renameCategoryWithPrompt,
     getCategoryRoleColor,
+    workspaceContainer = null,
+    onClose = null,
 }) {
     let browseManageMode = false;
     const bulkSelectedPromptIds = new Set();
-    const overlay = document.createElement("div");
-    overlay.className = "localprompt-modal-overlay";
-    overlay.innerHTML = `
-        <div class="localprompt-modal">
-            <div class="localprompt-modal-header">
-                <h3>Browse Prompts</h3>
+    const surface = createBrowseSurface({ workspaceContainer, onClose });
+    const { root, close, isWorkspace } = surface;
+    root.innerHTML = `
+        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}">
+            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
+                <div class="localprompt-workspace-title">
+                    <h3>Library / Cards</h3>
+                    ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
+                </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <input type="text" id="browse-filter" placeholder="Search..." style="padding: 4px 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px; width: 150px;">
                     <select id="browse-category" style="padding: 4px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px;"></select>
                     <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 4px 8px;">Manage</button>
                     <button id="browse-rename-category" class="localprompt-btn" style="padding: 4px 8px; display: none;" title="Rename category">Rename</button>
                     <button id="browse-delete-category" class="localprompt-btn" style="padding: 4px 8px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
-                    <button class="localprompt-modal-close">x</button>
+                    <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
                 </div>
             </div>
-            <div class="localprompt-modal-content">
+            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
                     <button id="browse-select-visible" class="localprompt-btn">Select Visible</button>
@@ -89,28 +120,27 @@ export async function showBrowseModal({
                 </div>
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
-            <div style="padding: 10px 16px; border-top: 1px solid #444; display: flex; justify-content: center; gap: 8px;">
+            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="padding: 10px 16px; border-top: 1px solid #444; display: flex; justify-content: center; gap: 8px;">
                 <button id="browse-prev" class="localprompt-btn">Prev</button>
                 <span id="browse-page-info" style="font-size: 11px; color: #888; padding: 5px 10px;">Page 1 of 1</span>
                 <button id="browse-next" class="localprompt-btn">Next</button>
             </div>
         </div>
     `;
-    document.body.appendChild(overlay);
 
-    const closeBtn = overlay.querySelector(".localprompt-modal-close");
-    const filterInput = overlay.querySelector("#browse-filter");
-    const categorySelect = overlay.querySelector("#browse-category");
-    const manageToggleBtn = overlay.querySelector("#browse-manage-toggle");
-    const bulkToolbar = overlay.querySelector("#browse-bulk-toolbar");
-    const bulkSummary = overlay.querySelector("#browse-bulk-summary");
-    const selectVisibleBtn = overlay.querySelector("#browse-select-visible");
-    const clearSelectedBtn = overlay.querySelector("#browse-clear-selected");
-    const deleteSelectedBtn = overlay.querySelector("#browse-delete-selected");
-    const grid = overlay.querySelector("#browse-gallery-grid");
-    const prevBtn = overlay.querySelector("#browse-prev");
-    const nextBtn = overlay.querySelector("#browse-next");
-    const pageInfo = overlay.querySelector("#browse-page-info");
+    const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
+    const filterInput = root.querySelector("#browse-filter");
+    const categorySelect = root.querySelector("#browse-category");
+    const manageToggleBtn = root.querySelector("#browse-manage-toggle");
+    const bulkToolbar = root.querySelector("#browse-bulk-toolbar");
+    const bulkSummary = root.querySelector("#browse-bulk-summary");
+    const selectVisibleBtn = root.querySelector("#browse-select-visible");
+    const clearSelectedBtn = root.querySelector("#browse-clear-selected");
+    const deleteSelectedBtn = root.querySelector("#browse-delete-selected");
+    const grid = root.querySelector("#browse-gallery-grid");
+    const prevBtn = root.querySelector("#browse-prev");
+    const nextBtn = root.querySelector("#browse-next");
+    const pageInfo = root.querySelector("#browse-page-info");
 
     let currentPage = 1;
     let totalPages = 1;
@@ -208,8 +238,8 @@ export async function showBrowseModal({
         });
     }
 
-    closeBtn.addEventListener("click", () => overlay.remove());
-    closeOnOverlayClick(overlay);
+    closeBtn.addEventListener("click", close);
+    if (!isWorkspace) closeOnOverlayClick(root);
 
     populateCategorySelect(categorySelect, await galleryNode.getCategories());
 
@@ -269,23 +299,23 @@ export async function showBrowseModal({
 
     categorySelect.addEventListener("change", () => {
         loadBrowseGallery(1);
-        updateCategoryActionButtons(overlay, categorySelect.value);
+        updateCategoryActionButtons(root, categorySelect.value);
     });
 
     prevBtn.addEventListener("click", () => loadBrowseGallery(currentPage - 1));
     nextBtn.addEventListener("click", () => loadBrowseGallery(currentPage + 1));
 
-    overlay.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
+    root.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
         await renameCategoryWithPrompt(categorySelect.value, async (newCategory) => {
             const newCategories = await galleryNode.getCategories();
             populateCategorySelect(categorySelect, newCategories, newCategory);
-            updateCategoryActionButtons(overlay, categorySelect.value);
+            updateCategoryActionButtons(root, categorySelect.value);
             await loadBrowseGallery(1);
             refreshAllSections();
         });
     });
 
-    overlay.querySelector("#browse-delete-category")?.addEventListener("click", async () => {
+    root.querySelector("#browse-delete-category")?.addEventListener("click", async () => {
         const categoryToDelete = categorySelect.value;
         if (!categoryToDelete) {
             alert("Please select a category to delete.");
@@ -309,7 +339,7 @@ export async function showBrowseModal({
             if (result.status === "ok") {
                 alert(result.message);
                 populateCategorySelect(categorySelect, await galleryNode.getCategories());
-                updateCategoryActionButtons(overlay, "");
+                updateCategoryActionButtons(root, "");
                 await loadBrowseGallery(1);
                 refreshAllSections();
             } else {

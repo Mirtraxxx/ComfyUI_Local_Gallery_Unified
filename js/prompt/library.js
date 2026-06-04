@@ -56,7 +56,7 @@ export async function renderLibraryBar({
             tabBtn.title = "Most Used";
         } else if (tabContent === "pinned") {
             tabBtn.innerHTML = "&#11088;";
-            tabBtn.title = "Pinned";
+            tabBtn.title = "Favorites";
         } else {
             tabBtn.innerHTML = tabContent;
         }
