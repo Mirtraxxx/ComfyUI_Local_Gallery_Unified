@@ -379,7 +379,7 @@ export async function showPresetsModal({
                 presetNameInput.value = "";
                 comboPromptsInput.value = "";
 
-                const comboHeader = overlay.querySelector("#combo-header");
+                const comboHeader = root.querySelector("#combo-header");
                 if (comboHeader) {
                     comboHeader.textContent = "Combo Preset";
                     comboHeader.style.color = "#ddd";

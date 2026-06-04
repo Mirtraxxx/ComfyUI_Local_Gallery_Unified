@@ -772,6 +772,26 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-meta-panel {
                         width: min(560px, 86vw);
                     }
+                    .localprompt-meta-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        gap: 10px;
+                    }
+                    .localprompt-meta-save-status {
+                        color: #777;
+                        font-size: 10px;
+                        line-height: 1.35;
+                        white-space: nowrap;
+                        min-width: 46px;
+                        text-align: right;
+                    }
+                    .localprompt-meta-save-status.saving {
+                        color: #aaa;
+                    }
+                    .localprompt-meta-save-status.saved {
+                        color: #76b982;
+                    }
                     .localprompt-meta-list {
                         display: flex;
                         flex-direction: column;
@@ -779,7 +799,7 @@ const UnifiedPromptGalleryNode = {
                     }
                     .localprompt-meta-row {
                         display: grid;
-                        grid-template-columns: 54px minmax(98px, 0.65fr) minmax(150px, 1fr) 28px 28px;
+                        grid-template-columns: 54px minmax(82px, 0.45fr) minmax(170px, 1.35fr) 28px;
                         align-items: start;
                         gap: 8px;
                         padding: 6px 0;
@@ -823,6 +843,10 @@ const UnifiedPromptGalleryNode = {
                         font-size: 11px;
                         padding: 5px 8px;
                         box-sizing: border-box;
+                    }
+                    .localprompt-meta-name::placeholder,
+                    .localprompt-meta-text::placeholder {
+                        color: #777;
                     }
                     .localprompt-meta-text {
                         resize: none;
@@ -2143,7 +2167,10 @@ const UnifiedPromptGalleryNode = {
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
                                     </button>
                                     <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
-                                        <div class="localprompt-dropdown-note">Hidden prompts are injected into final output but do not appear in Active Prompts.</div>
+                                        <div class="localprompt-meta-header">
+                                            <div class="localprompt-dropdown-note">Hidden prompts are injected into final output but do not appear in Active Prompts.</div>
+                                            <div class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></div>
+                                        </div>
                                         <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
                                         <div class="localprompt-dropdown-divider"></div>
                                         <button class="localprompt-btn" id="${uniqueId}-add-meta-tag-btn" type="button" style="width: 100%; padding: 7px 10px; border-color: #4f8658; background: #28402c;">+ Add Hidden Prompt</button>
@@ -2304,7 +2331,7 @@ const UnifiedPromptGalleryNode = {
                 const tags = Array.isArray(rawTags) ? rawTags : [];
                 return tags.map((tag, index) => ({
                     id: String(tag?.id || `meta-${Date.now()}-${index}`),
-                    name: String(tag?.name || "Hidden Prompt"),
+                    name: String(tag?.name ?? ""),
                     prompt_text: String(tag?.prompt_text || tag?.prompt || ""),
                     enabled: tag?.enabled === true,
                     order: Number.isFinite(Number(tag?.order ?? tag?.index))
@@ -2313,7 +2340,30 @@ const UnifiedPromptGalleryNode = {
                 })).sort((a, b) => (a.order - b.order) || String(a.id).localeCompare(String(b.id)));
             }
 
+            let metaSaveStatusTimer = null;
+            function setMetaSaveStatus(text, statusClass = "") {
+                const statusEl = widgetContainer.querySelector(`#${uniqueId}-meta-save-status`);
+                if (!statusEl) return;
+                statusEl.textContent = text;
+                statusEl.classList.remove("saving", "saved");
+                if (statusClass) statusEl.classList.add(statusClass);
+            }
+
+            function showMetaSaveFeedback() {
+                setMetaSaveStatus("Saving...", "saving");
+                if (metaSaveStatusTimer) {
+                    clearTimeout(metaSaveStatusTimer);
+                }
+                metaSaveStatusTimer = setTimeout(() => {
+                    setMetaSaveStatus("Saved", "saved");
+                    metaSaveStatusTimer = null;
+                }, 220);
+            }
+
             function saveMetaTags(options = {}) {
+                if (!options.skipStatus) {
+                    showMetaSaveFeedback();
+                }
                 node_instance.metaTags = normalizeMetaTags(node_instance.metaTags).map((tag, index) => ({
                     ...tag,
                     order: index,
@@ -2361,9 +2411,8 @@ const UnifiedPromptGalleryNode = {
                     row.dataset.metaId = tag.id;
                     row.innerHTML = `
                         <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
-                        <input class="localprompt-meta-name" type="text" value="${escapeHtml(tag.name)}" placeholder="Name">
-                        <textarea class="localprompt-meta-text" rows="1" placeholder="Prompt text">${escapeHtml(tag.prompt_text)}</textarea>
-                        <button class="localprompt-btn localprompt-meta-action" data-meta-action="edit" title="Edit hidden prompt">E</button>
+                        <input class="localprompt-meta-name" type="text" value="${escapeHtml(tag.name)}" placeholder="Label" title="Optional label">
+                        <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden prompt" title="Hidden prompt text">${escapeHtml(tag.prompt_text)}</textarea>
                         <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt" style="background: #4a2a2a; border-color: #6a3a3a;">x</button>
                     `;
 
@@ -2393,13 +2442,8 @@ const UnifiedPromptGalleryNode = {
                         autoGrowPromptText();
                         saveMetaTags({ redrawCanvas: false, skipRender: true });
                     });
-                    row.querySelector('[data-meta-action="edit"]')?.addEventListener("click", () => {
-                        const textarea = row.querySelector(".localprompt-meta-text");
-                        textarea?.focus();
-                        textarea?.select();
-                    });
                     row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
-                        if (!confirm(`Delete hidden prompt "${tag.name || "Hidden Prompt"}"?`)) return;
+                        if (!confirm(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
                         node_instance.metaTags.splice(index, 1);
                         saveMetaTags();
                     });
@@ -3216,9 +3260,36 @@ const UnifiedPromptGalleryNode = {
 
             let activeLibraryTab = null;
             let workspaceMode = "gallery";
+            let currentWildcardMode = wildcardWidget?.value || 'off';
 
             function getWorkspaceHost() {
                 return widgetContainer.querySelector(`#${uniqueId}-workspace-host`);
+            }
+
+            function updateConfigBarVisibility() {
+                const configBar = widgetContainer.querySelector(`#${uniqueId}-config-bar`);
+                const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
+                const wildcardControlsEl = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
+                const hasOpenPanel =
+                    (sizeControls && sizeControls.style.display !== 'none')
+                    || (wildcardControlsEl && wildcardControlsEl.style.display !== 'none');
+                configBar?.classList.toggle('collapsed', !hasOpenPanel);
+            }
+
+            function updateWildcardControlsUI() {
+                const wildcardToggleBtn = widgetContainer.querySelector(`#${uniqueId}-wildcard-toggle-btn`);
+                const wildcardControls = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
+                const isOn = currentWildcardMode === 'on';
+                if (wildcardToggleBtn) {
+                    wildcardToggleBtn.classList.toggle('active', isOn);
+                    wildcardToggleBtn.style.background = isOn ? '#2f6f45' : '';
+                    wildcardToggleBtn.style.borderColor = isOn ? '#55a66b' : '';
+                    wildcardToggleBtn.style.color = isOn ? '#fff' : '';
+                }
+                if (wildcardControls) {
+                    wildcardControls.style.display = isOn ? 'flex' : 'none';
+                }
+                updateConfigBarVisibility();
             }
 
             function setWorkspaceMode(mode = "gallery") {
@@ -3279,9 +3350,9 @@ const UnifiedPromptGalleryNode = {
                     </div>
                 `;
                 host.querySelector(".localprompt-workspace-back")?.addEventListener("click", returnToGallery);
-                host.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace());
-                host.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace());
-                host.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace());
+                host.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace(renderLibraryWorkspace));
+                host.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace(renderLibraryWorkspace));
+                host.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace(renderLibraryWorkspace));
             }
 
             async function renderActiveSidebar() {
@@ -3748,14 +3819,56 @@ const UnifiedPromptGalleryNode = {
                 });
             }
 
-            async function showImportWorkspace() {
+            async function showImportWorkspace(onClose = returnToGallery) {
                 const host = setWorkspaceMode("import_txt");
                 await openImportDialog({
                     galleryNode: UnifiedPromptGalleryNode,
                     loadCategories,
                     loadPromptsForGallery,
                     workspaceContainer: host,
-                    onClose: returnToGallery,
+                    onClose,
+                });
+            }
+
+            async function showPresetsWorkspace(onClose = returnToGallery) {
+                const host = setWorkspaceMode("library_presets");
+                await openPresetsModal({
+                    app,
+                    nodeInstance: node_instance,
+                    galleryNode: UnifiedPromptGalleryNode,
+                    categoriesWidget,
+                    getCurrentWildcardMode: () => currentWildcardMode,
+                    setCurrentWildcardMode: mode => {
+                        currentWildcardMode = mode;
+                    },
+                    saveSelectionData,
+                    saveWildcardState,
+                    updateWildcardControlsUI,
+                    renderPrompts,
+                    getActiveLibraryTab: () => activeLibraryTab,
+                    renderLibraryDrawer,
+                    workspaceContainer: host,
+                    onClose,
+                });
+            }
+
+            async function showBrowseWorkspace(onClose = returnToGallery) {
+                const host = setWorkspaceMode("library_cards");
+                await openBrowseModal({
+                    app,
+                    nodeInstance: node_instance,
+                    galleryNode: UnifiedPromptGalleryNode,
+                    saveSelectionData,
+                    loadCategories,
+                    refreshAllSections,
+                    addPromptToSelection,
+                    syncPinnedOrderForFavorite,
+                    attachInfoPopup,
+                    showContextMenu,
+                    renameCategoryWithPrompt,
+                    getCategoryRoleColor,
+                    workspaceContainer: host,
+                    onClose,
                 });
             }
 
@@ -3860,34 +3973,9 @@ const UnifiedPromptGalleryNode = {
                     });
                 }
                 // ========== WILDCARD MODE ==========
-                let currentWildcardMode = wildcardWidget?.value || 'off';
+                currentWildcardMode = wildcardWidget?.value || 'off';
 
                 const wildcardToggleBtn = widgetContainer.querySelector(`#${uniqueId}-wildcard-toggle-btn`);
-                const wildcardControls = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
-
-                function updateConfigBarVisibility() {
-                    const configBar = widgetContainer.querySelector(`#${uniqueId}-config-bar`);
-                    const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
-                    const wildcardControlsEl = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
-                    const hasOpenPanel =
-                        (sizeControls && sizeControls.style.display !== 'none')
-                        || (wildcardControlsEl && wildcardControlsEl.style.display !== 'none');
-                    configBar?.classList.toggle('collapsed', !hasOpenPanel);
-                }
-
-                function updateWildcardControlsUI() {
-                    const isOn = currentWildcardMode === 'on';
-                    if (wildcardToggleBtn) {
-                        wildcardToggleBtn.classList.toggle('active', isOn);
-                        wildcardToggleBtn.style.background = isOn ? '#2f6f45' : '';
-                        wildcardToggleBtn.style.borderColor = isOn ? '#55a66b' : '';
-                        wildcardToggleBtn.style.color = isOn ? '#fff' : '';
-                    }
-                    if (wildcardControls) {
-                        wildcardControls.style.display = isOn ? 'flex' : 'none';
-                    }
-                    updateConfigBarVisibility();
-                }
 
                 if (wildcardToggleBtn) {
                     updateWildcardControlsUI();
@@ -3973,7 +4061,7 @@ const UnifiedPromptGalleryNode = {
                     }
                 }
                 node_instance.metaTags = normalizeMetaTags(readSelectionArray(node_instance.properties?.prompt_meta_tags || "[]", []));
-                saveMetaTags({ redrawCanvas: false });
+                saveMetaTags({ redrawCanvas: false, skipStatus: true });
 
                 // Load UI preferences and initialize
                 (async () => {
@@ -4024,7 +4112,7 @@ const UnifiedPromptGalleryNode = {
                 widgetContainer.querySelector(`#${uniqueId}-add-meta-tag-btn`)?.addEventListener("click", () => {
                     node_instance.metaTags.push({
                         id: `meta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                        name: "Hidden Prompt",
+                        name: "",
                         prompt_text: "",
                         enabled: true,
                         order: node_instance.metaTags.length,
@@ -4119,28 +4207,6 @@ const UnifiedPromptGalleryNode = {
                     });
                 }
 
-                async function showPresetsWorkspace() {
-                    const host = setWorkspaceMode("library_presets");
-                    await openPresetsModal({
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        categoriesWidget,
-                        getCurrentWildcardMode: () => currentWildcardMode,
-                        setCurrentWildcardMode: mode => {
-                            currentWildcardMode = mode;
-                        },
-                        saveSelectionData,
-                        saveWildcardState,
-                        updateWildcardControlsUI,
-                        renderPrompts,
-                        getActiveLibraryTab: () => activeLibraryTab,
-                        renderLibraryDrawer,
-                        workspaceContainer: host,
-                        onClose: returnToGallery,
-                    });
-                }
-
                 // Seed input and inc/dec listeners are already bound in the main seed controls block above.
 
                 // Control after generate dropdown listener is already bound in the main seed controls block above.
@@ -4160,26 +4226,6 @@ const UnifiedPromptGalleryNode = {
                         showContextMenu,
                         renameCategoryWithPrompt,
                         getCategoryRoleColor,
-                    });
-                }
-
-                async function showBrowseWorkspace() {
-                    const host = setWorkspaceMode("library_cards");
-                    await openBrowseModal({
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        saveSelectionData,
-                        loadCategories,
-                        refreshAllSections,
-                        addPromptToSelection,
-                        syncPinnedOrderForFavorite,
-                        attachInfoPopup,
-                        showContextMenu,
-                        renameCategoryWithPrompt,
-                        getCategoryRoleColor,
-                        workspaceContainer: host,
-                        onClose: returnToGallery,
                     });
                 }
 
