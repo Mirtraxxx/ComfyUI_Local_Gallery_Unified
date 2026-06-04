@@ -387,6 +387,7 @@ const UnifiedPromptGalleryNode = {
             };
             
             this.promptData = [];
+            this.metaTags = [];
             this.availablePrompts = [];
             this.mostUsedPrompts = [];
             this.showFavoritesOnly = false;
@@ -417,6 +418,20 @@ const UnifiedPromptGalleryNode = {
             };
 
             collapseWidget(selectionWidget);
+
+            const metaTagsWidget = this.addWidget(
+                "text",
+                "prompt_meta_tags",
+                this.properties.prompt_meta_tags || "[]",
+                () => { },
+                { multiline: true }
+            );
+
+            metaTagsWidget.serializeValue = () => {
+                return node_instance.properties["prompt_meta_tags"] || "[]";
+            };
+
+            collapseWidget(metaTagsWidget);
 
             const activeSidebarWidthWidget = this.addWidget(
                 "number",
@@ -531,7 +546,182 @@ const UnifiedPromptGalleryNode = {
                         display: block;
                         stroke: currentColor;
                     }
-                    
+                    .localprompt-toolbar {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        width: 100%;
+                        min-width: 0;
+                    }
+                    .localprompt-toolbar-spacer {
+                        flex: 1 1 auto;
+                        min-width: 12px;
+                    }
+                    .localprompt-toolbar-shortcuts {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin-left: auto;
+                        flex: 0 0 auto;
+                    }
+                    .localprompt-toolbar-group {
+                        position: relative;
+                        flex: 0 0 auto;
+                    }
+                    .localprompt-toolbar-button {
+                        height: 30px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        padding: 0 10px;
+                        border-radius: 6px;
+                        background: #292929;
+                        border: 1px solid #444;
+                        color: #ddd;
+                        font-size: 11px;
+                        cursor: pointer;
+                    }
+                    .localprompt-toolbar-button:hover,
+                    .localprompt-toolbar-button.active {
+                        background: #344a34;
+                        border-color: #5a9c5a;
+                        color: #fff;
+                    }
+                    .localprompt-toolbar-button.has-enabled {
+                        border-color: #5a9c5a;
+                        box-shadow: inset 0 0 0 1px rgba(90, 156, 90, 0.2);
+                    }
+                    .localprompt-toolbar-button .chevron {
+                        color: #888;
+                        font-size: 9px;
+                        line-height: 1;
+                    }
+                    .localprompt-dropdown-panel {
+                        position: absolute;
+                        top: calc(100% + 6px);
+                        left: 0;
+                        display: none;
+                        z-index: 2000;
+                        min-width: 220px;
+                        max-width: min(520px, 92vw);
+                        background: #202020;
+                        border: 1px solid #444;
+                        border-radius: 8px;
+                        box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+                        padding: 8px;
+                    }
+                    .localprompt-dropdown-panel.open {
+                        display: block;
+                    }
+                    #${uniqueId}-categories-panel {
+                        width: min(330px, 82vw);
+                    }
+                    #${uniqueId}-categories-panel .localprompt-library-bar-container {
+                        display: block;
+                        padding-top: 20px;
+                    }
+                    #${uniqueId}-categories-panel .localprompt-library-tab-strip {
+                        display: block;
+                    }
+                    #${uniqueId}-categories-panel .localprompt-library-tabs-scroll {
+                        display: flex;
+                        flex-wrap: wrap;
+                        overflow: visible;
+                        gap: 8px;
+                        padding: 0;
+                    }
+                    #${uniqueId}-categories-panel .localprompt-library-add-tab {
+                        display: none;
+                    }
+                    .localprompt-dropdown-note {
+                        color: #a8a8a8;
+                        font-size: 10px;
+                        line-height: 1.45;
+                        padding: 4px 4px 8px;
+                    }
+                    .localprompt-category-list {
+                        display: none;
+                    }
+                    .localprompt-dropdown-divider {
+                        height: 1px;
+                        background: #383838;
+                        margin: 8px 0;
+                    }
+                    .localprompt-meta-panel {
+                        width: min(560px, 86vw);
+                    }
+                    .localprompt-meta-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                    }
+                    .localprompt-meta-row {
+                        display: grid;
+                        grid-template-columns: 54px minmax(98px, 0.65fr) minmax(150px, 1fr) 28px 28px;
+                        align-items: start;
+                        gap: 8px;
+                        padding: 6px 0;
+                        border-bottom: 1px solid #303030;
+                        background: transparent;
+                    }
+                    .localprompt-meta-row:last-child {
+                        border-bottom: 0;
+                    }
+                    .localprompt-meta-toggle {
+                        height: 24px;
+                        min-width: 46px;
+                        padding: 0 10px;
+                        border-radius: 999px;
+                        border: 1px solid #4a4a4a;
+                        background: linear-gradient(180deg, #3b3b3b 0%, #282828 100%);
+                        color: #d5d5d5;
+                        font-size: 10px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    }
+                    .localprompt-meta-toggle.on {
+                        background: linear-gradient(180deg, #438a4e 0%, #2f6638 100%);
+                        border-color: #5aa764;
+                        color: #fff;
+                        box-shadow: 0 0 10px rgba(90, 156, 90, 0.18);
+                    }
+                    .localprompt-meta-toggle.off {
+                        background: linear-gradient(180deg, #3d3d3d 0%, #292929 100%);
+                        border-color: #555;
+                        color: #e0e0e0;
+                    }
+                    .localprompt-meta-name,
+                    .localprompt-meta-text {
+                        min-width: 0;
+                        width: 100%;
+                        background: #151515;
+                        color: #e0e0e0;
+                        border: 1px solid #444;
+                        border-radius: 5px;
+                        font-size: 11px;
+                        padding: 5px 8px;
+                        box-sizing: border-box;
+                    }
+                    .localprompt-meta-text {
+                        resize: none;
+                        min-height: 24px;
+                        max-height: 110px;
+                        line-height: 1.35;
+                        overflow: hidden;
+                    }
+                    .localprompt-meta-action {
+                        width: 28px;
+                        height: 24px;
+                        padding: 0;
+                    }
+                    .localprompt-meta-empty {
+                        padding: 10px;
+                        border: 1px dashed #3a3a3a;
+                        border-radius: 7px;
+                        color: #777;
+                        font-size: 11px;
+                        text-align: center;
+                    }
                     .localprompt-section {
                         padding: 8px 10px;
                         border-bottom: 1px solid #333;
@@ -560,15 +750,22 @@ const UnifiedPromptGalleryNode = {
                     }
                     .localprompt-active-toggle {
                         flex: 0 0 auto;
-                        align-self: flex-start;
+                        align-self: center;
                         margin-right: 0;
+                        width: 54px;
+                        height: 28px;
+                        border-radius: 999px;
+                        background: linear-gradient(180deg, rgba(47, 111, 69, 0.9) 0%, rgba(35, 79, 48, 0.94) 100%);
+                        border-color: #4f985d;
+                        color: #fff;
+                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 12px rgba(90,156,90,0.12);
                     }
                     .localprompt-active-toggle::before {
-                        content: '||';
+                        content: '\\25B6';
                         font-size: 9px;
-                        letter-spacing: -0.08em;
-                        opacity: 0.7;
-                        margin-right: 6px;
+                        letter-spacing: 0;
+                        opacity: 0.9;
+                        margin-right: 8px;
                     }
                     .localprompt-library-bar-container {
                         position: relative;
@@ -1677,17 +1874,41 @@ const UnifiedPromptGalleryNode = {
                 <div class="localprompt-container" style="height: 100%;">
                     <div class="localprompt-workspace">
                         <div class="localprompt-top-row">
-                            <div class="localprompt-top-controls">
-                                <button class="localprompt-library-tab localprompt-active-toggle" id="${uniqueId}-active-toggle" type="button" title="Active Cards">&#9679;</button>
-                                <div class="localprompt-utility-bar">
-                                    <div class="localprompt-utility-buttons" id="${uniqueId}-utility-tabs"></div>
+                            <div class="localprompt-toolbar">
+                                <div class="localprompt-toolbar-group">
+                                    <button class="localprompt-toolbar-button" id="${uniqueId}-categories-menu-btn" type="button">
+                                        Categories <span class="chevron">v</span>
+                                    </button>
+                                    <div class="localprompt-dropdown-panel" id="${uniqueId}-categories-panel">
+                                        <div class="localprompt-library-bar-container">
+                                            <div class="localprompt-library-tab-strip">
+                                                <div class="localprompt-library-tabs-scroll" id="${uniqueId}-library-tabs"></div>
+                                                <button class="localprompt-library-add-tab" id="${uniqueId}-add-tab-btn" title="Add Category Tab">+</button>
+                                            </div>
+                                        </div>
+                                        <div class="localprompt-dropdown-divider"></div>
+                                        <button class="localprompt-btn" id="${uniqueId}-manage-categories-btn" type="button" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: transparent; border: 0; color: #999; padding: 7px 2px;">Manage categories <span style="font-size: 12px;">&#9881;</span></button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="localprompt-library-bar-container">
-                                <div class="localprompt-library-tab-strip">
-                                    <div class="localprompt-library-tabs-scroll" id="${uniqueId}-library-tabs"></div>
-                                    <button class="localprompt-library-add-tab" id="${uniqueId}-add-tab-btn" title="Add Category Tab">+</button>
+                                <div class="localprompt-toolbar-group">
+                                    <button class="localprompt-toolbar-button" id="${uniqueId}-meta-tags-btn" type="button">
+                                        Meta Tags <span class="chevron">v</span>
+                                    </button>
+                                    <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
+                                        <div class="localprompt-dropdown-note">Hidden prompts are injected into final output but do not appear in Active Prompts.</div>
+                                        <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
+                                        <div class="localprompt-dropdown-divider"></div>
+                                        <button class="localprompt-btn" id="${uniqueId}-add-meta-tag-btn" type="button" style="width: 100%; padding: 7px 10px; border-color: #4f8658; background: #28402c;">+ Add Hidden Prompt</button>
+                                    </div>
                                 </div>
+                                <div class="localprompt-toolbar-spacer"></div>
+                                <div class="localprompt-toolbar-shortcuts">
+                                    <button class="localprompt-library-tab localprompt-active-toggle" id="${uniqueId}-active-toggle" type="button" title="Active Prompts">&#9679;</button>
+                                    <div class="localprompt-utility-bar">
+                                        <div class="localprompt-utility-buttons" id="${uniqueId}-utility-tabs"></div>
+                                    </div>
+                                </div>
+                                <select id="${uniqueId}-category-select" style="display: none;"><option value="">All Categories</option></select>
                             </div>
                         </div>
                         <div class="localprompt-body-shell">
@@ -1788,12 +2009,17 @@ const UnifiedPromptGalleryNode = {
             hoverPreview.id = `${uniqueId}-hover-preview`;
             hoverPreview.className = 'localprompt-hover-preview';
             document.body.appendChild(hoverPreview);
+            let toolbarOutsideClickHandler = null;
 
             // Clean up on node removal
             const originalOnRemoved = this.onRemoved;
             this.onRemoved = function () {
                 const preview = document.getElementById(`${uniqueId}-hover-preview`);
                 if (preview) preview.remove();
+                if (toolbarOutsideClickHandler) {
+                    document.removeEventListener("click", toolbarOutsideClickHandler);
+                    toolbarOutsideClickHandler = null;
+                }
                 if (originalOnRemoved) originalOnRemoved.call(this);
             };
 
@@ -1803,6 +2029,182 @@ const UnifiedPromptGalleryNode = {
                 selectionWidget.value = data;
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
                 if (app.graph) app.graph.change();
+            }
+
+            function normalizeMetaTags(rawTags) {
+                const tags = Array.isArray(rawTags) ? rawTags : [];
+                return tags.map((tag, index) => ({
+                    id: String(tag?.id || `meta-${Date.now()}-${index}`),
+                    name: String(tag?.name || "Hidden Prompt"),
+                    prompt_text: String(tag?.prompt_text || tag?.prompt || ""),
+                    enabled: tag?.enabled === true,
+                    order: Number.isFinite(Number(tag?.order ?? tag?.index))
+                        ? Number(tag?.order ?? tag?.index)
+                        : index,
+                })).sort((a, b) => (a.order - b.order) || String(a.id).localeCompare(String(b.id)));
+            }
+
+            function saveMetaTags(options = {}) {
+                node_instance.metaTags = normalizeMetaTags(node_instance.metaTags).map((tag, index) => ({
+                    ...tag,
+                    order: index,
+                }));
+                const data = writeSelectionArray(node_instance.metaTags);
+                node_instance.properties["prompt_meta_tags"] = data;
+                metaTagsWidget.value = data;
+                if (!options.skipRender) {
+                    renderMetaTags();
+                } else {
+                    updateMetaTagsButtonState();
+                }
+                node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
+                if (app.graph) app.graph.change();
+            }
+
+            function updateMetaTagsButtonState() {
+                const btn = widgetContainer.querySelector(`#${uniqueId}-meta-tags-btn`);
+                const enabledCount = node_instance.metaTags.filter(tag => tag.enabled && tag.prompt_text.trim()).length;
+                if (btn) {
+                    btn.classList.toggle("has-enabled", enabledCount > 0);
+                    btn.title = enabledCount > 0
+                        ? `${enabledCount} hidden prompt${enabledCount === 1 ? "" : "s"} enabled`
+                        : "Meta Tags";
+                }
+            }
+
+            function renderMetaTags() {
+                const list = widgetContainer.querySelector(`#${uniqueId}-meta-tags-list`);
+                if (!list) return;
+                updateMetaTagsButtonState();
+                list.innerHTML = "";
+
+                if (!node_instance.metaTags.length) {
+                    const empty = document.createElement("div");
+                    empty.className = "localprompt-meta-empty";
+                    empty.textContent = "No hidden prompts yet.";
+                    list.appendChild(empty);
+                    return;
+                }
+
+                node_instance.metaTags.forEach((tag, index) => {
+                    const row = document.createElement("div");
+                    row.className = "localprompt-meta-row";
+                    row.dataset.metaId = tag.id;
+                    row.innerHTML = `
+                        <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
+                        <input class="localprompt-meta-name" type="text" value="${escapeHtml(tag.name)}" placeholder="Name">
+                        <textarea class="localprompt-meta-text" rows="1" placeholder="Prompt text">${escapeHtml(tag.prompt_text)}</textarea>
+                        <button class="localprompt-btn localprompt-meta-action" data-meta-action="edit" title="Edit hidden prompt">E</button>
+                        <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt" style="background: #4a2a2a; border-color: #6a3a3a;">x</button>
+                    `;
+
+                    const toggleBtn = row.querySelector(".localprompt-meta-toggle");
+                    const promptTextArea = row.querySelector(".localprompt-meta-text");
+                    const autoGrowPromptText = () => {
+                        if (!promptTextArea) return;
+                        promptTextArea.style.height = "24px";
+                        promptTextArea.style.height = `${Math.min(promptTextArea.scrollHeight, 110)}px`;
+                    };
+                    autoGrowPromptText();
+
+                    toggleBtn?.addEventListener("click", () => {
+                        node_instance.metaTags[index].enabled = !node_instance.metaTags[index].enabled;
+                        const isEnabled = node_instance.metaTags[index].enabled;
+                        toggleBtn.textContent = isEnabled ? "ON" : "OFF";
+                        toggleBtn.classList.toggle("on", isEnabled);
+                        toggleBtn.classList.toggle("off", !isEnabled);
+                        saveMetaTags({ redrawCanvas: false, skipRender: true });
+                    });
+                    row.querySelector(".localprompt-meta-name")?.addEventListener("input", (event) => {
+                        node_instance.metaTags[index].name = event.target.value;
+                        saveMetaTags({ redrawCanvas: false, skipRender: true });
+                    });
+                    promptTextArea?.addEventListener("input", (event) => {
+                        node_instance.metaTags[index].prompt_text = event.target.value;
+                        autoGrowPromptText();
+                        saveMetaTags({ redrawCanvas: false, skipRender: true });
+                    });
+                    row.querySelector('[data-meta-action="edit"]')?.addEventListener("click", () => {
+                        const textarea = row.querySelector(".localprompt-meta-text");
+                        textarea?.focus();
+                        textarea?.select();
+                    });
+                    row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
+                        if (!confirm(`Delete hidden prompt "${tag.name || "Hidden Prompt"}"?`)) return;
+                        node_instance.metaTags.splice(index, 1);
+                        saveMetaTags();
+                    });
+
+                    list.appendChild(row);
+                });
+            }
+
+            function closeToolbarPanels(exceptPanel = null) {
+                widgetContainer.querySelectorAll(".localprompt-dropdown-panel.open").forEach(panel => {
+                    if (panel !== exceptPanel) panel.classList.remove("open");
+                });
+                widgetContainer.querySelectorAll(".localprompt-toolbar-button.active").forEach(btn => {
+                    const panelId = btn.getAttribute("aria-controls");
+                    const panel = panelId ? widgetContainer.querySelector(`#${panelId}`) : null;
+                    if (!panel || panel !== exceptPanel) btn.classList.remove("active");
+                });
+            }
+
+            function setupToolbarDropdown(buttonId, panelId, onOpen = null) {
+                const button = widgetContainer.querySelector(`#${buttonId}`);
+                const panel = widgetContainer.querySelector(`#${panelId}`);
+                if (!button || !panel) return;
+                button.setAttribute("aria-controls", panelId);
+                button.addEventListener("click", async (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const willOpen = !panel.classList.contains("open");
+                    closeToolbarPanels(panel);
+                    panel.classList.toggle("open", willOpen);
+                    button.classList.toggle("active", willOpen);
+                    if (willOpen && typeof onOpen === "function") {
+                        await onOpen();
+                    }
+                });
+                panel.addEventListener("click", event => event.stopPropagation());
+            }
+
+            async function openCategoryFromMenu(category) {
+                const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
+                const resizeHandle = widgetContainer.querySelector(`#${uniqueId}-resize`);
+                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+                if (categorySelect) categorySelect.value = category || "";
+                activeLibraryTab = category;
+                clearLibraryNavActiveState();
+                drawer?.classList.add("active");
+                resizeHandle?.classList.remove("hidden");
+                await renderLibraryDrawer(category);
+                syncSelectedSectionVisibility();
+                closeToolbarPanels();
+            }
+
+            async function renderCategoryDropdownOptions() {
+                const list = widgetContainer.querySelector(`#${uniqueId}-library-tabs`);
+                if (!list) return;
+                const categories = await UnifiedPromptGalleryNode.getCategories();
+                const active = activeLibraryTab;
+                list.innerHTML = "";
+                if (!categories.length) {
+                    const empty = document.createElement("div");
+                    empty.className = "localprompt-meta-empty";
+                    empty.textContent = "No categories found.";
+                    list.appendChild(empty);
+                    return;
+                }
+                categories.forEach(category => {
+                    const option = document.createElement("button");
+                    option.className = `localprompt-library-tab${active === category ? " active" : ""}`;
+                    option.type = "button";
+                    option.textContent = category;
+                    applyLibraryTabRoleStyling(option, category, active === category);
+                    option.addEventListener("click", () => openCategoryFromMenu(category));
+                    list.appendChild(option);
+                });
             }
 
             function saveNodeProperties() {
@@ -2734,6 +3136,7 @@ const UnifiedPromptGalleryNode = {
                     uniqueId,
                     galleryNode: UnifiedPromptGalleryNode,
                 });
+                await renderCategoryDropdownOptions();
             }
 
             async function loadPromptsForGallery(page = 1) {
@@ -2894,24 +3297,10 @@ const UnifiedPromptGalleryNode = {
             }
 
             setTimeout(() => {
-                const filterInput = widgetContainer.querySelector(`#${uniqueId}-filter-input`);
-                const modeSelect = widgetContainer.querySelector(`#${uniqueId}-filter-mode`);
                 const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
 
                 const prevBtn = widgetContainer.querySelector(`#${uniqueId}-prev-btn`);
                 const nextBtn = widgetContainer.querySelector(`#${uniqueId}-next-btn`);
-
-                if (filterInput) {
-                    filterInput.addEventListener('input', async () => {
-                        await loadPromptsForGallery(1);
-                    });
-                }
-
-                if (modeSelect) {
-                    modeSelect.addEventListener('change', async () => {
-                        await loadPromptsForGallery(1);
-                    });
-                }
 
                 if (categorySelect) {
                     categorySelect.addEventListener('change', async () => {
@@ -3101,6 +3490,8 @@ const UnifiedPromptGalleryNode = {
                         node_instance.promptData = [];
                     }
                 }
+                node_instance.metaTags = normalizeMetaTags(readSelectionArray(node_instance.properties?.prompt_meta_tags || "[]", []));
+                saveMetaTags({ redrawCanvas: false });
 
                 // Load UI preferences and initialize
                 (async () => {
@@ -3125,11 +3516,48 @@ const UnifiedPromptGalleryNode = {
                     // Render all sections
                     renderPrompts();
                     renderLibraryBar();
+                    renderMetaTags();
+                    await renderCategoryDropdownOptions();
                     syncSelectedSectionVisibility();
                     updatePromptSourceStatus();
                 })();
 
                 // ========== NEW BUTTON HANDLERS ==========
+
+                setupToolbarDropdown(
+                    `${uniqueId}-categories-menu-btn`,
+                    `${uniqueId}-categories-panel`,
+                    renderCategoryDropdownOptions
+                );
+                setupToolbarDropdown(
+                    `${uniqueId}-meta-tags-btn`,
+                    `${uniqueId}-meta-tags-panel`,
+                    () => renderMetaTags()
+                );
+
+                toolbarOutsideClickHandler = () => closeToolbarPanels();
+                document.addEventListener("click", toolbarOutsideClickHandler);
+
+                widgetContainer.querySelector(`#${uniqueId}-add-meta-tag-btn`)?.addEventListener("click", () => {
+                    node_instance.metaTags.push({
+                        id: `meta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        name: "Hidden Prompt",
+                        prompt_text: "",
+                        enabled: true,
+                        order: node_instance.metaTags.length,
+                    });
+                    saveMetaTags();
+                    requestAnimationFrame(() => {
+                        const rows = widgetContainer.querySelectorAll(`#${uniqueId}-meta-tags-list .localprompt-meta-row`);
+                        const lastRow = rows[rows.length - 1];
+                        lastRow?.querySelector(".localprompt-meta-text")?.focus();
+                    });
+                });
+
+                widgetContainer.querySelector(`#${uniqueId}-manage-categories-btn`)?.addEventListener("click", async () => {
+                    closeToolbarPanels();
+                    await showBrowseModal();
+                });
 
                 widgetContainer.querySelector(`#${uniqueId}-library-btn`)?.addEventListener('click', () => {
                     showLibraryModal();

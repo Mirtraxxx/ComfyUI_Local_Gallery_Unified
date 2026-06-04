@@ -18,6 +18,7 @@ class LocalGalleryPromptLora:
             "hidden": {
                 "lora_selection_data": ("STRING", {"default": "[]", "multiline": True, "forceInput": True}),
                 "prompt_selection_data": ("STRING", {"default": "[]", "multiline": True, "forceInput": True}),
+                "prompt_meta_tags": ("STRING", {"default": "[]", "multiline": True, "forceInput": True}),
                 "wildcard_categories": "STRING",
                 "wildcard_mode": "STRING",
                 "active_tab": "STRING",
@@ -63,6 +64,7 @@ class LocalGalleryPromptLora:
         seed=0,
         lora_selection_data="[]",
         prompt_selection_data="[]",
+        prompt_meta_tags="[]",
         wildcard_categories="",
         wildcard_mode="off",
         active_tab="prompt",
@@ -80,12 +82,42 @@ class LocalGalleryPromptLora:
             {
                 "lora": lora_changed,
                 "prompt": prompt_selection_data,
+                "prompt_meta_tags": prompt_meta_tags,
                 "wildcard_categories": wildcard_categories,
                 "wildcard_mode": wildcard_mode,
                 "seed": seed,
             },
             sort_keys=True,
         )
+
+    @classmethod
+    def _get_enabled_meta_prompt_parts(cls, prompt_meta_tags):
+        try:
+            meta_tags = json.loads(prompt_meta_tags or "[]")
+            if not isinstance(meta_tags, list):
+                meta_tags = []
+        except Exception:
+            meta_tags = []
+
+        enabled_tags = []
+        for index, tag in enumerate(meta_tags):
+            if not isinstance(tag, dict) or not tag.get("enabled", False):
+                continue
+            prompt_text = str(tag.get("prompt_text") or tag.get("prompt") or "").strip()
+            if not prompt_text:
+                continue
+            order = tag.get("order", tag.get("index", index))
+            try:
+                order = int(order)
+            except (TypeError, ValueError):
+                order = index
+            enabled_tags.append((order, index, tag, prompt_text))
+
+        if not enabled_tags:
+            return []
+
+        enabled_tags.sort(key=lambda item: (item[0], item[1]))
+        return [prompt_text for _, _, _, prompt_text in enabled_tags]
 
     def process(
         self,
@@ -94,6 +126,7 @@ class LocalGalleryPromptLora:
         seed=0,
         lora_selection_data="[]",
         prompt_selection_data="[]",
+        prompt_meta_tags="[]",
         wildcard_categories="",
         wildcard_mode="off",
         active_tab="prompt",
@@ -128,6 +161,11 @@ class LocalGalleryPromptLora:
             combined_prompt = result_values[0] if result_values else ""
         else:
             combined_prompt = prompt_result[0] if prompt_result else ""
+
+        meta_prompt_parts = self._get_enabled_meta_prompt_parts(prompt_meta_tags or "[]")
+        if meta_prompt_parts:
+            combined_parts = [part for part in [combined_prompt, *meta_prompt_parts] if part]
+            combined_prompt = ", ".join(combined_parts)
 
         return {
             "ui": {"text": [combined_prompt]},
