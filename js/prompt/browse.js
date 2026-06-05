@@ -103,7 +103,7 @@ export async function showBrowseModal({
                     <h3>Cards</h3>
                     ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
                 </div>
-                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
+                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
             </div>
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
@@ -131,6 +131,7 @@ export async function showBrowseModal({
     `;
 
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
+    const workspaceBody = root.querySelector(isWorkspace ? ".localprompt-workspace-body" : ".localprompt-modal-content");
     const filterInput = root.querySelector("#browse-filter");
     const categorySelect = root.querySelector("#browse-category");
     const manageToggleBtn = root.querySelector("#browse-manage-toggle");
@@ -146,6 +147,21 @@ export async function showBrowseModal({
 
     let currentPage = 1;
     let totalPages = 1;
+    let lastScrollTop = 0;
+
+    if (isWorkspace && workspaceBody) {
+        workspaceBody.addEventListener("scroll", () => {
+            const nextScrollTop = workspaceBody.scrollTop;
+            const isScrollingDown = nextScrollTop > lastScrollTop + 8;
+            const isScrollingUp = nextScrollTop < lastScrollTop - 8;
+            if (isScrollingDown && nextScrollTop > 36 && !browseManageMode) {
+                root.querySelector(".localprompt-browse-toolbar")?.classList.add("toolbar-hidden");
+            } else if (isScrollingUp || nextScrollTop <= 12) {
+                root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");
+            }
+            lastScrollTop = Math.max(0, nextScrollTop);
+        }, { passive: true });
+    }
 
     function updateBrowseBulkToolbar() {
         if (bulkToolbar) {
@@ -157,6 +173,9 @@ export async function showBrowseModal({
         if (manageToggleBtn) {
             manageToggleBtn.classList.toggle("active", browseManageMode);
             manageToggleBtn.textContent = browseManageMode ? "Done" : "Manage";
+        }
+        if (browseManageMode) {
+            root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");
         }
         if (clearSelectedBtn) clearSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
         if (deleteSelectedBtn) deleteSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;

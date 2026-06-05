@@ -1059,20 +1059,22 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-library-subnav {
                         display: flex;
                         flex-wrap: wrap;
-                        gap: 7px;
-                        padding: 0 20px 14px;
+                        align-items: center;
+                        gap: 5px;
+                        padding: 0 14px 8px;
                     }
                     .localprompt-library-subnav-item {
                         display: inline-flex;
                         align-items: center;
                         justify-content: center;
-                        min-height: 30px;
-                        padding: 6px 12px;
+                        min-height: 24px;
+                        padding: 4px 9px;
                         border: 1px solid rgba(255,255,255,0.09);
                         border-radius: 999px;
                         background: rgba(255,255,255,0.035);
                         color: #c7ccd2;
-                        font-size: 12px;
+                        font-size: 11px;
+                        line-height: 1;
                         cursor: pointer;
                     }
                     .localprompt-library-subnav-item:hover {
@@ -1090,11 +1092,28 @@ const UnifiedPromptGalleryNode = {
                         flex-direction: column;
                         min-width: 0;
                         min-height: 0;
-                        padding: 14px;
+                        padding: 0 8px 8px;
                         overflow: hidden;
                     }
                     .localprompt-library-shell-content > .localprompt-workspace-panel {
                         padding: 0;
+                    }
+                    .localprompt-library-shell .localprompt-workspace-page,
+                    .localprompt-library-shell .localprompt-modal.localprompt-workspace-page {
+                        background: transparent !important;
+                        border: 0 !important;
+                        border-radius: 0 !important;
+                        box-shadow: none !important;
+                    }
+                    .localprompt-library-shell .localprompt-workspace-header {
+                        border-bottom: 0;
+                    }
+                    .localprompt-library-shell .localprompt-workspace-body {
+                        padding-top: 8px;
+                    }
+                    .localprompt-library-shell .localprompt-workspace-footer {
+                        background: transparent;
+                        border-top: 1px solid rgba(255,255,255,0.06);
                     }
                     .localprompt-workspace-panel {
                         display: flex;
@@ -1128,7 +1147,7 @@ const UnifiedPromptGalleryNode = {
                         align-items: center;
                         justify-content: space-between;
                         gap: 10px;
-                        padding: 18px 20px 14px;
+                        padding: 10px 14px 6px;
                         background: transparent;
                         border-bottom: 1px solid rgba(255,255,255,0.07);
                     }
@@ -1138,23 +1157,28 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-workspace-title h3 {
                         margin: 0;
                         color: #f3f5f4;
-                        font-size: 21px;
+                        font-size: 17px;
                         line-height: 1.2;
                     }
                     .localprompt-workspace-title p {
-                        margin: 7px 0 0;
+                        margin: 4px 0 0;
                         color: #a8afb8;
-                        font-size: 13px;
+                        font-size: 11px;
                         line-height: 1.4;
                     }
+                    .localprompt-library-shell .localprompt-workspace-title p {
+                        display: none;
+                    }
                     .localprompt-workspace-back {
-                        padding: 9px 13px;
-                        border-radius: 7px;
+                        min-height: 26px;
+                        padding: 4px 9px;
+                        border-radius: 999px;
                         background: rgba(255,255,255,0.04);
                         border: 1px solid rgba(255,255,255,0.13);
                         color: #e5e7ea;
                         cursor: pointer;
-                        font-size: 12px;
+                        font-size: 11px;
+                        line-height: 1;
                         flex: 0 0 auto;
                     }
                     .localprompt-workspace-back:hover {
@@ -1165,13 +1189,13 @@ const UnifiedPromptGalleryNode = {
                         flex: 1;
                         min-height: 0;
                         overflow-y: auto;
-                        padding: 16px 20px;
+                        padding: 10px 14px;
                     }
                     .localprompt-workspace-footer {
                         display: flex;
                         justify-content: flex-end;
                         gap: 8px;
-                        padding: 12px 20px;
+                        padding: 8px 14px;
                         background: rgba(255,255,255,0.025);
                         border-top: 1px solid rgba(255,255,255,0.08);
                         flex: 0 0 auto;
@@ -2222,11 +2246,27 @@ const UnifiedPromptGalleryNode = {
                         flex-wrap: wrap;
                         align-items: center;
                         gap: 10px;
-                        margin-bottom: 14px;
-                        padding: 10px;
+                        position: sticky;
+                        top: 0;
+                        z-index: 3;
+                        margin-bottom: 10px;
+                        padding: 8px;
                         background: rgba(255,255,255,0.025);
                         border: 1px solid rgba(255,255,255,0.08);
                         border-radius: 9px;
+                        transition: transform 0.16s ease, opacity 0.16s ease, max-height 0.16s ease, margin-bottom 0.16s ease, padding 0.16s ease, border-width 0.16s ease;
+                        max-height: 72px;
+                        overflow: hidden;
+                    }
+                    .localprompt-browse-toolbar.toolbar-hidden {
+                        transform: translateY(-8px);
+                        opacity: 0;
+                        max-height: 0;
+                        margin-bottom: 0;
+                        padding-top: 0;
+                        padding-bottom: 0;
+                        border-width: 0;
+                        pointer-events: none;
                     }
                     .localprompt-browse-toolbar input {
                         flex: 1 1 180px;
@@ -3515,7 +3555,7 @@ const UnifiedPromptGalleryNode = {
                                     <h3>Library</h3>
                                     <p>Choose what you want to manage.</p>
                                 </div>
-                                <button class="localprompt-workspace-back">Back to Gallery</button>
+                                <button class="localprompt-workspace-back" title="Back to Gallery">&lt; Gallery</button>
                             </div>
                             ${getLibrarySubnavHtml("overview")}
                             <div class="localprompt-workspace-body">

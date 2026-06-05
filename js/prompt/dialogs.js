@@ -314,7 +314,7 @@ export async function showImportDialog({
                  <h3>Import TXT</h3>
                  ${isWorkspace ? "<p>Create a new category from a wildcard-style text file.</p>" : ""}
              </div>
-             <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
+             <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
          </div>
          ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
@@ -467,7 +467,7 @@ export async function showFromLastOutputDialog({
                 <h3>From Last Output</h3>
                 ${isWorkspace ? "<p>Create a prompt card from the latest generated output.</p>" : ""}
             </div>
-            <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
+            <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
         </div>
         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
             <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
