@@ -147,20 +147,21 @@ function renderPresetRow({
     deletePreset,
 }) {
     const row = document.createElement("div");
-    row.style.cssText = "display: flex; align-items: center; gap: 8px; padding: 8px; background: #2a2a2a; border-radius: 4px; margin-bottom: 6px;";
+    row.className = "localprompt-preset-row";
 
     const selectionCount = preset.selection?.length || 0;
     const categoryCount = preset.wildcard_categories?.length || 0;
     const modeLabel = preset.wildcard_mode === "on" ? "Wildcard" : "Manual";
 
     row.innerHTML = `
-        <div style="flex: 1;">
-            <div style="font-size: 12px; color: #ddd; font-weight: 500;">${escapeHtml(preset.name)}</div>
-            <div style="font-size: 10px; color: #888;">${modeLabel} ${selectionCount} prompts, ${categoryCount} categories</div>
+        <div class="localprompt-preset-icon">P</div>
+        <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 13px; color: #f2f2f2; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(preset.name)}</div>
+            <div style="font-size: 10px; color: #8f98a3;">${modeLabel} ${selectionCount} prompts, ${categoryCount} categories</div>
         </div>
-        <button class="load-preset-btn localprompt-btn" style="padding: 4px 12px; font-size: 11px;">Load</button>
-        <button class="edit-preset-btn localprompt-btn" style="padding: 4px 12px; font-size: 11px;">Edit</button>
-        <button class="delete-preset-btn" style="padding: 4px 8px; background: #4a2a2a; border: 1px solid #755; color: #ddd; border-radius: 3px; cursor: pointer; font-size: 11px;">Delete</button>
+        <button class="load-preset-btn localprompt-btn localprompt-preset-load" style="padding: 6px 12px; font-size: 11px;">Load</button>
+        <button class="edit-preset-btn localprompt-btn localprompt-preset-edit" style="padding: 6px 12px; font-size: 11px;">Edit</button>
+        <button class="delete-preset-btn localprompt-btn localprompt-preset-delete" style="padding: 6px 12px; font-size: 11px;">Delete</button>
     `;
 
     row.querySelector(".load-preset-btn").addEventListener("click", () => loadPreset(preset, overlay));
@@ -212,6 +213,7 @@ export async function showPresetsModal({
     renderLibraryDrawer,
     workspaceContainer = null,
     onClose = null,
+    librarySubnavHtml = "",
 }) {
     const surface = createPresetSurface({ workspaceContainer, onClose });
     const { root, close, isWorkspace } = surface;
@@ -219,28 +221,29 @@ export async function showPresetsModal({
         <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 450px;">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
-                    <h3>Library / Presets</h3>
+                    <h3>Presets</h3>
                     ${isWorkspace ? "<p>Save, load, edit, and create prompt preset stacks.</p>" : ""}
                 </div>
                 <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
             </div>
+            ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
                     <h4 style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;">Preset Management</h4>
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                        <input type="text" id="preset-name-input" placeholder="Preset name..." style="flex: 1; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <button id="save-preset-btn" class="localprompt-btn active" style="padding: 8px 16px;">Save Current</button>
+                        <input type="text" id="preset-name-input" placeholder="Preset name..." style="flex: 1; padding: 10px 12px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px;">
+                        <button id="save-preset-btn" class="localprompt-btn active" style="padding: 10px 16px;">Save Current</button>
                     </div>
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
                     <h4 id="combo-header" style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;">Combo Preset</h4>
                     <p style="font-size: 10px; color: #aaa; margin: 0 0 8px 0;">Paste comma-separated prompts to automatically create cards and a preset for them.</p>
-                    <textarea id="combo-prompts-input" placeholder="e.g. parted bangs, elf, very long hair" style="width: 100%; height: 60px; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; resize: vertical; margin-bottom: 8px;"></textarea>
-                    <button id="create-combo-btn" class="localprompt-btn active" style="width: 100%; padding: 8px;">Create & Load Combo</button>
+                    <textarea id="combo-prompts-input" placeholder="e.g. parted bangs, elf, very long hair" style="width: 100%; height: 74px; padding: 10px 12px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; resize: vertical; margin-bottom: 10px;"></textarea>
+                    <button id="create-combo-btn" class="localprompt-btn active" style="width: 100%; padding: 10px;">Create & Load Combo</button>
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 0;">
-                    <div style="margin-bottom: 8px; font-size: 11px; color: #888;">Saved Presets</div>
-                    <div id="presets-list" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; padding: 8px;">
+                    <div style="margin-bottom: 10px; font-size: 13px; color: #e8e8e8; font-weight: 600;">Saved Presets</div>
+                    <div id="presets-list" class="localprompt-presets-list">
                         <div style="color: #666; font-size: 11px; text-align: center; padding: 20px;">Loading...</div>
                     </div>
                 </div>

@@ -90,6 +90,7 @@ export async function showBrowseModal({
     getCategoryRoleColor,
     workspaceContainer = null,
     onClose = null,
+    librarySubnavHtml = "",
 }) {
     let browseManageMode = false;
     const bulkSelectedPromptIds = new Set();
@@ -99,19 +100,20 @@ export async function showBrowseModal({
         <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
-                    <h3>Library / Cards</h3>
+                    <h3>Cards</h3>
                     ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="browse-filter" placeholder="Search..." style="padding: 4px 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px; width: 150px;">
-                    <select id="browse-category" style="padding: 4px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px;"></select>
-                    <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 4px 8px;">Manage</button>
-                    <button id="browse-rename-category" class="localprompt-btn" style="padding: 4px 8px; display: none;" title="Rename category">Rename</button>
-                    <button id="browse-delete-category" class="localprompt-btn" style="padding: 4px 8px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
-                    <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
-                </div>
+                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
             </div>
+            ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
+                <div class="localprompt-browse-toolbar">
+                    <input type="text" id="browse-filter" placeholder="Search cards..." style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;">
+                    <select id="browse-category" style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;"></select>
+                    <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 8px 12px;">Manage</button>
+                    <button id="browse-rename-category" class="localprompt-btn" style="padding: 8px 12px; display: none;" title="Rename category">Rename</button>
+                    <button id="browse-delete-category" class="localprompt-btn" style="padding: 8px 12px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
+                </div>
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
                     <button id="browse-select-visible" class="localprompt-btn">Select Visible</button>
@@ -120,7 +122,7 @@ export async function showBrowseModal({
                 </div>
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="padding: 10px 16px; border-top: 1px solid #444; display: flex; justify-content: center; gap: 8px;">
+            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; justify-content: center; gap: 8px;">
                 <button id="browse-prev" class="localprompt-btn">Prev</button>
                 <span id="browse-page-info" style="font-size: 11px; color: #888; padding: 5px 10px;">Page 1 of 1</span>
                 <button id="browse-next" class="localprompt-btn">Next</button>

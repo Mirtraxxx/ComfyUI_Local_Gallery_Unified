@@ -300,6 +300,7 @@ export async function showImportDialog({
     loadPromptsForGallery,
     workspaceContainer = null,
     onClose = null,
+    librarySubnavHtml = "",
 }) {
     const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
         workspaceContainer,
@@ -310,11 +311,12 @@ export async function showImportDialog({
     dialog.innerHTML = `
          <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
              <div class="localprompt-workspace-title">
-                 <h3>Library / Import TXT</h3>
+                 <h3>Import TXT</h3>
                  ${isWorkspace ? "<p>Create a new category from a wildcard-style text file.</p>" : ""}
              </div>
              <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
          </div>
+         ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
              <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 12px;">
                  <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
@@ -322,14 +324,14 @@ export async function showImportDialog({
                  </p>
                  <div style="margin-bottom: 12px;">
                      <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Select File</label>
-                     <input type="file" id="import-file-input" accept=".txt" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;">
+                     <input type="file" id="import-file-input" accept=".txt" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
                  </div>
                  <div style="margin-bottom: 12px;">
                      <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category Name</label>
-                     <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;" list="import-category-datalist">
+                     <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;" list="import-category-datalist">
                      <datalist id="import-category-datalist"></datalist>
                  </div>
-                 <div style="font-size: 11px; color: #999; padding: 8px; background: #151515; border: 1px solid #333; border-radius: 4px;">Import behavior: Create new category</div>
+                 <div style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">Import behavior: Create new category</div>
              </div>
              <div id="import-status" style="
                  margin: 12px 0;

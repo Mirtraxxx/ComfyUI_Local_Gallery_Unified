@@ -1049,6 +1049,53 @@ const UnifiedPromptGalleryNode = {
                         display: flex;
                         flex-direction: column;
                     }
+                    .localprompt-library-shell {
+                        display: flex;
+                        flex-direction: column;
+                        flex: 1;
+                        min-height: 0;
+                        background: radial-gradient(circle at 20% 0%, rgba(69, 125, 85, 0.08), transparent 34%), #111820;
+                    }
+                    .localprompt-library-subnav {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 7px;
+                        padding: 0 20px 14px;
+                    }
+                    .localprompt-library-subnav-item {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 30px;
+                        padding: 6px 12px;
+                        border: 1px solid rgba(255,255,255,0.09);
+                        border-radius: 999px;
+                        background: rgba(255,255,255,0.035);
+                        color: #c7ccd2;
+                        font-size: 12px;
+                        cursor: pointer;
+                    }
+                    .localprompt-library-subnav-item:hover {
+                        background: rgba(255,255,255,0.075);
+                        color: #fff;
+                    }
+                    .localprompt-library-subnav-item.active {
+                        background: rgba(75, 181, 99, 0.18);
+                        border-color: rgba(94, 210, 118, 0.32);
+                        color: #7df08f;
+                        box-shadow: inset 0 0 0 1px rgba(92, 219, 111, 0.22);
+                    }
+                    .localprompt-library-shell-content {
+                        display: flex;
+                        flex-direction: column;
+                        min-width: 0;
+                        min-height: 0;
+                        padding: 14px;
+                        overflow: hidden;
+                    }
+                    .localprompt-library-shell-content > .localprompt-workspace-panel {
+                        padding: 0;
+                    }
                     .localprompt-workspace-panel {
                         display: flex;
                         flex-direction: column;
@@ -1071,8 +1118,8 @@ const UnifiedPromptGalleryNode = {
                         display: flex;
                         flex-direction: column;
                         min-height: 0;
-                        background: #1f1f1f;
-                        border: 1px solid #383838;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015));
+                        border: 1px solid rgba(255,255,255,0.09);
                         color: #ddd;
                         overflow: hidden;
                     }
@@ -1081,99 +1128,181 @@ const UnifiedPromptGalleryNode = {
                         align-items: center;
                         justify-content: space-between;
                         gap: 10px;
-                        padding: 11px 12px;
-                        background: #262626;
-                        border-bottom: 1px solid #383838;
+                        padding: 18px 20px 14px;
+                        background: transparent;
+                        border-bottom: 1px solid rgba(255,255,255,0.07);
                     }
                     .localprompt-workspace-title {
                         min-width: 0;
                     }
                     .localprompt-workspace-title h3 {
                         margin: 0;
-                        color: #f0f0f0;
-                        font-size: 13px;
+                        color: #f3f5f4;
+                        font-size: 21px;
                         line-height: 1.2;
                     }
                     .localprompt-workspace-title p {
-                        margin: 4px 0 0;
-                        color: #9a9a9a;
-                        font-size: 10px;
-                        line-height: 1.35;
+                        margin: 7px 0 0;
+                        color: #a8afb8;
+                        font-size: 13px;
+                        line-height: 1.4;
                     }
                     .localprompt-workspace-back {
-                        padding: 5px 9px;
-                        border-radius: 5px;
-                        background: #333;
-                        border: 1px solid #505050;
-                        color: #ddd;
+                        padding: 9px 13px;
+                        border-radius: 7px;
+                        background: rgba(255,255,255,0.04);
+                        border: 1px solid rgba(255,255,255,0.13);
+                        color: #e5e7ea;
                         cursor: pointer;
-                        font-size: 11px;
+                        font-size: 12px;
                         flex: 0 0 auto;
                     }
                     .localprompt-workspace-back:hover {
-                        background: #3d3d3d;
+                        background: rgba(255,255,255,0.08);
                         color: #fff;
                     }
                     .localprompt-workspace-body {
                         flex: 1;
                         min-height: 0;
                         overflow-y: auto;
-                        padding: 12px;
+                        padding: 16px 20px;
                     }
                     .localprompt-workspace-footer {
                         display: flex;
                         justify-content: flex-end;
                         gap: 8px;
-                        padding: 10px 12px;
-                        background: #232323;
-                        border-top: 1px solid #383838;
+                        padding: 12px 20px;
+                        background: rgba(255,255,255,0.025);
+                        border-top: 1px solid rgba(255,255,255,0.08);
                         flex: 0 0 auto;
                     }
                     .localprompt-workspace-section {
-                        padding: 12px;
-                        margin-bottom: 12px;
-                        background: #191919;
-                        border: 1px solid #333;
-                        border-radius: 6px;
+                        padding: 14px;
+                        margin-bottom: 14px;
+                        background: rgba(255,255,255,0.025);
+                        border: 1px solid rgba(255,255,255,0.08);
+                        border-radius: 8px;
                     }
                     .localprompt-workspace-section h4 {
                         margin: 0 0 10px;
                         color: #e8e8e8;
                         font-size: 12px;
                     }
+                    .localprompt-presets-list {
+                        max-height: 300px;
+                        overflow-y: auto;
+                        background: rgba(8, 13, 19, 0.42);
+                        border: 1px solid rgba(255,255,255,0.08);
+                        border-radius: 9px;
+                        padding: 6px;
+                    }
+                    .localprompt-preset-row {
+                        display: grid;
+                        grid-template-columns: 28px minmax(0, 1fr) auto auto auto;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px;
+                        background: rgba(255,255,255,0.025);
+                        border-bottom: 1px solid rgba(255,255,255,0.06);
+                    }
+                    .localprompt-preset-row:last-child {
+                        border-bottom: 0;
+                    }
+                    .localprompt-preset-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 6px;
+                        background: rgba(155, 98, 255, 0.15);
+                        border: 1px solid rgba(155, 98, 255, 0.28);
+                        color: #b58cff;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+                    .localprompt-preset-load {
+                        background: rgba(72, 174, 94, 0.13) !important;
+                        border-color: rgba(89, 210, 115, 0.3) !important;
+                        color: #83e896 !important;
+                    }
+                    .localprompt-preset-edit {
+                        background: rgba(79, 147, 255, 0.13) !important;
+                        border-color: rgba(79, 147, 255, 0.32) !important;
+                        color: #7fb0ff !important;
+                    }
+                    .localprompt-preset-delete {
+                        background: rgba(220, 68, 68, 0.12) !important;
+                        border-color: rgba(220, 68, 68, 0.34) !important;
+                        color: #ff7777 !important;
+                    }
                     .localprompt-workspace-card .localprompt-modal-content {
                         min-height: 0;
                     }
                     .localprompt-library-landing {
                         display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                        gap: 10px;
+                        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                        gap: 14px;
                     }
                     .localprompt-library-choice {
-                        min-height: 86px;
-                        padding: 14px;
+                        position: relative;
+                        min-height: 152px;
+                        padding: 22px;
                         text-align: left;
-                        border-radius: 6px;
-                        background: #242424;
-                        border: 1px solid #3e3e3e;
+                        border-radius: 9px;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+                        border: 1px solid rgba(255,255,255,0.1);
                         color: #ddd;
                         cursor: pointer;
+                        overflow: hidden;
                     }
                     .localprompt-library-choice:hover {
-                        background: #303030;
-                        border-color: #5a5a5a;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.035));
+                        border-color: rgba(255,255,255,0.2);
+                        transform: translateY(-1px);
+                    }
+                    .localprompt-library-choice::after {
+                        content: '>';
+                        position: absolute;
+                        right: 18px;
+                        top: 50%;
+                        color: #f4f7f5;
+                        font-size: 22px;
+                        transform: translateY(-50%);
+                    }
+                    .localprompt-library-choice::before {
+                        content: '';
+                        position: absolute;
+                        inset: auto 0 0;
+                        height: 3px;
+                        background: var(--library-accent, #58d66a);
+                        opacity: 0.9;
+                    }
+                    .localprompt-library-choice-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 42px;
+                        height: 42px;
+                        margin-bottom: 24px;
+                        border-radius: 9px;
+                        background: color-mix(in srgb, var(--library-accent, #58d66a) 18%, transparent);
+                        border: 1px solid color-mix(in srgb, var(--library-accent, #58d66a) 48%, transparent);
+                        color: var(--library-accent, #58d66a);
+                        font-size: 21px;
                     }
                     .localprompt-library-choice strong {
                         display: block;
-                        margin-bottom: 6px;
+                        margin-bottom: 8px;
                         color: #f0f0f0;
-                        font-size: 13px;
+                        font-size: 18px;
                     }
                     .localprompt-library-choice span {
                         display: block;
-                        color: #999;
-                        font-size: 10px;
-                        line-height: 1.4;
+                        max-width: 210px;
+                        color: #a9b0b8;
+                        font-size: 13px;
+                        line-height: 1.45;
                     }
                     .localprompt-library-bar-container {
                         display: flex;
@@ -2085,18 +2214,36 @@ const UnifiedPromptGalleryNode = {
                     /* Gallery grid for modal */
                     .localprompt-gallery-grid {
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                        grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+                        gap: 12px;
+                    }
+                    .localprompt-browse-toolbar {
+                        display: flex;
+                        flex-wrap: wrap;
+                        align-items: center;
                         gap: 10px;
+                        margin-bottom: 14px;
+                        padding: 10px;
+                        background: rgba(255,255,255,0.025);
+                        border: 1px solid rgba(255,255,255,0.08);
+                        border-radius: 9px;
+                    }
+                    .localprompt-browse-toolbar input {
+                        flex: 1 1 180px;
+                    }
+                    .localprompt-browse-toolbar select {
+                        flex: 1 1 150px;
                     }
                     .localprompt-gallery-item {
-                        background: #252525;
-                        border: 2px solid #444;
-                        border-radius: 6px;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+                        border: 1px solid rgba(255,255,255,0.13);
+                        border-radius: 10px;
                         overflow: hidden;
                         cursor: pointer;
                         transition: all 0.15s;
+                        box-shadow: 0 10px 22px rgba(0,0,0,0.14);
                     }
-                    .localprompt-gallery-item:hover { border-color: #666; transform: translateY(-2px); }
+                    .localprompt-gallery-item:hover { border-color: rgba(255,255,255,0.24); transform: translateY(-2px); }
                     .localprompt-gallery-item.selected { 
                         border-color: #4a9eff; 
                         box-shadow: 0 0 10px rgba(74, 158, 255, 0.4); 
@@ -2120,17 +2267,17 @@ const UnifiedPromptGalleryNode = {
                         z-index: 10;
                     }
                     .localprompt-gallery-item .item-preview {
-                        height: 100px;
-                        background: #1a1a1a;
+                        height: 116px;
+                        background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 42%, transparent 70%), #101720;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         overflow: hidden;
                     }
                     .localprompt-gallery-item .item-preview img { width: 100%; height: 100%; object-fit: cover; }
-                    .localprompt-gallery-item .item-preview.no-img { font-size: 9px; color: #555; }
-                    .localprompt-gallery-item .item-info { padding: 6px; }
-                    .localprompt-gallery-item .item-name { font-size: 10px; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .localprompt-gallery-item .item-preview.no-img { font-size: 10px; color: #5f6975; }
+                    .localprompt-gallery-item .item-info { padding: 9px 10px 10px; }
+                    .localprompt-gallery-item .item-name { font-size: 12px; color: #f0f2f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                     .localprompt-bulk-toolbar {
                         display: flex;
                         align-items: center;
@@ -3317,10 +3464,50 @@ const UnifiedPromptGalleryNode = {
                 setWorkspaceMode("gallery");
             }
 
-            function renderLibraryWorkspace() {
-                const host = setWorkspaceMode("library");
-                if (!host) return;
+            function getLibrarySubnavHtml(activePage = "overview") {
+                const navItems = [
+                    { key: "overview", label: "Overview" },
+                    { key: "cards", label: "Cards" },
+                    { key: "presets", label: "Presets" },
+                    { key: "import", label: "Import TXT" },
+                ];
+
+                return `
+                    <nav class="localprompt-library-subnav" aria-label="Library sections">
+                        ${navItems.map(item => `
+                            <button class="localprompt-library-subnav-item${item.key === activePage ? " active" : ""}" data-library-page="${item.key}" type="button">${item.label}</button>
+                        `).join("")}
+                    </nav>
+                `;
+            }
+
+            function renderLibraryShell(activePage = "overview") {
+                const host = setWorkspaceMode(`library_${activePage}`);
+                if (!host) return null;
+
                 host.innerHTML = `
+                    <div class="localprompt-library-shell">
+                        <div class="localprompt-library-shell-content" id="${uniqueId}-library-workspace-content"></div>
+                    </div>
+                `;
+
+                host.addEventListener("click", event => {
+                    const button = event.target.closest?.("[data-library-page]");
+                    if (!button || !host.contains(button)) return;
+                    const page = button.dataset.libraryPage;
+                    if (page === "overview") renderLibraryWorkspace();
+                    if (page === "cards") showBrowseWorkspace();
+                    if (page === "presets") showPresetsWorkspace();
+                    if (page === "import") showImportWorkspace();
+                });
+
+                return host.querySelector(`#${uniqueId}-library-workspace-content`);
+            }
+
+            function renderLibraryWorkspace() {
+                const content = renderLibraryShell("overview");
+                if (!content) return;
+                content.innerHTML = `
                     <div class="localprompt-workspace-panel">
                         <div class="localprompt-workspace-page">
                             <div class="localprompt-workspace-header">
@@ -3330,17 +3517,21 @@ const UnifiedPromptGalleryNode = {
                                 </div>
                                 <button class="localprompt-workspace-back">Back to Gallery</button>
                             </div>
+                            ${getLibrarySubnavHtml("overview")}
                             <div class="localprompt-workspace-body">
                                 <div class="localprompt-library-landing">
-                                    <button class="localprompt-library-choice" data-workspace-target="library_cards">
+                                    <button class="localprompt-library-choice" data-workspace-target="library_cards" style="--library-accent: #58d66a;">
+                                        <span class="localprompt-library-choice-icon">C</span>
                                         <strong>Cards</strong>
                                         <span>Browse, search, pin, add, and manage prompt cards.</span>
                                     </button>
-                                    <button class="localprompt-library-choice" data-workspace-target="library_presets">
+                                    <button class="localprompt-library-choice" data-workspace-target="library_presets" style="--library-accent: #9b62ff;">
+                                        <span class="localprompt-library-choice-icon">P</span>
                                         <strong>Presets</strong>
                                         <span>Save, load, edit, and create prompt preset stacks.</span>
                                     </button>
-                                    <button class="localprompt-library-choice" data-workspace-target="import_txt">
+                                    <button class="localprompt-library-choice" data-workspace-target="import_txt" style="--library-accent: #4f93ff;">
+                                        <span class="localprompt-library-choice-icon">I</span>
                                         <strong>Import TXT</strong>
                                         <span>Create a new category from a wildcard-style text file.</span>
                                     </button>
@@ -3349,10 +3540,10 @@ const UnifiedPromptGalleryNode = {
                         </div>
                     </div>
                 `;
-                host.querySelector(".localprompt-workspace-back")?.addEventListener("click", returnToGallery);
-                host.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace(renderLibraryWorkspace));
-                host.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace(renderLibraryWorkspace));
-                host.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace(renderLibraryWorkspace));
+                content.querySelector(".localprompt-workspace-back")?.addEventListener("click", returnToGallery);
+                content.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace());
+                content.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace());
+                content.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace());
             }
 
             async function renderActiveSidebar() {
@@ -3820,18 +4011,21 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function showImportWorkspace(onClose = returnToGallery) {
-                const host = setWorkspaceMode("import_txt");
+                const host = renderLibraryShell("import");
+                if (!host) return;
                 await openImportDialog({
                     galleryNode: UnifiedPromptGalleryNode,
                     loadCategories,
                     loadPromptsForGallery,
                     workspaceContainer: host,
                     onClose,
+                    librarySubnavHtml: getLibrarySubnavHtml("import"),
                 });
             }
 
             async function showPresetsWorkspace(onClose = returnToGallery) {
-                const host = setWorkspaceMode("library_presets");
+                const host = renderLibraryShell("presets");
+                if (!host) return;
                 await openPresetsModal({
                     app,
                     nodeInstance: node_instance,
@@ -3849,11 +4043,13 @@ const UnifiedPromptGalleryNode = {
                     renderLibraryDrawer,
                     workspaceContainer: host,
                     onClose,
+                    librarySubnavHtml: getLibrarySubnavHtml("presets"),
                 });
             }
 
             async function showBrowseWorkspace(onClose = returnToGallery) {
-                const host = setWorkspaceMode("library_cards");
+                const host = renderLibraryShell("cards");
+                if (!host) return;
                 await openBrowseModal({
                     app,
                     nodeInstance: node_instance,
@@ -3869,6 +4065,7 @@ const UnifiedPromptGalleryNode = {
                     getCategoryRoleColor,
                     workspaceContainer: host,
                     onClose,
+                    librarySubnavHtml: getLibrarySubnavHtml("cards"),
                 });
             }
 
