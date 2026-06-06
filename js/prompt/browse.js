@@ -110,8 +110,8 @@ export async function showBrowseModal({
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="localprompt-browse-toolbar">
-                    <input type="text" id="browse-filter" placeholder="Search cards..." style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;">
-                    <select id="browse-category" style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;"></select>
+                    <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
+                    <select id="browse-category" class="localprompt-browse-select"></select>
                     <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
                         <option value="manual">Manual / stored order</option>
                         <option value="newest">Newest first</option>
@@ -119,9 +119,9 @@ export async function showBrowseModal({
                         <option value="az">A to Z</option>
                         <option value="za">Z to A</option>
                     </select>
-                    <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 8px 12px;">Manage</button>
-                    <button id="browse-rename-category" class="localprompt-btn" style="padding: 8px 12px; display: none;" title="Rename category">Rename</button>
-                    <button id="browse-delete-category" class="localprompt-btn" style="padding: 8px 12px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
+                    <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn">Manage</button>
+                    <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category">Rename</button>
+                    <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="background: #5a3030; display: none;" title="Delete entire category">Delete</button>
                 </div>
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>

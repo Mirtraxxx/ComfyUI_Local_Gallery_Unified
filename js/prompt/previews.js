@@ -1,7 +1,84 @@
 import {
     buildPromptHoverPreviewHtml,
     getFloatingPreviewPosition,
-} from "./helpers.js";
+} from "./helpers.js?v=preview-popover-20260606";
+import { escapeHtml } from "../shared/dom.js";
+
+function getPromptPreviewMediaUrl(prompt) {
+    return prompt?.preview_url || "";
+}
+
+function closeExpandedPreview() {
+    document.querySelector(".localprompt-preview-lightbox")?.remove();
+}
+
+function showExpandedPreview(prompt) {
+    const mediaUrl = getPromptPreviewMediaUrl(prompt);
+    if (!mediaUrl) return;
+
+    closeExpandedPreview();
+    const overlay = document.createElement("div");
+    overlay.className = "localprompt-preview-lightbox";
+    const isVideo = prompt.preview_type === "video";
+    const safeMediaUrl = escapeHtml(mediaUrl);
+    const safeName = escapeHtml(prompt?.name || "");
+    overlay.innerHTML = `
+        <button class="localprompt-preview-lightbox-close" type="button" title="Close" aria-label="Close">x</button>
+        <div class="localprompt-preview-lightbox-media">
+            ${isVideo
+                ? `<video src="${safeMediaUrl}" controls autoplay loop muted></video>`
+                : `<img src="${safeMediaUrl}" alt="${safeName}">`
+            }
+        </div>
+    `;
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) closeExpandedPreview();
+    });
+    overlay.querySelector(".localprompt-preview-lightbox-close")?.addEventListener("click", closeExpandedPreview);
+    document.addEventListener("keydown", function onKeydown(event) {
+        if (event.key === "Escape") {
+            closeExpandedPreview();
+            document.removeEventListener("keydown", onKeydown);
+        }
+    });
+    document.body.appendChild(overlay);
+}
+
+async function copyPromptText(prompt, button) {
+    const promptText = String(prompt?.prompt_text || "");
+    if (!promptText) return;
+    try {
+        await navigator.clipboard.writeText(promptText);
+        const originalText = button.textContent;
+        button.textContent = "Copied";
+        setTimeout(() => {
+            if (button.isConnected) button.textContent = originalText;
+        }, 900);
+    } catch (error) {
+        console.warn("LocalPromptGallery: Failed to copy prompt text", error);
+    }
+}
+
+function bindPreviewActions(hoverPreview, prompt) {
+    hoverPreview.querySelectorAll("[data-preview-action]").forEach(button => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const action = button.getAttribute("data-preview-action");
+            if (action === "toggle-prompt") {
+                const textEl = hoverPreview.querySelector(".preview-text");
+                if (!textEl) return;
+                const willShow = textEl.hidden;
+                textEl.hidden = !willShow;
+                button.textContent = willShow ? "Hide Prompt" : "Show Prompt";
+            } else if (action === "copy-prompt") {
+                copyPromptText(prompt, button);
+            } else if (action === "expand-image") {
+                showExpandedPreview(prompt);
+            }
+        });
+    });
+}
 
 export function attachInfoPopup({
     element,
@@ -45,15 +122,12 @@ export function showHoverPreview({
     if (!hoverPreview) return;
     if (anchorElement && !anchorElement.isConnected) return;
 
-    if (!prompt.preview_url || !prompt.preview_type) {
-        return null;
-    }
-
     const roleColor = getCategoryRoleColor(prompt);
     const previewHTML = buildPromptHoverPreviewHtml(prompt, roleColor);
 
     hoverPreview.innerHTML = previewHTML;
     hoverPreview.classList.add("active");
+    bindPreviewActions(hoverPreview, prompt);
 
     const previewRect = hoverPreview.getBoundingClientRect();
     const anchorRect = anchorElement?.getBoundingClientRect?.();

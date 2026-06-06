@@ -1,10 +1,10 @@
 import {
     clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
-    createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
-} from "./helpers.js";
+    getManagedPromptState,
+} from "./helpers.js?v=display-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
 export function getActiveSidebarWidth({ nodeInstance }) {
@@ -141,6 +141,7 @@ export async function renderActiveSidebar({
     addPromptToSelection,
     attachInfoPopup,
     attachContextMenu,
+    getDisplayMode = () => nodeInstance.uiPrefs?.active_display_mode || nodeInstance.uiPrefs?.display_mode || "compact",
 }) {
     const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
     const container = widgetContainer.querySelector(`#${uniqueId}-active-chips`);
@@ -167,6 +168,9 @@ export async function renderActiveSidebar({
 
     const prompts = await getActivePromptModels();
     const nextContent = document.createDocumentFragment();
+    const displayMode = getDisplayMode() === "thumbnails" ? "thumbnails" : "compact";
+    container.classList.toggle("active-compact-mode", displayMode === "compact");
+    container.classList.toggle("active-thumbnail-mode", displayMode === "thumbnails");
 
     if (prompts.length === 0) {
         const emptyState = document.createElement("div");
@@ -179,7 +183,6 @@ export async function renderActiveSidebar({
         return;
     }
 
-    const displayMode = nodeInstance.uiPrefs.display_mode || "text";
     let draggedSelectedPromptId = null;
 
     prompts.forEach(prompt => {
@@ -214,13 +217,39 @@ export async function renderActiveSidebar({
             const chipImage = chip.querySelector("img");
             if (chipImage) chipImage.draggable = false;
         } else {
+            const safeName = escapeHtml(prompt.name || "");
+            const safeCategory = escapeHtml(prompt.category || "");
+            const { weight, isOn } = getManagedPromptState(selectedEntry);
+            const previewHtml = prompt.preview_url
+                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
+                : `<div class="localprompt-active-row-thumb-placeholder">${safeCategory || "#"}</div>`;
             chip = document.createElement("div");
-            chip.className = "localprompt-chip selected pinned-managed";
+            chip.className = "localprompt-active-row selected";
             chip.innerHTML = `
-                <button class="localprompt-info-btn" title="View Info">!</button>
-                <div class="managed-card-name" title="${prompt.name}">${prompt.name}</div>
-                ${createManagedTextControlsHtml(selectedEntry)}
+                <span class="localprompt-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                </span>
+                <div class="localprompt-active-row-thumb">${previewHtml}</div>
+                <div class="localprompt-active-main">
+                    <div class="localprompt-active-name" title="${safeName}">${safeName}</div>
+                    <div class="localprompt-active-controls">
+                        <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on">${isOn ? "ON" : "OFF"}</button>
+                        <button class="localprompt-inline-btn" data-managed-action="weight-down" title="Decrease weight">-</button>
+                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
+                        <button class="localprompt-inline-btn" data-managed-action="weight-up" title="Increase weight">+</button>
+                    </div>
+                </div>
+                <div class="localprompt-active-row-actions">
+                    <button class="localprompt-info-btn" title="Preview details" aria-label="Preview details">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="localprompt-active-remove" title="Remove from active" aria-label="Remove from active">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                    </button>
+                </div>
             `;
+            const rowImage = chip.querySelector("img");
+            if (rowImage) rowImage.draggable = false;
         }
 
         chip.draggable = true;
@@ -267,7 +296,12 @@ export async function renderActiveSidebar({
             draggedSelectedPromptId = null;
         });
         chip.addEventListener("click", (event) => {
-            if (event.target.closest("[data-managed-action]")) return;
+            if (event.target.closest("[data-managed-action], .localprompt-info-btn, .localprompt-active-remove")) return;
+            addPromptToSelection(prompt);
+        });
+        chip.querySelector(".localprompt-active-remove")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);

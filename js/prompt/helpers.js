@@ -131,12 +131,12 @@ export function getThumbnailVariables(sizePx) {
     };
 }
 
-export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = 392) {
+export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = 300) {
     const rawWidth = Number(properties?.active_sidebar_width ?? uiPrefs?.active_sidebar_width);
     return Number.isFinite(rawWidth) ? rawWidth : fallbackWidth;
 }
 
-export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, { minWidth = 220, fallbackWidth = 500, reservedWidth = 180 } = {}) {
+export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, { minWidth = 300, fallbackWidth = 500, reservedWidth = 180 } = {}) {
     const availableWidth = shellWidth || nodeWidth || fallbackWidth;
     const maxWidth = Math.max(minWidth + 20, availableWidth - reservedWidth);
     return { minWidth, maxWidth };
@@ -256,11 +256,9 @@ export function buildPromptPreviewMediaHtml(prompt, { wrapperClass = "", noPrevi
 }
 
 export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
-    if (!prompt?.preview_url || !prompt.preview_type) {
-        return "";
-    }
-
-    const mediaHtml = buildPromptPreviewMediaHtml(prompt, { autoplay: true });
+    const mediaHtml = prompt?.preview_url && prompt?.preview_type
+        ? `<button class="preview-media-button${prompt.preview_type === "image" ? " image-preview" : ""}" type="button" data-preview-action="expand-image" title="Expand image">${buildPromptPreviewMediaHtml(prompt, { autoplay: true })}</button>`
+        : "";
     const previewPills = [];
     if (prompt.category) {
         const categoryStyle = roleColor ? ` style="--role-color: ${escapeHtml(roleColor)};"` : "";
@@ -278,7 +276,12 @@ export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
                     <div class="preview-meta"${roleStyle}>
                         <div class="preview-name">${escapeHtml(prompt.name)}</div>
                         ${previewPills.length ? `<div class="preview-pill-row">${previewPills.join("")}</div>` : ""}
-                        ${prompt.prompt_text ? `<div class="preview-text">${escapeHtml(prompt.prompt_text)}</div>` : ""}
+                        <div class="preview-actions">
+                            ${prompt.prompt_text ? `<button type="button" data-preview-action="toggle-prompt">Show Prompt</button>` : ""}
+                            ${prompt.prompt_text ? `<button type="button" data-preview-action="copy-prompt">Copy Prompt</button>` : ""}
+                            ${prompt.preview_url && prompt.preview_type ? `<button type="button" data-preview-action="expand-image">Expand Image</button>` : ""}
+                        </div>
+                        ${prompt.prompt_text ? `<div class="preview-text" hidden>${escapeHtml(prompt.prompt_text)}</div>` : ""}
                     </div>
                 `;
 }

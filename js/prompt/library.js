@@ -1,7 +1,7 @@
 import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
-} from "./helpers.js";
+} from "./helpers.js?v=display-20260606";
 
 function getPromptCreatedAtValue(prompt) {
     const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
@@ -226,6 +226,7 @@ export async function renderLibraryDrawer({
     attachInfoPopup,
     attachContextMenu,
     getSortMode = () => "manual",
+    getDisplayMode = () => nodeInstance.uiPrefs?.cards_display_mode || nodeInstance.uiPrefs?.display_mode || "thumbnails",
 }) {
     const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
     if (!container) return;
@@ -267,7 +268,7 @@ export async function renderLibraryDrawer({
 
     const selectedIds = new Set(getSelectedPromptIdsInOrder().map(id => String(id)));
     const selectedIdStrings = selectedIds;
-    const displayMode = nodeInstance.uiPrefs.display_mode || "text";
+    const displayMode = getDisplayMode() === "compact" ? "compact" : "thumbnails";
 
     if (tabName === "pinned") {
         prompts = sortPinnedPrompts(prompts);
