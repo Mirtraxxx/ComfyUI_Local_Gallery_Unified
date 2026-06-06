@@ -1,4 +1,5 @@
 import json
+import time
 
 
 class LocalGalleryPromptLora:
@@ -21,6 +22,8 @@ class LocalGalleryPromptLora:
                 "prompt_meta_tags": ("STRING", {"default": "[]", "multiline": True, "forceInput": True}),
                 "wildcard_categories": "STRING",
                 "wildcard_mode": "STRING",
+                "wildcard_rng_mode": "STRING",
+                "wildcard_shuffle_nonce": "STRING",
                 "active_tab": "STRING",
             },
         }
@@ -67,6 +70,8 @@ class LocalGalleryPromptLora:
         prompt_meta_tags="[]",
         wildcard_categories="",
         wildcard_mode="off",
+        wildcard_rng_mode="seed_stable",
+        wildcard_shuffle_nonce="0",
         active_tab="prompt",
         **kwargs,
     ):
@@ -85,6 +90,9 @@ class LocalGalleryPromptLora:
                 "prompt_meta_tags": prompt_meta_tags,
                 "wildcard_categories": wildcard_categories,
                 "wildcard_mode": wildcard_mode,
+                "wildcard_rng_mode": wildcard_rng_mode,
+                "wildcard_shuffle_nonce": wildcard_shuffle_nonce,
+                "fresh_wildcard_nonce": time.time() if wildcard_mode != "off" and wildcard_rng_mode == "fresh" else "",
                 "seed": seed,
             },
             sort_keys=True,
@@ -129,6 +137,8 @@ class LocalGalleryPromptLora:
         prompt_meta_tags="[]",
         wildcard_categories="",
         wildcard_mode="off",
+        wildcard_rng_mode="seed_stable",
+        wildcard_shuffle_nonce="0",
         active_tab="prompt",
         **kwargs,
     ):
@@ -155,6 +165,8 @@ class LocalGalleryPromptLora:
             selection_data=prompt_selection_data or "[]",
             wildcard_categories=wildcard_categories or "",
             wildcard_mode=wildcard_mode or "off",
+            wildcard_rng_mode=wildcard_rng_mode or "seed_stable",
+            wildcard_shuffle_nonce=wildcard_shuffle_nonce or "0",
         )
         if isinstance(prompt_result, dict):
             result_values = prompt_result.get("result") or ("",)

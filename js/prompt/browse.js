@@ -88,6 +88,8 @@ export async function showBrowseModal({
     showContextMenu,
     renameCategoryWithPrompt,
     getCategoryRoleColor,
+    getSortMode = () => "manual",
+    setSortMode = null,
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
@@ -97,7 +99,7 @@ export async function showBrowseModal({
     const surface = createBrowseSurface({ workspaceContainer, onClose });
     const { root, close, isWorkspace } = surface;
     root.innerHTML = `
-        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}">
+        <div class="localprompt-modal localprompt-browse-page${isWorkspace ? " localprompt-workspace-page" : ""}">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
                     <h3>Cards</h3>
@@ -110,6 +112,13 @@ export async function showBrowseModal({
                 <div class="localprompt-browse-toolbar">
                     <input type="text" id="browse-filter" placeholder="Search cards..." style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;">
                     <select id="browse-category" style="padding: 8px 10px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; font-size: 12px;"></select>
+                    <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
+                        <option value="manual">Manual / stored order</option>
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="az">A to Z</option>
+                        <option value="za">Z to A</option>
+                    </select>
                     <button id="browse-manage-toggle" class="localprompt-btn" style="padding: 8px 12px;">Manage</button>
                     <button id="browse-rename-category" class="localprompt-btn" style="padding: 8px 12px; display: none;" title="Rename category">Rename</button>
                     <button id="browse-delete-category" class="localprompt-btn" style="padding: 8px 12px; background: #5a3030; display: none;" title="Delete entire category">Delete</button>
@@ -122,10 +131,12 @@ export async function showBrowseModal({
                 </div>
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; justify-content: center; gap: 8px;">
-                <button id="browse-prev" class="localprompt-btn">Prev</button>
-                <span id="browse-page-info" style="font-size: 11px; color: #888; padding: 5px 10px;">Page 1 of 1</span>
-                <button id="browse-next" class="localprompt-btn">Next</button>
+            <div class="${isWorkspace ? "localprompt-workspace-footer " : ""}localprompt-browse-footer">
+                <div class="localprompt-browse-pagination-pill">
+                    <button id="browse-prev" class="localprompt-btn">Prev</button>
+                    <span id="browse-page-info" class="localprompt-browse-page-info">Page 1 of 1</span>
+                    <button id="browse-next" class="localprompt-btn">Next</button>
+                </div>
             </div>
         </div>
     `;
@@ -134,6 +145,7 @@ export async function showBrowseModal({
     const workspaceBody = root.querySelector(isWorkspace ? ".localprompt-workspace-body" : ".localprompt-modal-content");
     const filterInput = root.querySelector("#browse-filter");
     const categorySelect = root.querySelector("#browse-category");
+    const sortSelect = root.querySelector("#browse-sort");
     const manageToggleBtn = root.querySelector("#browse-manage-toggle");
     const bulkToolbar = root.querySelector("#browse-bulk-toolbar");
     const bulkSummary = root.querySelector("#browse-bulk-summary");
@@ -148,16 +160,26 @@ export async function showBrowseModal({
     let currentPage = 1;
     let totalPages = 1;
     let lastScrollTop = 0;
+    let downwardScrollDistance = 0;
+    let upwardScrollDistance = 0;
 
     if (isWorkspace && workspaceBody) {
         workspaceBody.addEventListener("scroll", () => {
             const nextScrollTop = workspaceBody.scrollTop;
-            const isScrollingDown = nextScrollTop > lastScrollTop + 8;
-            const isScrollingUp = nextScrollTop < lastScrollTop - 8;
-            if (isScrollingDown && nextScrollTop > 36 && !browseManageMode) {
+            const scrollDelta = nextScrollTop - lastScrollTop;
+            if (scrollDelta > 0) {
+                downwardScrollDistance += scrollDelta;
+                upwardScrollDistance = 0;
+            } else if (scrollDelta < 0) {
+                upwardScrollDistance += Math.abs(scrollDelta);
+                downwardScrollDistance = 0;
+            }
+            if (downwardScrollDistance >= 8 && nextScrollTop > 36 && !browseManageMode) {
                 root.querySelector(".localprompt-browse-toolbar")?.classList.add("toolbar-hidden");
-            } else if (isScrollingUp || nextScrollTop <= 12) {
+                downwardScrollDistance = 0;
+            } else if (upwardScrollDistance >= 8 || nextScrollTop <= 12) {
                 root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");
+                upwardScrollDistance = 0;
             }
             lastScrollTop = Math.max(0, nextScrollTop);
         }, { passive: true });
@@ -184,7 +206,7 @@ export async function showBrowseModal({
     async function loadBrowseGallery(page = 1) {
         const filter = filterInput.value;
         const category = categorySelect.value;
-        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30);
+        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, getSortMode());
 
         currentPage = data.current_page || 1;
         totalPages = data.total_pages || 1;
@@ -263,6 +285,7 @@ export async function showBrowseModal({
     if (!isWorkspace) closeOnOverlayClick(root);
 
     populateCategorySelect(categorySelect, await galleryNode.getCategories());
+    if (sortSelect) sortSelect.value = getSortMode();
 
     manageToggleBtn?.addEventListener("click", () => {
         browseManageMode = !browseManageMode;
@@ -321,6 +344,13 @@ export async function showBrowseModal({
     categorySelect.addEventListener("change", () => {
         loadBrowseGallery(1);
         updateCategoryActionButtons(root, categorySelect.value);
+    });
+
+    sortSelect?.addEventListener("change", async () => {
+        if (typeof setSortMode === "function") {
+            await setSortMode(sortSelect.value, { reload: false });
+        }
+        await loadBrowseGallery(1);
     });
 
     prevBtn.addEventListener("click", () => loadBrowseGallery(currentPage - 1));

@@ -1,5 +1,32 @@
 import { buildPromptPreviewMediaHtml } from "./helpers.js";
 
+function getPromptCreatedAtValue(prompt) {
+    const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
+    if (typeof rawValue === "number") return rawValue;
+    if (typeof rawValue === "string" && rawValue.trim()) {
+        const numericValue = Number(rawValue);
+        if (Number.isFinite(numericValue)) return numericValue;
+        const parsedDate = Date.parse(rawValue);
+        if (Number.isFinite(parsedDate)) return parsedDate;
+    }
+    return 0;
+}
+
+function sortPromptsForDisplay(prompts, sortMode = "manual") {
+    const mode = String(sortMode || "manual");
+    const sorted = [...prompts];
+    if (mode === "az") {
+        sorted.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || ""), undefined, { sensitivity: "base" }));
+    } else if (mode === "za") {
+        sorted.sort((a, b) => String(b?.name || "").localeCompare(String(a?.name || ""), undefined, { sensitivity: "base" }));
+    } else if (mode === "newest") {
+        sorted.sort((a, b) => (getPromptCreatedAtValue(b) - getPromptCreatedAtValue(a)) || String(b?.id || "").localeCompare(String(a?.id || "")));
+    } else if (mode === "oldest") {
+        sorted.sort((a, b) => (getPromptCreatedAtValue(a) - getPromptCreatedAtValue(b)) || String(a?.id || "").localeCompare(String(b?.id || "")));
+    }
+    return sorted;
+}
+
 export async function loadCategories({
     widgetContainer,
     uniqueId,
@@ -70,6 +97,8 @@ export function renderGallery({
     showPromptContextMenu,
     saveSelectionData,
     renderPrompts,
+    preservePromptOrder = false,
+    sortMode = "manual",
 }) {
     const gallery = document.getElementById(`${uniqueId}-gallery`);
     if (!gallery) return;
@@ -84,13 +113,17 @@ export function renderGallery({
         prompts = prompts.filter(prompt => prompt.favorite);
     }
 
-    prompts.sort((a, b) => {
-        const aSelected = selectedIds.has(a.id);
-        const bSelected = selectedIds.has(b.id);
-        if (aSelected && !bSelected) return -1;
-        if (!aSelected && bSelected) return 1;
-        return 0;
-    });
+    prompts = sortPromptsForDisplay(prompts, sortMode);
+
+    if (!preservePromptOrder) {
+        prompts = [...prompts].sort((a, b) => {
+            const aSelected = selectedIds.has(a.id);
+            const bSelected = selectedIds.has(b.id);
+            if (aSelected && !bSelected) return -1;
+            if (!aSelected && bSelected) return 1;
+            return 0;
+        });
+    }
 
     prompts.forEach(prompt => {
         const div = document.createElement("div");

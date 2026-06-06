@@ -1,8 +1,8 @@
 import { api } from "../../../scripts/api.js";
 
-export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10) {
+export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual") {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
-    let url = `/localpromptgallery/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}`;
+    let url = `/localpromptgallery/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
     selectedPrompts.forEach((prompt) => {
         url += `&selected_prompts=${encodeURIComponent(prompt)}`;
     });

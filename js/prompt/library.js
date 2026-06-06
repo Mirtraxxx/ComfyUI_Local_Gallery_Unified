@@ -3,6 +3,33 @@ import {
     createPinnedManagedControlsHtml,
 } from "./helpers.js";
 
+function getPromptCreatedAtValue(prompt) {
+    const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
+    if (typeof rawValue === "number") return rawValue;
+    if (typeof rawValue === "string" && rawValue.trim()) {
+        const numericValue = Number(rawValue);
+        if (Number.isFinite(numericValue)) return numericValue;
+        const parsedDate = Date.parse(rawValue);
+        if (Number.isFinite(parsedDate)) return parsedDate;
+    }
+    return 0;
+}
+
+function sortPromptsForDisplay(prompts, sortMode = "manual") {
+    const mode = String(sortMode || "manual");
+    const sorted = [...prompts];
+    if (mode === "az") {
+        sorted.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || ""), undefined, { sensitivity: "base" }));
+    } else if (mode === "za") {
+        sorted.sort((a, b) => String(b?.name || "").localeCompare(String(a?.name || ""), undefined, { sensitivity: "base" }));
+    } else if (mode === "newest") {
+        sorted.sort((a, b) => (getPromptCreatedAtValue(b) - getPromptCreatedAtValue(a)) || String(b?.id || "").localeCompare(String(a?.id || "")));
+    } else if (mode === "oldest") {
+        sorted.sort((a, b) => (getPromptCreatedAtValue(a) - getPromptCreatedAtValue(b)) || String(a?.id || "").localeCompare(String(b?.id || "")));
+    }
+    return sorted;
+}
+
 export function getUtilityLibraryTabs() {
     return ["most_used", "pinned"];
 }
@@ -155,18 +182,21 @@ export async function getLibraryDrawerPrompts({
     galleryNode,
     tabName,
     maxCount,
+    sortMode = "manual",
 }) {
     if (tabName === "most_used") {
         return await galleryNode.getMostUsed(maxCount);
     }
     if (tabName === "pinned") {
-        const data = await galleryNode.getPrompts("", "OR", 1, [], "", true, maxCount);
+        const data = await galleryNode.getPrompts("", "OR", 1, [], "", true, maxCount, sortMode);
         return data.prompts || [];
     }
 
-    const data = await galleryNode.getPrompts("", "OR", 1, [], tabName, false, 200);
+    const data = await galleryNode.getPrompts("", "OR", 1, [], tabName, false, 200, sortMode);
     const categoryPrompts = data.prompts || [];
-    categoryPrompts.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
+    if (sortMode === "manual") {
+        categoryPrompts.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
+    }
     return categoryPrompts;
 }
 
@@ -195,14 +225,19 @@ export async function renderLibraryDrawer({
     addPromptToSelection,
     attachInfoPopup,
     attachContextMenu,
+    getSortMode = () => "manual",
 }) {
     const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
     if (!container) return;
     hideHoverPreview();
     const previousTabName = container.dataset.renderedTab || "";
+    const previousSortMode = container.dataset.renderedSortMode || "";
+    const sortMode = getSortMode();
     const shouldRestoreScroll = previousTabName === tabName;
-    const previousScrollTop = shouldRestoreScroll ? container.scrollTop : 0;
+    const shouldKeepScroll = shouldRestoreScroll && previousSortMode === sortMode;
+    const previousScrollTop = shouldKeepScroll ? container.scrollTop : 0;
     container.dataset.renderedTab = tabName;
+    container.dataset.renderedSortMode = sortMode;
 
     if (tabName === "pinned") {
         container.ondragover = (event) => {
@@ -224,7 +259,9 @@ export async function renderLibraryDrawer({
         galleryNode,
         tabName,
         maxCount,
+        sortMode,
     });
+    prompts = sortPromptsForDisplay(prompts, sortMode);
 
     const nextContent = document.createDocumentFragment();
 
@@ -234,7 +271,7 @@ export async function renderLibraryDrawer({
 
     if (tabName === "pinned") {
         prompts = sortPinnedPrompts(prompts);
-    } else {
+    } else if (sortMode === "manual") {
         prompts = promoteSelectedPrompts(prompts);
     }
 

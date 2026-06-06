@@ -453,6 +453,9 @@ export async function showFromLastOutputDialog({
         onClose,
         width: 560,
     });
+    if (isWorkspace) {
+        dialog.classList.add("localprompt-from-output-page");
+    }
     if (!isWorkspace) {
         dialog.style.padding = "16px";
     }
@@ -470,13 +473,13 @@ export async function showFromLastOutputDialog({
             <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
         </div>
         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-            <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
-                <div style="width: 104px;">
-                    <div style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
+            <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-details" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
+                <div class="localprompt-from-output-preview-wrap" style="width: 104px;">
+                    <div class="localprompt-from-output-preview" style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
                         <img src="${previewUrl}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                     </div>
                 </div>
-                <div style="min-width: 0;">
+                <div class="localprompt-from-output-fields" style="min-width: 0;">
                     <div style="margin-bottom: 10px;">
                         <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
                         <input type="text" id="from-last-output-name" value="${escapeHtml(defaultCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
@@ -498,10 +501,10 @@ export async function showFromLastOutputDialog({
                     </div>
                 </div>
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 8px;">
+            <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-prompt-section" : ""}" style="margin-bottom: 8px;">
                 <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
                 <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-                <div style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
+                <div class="localprompt-from-output-source" style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
                     Using prompt source: ${escapeHtml(sourceNode.title || sourceNode.type || `Node ${sourceNode.id}`)}
                 </div>
             </div>
