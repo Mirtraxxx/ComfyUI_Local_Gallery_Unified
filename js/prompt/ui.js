@@ -1115,6 +1115,25 @@ const UnifiedPromptGalleryNode = {
                         background: transparent;
                         border-top: 1px solid rgba(255,255,255,0.06);
                     }
+                    .localprompt-settings-page.localprompt-workspace-page {
+                        background: transparent !important;
+                        border: 0 !important;
+                        border-radius: 0 !important;
+                        box-shadow: none !important;
+                    }
+                    .localprompt-settings-page .localprompt-workspace-header {
+                        border-bottom: 0;
+                    }
+                    .localprompt-settings-page .localprompt-workspace-title p {
+                        display: none;
+                    }
+                    .localprompt-settings-page .localprompt-workspace-body {
+                        padding-top: 8px;
+                    }
+                    .localprompt-settings-page .localprompt-workspace-footer {
+                        background: transparent;
+                        border-top: 1px solid rgba(255,255,255,0.06);
+                    }
                     .localprompt-workspace-panel {
                         display: flex;
                         flex-direction: column;
@@ -1662,6 +1681,73 @@ const UnifiedPromptGalleryNode = {
                         position: absolute;
                         inset: 0;
                         overflow: hidden;
+                    }
+                    .localprompt-chip-thumb.pinned-managed.no-thumb {
+                        background:
+                            radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--role-color, #4a9eff) 26%, transparent), transparent 42%),
+                            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
+                            #111820;
+                    }
+                    .localprompt-chip-thumb.pinned-managed.no-thumb .managed-thumb-media {
+                        display: flex;
+                        align-items: stretch;
+                        justify-content: stretch;
+                    }
+                    .managed-thumb-placeholder {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        width: 100%;
+                        height: 100%;
+                        padding: 32px 10px 52px;
+                        box-sizing: border-box;
+                        text-align: center;
+                        background:
+                            linear-gradient(135deg, color-mix(in srgb, var(--role-color, #4a9eff) 18%, transparent), transparent 48%),
+                            radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06), transparent 54%);
+                    }
+                    .managed-placeholder-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 9px;
+                        color: color-mix(in srgb, var(--role-color, #9ab8ff) 74%, #ffffff);
+                        background: color-mix(in srgb, var(--role-color, #4a9eff) 16%, rgba(255,255,255,0.04));
+                        border: 1px solid color-mix(in srgb, var(--role-color, #4a9eff) 44%, rgba(255,255,255,0.12));
+                        font-size: 14px;
+                        font-weight: 800;
+                        box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+                    }
+                    .managed-placeholder-category {
+                        max-width: 100%;
+                        padding: 2px 7px;
+                        border-radius: 999px;
+                        color: color-mix(in srgb, var(--role-color, #9ab8ff) 70%, #ffffff);
+                        background: rgba(0,0,0,0.22);
+                        border: 1px solid color-mix(in srgb, var(--role-color, #4a9eff) 34%, rgba(255,255,255,0.12));
+                        font-size: 9px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                    .managed-placeholder-name {
+                        max-width: 100%;
+                        color: #f3f5f6;
+                        font-size: var(--localprompt-thumb-label-size);
+                        font-weight: 700;
+                        line-height: 1.2;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        display: -webkit-box;
+                        -webkit-line-clamp: 2;
+                        -webkit-box-orient: vertical;
+                    }
+                    .localprompt-chip-thumb.pinned-managed.no-thumb .thumb-label {
+                        display: none;
                     }
                     .localprompt-chip-thumb.pinned-managed .thumb-label {
                         left: 50%;

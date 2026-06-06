@@ -245,13 +245,13 @@ export async function showSettingsModal({
     const currentCategoryTabs = getLibraryTabs().filter(tab => !["active", "most_used", "pinned"].includes(tab));
     const allCategories = await galleryNode.getCategories();
     root.innerHTML = `
-        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 460px;">
+        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page localprompt-settings-page" : ""}" style="width: 460px;">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
                     <h3>Settings</h3>
                     ${isWorkspace ? "<p>Adjust prompt source, display, and category preferences.</p>" : ""}
                 </div>
-                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}">${isWorkspace ? "Back to Gallery" : "x"}</button>
+                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
             </div>
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; padding: 12px; background: #1f1f1f; border: 1px solid #333; border-radius: 6px;">

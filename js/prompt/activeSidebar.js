@@ -5,6 +5,7 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
 } from "./helpers.js";
+import { escapeHtml } from "../shared/dom.js";
 
 export function getActiveSidebarWidth({ nodeInstance }) {
     return resolveActiveSidebarWidth(nodeInstance.properties, nodeInstance.uiPrefs);
@@ -188,14 +189,25 @@ export async function renderActiveSidebar({
         const promptId = String(prompt.id);
         let chip;
 
-        if (displayMode === "thumbnails" && prompt.preview_url) {
+        if (displayMode === "thumbnails") {
+            const safeName = escapeHtml(prompt.name || "");
+            const safeCategory = escapeHtml(prompt.category || "");
+            const previewHtml = prompt.preview_url
+                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
+                : `
+                    <div class="managed-thumb-placeholder">
+                        <div class="managed-placeholder-icon">#</div>
+                        ${safeCategory ? `<div class="managed-placeholder-category">${safeCategory}</div>` : ""}
+                        <div class="managed-placeholder-name">${safeName}</div>
+                    </div>
+                `;
             chip = document.createElement("div");
-            chip.className = "localprompt-chip-thumb selected pinned-managed";
+            chip.className = `localprompt-chip-thumb selected pinned-managed${prompt.preview_url ? "" : " no-thumb"}`;
             chip.innerHTML = `
                 <button class="localprompt-info-btn" title="View Info">!</button>
                 <div class="managed-thumb-media">
-                    <img src="${prompt.preview_url}" alt="${prompt.name}">
-                    <span class="thumb-label">${prompt.name}</span>
+                    ${previewHtml}
+                    <span class="thumb-label">${safeName}</span>
                 </div>
                 ${createPinnedManagedControlsHtml(selectedEntry)}
             `;
