@@ -270,7 +270,7 @@ export async function renderLibraryDrawer({
 
     if (tabName === "pinned") {
         prompts = sortPinnedPrompts(prompts);
-    } else if (sortMode === "manual") {
+    } else {
         prompts = promoteSelectedPrompts(prompts);
     }
 

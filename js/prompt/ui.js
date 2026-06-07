@@ -60,7 +60,7 @@ import {
     isUtilityLibraryTab,
     renderLibraryBar as renderPromptLibraryBar,
     renderLibraryDrawer as renderPromptLibraryDrawer,
-} from "./library.js?v=unified-icons-20260606";
+} from "./library.js?v=selected-promotion-20260607";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=auto-hide-bottom-toolbar-20260606";
 import { showWildcardsModal } from "./wildcards.js";

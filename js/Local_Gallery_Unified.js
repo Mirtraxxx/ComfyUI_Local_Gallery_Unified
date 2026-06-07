@@ -2,7 +2,7 @@
 import { api } from "../../scripts/api.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
 import { registerLoraGalleryUi } from "./lora/ui.js";
-import { registerPromptGalleryUi } from "./prompt/ui.js?v=gallery-active-merge-20260607";
+import { registerPromptGalleryUi } from "./prompt/ui.js?v=library-active-promotion-20260607";
 
 app.registerExtension({
     name: "LocalGalleryPromptLora.Tabs",
