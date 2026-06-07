@@ -108,7 +108,7 @@ export async function showBrowseModal({
                     <h3>Cards</h3>
                     ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
                 </div>
-                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
+                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
             </div>
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">

@@ -224,7 +224,7 @@ export async function showPresetsModal({
                     <h3>Presets</h3>
                     ${isWorkspace ? "<p>Save, load, edit, and create prompt preset stacks.</p>" : ""}
                 </div>
-                <button class="${isWorkspace ? "localprompt-workspace-back" : "localprompt-modal-close"}" title="${isWorkspace ? "Back to Gallery" : "Close"}">${isWorkspace ? "&lt; Gallery" : "x"}</button>
+                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
             </div>
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">

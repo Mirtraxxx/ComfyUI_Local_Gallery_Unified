@@ -274,22 +274,6 @@ export async function renderLibraryDrawer({
         prompts = promoteSelectedPrompts(prompts);
     }
 
-    const drawerToolbar = document.createElement("div");
-    drawerToolbar.className = "localprompt-drawer-toolbar";
-    drawerToolbar.innerHTML = `
-        <span class="localprompt-drawer-summary">Selected (${nodeInstance.promptData.length})</span>
-        <button class="localprompt-btn localprompt-clear-btn" style="padding: 2px 6px; font-size: 9px; background: #4a2a2a; border-color: #6a3a3a;" ${nodeInstance.promptData.length ? "" : "disabled"}>Clear All</button>
-    `;
-    const drawerClearBtn = drawerToolbar.querySelector("button");
-    if (drawerClearBtn) {
-        drawerClearBtn.addEventListener("click", () => {
-            if (nodeInstance.promptData.length > 0 && confirm("Remove all prompts from selection?")) {
-                clearAllSelections();
-            }
-        });
-    }
-    nextContent.appendChild(drawerToolbar);
-
     if (prompts.length === 0) {
         const emptyState = document.createElement("span");
         emptyState.style.fontSize = "11px";
