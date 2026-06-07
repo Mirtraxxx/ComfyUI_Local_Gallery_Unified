@@ -25,7 +25,7 @@ import {
     sortPromptsByPinnedOrder,
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
-} from "./helpers.js?v=preview-popover-20260606";
+} from "./helpers.js?v=unified-icons-20260606";
 import { showBrowseModal as openBrowseModal } from "./browse.js?v=sort-20260606";
 import {
     showAddPromptDialog as openAddPromptDialog,
@@ -33,7 +33,7 @@ import {
     showFromLastOutputDialog as openFromLastOutputDialog,
     showImportDialog as openImportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=sort-20260606";
+} from "./dialogs.js?v=edit-prompt-editor-20260606";
 import {
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
@@ -47,24 +47,22 @@ import {
     applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
-    isActiveSidebarOpen as isPromptActiveSidebarOpen,
     renderActiveSidebar as renderPromptActiveSidebar,
-    setupActiveSidebarResize as setupPromptActiveSidebarResize,
-} from "./activeSidebar.js?v=display-20260606";
+} from "./activeSidebar.js?v=active-peek-toggle-20260607";
 import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
     renderGallery as renderPromptGallery,
-} from "./gallery.js?v=sort-20260606";
+} from "./gallery.js?v=selected-promotion-20260607";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderLibraryBar as renderPromptLibraryBar,
     renderLibraryDrawer as renderPromptLibraryDrawer,
-} from "./library.js?v=display-20260606";
+} from "./library.js?v=unified-icons-20260606";
 import { showPresetsModal as openPresetsModal } from "./presets.js";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=sort-20260606";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=auto-hide-bottom-toolbar-20260606";
 import { showWildcardsModal } from "./wildcards.js";
 import { escapeHtml } from "../shared/dom.js";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
@@ -264,6 +262,8 @@ const UnifiedPromptGalleryNode = {
                 category_colors: {},
                 active_sidebar_open: false,
                 active_sidebar_width: 300,
+                auto_hide_toolbars: false,
+                prompt_sort_mode: "manual",
             };
         }
     },
@@ -410,6 +410,7 @@ const UnifiedPromptGalleryNode = {
                 pinned_order: [],
                 category_colors: {},
                 active_sidebar_width: 300,
+                auto_hide_toolbars: false,
                 last_created_category: "",
                 prompt_sort_mode: "manual",
             };
@@ -948,6 +949,7 @@ const UnifiedPromptGalleryNode = {
                         background: #1e1e1e;
                         padding: 8px 10px;
                         border-bottom: 1px solid #333;
+                        overflow: visible;
                     }
                     .localprompt-top-controls {
                         display: flex;
@@ -955,25 +957,6 @@ const UnifiedPromptGalleryNode = {
                         align-items: flex-start;
                         gap: 6px;
                         flex: 0 0 auto;
-                    }
-                    .localprompt-active-toggle {
-                        flex: 0 0 auto;
-                        align-self: center;
-                        margin-right: 0;
-                        width: 54px;
-                        height: 28px;
-                        border-radius: 999px;
-                        background: linear-gradient(180deg, rgba(47, 111, 69, 0.9) 0%, rgba(35, 79, 48, 0.94) 100%);
-                        border-color: #4f985d;
-                        color: #fff;
-                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 12px rgba(90,156,90,0.12);
-                    }
-                    .localprompt-active-toggle::before {
-                        content: '\\25B6';
-                        font-size: 9px;
-                        letter-spacing: 0;
-                        opacity: 0.9;
-                        margin-right: 8px;
                     }
                     .localprompt-library-bar-container {
                         position: relative;
@@ -1016,43 +999,32 @@ const UnifiedPromptGalleryNode = {
                         min-height: 0;
                     }
                     .localprompt-active-sidebar {
-                        display: none;
+                        display: flex;
                         flex-direction: column;
+                        flex: 0 0 0;
+                        width: 0;
+                        min-width: 0;
+                        max-width: 0;
+                        background: linear-gradient(180deg, #161616 0%, #111111 100%);
+                        border-right: 0 solid transparent;
+                        box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+                        min-height: 0;
+                        opacity: 0;
+                        overflow: hidden;
+                        pointer-events: none;
+                        transform: translateX(-16px);
+                        transition: flex-basis 0.2s ease-out, width 0.2s ease-out, min-width 0.2s ease-out, max-width 0.2s ease-out, opacity 0.18s ease-out, transform 0.2s ease-out, border-color 0.2s ease-out;
+                    }
+                    .localprompt-active-sidebar.active {
+                        flex-basis: var(--localprompt-active-sidebar-width, 300px);
                         width: var(--localprompt-active-sidebar-width, 300px);
                         min-width: var(--localprompt-active-sidebar-width, 300px);
                         max-width: var(--localprompt-active-sidebar-width, 300px);
-                        background: linear-gradient(180deg, #161616 0%, #111111 100%);
-                        border-right: 1px solid #2f2f2f;
-                        box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
-                        min-height: 0;
-                    }
-                    .localprompt-active-sidebar.active {
-                        display: flex;
-                    }
-                    .localprompt-active-splitter {
-                        display: none;
-                        flex: 0 0 10px;
-                        align-items: center;
-                        justify-content: center;
-                        cursor: ew-resize;
-                        background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.04) 100%);
-                        border-right: 1px solid #2d2d2d;
-                        border-left: 1px solid #1a1a1a;
-                        transition: background 0.15s ease;
-                    }
-                    .localprompt-active-splitter.active {
-                        display: flex;
-                    }
-                    .localprompt-active-splitter:hover,
-                    .localprompt-active-splitter.dragging {
-                        background: linear-gradient(180deg, rgba(90, 156, 90, 0.2) 0%, rgba(74, 158, 255, 0.14) 100%);
-                    }
-                    .localprompt-active-splitter-bar {
-                        width: 3px;
-                        height: 42px;
-                        border-radius: 999px;
-                        background: linear-gradient(180deg, #4e4e4e 0%, #7a7a7a 50%, #4e4e4e 100%);
-                        box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+                        border-right-width: 1px;
+                        border-right-color: #2f2f2f;
+                        opacity: 1;
+                        pointer-events: auto;
+                        transform: translateX(0);
                     }
                     .localprompt-active-sidebar-header {
                         display: flex;
@@ -1110,6 +1082,63 @@ const UnifiedPromptGalleryNode = {
                         flex: 1;
                         min-width: 0;
                         min-height: 0;
+                        position: relative;
+                    }
+                    .localprompt-active-side-tab {
+                        position: absolute;
+                        left: 0;
+                        top: 8px;
+                        z-index: 55;
+                        width: 32px;
+                        height: 36px;
+                        padding: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 1px solid rgba(255,255,255,0.13);
+                        border-radius: 0 9px 9px 0;
+                        background: linear-gradient(180deg, rgba(39, 42, 45, 0.96), rgba(19, 21, 23, 0.98));
+                        color: #e8ecef;
+                        box-shadow: 0 8px 18px rgba(0,0,0,0.38), inset 0 0 0 1px rgba(255,255,255,0.035);
+                        cursor: pointer;
+                        opacity: 0.96;
+                        transition: opacity 0.14s ease, border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+                    }
+                    .localprompt-active-side-tab:hover,
+                    .localprompt-active-side-tab.active {
+                        border-color: rgba(112, 174, 255, 0.45);
+                        background: linear-gradient(180deg, rgba(45, 50, 55, 0.98), rgba(22, 26, 30, 0.99));
+                    }
+                    .localprompt-active-side-tab.active:not(.empty) {
+                        opacity: 0;
+                        pointer-events: none;
+                        transform: translateX(-4px);
+                    }
+                    .localprompt-container-wrapper:not(.active-sidebar-expanded) .localprompt-library-drawer.active {
+                        padding-left: 46px;
+                    }
+                    .localprompt-active-side-tab.empty {
+                        opacity: 0.52;
+                        color: #9da4aa;
+                    }
+                    .localprompt-active-side-tab-count {
+                        min-width: 22px;
+                        height: 22px;
+                        padding: 0 5px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255,255,255,0.1);
+                        border-radius: 999px;
+                        background: rgba(255,255,255,0.065);
+                        color: #dfe4e8;
+                        font-size: 11px;
+                        font-weight: 700;
+                        line-height: 1;
+                    }
+                    .localprompt-active-side-tab.empty .localprompt-active-side-tab-count {
+                        color: #a3a9ae;
                     }
                     .localprompt-workspace-host {
                         display: none;
@@ -1627,10 +1656,12 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-library-drawer {
                         background: #141414;
                         border-bottom: 0;
-                        padding: 10px 10px 16px;
+                        padding: 8px 10px;
                         display: none;
-                        flex: 1;
+                        flex: 0 1 auto;
                         min-height: 0;
+                        max-height: 100%;
+                        overflow: hidden;
                         box-shadow: inset 0 4px 6px rgba(0,0,0,0.3);
                     }
                     .localprompt-library-drawer.active {
@@ -1640,24 +1671,10 @@ const UnifiedPromptGalleryNode = {
                     }
                     @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
                     
-                    .localprompt-resize-handle {
-                        width: 100%;
-                        height: 10px;
-                        cursor: ns-resize;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        background: #1a1a1a;
-                        transition: background 0.2s;
-                        border-bottom: 1px solid #333;
-                    }
-                    .localprompt-resize-handle:hover { background: #2a2a2a; }
-                    .localprompt-resize-handle.hidden { display: none; }
-
                     .localprompt-library-drawer .localprompt-chip-container {
                         max-height: none;
                         padding-right: 1px;
-                        flex: 1;
+                        flex: 0 1 auto;
                         min-height: 0;
                         overflow-y: auto;
                         align-content: flex-start;
@@ -2196,6 +2213,14 @@ const UnifiedPromptGalleryNode = {
                         line-height: 1;
                         padding: 0;
                     }
+                    .localprompt-info-btn svg,
+                    .localprompt-favorite-star svg,
+                    .localprompt-gallery-item .favorite-btn svg,
+                    .chip-pin-btn svg {
+                        width: 14px;
+                        height: 14px;
+                        stroke: currentColor;
+                    }
                     .localprompt-info-btn:hover,
                     .localprompt-favorite-star:hover,
                     .localprompt-gallery-item .favorite-btn:hover,
@@ -2212,13 +2237,11 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-gallery-item .favorite-btn,
                     .chip-pin-btn {
                         right: 6px;
-                        font-size: 13px; /* Slightly larger for star icon */
                     }
                     .localprompt-favorite-star.favorited,
                     .localprompt-gallery-item .favorite-btn.favorited,
                     .chip-pin-btn.favorited {
                         color: #ffd700;
-                        text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
                         border-color: rgba(255, 215, 0, 0.5);
                         background: rgba(40, 35, 10, 0.85);
                     }
@@ -2230,11 +2253,9 @@ const UnifiedPromptGalleryNode = {
                         flex-shrink: 0;
                     }
                     .localprompt-chip .localprompt-info-btn {
-                        font-size: 10px;
                         margin-right: 4px;
                     }
                     .localprompt-chip .chip-pin-btn {
-                        font-size: 12px;
                         margin-left: auto;
                     }
                     .managed-state-pill {
@@ -2465,6 +2486,7 @@ const UnifiedPromptGalleryNode = {
                     .localprompt-selected-item .toggle-btn.off { background: #7c4a4a; color: #fff; border: 1px solid #9c5a5a; }
                     
                     .localprompt-bottom-bar {
+                        position: relative;
                         padding: 8px 10px;
                         background: #252525;
                         border-top: 1px solid #333;
@@ -2472,8 +2494,40 @@ const UnifiedPromptGalleryNode = {
                         align-items: center;
                         gap: 6px;
                         flex-wrap: wrap;
-                        margin-top: 12px;
+                        margin-top: 0;
                         flex-shrink: 0;
+                        max-height: 220px;
+                        opacity: 1;
+                        overflow: visible;
+                        transition: max-height 0.16s ease, padding 0.16s ease, opacity 0.12s ease, transform 0.16s ease, margin 0.16s ease;
+                    }
+                    .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned) {
+                        max-height: 0;
+                        min-height: 0;
+                        padding-top: 0;
+                        padding-bottom: 0;
+                        margin-top: 0;
+                        opacity: 1;
+                        overflow: visible;
+                        transform: none;
+                        background: transparent;
+                        border-top-color: transparent;
+                    }
+                    .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned) > * {
+                        opacity: 0;
+                        pointer-events: none;
+                    }
+                    .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned)::before {
+                        content: '';
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        height: 34px;
+                        pointer-events: auto;
+                    }
+                    .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned):hover {
+                        background: transparent;
                     }
                     .localprompt-bottom-spacer {
                         flex: 1 1 auto;
@@ -2630,9 +2684,18 @@ const UnifiedPromptGalleryNode = {
                         color: #e8ecef;
                     }
                     .localprompt-wildcard-shuffle-btn {
-                        min-height: 24px;
-                        padding: 4px 9px;
-                        white-space: nowrap;
+                        width: 28px;
+                        height: 26px;
+                        min-height: 26px;
+                        padding: 0;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 6px;
+                    }
+                    .localprompt-wildcard-shuffle-btn svg {
+                        width: 15px;
+                        height: 15px;
+                        stroke: currentColor;
                     }
 
                     .localprompt-empty-state {
@@ -2838,13 +2901,218 @@ const UnifiedPromptGalleryNode = {
                         overflow-y: auto;
                         padding: 16px;
                     }
+                    .localprompt-edit-prompt-overlay {
+                        background: rgba(0, 0, 0, 0.78) !important;
+                        padding: 24px;
+                        box-sizing: border-box;
+                    }
+                    .localprompt-edit-prompt-dialog {
+                        width: min(88vw, 900px);
+                        max-height: min(88vh, 820px);
+                        background: linear-gradient(145deg, rgba(33, 38, 43, 0.97), rgba(18, 22, 26, 0.98));
+                        border: 1px solid rgba(162, 178, 190, 0.42);
+                        border-radius: 12px;
+                        box-shadow: 0 18px 60px rgba(0,0,0,0.62);
+                        color: #e8edf0;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                    }
+                    .localprompt-edit-prompt-header {
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        gap: 16px;
+                        padding: 28px 32px 14px;
+                    }
+                    .localprompt-edit-prompt-title {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 14px;
+                    }
+                    .localprompt-edit-prompt-title h3 {
+                        margin: 0;
+                        color: #f3f6f8;
+                        font-size: 26px;
+                        line-height: 1.1;
+                    }
+                    .localprompt-edit-prompt-title p {
+                        margin: 10px 0 0;
+                        color: #b7bdc4;
+                        font-size: 14px;
+                    }
+                    .localprompt-edit-prompt-icon {
+                        width: 24px;
+                        height: 24px;
+                        margin-top: 3px;
+                        color: #65c66f;
+                    }
+                    .localprompt-edit-prompt-icon svg {
+                        width: 100%;
+                        height: 100%;
+                        stroke: currentColor;
+                        stroke-width: 1.9;
+                        stroke-linecap: round;
+                        stroke-linejoin: round;
+                    }
+                    .localprompt-edit-prompt-close {
+                        border: 0;
+                        background: transparent;
+                        color: #aeb5bb;
+                        font-size: 34px;
+                        line-height: 1;
+                        cursor: pointer;
+                        padding: 4px 6px;
+                    }
+                    .localprompt-edit-prompt-close:hover {
+                        color: #f1f4f6;
+                    }
+                    .localprompt-edit-prompt-body {
+                        flex: 1;
+                        min-height: 0;
+                        padding: 0 32px 22px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 18px;
+                    }
+                    .localprompt-edit-prompt-field {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 8px;
+                        margin: 0;
+                        min-height: 0;
+                    }
+                    .localprompt-edit-prompt-field > span {
+                        color: #d9dde2;
+                        font-size: 13px;
+                        font-weight: 700;
+                    }
+                    .localprompt-edit-prompt-field input,
+                    .localprompt-edit-prompt-field textarea {
+                        width: 100%;
+                        box-sizing: border-box;
+                        background: rgba(10, 13, 16, 0.58);
+                        color: #f3f5f7;
+                        border: 1px solid rgba(171, 185, 197, 0.34);
+                        border-radius: 8px;
+                        outline: none;
+                    }
+                    .localprompt-edit-prompt-field input {
+                        height: 42px;
+                        padding: 0 14px;
+                        font-size: 15px;
+                    }
+                    .localprompt-edit-prompt-field input:focus,
+                    .localprompt-edit-prompt-field textarea:focus {
+                        border-color: rgba(110, 183, 255, 0.72);
+                        box-shadow: 0 0 0 2px rgba(70, 140, 220, 0.14);
+                    }
+                    .localprompt-edit-prompt-text-field {
+                        flex: 1;
+                    }
+                    .localprompt-edit-prompt-field textarea {
+                        flex: 1;
+                        min-height: 280px;
+                        max-height: 46vh;
+                        padding: 18px 22px;
+                        resize: vertical;
+                        overflow: auto;
+                        font-family: "Cascadia Mono", "Consolas", monospace;
+                        font-size: 15px;
+                        line-height: 1.55;
+                        white-space: pre-wrap;
+                    }
+                    .localprompt-edit-prompt-footer {
+                        border-top: 1px solid rgba(255,255,255,0.12);
+                        padding: 16px 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 18px;
+                        background: rgba(10, 13, 16, 0.3);
+                    }
+                    .localprompt-edit-prompt-status,
+                    .localprompt-edit-prompt-actions {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    }
+                    .localprompt-edit-prompt-status {
+                        min-width: 0;
+                        color: #aeb5bb;
+                        font-size: 13px;
+                    }
+                    .localprompt-edit-prompt-dot {
+                        width: 10px;
+                        height: 10px;
+                        border-radius: 999px;
+                        background: #6a737c;
+                        flex: 0 0 auto;
+                    }
+                    .localprompt-edit-prompt-dot.saved {
+                        background: #63c36c;
+                    }
+                    .localprompt-edit-prompt-divider {
+                        width: 1px;
+                        height: 18px;
+                        background: rgba(255,255,255,0.18);
+                    }
+                    .localprompt-edit-prompt-actions button {
+                        min-width: 116px;
+                        height: 40px;
+                        padding: 0 18px;
+                        border-radius: 7px;
+                        color: #f2f5f7;
+                        font-size: 14px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    }
+                    .localprompt-edit-prompt-secondary {
+                        background: rgba(255,255,255,0.08);
+                        border: 1px solid rgba(210, 220, 228, 0.32);
+                    }
+                    .localprompt-edit-prompt-secondary:hover {
+                        background: rgba(255,255,255,0.14);
+                    }
+                    .localprompt-edit-prompt-primary {
+                        background: linear-gradient(180deg, #69b871, #478f4f);
+                        border: 1px solid rgba(139, 224, 148, 0.72);
+                    }
+                    .localprompt-edit-prompt-primary:hover {
+                        background: linear-gradient(180deg, #74c87c, #4fa257);
+                    }
+                    @media (max-width: 720px) {
+                        .localprompt-edit-prompt-overlay {
+                            padding: 12px;
+                        }
+                        .localprompt-edit-prompt-dialog {
+                            width: 100%;
+                            max-height: 92vh;
+                        }
+                        .localprompt-edit-prompt-header,
+                        .localprompt-edit-prompt-body,
+                        .localprompt-edit-prompt-footer {
+                            padding-left: 18px;
+                            padding-right: 18px;
+                        }
+                        .localprompt-edit-prompt-title h3 {
+                            font-size: 22px;
+                        }
+                        .localprompt-edit-prompt-footer {
+                            align-items: stretch;
+                            flex-direction: column;
+                        }
+                        .localprompt-edit-prompt-actions {
+                            justify-content: flex-end;
+                        }
+                    }
                     
                     /* Gallery grid for modal */
                     .localprompt-gallery-grid {
                         display: grid;
                         grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
                         gap: 12px;
-                        padding-bottom: 34px;
+                        padding-bottom: 64px;
                     }
                     .localprompt-browse-toolbar {
                         display: flex;
@@ -2909,7 +3177,7 @@ const UnifiedPromptGalleryNode = {
                     }
                     .localprompt-browse-page .localprompt-workspace-body,
                     .localprompt-browse-page .localprompt-modal-content {
-                        padding-bottom: 56px;
+                        padding-bottom: 10px;
                     }
                     .localprompt-browse-footer.localprompt-workspace-footer,
                     .localprompt-browse-footer {
@@ -2921,8 +3189,9 @@ const UnifiedPromptGalleryNode = {
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        padding: 8px 12px;
-                        background: linear-gradient(180deg, rgba(17,23,29,0), rgb(17,23,29) 34%, rgb(17,23,29));
+                        padding: 6px 12px 8px;
+                        background: transparent;
+                        box-shadow: none;
                         border-top: 0;
                         pointer-events: none;
                     }
@@ -3032,9 +3301,6 @@ const UnifiedPromptGalleryNode = {
                         <div class="localprompt-top-row">
                             <div class="localprompt-toolbar">
                                 <div class="localprompt-toolbar-group">
-                                    <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-active-toggle" type="button" title="Toggle active prompts" aria-label="Toggle active prompts">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>
-                                    </button>
                                     <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
                                     </button>
@@ -3094,16 +3360,13 @@ const UnifiedPromptGalleryNode = {
                                     <div class="localprompt-chip-container" id="${uniqueId}-active-chips"></div>
                                 </div>
                             </aside>
-                            <div class="localprompt-active-splitter" id="${uniqueId}-active-splitter" title="Drag to resize active panel">
-                                <div class="localprompt-active-splitter-bar"></div>
-                            </div>
                             <div class="localprompt-library-pane">
+                                <button class="localprompt-active-side-tab empty" id="${uniqueId}-active-toggle" type="button" title="Active Prompts" aria-label="Active Prompts" aria-pressed="false">
+                                    <span class="localprompt-active-side-tab-count" id="${uniqueId}-active-tab-count">0</span>
+                                </button>
                                 <div class="localprompt-workspace-host" id="${uniqueId}-workspace-host"></div>
                                 <div class="localprompt-library-drawer" id="${uniqueId}-library-drawer">
                                     <div class="localprompt-chip-container" id="${uniqueId}-library-chips"></div>
-                                </div>
-                                <div class="localprompt-resize-handle hidden" data-target="${uniqueId}-library-drawer" id="${uniqueId}-resize">
-                                    <div style="width: 20px; height: 3px; background: #666; border-radius: 2px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -3185,11 +3448,19 @@ const UnifiedPromptGalleryNode = {
                                     <span>RNG</span>
                                     <select id="${uniqueId}-wildcard-rng-select">
                                         <option value="seed_stable">Seed-stable</option>
-                                        <option value="shuffle">Shuffle on click</option>
+                                        <option value="shuffle">Shuffle order</option>
                                         <option value="fresh">Fresh every run</option>
                                     </select>
                                 </label>
-                                <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks">Shuffle Wildcards</button>
+                                <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks" aria-label="Shuffle wildcard picks">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M16 3h5v5"></path>
+                                        <path d="M4 20 21 3"></path>
+                                        <path d="M21 16v5h-5"></path>
+                                        <path d="m15 15 6 6"></path>
+                                        <path d="m4 4 5 5"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                         <div class="localprompt-bottom-spacer"></div>
@@ -3362,6 +3633,7 @@ const UnifiedPromptGalleryNode = {
                     const panel = panelId ? widgetContainer.querySelector(`#${panelId}`) : null;
                     if (panel !== exceptPanel) btn.classList.remove("active");
                 });
+                syncAutoHideToolbarState();
             }
 
             function setupToolbarDropdown(buttonId, panelId, onOpen = null) {
@@ -3382,6 +3654,7 @@ const UnifiedPromptGalleryNode = {
                     if (willOpen && typeof onOpen === "function") {
                         await onOpen();
                     }
+                    syncAutoHideToolbarState();
                 });
                 panel.addEventListener("click", event => event.stopPropagation());
             }
@@ -3391,14 +3664,12 @@ const UnifiedPromptGalleryNode = {
                     setWorkspaceMode("gallery");
                 }
                 const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
-                const resizeHandle = widgetContainer.querySelector(`#${uniqueId}-resize`);
                 const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
                 if (activeLibraryTab === category) {
                     if (categorySelect) categorySelect.value = "";
                     activeLibraryTab = null;
                     clearLibraryNavActiveState();
                     drawer?.classList.remove("active");
-                    resizeHandle?.classList.add("hidden");
                     syncSelectedSectionVisibility();
                     await renderPinnedCategoryStrip();
                     await renderCategoryDropdownOptions();
@@ -3409,7 +3680,6 @@ const UnifiedPromptGalleryNode = {
                 activeLibraryTab = category;
                 clearLibraryNavActiveState();
                 drawer?.classList.add("active");
-                resizeHandle?.classList.remove("hidden");
                 await renderLibraryDrawer(category);
                 syncSelectedSectionVisibility();
                 await renderPinnedCategoryStrip();
@@ -3564,8 +3834,6 @@ const UnifiedPromptGalleryNode = {
                 selectedSection.style.padding = '0';
                 selectedSection.style.border = '0';
                 selectedSection.style.overflow = 'hidden';
-                const resizeHandle = widgetContainer.querySelector(`#${uniqueId}-resize`);
-                if (resizeHandle) resizeHandle.classList.add('hidden');
             }
 
             function getSelectedPromptEntry(promptId) {
@@ -3612,52 +3880,6 @@ const UnifiedPromptGalleryNode = {
                 }
                 return true;
             }
-
-            // Setup resize handles for sections
-            function setupResizeHandles() {
-                const handles = widgetContainer.querySelectorAll('.localprompt-resize-handle');
-                
-                handles.forEach(handle => {
-                    let startY = 0;
-                    let startHeight = 0;
-                    let targetSection = null;
-                    
-                    const onMouseMove = (e) => {
-                        if (!targetSection) return;
-                        const deltaY = e.clientY - startY;
-                        const newHeight = Math.max(40, startHeight + deltaY);
-                        targetSection.style.height = `${newHeight}px`;
-                        targetSection.style.maxHeight = `${newHeight}px`;
-                    };
-                    
-                    const onMouseUp = () => {
-                        document.removeEventListener('mousemove', onMouseMove);
-                        document.removeEventListener('mouseup', onMouseUp);
-                        document.body.style.cursor = '';
-                        document.body.style.userSelect = '';
-                    };
-                    
-                    handle.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        const targetId = handle.getAttribute('data-target');
-                        targetSection = widgetContainer.querySelector(`#${targetId}`);
-                        if (!targetSection) return;
-                        
-                        startY = e.clientY;
-                        startHeight = targetSection.offsetHeight;
-                        
-                        document.body.style.cursor = 'ns-resize';
-                        document.body.style.userSelect = 'none';
-                        
-                        document.addEventListener('mousemove', onMouseMove);
-                        document.addEventListener('mouseup', onMouseUp);
-                    });
-                });
-            }
-            
-            // Initialize resize handles
-            setupResizeHandles();
-            setupActiveSidebarResize();
 
             function getThumbnailSizePx() {
                 return resolveThumbnailSizePx(node_instance.uiPrefs, {
@@ -3929,8 +4151,12 @@ const UnifiedPromptGalleryNode = {
                     .forEach(button => button.classList.remove('active'));
             }
 
+            let activeSidebarHoverOpen = false;
+            let activeSidebarOpenTimer = null;
+            let activeSidebarCloseTimer = null;
+
             function isActiveSidebarOpen() {
-                return isPromptActiveSidebarOpen({ nodeInstance: node_instance });
+                return activeSidebarHoverOpen;
             }
 
             function applyActiveSidebarPreference() {
@@ -3940,24 +4166,82 @@ const UnifiedPromptGalleryNode = {
                     nodeInstance: node_instance,
                     activeSidebarWidthWidget,
                 });
+                const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
+                const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
+                const isOpen = isActiveSidebarOpen();
+                const isPinned = false;
+                widgetContainer.classList.toggle("active-sidebar-expanded", isOpen);
+                sidebar?.classList.toggle("active", isOpen);
+                if (toggleBtn) {
+                    toggleBtn.classList.toggle("active", isOpen);
+                    toggleBtn.classList.toggle("pinned", isPinned);
+                    toggleBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
+                }
             }
 
-            async function setActiveSidebarOpen(nextOpen) {
-                node_instance.uiPrefs.active_sidebar_open = !!nextOpen;
+            async function toggleActiveSidebarPeek() {
+                clearActiveSidebarOpenTimer();
+                clearActiveSidebarCloseTimer();
+                node_instance.uiPrefs.active_sidebar_open = false;
+                activeSidebarHoverOpen = !activeSidebarHoverOpen;
                 applyActiveSidebarPreference();
-                await saveUiPrefs();
-                if (nextOpen) {
+                saveUiPrefs().catch(error => {
+                    console.warn("LocalPromptGallery: Failed to save active sidebar state", error);
+                });
+                if (activeSidebarHoverOpen) {
                     await renderActiveSidebar();
                 }
             }
 
             function closeActiveSidebarForWorkspaceMode() {
                 if (!isActiveSidebarOpen()) return;
+                clearActiveSidebarOpenTimer();
+                activeSidebarHoverOpen = false;
                 node_instance.uiPrefs.active_sidebar_open = false;
                 applyActiveSidebarPreference();
                 saveUiPrefs().catch(error => {
                     console.warn("LocalPromptGallery: Failed to save active sidebar state", error);
                 });
+            }
+
+            async function setActiveSidebarHoverOpen(nextOpen) {
+                activeSidebarHoverOpen = !!nextOpen && node_instance.promptData.length > 0;
+                applyActiveSidebarPreference();
+                if (activeSidebarHoverOpen) {
+                    await renderActiveSidebar();
+                }
+            }
+
+            function clearActiveSidebarCloseTimer() {
+                if (!activeSidebarCloseTimer) return;
+                clearTimeout(activeSidebarCloseTimer);
+                activeSidebarCloseTimer = null;
+            }
+
+            function clearActiveSidebarOpenTimer() {
+                if (!activeSidebarOpenTimer) return;
+                clearTimeout(activeSidebarOpenTimer);
+                activeSidebarOpenTimer = null;
+            }
+
+            function scheduleActiveSidebarHoverOpen() {
+                clearActiveSidebarOpenTimer();
+                clearActiveSidebarCloseTimer();
+                if (node_instance.promptData.length === 0) return;
+                activeSidebarOpenTimer = setTimeout(() => {
+                    setActiveSidebarHoverOpen(true).catch(error => {
+                        console.error('LocalPromptGallery: Failed to hover-open active sidebar', error);
+                    });
+                }, 300);
+            }
+
+            function scheduleActiveSidebarHoverClose() {
+                clearActiveSidebarOpenTimer();
+                clearActiveSidebarCloseTimer();
+                activeSidebarCloseTimer = setTimeout(() => {
+                    activeSidebarHoverOpen = false;
+                    applyActiveSidebarPreference();
+                }, 450);
             }
 
             async function saveUiPrefs() {
@@ -4009,16 +4293,6 @@ const UnifiedPromptGalleryNode = {
                 await Promise.all(refreshTasks);
                 saveUiPrefs().catch(error => {
                     console.warn("LocalPromptGallery: Failed to save prompt sort mode", error);
-                });
-            }
-
-            function setupActiveSidebarResize() {
-                setupPromptActiveSidebarResize({
-                    widgetContainer,
-                    uniqueId,
-                    nodeInstance: node_instance,
-                    activeSidebarWidthWidget,
-                    saveUiPrefs,
                 });
             }
 
@@ -4180,6 +4454,23 @@ const UnifiedPromptGalleryNode = {
             }
 
             let draggedIndex = -1;
+            function updateActiveSideTabCount() {
+                const tab = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
+                const tabCount = widgetContainer.querySelector(`#${uniqueId}-active-tab-count`);
+                const count = node_instance.promptData.length;
+                if (tabCount) tabCount.textContent = count > 9 ? "9+" : String(count);
+                if (tab) {
+                    tab.classList.toggle("empty", count === 0);
+                    tab.title = count === 0 ? "Active Prompts (empty)" : `${count} active prompt${count === 1 ? "" : "s"}`;
+                    tab.setAttribute("aria-label", tab.title);
+                }
+                if (count === 0 && activeSidebarHoverOpen) {
+                    clearActiveSidebarOpenTimer();
+                    activeSidebarHoverOpen = false;
+                    applyActiveSidebarPreference();
+                }
+            }
+
             function renderPrompts() {
                 const selectedCount = widgetContainer.querySelector(`#${uniqueId}-selected-count`);
                 const activeCount = widgetContainer.querySelector(`#${uniqueId}-active-count`);
@@ -4189,6 +4480,7 @@ const UnifiedPromptGalleryNode = {
                 if (selectedCount) selectedCount.textContent = node_instance.promptData.length;
                 if (activeCount) activeCount.textContent = `${node_instance.promptData.length} selected`;
                 if (activeClearBtn) activeClearBtn.disabled = node_instance.promptData.length === 0;
+                updateActiveSideTabCount();
                 renderActiveSidebar().catch((error) => {
                     console.error('LocalPromptGallery: Failed to render active sidebar', error);
                 });
@@ -4319,6 +4611,85 @@ const UnifiedPromptGalleryNode = {
                     (sizeControls && sizeControls.style.display !== 'none')
                     || (wildcardControlsEl && wildcardControlsEl.style.display !== 'none');
                 configBar?.classList.toggle('collapsed', !hasOpenPanel);
+                syncAutoHideToolbarState();
+            }
+
+            let bottomToolbarHovered = false;
+            let bottomToolbarInteracting = false;
+            let bottomToolbarHideTimer = null;
+
+            function isAutoHideToolbarsEnabled() {
+                return node_instance.uiPrefs?.auto_hide_toolbars === true;
+            }
+
+            function toolbarHasFocusedElement(toolbar) {
+                if (!toolbar || !document.activeElement || !toolbar.contains(document.activeElement)) {
+                    return false;
+                }
+                return !!document.activeElement.closest("input, select, textarea, [contenteditable='true']");
+            }
+
+            function hasOpenBottomToolbarPanel() {
+                const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
+                const wildcardControlsEl = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
+                return !!(
+                    (sizeControls && sizeControls.style.display !== 'none')
+                    || (wildcardControlsEl && wildcardControlsEl.style.display !== 'none')
+                );
+            }
+
+            function syncAutoHideToolbarState() {
+                const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
+                const enabled = isAutoHideToolbarsEnabled();
+                widgetContainer.classList.toggle("auto-hide-toolbars", enabled);
+
+                if (!enabled) {
+                    bottomBar?.classList.remove("toolbar-revealed", "toolbar-pinned");
+                    return;
+                }
+
+                if (bottomBar) {
+                    const pinned = hasOpenBottomToolbarPanel() || toolbarHasFocusedElement(bottomBar) || bottomToolbarInteracting;
+                    bottomBar.classList.toggle("toolbar-pinned", pinned);
+                    bottomBar.classList.toggle("toolbar-revealed", pinned || bottomToolbarHovered);
+                }
+            }
+
+            function scheduleToolbarHide() {
+                if (bottomToolbarHideTimer) clearTimeout(bottomToolbarHideTimer);
+                bottomToolbarHideTimer = setTimeout(() => {
+                    bottomToolbarHovered = false;
+                    syncAutoHideToolbarState();
+                }, 750);
+            }
+
+            function setupAutoHideToolbarBehavior() {
+                const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
+                const bindToolbar = (toolbar) => {
+                    if (!toolbar) return;
+                    toolbar.addEventListener("mouseenter", () => {
+                        bottomToolbarHovered = true;
+                        if (bottomToolbarHideTimer) clearTimeout(bottomToolbarHideTimer);
+                        syncAutoHideToolbarState();
+                    });
+                    toolbar.addEventListener("mouseleave", scheduleToolbarHide);
+                    toolbar.addEventListener("focusin", syncAutoHideToolbarState);
+                    toolbar.addEventListener("focusout", () => setTimeout(syncAutoHideToolbarState, 0));
+                    toolbar.addEventListener("pointerdown", () => {
+                        bottomToolbarInteracting = true;
+                        syncAutoHideToolbarState();
+                        const releaseInteraction = () => {
+                            bottomToolbarInteracting = false;
+                            syncAutoHideToolbarState();
+                            window.removeEventListener("pointerup", releaseInteraction);
+                            window.removeEventListener("pointercancel", releaseInteraction);
+                        };
+                        window.addEventListener("pointerup", releaseInteraction);
+                        window.addEventListener("pointercancel", releaseInteraction);
+                    });
+                };
+                bindToolbar(bottomBar);
+                syncAutoHideToolbarState();
             }
 
             function updateWildcardControlsUI() {
@@ -4351,7 +4722,6 @@ const UnifiedPromptGalleryNode = {
                 closeToolbarPanels();
                 const host = getWorkspaceHost();
                 const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
-                const resizeHandle = widgetContainer.querySelector(`#${uniqueId}-resize`);
                 if (!host) return null;
 
                 host.innerHTML = "";
@@ -4361,7 +4731,6 @@ const UnifiedPromptGalleryNode = {
                     activeLibraryTab = null;
                     clearLibraryNavActiveState();
                     drawer?.classList.remove("active");
-                    resizeHandle?.classList.add("hidden");
                 }
                 syncSelectedSectionVisibility();
                 renderPinnedCategoryStrip();
@@ -4755,7 +5124,7 @@ const UnifiedPromptGalleryNode = {
                     showPromptContextMenu,
                     saveSelectionData,
                     renderPrompts,
-                    preservePromptOrder: getPromptSortMode() !== "manual",
+                    preservePromptOrder: false,
                     sortMode: getPromptSortMode(),
                 });
             }
@@ -4781,7 +5150,18 @@ const UnifiedPromptGalleryNode = {
                 const selectedPromptIds = node_instance.promptData.map(p => p.prompt_id);
                 const data = await UnifiedPromptGalleryNode.getPrompts(filterName, mode, page, selectedPromptIds, category, node_instance.showFavoritesOnly, 10, getPromptSortMode());
 
-                node_instance.availablePrompts = data.prompts || [];
+                const prompts = data.prompts || [];
+                const selectedPrompts = selectedPromptIds.length ? await getActivePromptModels() : [];
+                const selectedPromptIdSet = new Set(selectedPromptIds.map(id => String(id)));
+                const visibleSelectedPrompts = selectedPrompts.filter(prompt => promptMatchesCurrentGallery(prompt));
+                const visibleSelectedIdSet = new Set(visibleSelectedPrompts.map(prompt => String(prompt.id)));
+                node_instance.availablePrompts = [
+                    ...visibleSelectedPrompts,
+                    ...prompts.filter(prompt => !visibleSelectedIdSet.has(String(prompt.id))),
+                ].filter((prompt, index, allPrompts) => {
+                    const promptId = String(prompt.id);
+                    return selectedPromptIdSet.has(promptId) || allPrompts.findIndex(item => String(item.id) === promptId) === index;
+                });
                 renderGallery();
                 renderPrompts();
 
@@ -5199,6 +5579,7 @@ const UnifiedPromptGalleryNode = {
                         ...node_instance.uiPrefs,
                         ...(await UnifiedPromptGalleryNode.getUiPrefs()),
                     };
+                    node_instance.uiPrefs.active_sidebar_open = false;
                     node_instance.uiPrefs.active_display_mode = getActiveDisplayMode();
                     node_instance.uiPrefs.cards_display_mode = getCardsDisplayMode();
                     if (typeof node_instance.properties?.active_sidebar_width === 'number') {
@@ -5214,6 +5595,7 @@ const UnifiedPromptGalleryNode = {
                     applyActiveSidebarWidthPreference();
                     applyActiveSidebarPreference();
                     syncPromptSortControls();
+                    syncAutoHideToolbarState();
                     
                     // Render all sections
                     renderPrompts();
@@ -5237,6 +5619,7 @@ const UnifiedPromptGalleryNode = {
                     `${uniqueId}-meta-tags-panel`,
                     () => renderMetaTags()
                 );
+                setupAutoHideToolbarBehavior();
 
                 toolbarOutsideClickHandler = () => closeToolbarPanels();
                 document.addEventListener("click", toolbarOutsideClickHandler);
@@ -5305,10 +5688,19 @@ const UnifiedPromptGalleryNode = {
                     updateConfigBarVisibility();
                 });
 
-                widgetContainer.querySelector(`#${uniqueId}-active-toggle`)?.addEventListener('click', async () => {
-                    await setActiveSidebarOpen(!isActiveSidebarOpen());
+                const activeSideTab = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
+                const activeSidebarEl = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
+                activeSideTab?.addEventListener('mouseenter', () => {
+                    scheduleActiveSidebarHoverOpen();
                 });
-
+                activeSideTab?.addEventListener('mouseleave', () => {
+                    clearActiveSidebarOpenTimer();
+                });
+                activeSideTab?.addEventListener('click', async () => {
+                    await toggleActiveSidebarPeek();
+                });
+                activeSidebarEl?.addEventListener('mouseenter', clearActiveSidebarCloseTimer);
+                activeSidebarEl?.addEventListener('mouseleave', scheduleActiveSidebarHoverClose);
                 widgetContainer.querySelector(`#${uniqueId}-active-clear-btn`)?.addEventListener('click', () => {
                     if (node_instance.promptData.length > 0 && confirm("Remove all prompts from selection?")) {
                         clearAllSelections();
@@ -5384,6 +5776,7 @@ const UnifiedPromptGalleryNode = {
                         getCategoryRoleColor,
                         applyThumbnailSizePreference,
                         applyLibraryTabLayoutPreference,
+                        applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,
@@ -5410,6 +5803,7 @@ const UnifiedPromptGalleryNode = {
                         getCategoryRoleColor,
                         applyThumbnailSizePreference,
                         applyLibraryTabLayoutPreference,
+                        applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,

@@ -1,4 +1,8 @@
-import { buildPromptPreviewMediaHtml } from "./helpers.js";
+import {
+    buildPromptPreviewMediaHtml,
+    createPromptActionButton,
+    promotePromptsById,
+} from "./helpers.js?v=unified-icons-20260606";
 
 function getPromptCreatedAtValue(prompt) {
     const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
@@ -105,7 +109,9 @@ export function renderGallery({
 
     gallery.innerHTML = "";
 
-    const selectedIds = new Set(nodeInstance.promptData.map(prompt => prompt.prompt_id));
+    const selectedPromptIds = nodeInstance.promptData.map(prompt => String(prompt.prompt_id));
+    const selectedIds = new Set(selectedPromptIds);
+    const isPromptSelected = prompt => selectedIds.has(String(prompt.id));
 
     let prompts = nodeInstance.availablePrompts;
 
@@ -116,19 +122,13 @@ export function renderGallery({
     prompts = sortPromptsForDisplay(prompts, sortMode);
 
     if (!preservePromptOrder) {
-        prompts = [...prompts].sort((a, b) => {
-            const aSelected = selectedIds.has(a.id);
-            const bSelected = selectedIds.has(b.id);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-            return 0;
-        });
+        prompts = promotePromptsById(prompts, selectedPromptIds);
     }
 
     prompts.forEach(prompt => {
         const div = document.createElement("div");
         div.className = "localprompt-item";
-        if (selectedIds.has(prompt.id)) {
+        if (isPromptSelected(prompt)) {
             div.classList.add("selected");
         }
 
@@ -141,9 +141,9 @@ export function renderGallery({
         const isFavorited = prompt.favorite || false;
 
         div.innerHTML = `
-            <button class="localprompt-info-btn" title="View Info">!</button>
+            ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
             ${previewHtml}
-            <button class="localprompt-favorite-star ${isFavorited ? "favorited" : ""}" data-prompt-id="${prompt.id}">*</button>
+            ${createPromptActionButton({ icon: "star", className: `localprompt-favorite-star ${isFavorited ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `data-prompt-id="${prompt.id}"`, pressed: isFavorited })}
             <div class="localprompt-item-info">
                 <div class="localprompt-item-name">${prompt.name}${categoryText}</div>
             </div>
@@ -171,8 +171,8 @@ export function renderGallery({
         attachInfoPopup(div, prompt);
 
         div.addEventListener("click", () => {
-            if (selectedIds.has(prompt.id)) {
-                nodeInstance.promptData = nodeInstance.promptData.filter(item => item.prompt_id !== prompt.id);
+            if (isPromptSelected(prompt)) {
+                nodeInstance.promptData = nodeInstance.promptData.filter(item => String(item.prompt_id) !== String(prompt.id));
                 div.classList.remove("selected");
             } else {
                 nodeInstance.promptData.push({

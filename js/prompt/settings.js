@@ -237,6 +237,7 @@ export async function showSettingsModal({
     renderLibraryDrawer,
     getPinnedCategories = null,
     savePinnedCategories = null,
+    applyAutoHideToolbarPreference = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -270,6 +271,10 @@ export async function showSettingsModal({
                     </select>
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Most Used Count</label>
                     <input type="number" id="settings-most-used-count" min="1" max="50" value="10" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
+                        <input type="checkbox" id="settings-auto-hide-toolbars">
+                        <span>Auto-hide bottom toolbar</span>
+                    </label>
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
                     <h4>Categories</h4>
@@ -296,6 +301,7 @@ export async function showSettingsModal({
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
     const displayModeSelect = root.querySelector("#settings-display-mode");
     const mostUsedCountInput = root.querySelector("#settings-most-used-count");
+    const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
     const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
     const saveBtn = root.querySelector("#settings-save");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
@@ -312,6 +318,7 @@ export async function showSettingsModal({
 
     displayModeSelect.value = nodeInstance.uiPrefs.display_mode || "text";
     mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
+    if (autoHideToolbarsInput) autoHideToolbarsInput.checked = nodeInstance.uiPrefs.auto_hide_toolbars === true;
     visiblePinnedCountInput.value = Math.max(1, Math.min(20, parseInt(nodeInstance.uiPrefs.visible_pinned_category_count, 10) || 5));
 
     const orderList = root.querySelector("#settings-category-order-list");
@@ -459,6 +466,7 @@ export async function showSettingsModal({
             ...nodeInstance.uiPrefs,
             display_mode: displayModeSelect.value,
             most_used_count: parseInt(mostUsedCountInput.value) || 10,
+            auto_hide_toolbars: autoHideToolbarsInput?.checked === true,
             visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
             library_tab_layout: getLibraryTabLayoutMode(),
             thumbnail_size_px: getThumbnailSizePx(),
@@ -474,6 +482,9 @@ export async function showSettingsModal({
         }
         applyThumbnailSizePreference();
         applyLibraryTabLayoutPreference();
+        if (typeof applyAutoHideToolbarPreference === "function") {
+            applyAutoHideToolbarPreference();
+        }
         await renderLibraryBar();
 
         const activeLibraryTab = getActiveLibraryTab();

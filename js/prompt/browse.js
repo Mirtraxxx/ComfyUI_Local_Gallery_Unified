@@ -1,3 +1,6 @@
+import {
+    createPromptActionButton,
+} from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
 function closeOnOverlayClick(overlay) {
@@ -64,14 +67,14 @@ function buildPromptCardHtml(prompt, hasPreview) {
         ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
         : "No Preview";
     return `
-        <button class="localprompt-info-btn" title="View Info">!</button>
+        ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
         <div class="item-preview ${hasPreview ? "" : "no-img"}">
             ${previewHtml}
         </div>
         <div class="item-info">
             <div class="item-name" title="${safeName}">${safeName}</div>
         </div>
-        <button class="favorite-btn ${prompt.favorite ? "favorited" : ""}" title="Pin/Unpin">*</button>
+        ${createPromptActionButton({ icon: "star", className: `favorite-btn ${prompt.favorite ? "favorited" : ""}`, title: "Pin/Unpin", pressed: !!prompt.favorite })}
     `;
 }
 

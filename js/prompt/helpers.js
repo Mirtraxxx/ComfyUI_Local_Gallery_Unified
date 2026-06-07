@@ -240,6 +240,30 @@ export function createManagedTextControlsHtml(selectedEntry) {
                 `;
 }
 
+export function createPromptActionIcon(name) {
+    if (name === "eye") {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    }
+    if (name === "trash") {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>`;
+    }
+    if (name === "star") {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17.18l-5.56 2.93 1.06-6.19L3 9.53l6.22-.9L12 3z"></path></svg>`;
+    }
+    return "";
+}
+
+export function createPromptActionButton({
+    icon,
+    className,
+    title,
+    extraAttrs = "",
+    pressed = false,
+}) {
+    const pressedAttr = pressed ? ` aria-pressed="true"` : "";
+    return `<button class="${className}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"${pressedAttr}${extraAttrs ? ` ${extraAttrs}` : ""}>${createPromptActionIcon(icon)}</button>`;
+}
+
 export function buildPromptPreviewMediaHtml(prompt, { wrapperClass = "", noPreviewText = "", autoplay = false } = {}) {
     if (prompt?.preview_type === "image" && prompt.preview_url) {
         const imageHtml = `<img src="${escapeHtml(prompt.preview_url)}" alt="${escapeHtml(prompt.name || "")}">`;

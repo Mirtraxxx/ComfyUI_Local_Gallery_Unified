@@ -4,7 +4,8 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
-} from "./helpers.js?v=display-20260606";
+    createPromptActionButton,
+} from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
 export function getActiveSidebarWidth({ nodeInstance }) {
@@ -107,7 +108,7 @@ export function setupActiveSidebarResize({
     };
 
     splitter.addEventListener("mousedown", (event) => {
-        if (!isActiveSidebarOpen({ nodeInstance })) return;
+        if (typeof isActiveSidebarOpen === "function" ? !isActiveSidebarOpen() : !isActiveSidebarOpen({ nodeInstance })) return;
         event.preventDefault();
         startX = event.clientX;
         startWidth = clampActiveSidebarWidth({
@@ -207,7 +208,7 @@ export async function renderActiveSidebar({
             chip = document.createElement("div");
             chip.className = `localprompt-chip-thumb selected pinned-managed${prompt.preview_url ? "" : " no-thumb"}`;
             chip.innerHTML = `
-                <button class="localprompt-info-btn" title="View Info">!</button>
+                ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                 <div class="managed-thumb-media">
                     ${previewHtml}
                     <span class="thumb-label">${safeName}</span>
@@ -240,12 +241,8 @@ export async function renderActiveSidebar({
                     </div>
                 </div>
                 <div class="localprompt-active-row-actions">
-                    <button class="localprompt-info-btn" title="Preview details" aria-label="Preview details">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </button>
-                    <button class="localprompt-active-remove" title="Remove from active" aria-label="Remove from active">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
-                    </button>
+                    ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "Preview details" })}
+                    ${createPromptActionButton({ icon: "trash", className: "localprompt-active-remove", title: "Remove from active" })}
                 </div>
             `;
             const rowImage = chip.querySelector("img");

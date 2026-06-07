@@ -181,26 +181,52 @@ export async function showEditPromptDialog({
     }
 
     const overlay = createCenteredOverlay();
-    const dialog = createDialog(500);
+    overlay.classList.add("localprompt-edit-prompt-overlay");
+    const dialog = document.createElement("div");
+    dialog.className = "localprompt-edit-prompt-dialog";
 
     dialog.innerHTML = `
-        <h3 style="margin: 0 0 16px 0; color: #ddd;">Edit Prompt</h3>
-        <div style="margin-bottom: 12px;">
-            <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Name:</label>
-            <input type="text" id="edit-prompt-name" value="${escapeHtml(prompt.name)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+        <div class="localprompt-edit-prompt-header">
+            <div class="localprompt-edit-prompt-title">
+                <span class="localprompt-edit-prompt-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                    </svg>
+                </span>
+                <div>
+                    <h3>Edit Prompt</h3>
+                    <p>Update card details and prompt text</p>
+                </div>
+            </div>
+            <button id="edit-close-btn" class="localprompt-edit-prompt-close" type="button" aria-label="Close">&times;</button>
         </div>
-        <div style="margin-bottom: 12px;">
-            <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Prompt Text:</label>
-            <textarea id="edit-prompt-text" rows="4" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;">${escapeHtml(prompt.prompt_text || "")}</textarea>
-        </div>
-        <div style="margin-bottom: 12px;">
-            <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category:</label>
-            <input type="text" id="edit-prompt-category" value="${escapeHtml(prompt.category || "")}" placeholder="e.g., Hair, Clothing, Poses" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;" list="edit-category-datalist">
+        <div class="localprompt-edit-prompt-body">
+            <label class="localprompt-edit-prompt-field">
+                <span>Name</span>
+                <input type="text" id="edit-prompt-name" value="${escapeHtml(prompt.name)}">
+            </label>
+            <label class="localprompt-edit-prompt-field">
+                <span>Category</span>
+                <input type="text" id="edit-prompt-category" value="${escapeHtml(prompt.category || "")}" placeholder="e.g., Hair, Clothing, Poses" list="edit-category-datalist">
+            </label>
             <datalist id="edit-category-datalist"></datalist>
+            <label class="localprompt-edit-prompt-field localprompt-edit-prompt-text-field">
+                <span>Prompt Text</span>
+                <textarea id="edit-prompt-text" spellcheck="false">${escapeHtml(prompt.prompt_text || "")}</textarea>
+            </label>
         </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
-            <button id="edit-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button id="edit-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>
+        <div class="localprompt-edit-prompt-footer">
+            <div class="localprompt-edit-prompt-status">
+                <span class="localprompt-edit-prompt-dot" id="edit-status-dot"></span>
+                <span id="edit-status-label">Changes not saved</span>
+                <span class="localprompt-edit-prompt-divider"></span>
+                <span id="edit-character-count">0 characters</span>
+            </div>
+            <div class="localprompt-edit-prompt-actions">
+                <button id="edit-cancel-btn" class="localprompt-edit-prompt-secondary" type="button">Cancel</button>
+                <button id="edit-save-btn" class="localprompt-edit-prompt-primary" type="button">Save</button>
+            </div>
         </div>
     `;
 
@@ -212,9 +238,27 @@ export async function showEditPromptDialog({
     const nameInput = dialog.querySelector("#edit-prompt-name");
     const textInput = dialog.querySelector("#edit-prompt-text");
     const categoryInput = dialog.querySelector("#edit-prompt-category");
+    const closeBtn = dialog.querySelector("#edit-close-btn");
     const cancelBtn = dialog.querySelector("#edit-cancel-btn");
     const saveBtn = dialog.querySelector("#edit-save-btn");
+    const statusLabel = dialog.querySelector("#edit-status-label");
+    const statusDot = dialog.querySelector("#edit-status-dot");
+    const characterCount = dialog.querySelector("#edit-character-count");
 
+    const updateEditStatus = (isDirty = true) => {
+        if (statusLabel) statusLabel.textContent = isDirty ? "Changes not saved" : "Saved";
+        if (statusDot) statusDot.classList.toggle("saved", !isDirty);
+        if (characterCount) {
+            const count = textInput.value.length;
+            characterCount.textContent = `${count} ${count === 1 ? "character" : "characters"}`;
+        }
+    };
+    [nameInput, textInput, categoryInput].forEach(input => {
+        input.addEventListener("input", () => updateEditStatus(true));
+    });
+    updateEditStatus(true);
+
+    closeBtn.addEventListener("click", () => overlay.remove());
     cancelBtn.addEventListener("click", () => overlay.remove());
 
     saveBtn.addEventListener("click", async () => {

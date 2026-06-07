@@ -1,7 +1,8 @@
 import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
-} from "./helpers.js?v=display-20260606";
+    createPromptActionButton,
+} from "./helpers.js?v=unified-icons-20260606";
 
 function getPromptCreatedAtValue(prompt) {
     const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
@@ -95,18 +96,15 @@ export async function renderLibraryBar({
 
         tabBtn.addEventListener("click", async () => {
             const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
-            const resizeHandle = widgetContainer.querySelector(`#${uniqueId}-resize`);
             if (getActiveLibraryTab() === tabContent) {
                 setActiveLibraryTab(null);
                 clearLibraryNavActiveState();
                 drawer.classList.remove("active");
-                if (resizeHandle) resizeHandle.classList.add("hidden");
             } else {
                 setActiveLibraryTab(tabContent);
                 clearLibraryNavActiveState();
                 tabBtn.classList.add("active");
                 drawer.classList.add("active");
-                if (resizeHandle) resizeHandle.classList.remove("hidden");
                 await renderLibraryDrawer(tabContent);
             }
             syncSelectedSectionVisibility();
@@ -329,7 +327,7 @@ export async function renderLibraryDrawer({
             let content = "";
             if (tabName !== "most_used" && (tabName !== "pinned" || !isSelected)) {
                 const pinFilter = isGlobalPinned ? "none" : "grayscale(100%) opacity(0.3)";
-                content += `<button class="chip-pin-btn" style="filter: ${pinFilter};">&#9733;</button>`;
+                content += createPromptActionButton({ icon: "star", className: `chip-pin-btn ${isGlobalPinned ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `style="filter: ${pinFilter};"`, pressed: !!isGlobalPinned });
             }
 
             if (isSelected && selectedEntry) {
@@ -343,7 +341,7 @@ export async function renderLibraryDrawer({
                 `;
             } else {
                 content += `
-                    <button class="localprompt-info-btn" title="View Info">!</button>
+                    ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                     <img src="${prompt.preview_url}" alt="${prompt.name}">
                     <span class="thumb-label">${prompt.name}</span>
                 `;
@@ -360,7 +358,7 @@ export async function renderLibraryDrawer({
             let content = "";
             if (tabName !== "most_used" && (tabName !== "pinned" || !isSelected)) {
                 const pinFilter = isGlobalPinned ? "none" : "grayscale(100%) opacity(0.3)";
-                content += `<button class="chip-pin-btn" style="filter: ${pinFilter};">&#9733;</button>`;
+                content += createPromptActionButton({ icon: "star", className: `chip-pin-btn ${isGlobalPinned ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `style="filter: ${pinFilter};"`, pressed: !!isGlobalPinned });
             }
 
             if (isSelected && selectedEntry) {
@@ -370,7 +368,7 @@ export async function renderLibraryDrawer({
                     ${createManagedTextControlsHtml(selectedEntry)}
                 `;
             } else {
-                content += `<button class="localprompt-info-btn" title="View Info">!</button> ${prompt.name}`;
+                content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} ${prompt.name}`;
             }
             if (tabName === "most_used" || (prompt.usage_count > 0 && tabName !== "pinned")) {
                 content += ` <span class="usage-count">x${prompt.usage_count || 0}</span>`;
