@@ -252,7 +252,7 @@ export async function showPresetsModal({
     `;
 
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
-    closeBtn.addEventListener("click", close);
+    closeBtn?.addEventListener("click", close);
     if (!isWorkspace) closeOnOverlayClick(root);
 
     const presetsList = root.querySelector("#presets-list");

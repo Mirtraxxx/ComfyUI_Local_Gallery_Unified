@@ -284,7 +284,7 @@ export async function showBrowseModal({
         });
     }
 
-    closeBtn.addEventListener("click", close);
+    closeBtn?.addEventListener("click", close);
     if (!isWorkspace) closeOnOverlayClick(root);
 
     populateCategorySelect(categorySelect, await galleryNode.getCategories());

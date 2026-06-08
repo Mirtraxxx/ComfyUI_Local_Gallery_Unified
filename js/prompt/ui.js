@@ -26,7 +26,7 @@ import {
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
-import { showBrowseModal as openBrowseModal } from "./browse.js?v=workspace-toggle-cleanup-20260607";
+import { showBrowseModal as openBrowseModal } from "./browse.js?v=browse-workspace-load-20260608";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -61,7 +61,7 @@ import {
     renderLibraryBar as renderPromptLibraryBar,
     renderLibraryDrawer as renderPromptLibraryDrawer,
 } from "./library.js?v=main-gallery-cleanup-20260607";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-toggle-cleanup-20260607";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-side-pref-20260607";
 import { showWildcardsModal } from "./wildcards.js";
 import { escapeHtml } from "../shared/dom.js";
