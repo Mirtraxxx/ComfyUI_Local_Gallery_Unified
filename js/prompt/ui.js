@@ -2520,7 +2520,12 @@ const UnifiedPromptGalleryNode = {
                         max-height: 220px;
                         opacity: 1;
                         overflow: visible;
-                        transition: max-height 0.16s ease, padding 0.16s ease, opacity 0.12s ease, transform 0.16s ease, margin 0.16s ease;
+                        transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.16s ease, transform 0.18s ease, margin 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+                    }
+                    .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar > * {
+                        opacity: 1;
+                        transform: translateY(0);
+                        transition: opacity 0.16s ease, transform 0.18s ease;
                     }
                     .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned) {
                         max-height: 0;
@@ -2536,6 +2541,7 @@ const UnifiedPromptGalleryNode = {
                     }
                     .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned) > * {
                         opacity: 0;
+                        transform: translateY(8px);
                         pointer-events: none;
                     }
                     .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned)::before {
@@ -2544,7 +2550,7 @@ const UnifiedPromptGalleryNode = {
                         left: 0;
                         right: 0;
                         bottom: 0;
-                        height: 34px;
+                        height: 7px;
                         pointer-events: auto;
                     }
                     .localprompt-container-wrapper.auto-hide-toolbars .localprompt-bottom-bar:not(.toolbar-revealed):not(.toolbar-pinned):hover {
