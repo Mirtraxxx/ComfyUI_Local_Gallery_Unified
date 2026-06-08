@@ -230,12 +230,30 @@ Implemented so far:
   - extracted pure prompt helpers for source-node text extraction, prompt text cleanup, color conversion, palette matching, thumbnail/sidebar sizing, category role colors, pinned ordering, library tab filtering, managed prompt controls, prompt previews, and last-output preview URLs
 - `js/lora/helpers.js`
   - extracted pure LoRA helpers for selected-LoRA reorder behavior
+- `js/prompt/styles.js`
+  - extracted the large prompt stylesheet from `js/prompt/ui.js`
+- `js/prompt/template.js`
+  - extracted the prompt HTML shell from `js/prompt/ui.js`
+- `js/prompt/stateWidgets.js`
+  - extracted prompt hidden widget and state setup
+- `js/prompt/metaTags.js`
+  - extracted hidden/meta prompt controller logic
+- `js/prompt/workspace.js`
+  - extracted prompt workspace shell/navigation logic
+- `js/prompt/ui.js`
+  - remains the prompt coordination hub, but is no longer carrying the stylesheet, initial HTML shell, hidden widget setup, meta-tag controller, or workspace shell
 
 Done means:
 
 - The main JS file becomes a readable entrypoint.
 - Prompt and LoRA work can be edited separately.
 - ComfyUI still loads the node frontend.
+
+Current practical note:
+
+- Prompt-side modularity is now good enough to pause unless a real prompt feature or bug requires more cleanup.
+- Continued refactoring should usually target `js/lora/ui.js` next, or wait until there is a quiet testing window for lifecycle unification.
+- Future extractions must include an explicit dependency checklist for moved closure-heavy functions; recent regressions came from missing runtime dependencies that syntax checks could not catch.
 
 ## Phase 5 - Replace Chained Node Creation Hooks
 
@@ -392,8 +410,10 @@ Avoid until after cleanup:
 
 ## Recommended Next Practical Step
 
-The next safest implementation step is Phase 4:
+The next safest implementation step depends on the goal:
 
-Continue splitting the frontend into coarse UI modules. The tab switcher has already moved to `tabs.js`; the next useful target is a shared state/helper module before attempting the larger Prompt or LoRA UI sections.
+- If the goal is more cleanup, reduce `js/lora/ui.js` in small behavior-preserving steps, starting with card/row builders or selected LoRA list rendering.
+- If the goal is feature work, build from the current prompt-side structure and only extract more prompt code when the feature naturally touches a tangled area.
+- If the goal is lifecycle safety, wait for a quiet testing window and then replace the chained `onNodeCreated` wrappers with one initializer. Do not combine this with UI extraction.
 
-The shared JSON and widget helper modules have also been added, both major UI sections now live in dedicated modules, and prompt constants/pure helpers have moved to `js/prompt/constants.js` and `js/prompt/helpers.js`. The next useful target is reducing the size of `js/prompt/ui.js` by extracting heavier prompt-side helpers, such as modal helpers or prompt state synchronization.
+Prompt-side cleanup is no longer the default next step. It should be driven by specific bugs or feature work.

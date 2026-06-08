@@ -1,7 +1,7 @@
 # Remaining Refactor Work
 
 This file summarizes what is still left after the baseline and cleanup commits.
-It was refreshed on 2026-06-07 after several prompt-side feature additions.
+It was refreshed on 2026-06-08 after the prompt-side extraction pass.
 
 ## Current State
 
@@ -27,11 +27,12 @@ The node is much safer than the original merged file:
 - The prompt hidden widgets and state setup have been extracted from `js/prompt/ui.js` into `js/prompt/stateWidgets.js`.
 - The prompt hidden/meta tag logic has been extracted from `js/prompt/ui.js` into `js/prompt/metaTags.js`.
 - The prompt workspace shell/navigation logic has been extracted from `js/prompt/ui.js` into `js/prompt/workspace.js`.
+- Unreachable legacy selected-list rendering code was removed from `js/prompt/ui.js`; the active prompt list is rendered by `js/prompt/activeSidebar.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - The backend now includes wildcard RNG mode/shuffle nonce state and optional hidden/meta prompt text through `prompt_meta_tags`.
 - A baseline tag/commit exists for fallback.
 
-The main remaining risk is still file size and mixed responsibilities, especially in `js/prompt/ui.js`.
+The prompt-side refactor is now good enough to pause unless a real feature or bug requires more cleanup. The main remaining risk has shifted toward LoRA UI size, lifecycle wrapping, and scattered popup/event behavior.
 
 ## Current Size Snapshot
 
@@ -39,45 +40,48 @@ Approximate current sizes:
 
 | File | Lines | Size |
 | --- | ---: | ---: |
-| `js/Local_Gallery_Unified.js` | 15 | 611 bytes |
+| `js/Local_Gallery_Unified.js` | 15 | 614 bytes |
 | `Local_Gallery_Unified.py` | 170 | 6.9 KB |
-| `js/prompt/ui.js` | 5,578 | 284 KB |
+| `js/prompt/ui.js` | 2,454 | 129 KB |
+| `js/prompt/styles.js` | 2,849 | 134 KB |
 | `js/lora/ui.js` | 1,721 | 114 KB |
-| `js/prompt/library.js` | 471 | 22 KB |
-| `js/prompt/settings.js` | 464 | 22 KB |
+| `js/prompt/library.js` | 586 | 28 KB |
+| `js/prompt/settings.js` | 478 | 23 KB |
 | `js/prompt/dialogs.js` | 558 | 29 KB |
 | `js/prompt/activeSidebar.js` | 290 | 14 KB |
+| `js/prompt/template.js` | 172 | 17 KB |
+| `js/prompt/metaTags.js` | 158 | 7 KB |
+| `js/prompt/stateWidgets.js` | 141 | 6 KB |
+| `js/prompt/workspace.js` | 133 | 6 KB |
 
-`js/prompt/ui.js` grew again because new prompt features landed there while the refactor was in progress.
+`js/prompt/ui.js` is still a coordination hub, but it is no longer carrying the stylesheet, initial HTML shell, hidden widget setup, meta-tag controller, workspace shell, or dead selected-list renderer.
 
 ## Biggest Remaining Hotspots
 
 ### 1. `js/prompt/ui.js`
 
-This is still the largest risk.
+This is still important, but it is no longer the largest file-size risk.
 
 It still contains many responsibilities:
 
 - Prompt API wrapper methods around the extracted `promptApi` module.
-- Node creation, hidden widget creation, and serialization setup.
-- Large inline CSS and initial DOM shell markup.
-- Prompt selection state syncing.
-- Hidden/meta prompt tag state and renderer.
+- Node creation and main coordination.
+- Prompt selection state syncing and count updates.
 - Thin wrappers for extracted active sidebar, library, gallery, modal, preview, and context menu modules.
-- Workspace mode and library workspace navigation.
 - Toolbar dropdown behavior and auto-hide bottom toolbar behavior.
 - Wildcard toggle, RNG mode, shuffle nonce, seed controls, and control-after-generate wiring.
 - Thumbnail size and display-mode preference wiring.
 - Category management wiring.
-- Selected prompt list rendering and drag/reorder behavior.
 - Many direct DOM event listeners.
 
-Recommended next prompt-side extractions:
+Recommended prompt-side stance:
 
-1. Extract bottom toolbar, dropdown, size, and wildcard control wiring into `js/prompt/toolbar.js`.
-2. Extract selected prompt list rendering into `js/prompt/selectedList.js`.
+1. Do not extract more prompt code just to reduce line count.
+2. If a prompt bug or feature touches toolbar/wildcard controls, consider extracting that area into `js/prompt/toolbar.js` first.
+3. Do not create `js/prompt/selectedList.js` unless a new visible selected-list UI is intentionally reintroduced; current active prompt rows live in `js/prompt/activeSidebar.js`.
+4. Require dependency checklists before future extractions. Recent regressions came from missing closure dependencies and popup anchoring assumptions.
 
-Avoid doing all of this in one pass.
+Avoid doing broad prompt extraction passes for now.
 
 ### 2. `js/lora/ui.js`
 
@@ -106,7 +110,7 @@ Recommended next LoRA-side steps:
 4. Extract metadata editor helpers.
 5. Keep reorder logic in `js/lora/helpers.js`.
 
-Do this after the prompt side is smaller, unless a LoRA bug requires touching the file first.
+This is now the best refactor target if the goal is continued cleanup.
 
 ### 3. Node Lifecycle Wrapping
 
@@ -120,7 +124,7 @@ This works, but registration order matters.
 
 Recommended future direction:
 
-1. Keep current behavior until `js/prompt/ui.js` is smaller.
+1. Keep current behavior until there is a quiet testing window.
 2. Later, move toward one clearer initializer that calls setup steps in order.
 3. Do not attempt lifecycle unification at the same time as a major UI extraction.
 
@@ -161,20 +165,19 @@ Do this after the major prompt module extractions, because moving UI bodies firs
 Best next safe sequence:
 
 1. Smoke test the current node in ComfyUI.
-2. Fix any real behavior bugs before extracting more code.
-3. Extract one prompt-side area at a time:
-   - `stateWidgets.js`
-   - `metaTags.js`
-   - `workspace.js`
-   - `toolbar.js`
-   - `selectedList.js`
-4. After each extraction:
+2. Fix real behavior bugs before extracting more code.
+3. Treat prompt-side refactoring as paused unless a specific feature/bug requires touching it.
+4. If continuing cleanup, work on one LoRA-side area at a time:
+   - card/row builders
+   - selected LoRA list rendering
+   - preset controls
+   - metadata editor
+5. After each extraction:
    - run JS syntax checks
    - run Python compile check
    - smoke test in ComfyUI
    - commit separately
-5. Once `js/prompt/ui.js` is much smaller, consider lifecycle unification.
-6. After prompt lifecycle/state is stable, reduce `js/lora/ui.js`.
+6. Consider lifecycle unification only after the UI modules have stayed stable for a while.
 
 ## Stop Point Recommendation
 
@@ -183,23 +186,32 @@ Do not chase perfect architecture forever.
 A practical stopping point is:
 
 - `js/prompt/ui.js` is no longer the place every prompt feature has to edit.
-- Prompt hidden state, meta tags, workspace navigation, toolbar controls, selected-list rendering, gallery rendering, library rendering, and modals live in focused modules.
+- Prompt hidden state, meta tags, workspace navigation, CSS, template, gallery rendering, library rendering, active sidebar rendering, and modals live in focused modules.
 - LoRA UI has card/row/preset/metadata helpers extracted.
 - The node passes real ComfyUI smoke tests.
-- Future feature work can be done without editing a 5,000+ line file for every change.
+- Future prompt feature work can be done without editing a 5,000+ line file for every change.
 
-At that point, the node should be safe enough to build on.
+For prompt-side work, this stopping point has mostly been reached. Further prompt cleanup should be driven by real changes, not architecture chasing.
 
 ## Current Risk Estimate
 
 Approximate status:
 
 - Safety refactor: 65-75% complete.
-- Prompt modularity: 45-55% complete.
+- Prompt modularity: 70-80% complete.
 - LoRA modularity: 30-40% complete.
 - Lifecycle/state architecture: still mostly pending.
 
-The remaining work is mostly about reducing the size of `js/prompt/ui.js`, keeping saved workflow compatibility, and avoiding future merge/edit confusion.
+The remaining work is mostly about LoRA UI modularity, eventual lifecycle unification, keeping saved workflow compatibility, and avoiding future merge/edit confusion.
+
+## Known Minor Quirks
+
+- The active prompt count badge can be visually stale in some interaction paths until a refresh, even though the underlying selection and active sidebar still work. This is cosmetic and can be fixed later if it becomes annoying.
+- Wildcard and prompt preference behavior has not been exhaustively tested after every extraction. Treat future wildcard bugs as possible refactor fallout and fix them in focused patches.
+
+## Future Extraction Safety Rule
+
+Before moving any closure-heavy function, list every external variable/function it reads or calls. After editing, verify each dependency is imported, passed as an argument, or still available in the original closure. Also compare changed function call signatures against target function definitions. Syntax checks alone are not enough.
 
 ## Verification Already Run For This Snapshot
 

@@ -504,6 +504,7 @@ const UnifiedPromptGalleryNode = {
                 const data = writeSelectionArray(node_instance.promptData);
                 node_instance.properties["prompt_selection_data"] = data;
                 selectionWidget.value = data;
+                syncActivePromptCounts();
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
                 if (app.graph) app.graph.change();
             }
@@ -1505,7 +1506,6 @@ const UnifiedPromptGalleryNode = {
                 });
             }
 
-            let draggedIndex = -1;
             function updateActiveSideTabCount() {
                 const tab = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
                 const tabCount = widgetContainer.querySelector(`#${uniqueId}-active-tab-count`);
@@ -1523,128 +1523,24 @@ const UnifiedPromptGalleryNode = {
                 }
             }
 
-            function renderPrompts() {
+            function syncActivePromptCounts() {
                 const selectedCount = widgetContainer.querySelector(`#${uniqueId}-selected-count`);
                 const activeCount = widgetContainer.querySelector(`#${uniqueId}-active-count`);
                 const activeClearBtn = widgetContainer.querySelector(`#${uniqueId}-active-clear-btn`);
 
-                syncSelectedSectionVisibility();
                 if (selectedCount) selectedCount.textContent = node_instance.promptData.length;
                 if (activeCount) activeCount.textContent = `${node_instance.promptData.length} selected`;
                 if (activeClearBtn) activeClearBtn.disabled = node_instance.promptData.length === 0;
                 updateActiveSideTabCount();
+            }
+
+            function renderPrompts() {
+                syncSelectedSectionVisibility();
+                syncActivePromptCounts();
                 renderActiveSidebar().catch((error) => {
                     console.error('LocalPromptGallery: Failed to render active sidebar', error);
                 });
                 return;
-
-                selectedList.innerHTML = "";
-                if (selectedCount) selectedCount.textContent = node_instance.promptData.length;
-
-                if (node_instance.promptData.length === 0) {
-                    selectedList.innerHTML = '<div class="localprompt-empty-state">No prompts selected. Use Most Used, Pinned, or Browse to add prompts.</div>';
-                    return;
-                }
-
-                node_instance.promptData.forEach((item, index) => {
-                    const div = document.createElement("div");
-                    div.className = "localprompt-selected-item";
-                    div.draggable = true;
-                    div.dataset.index = index;
-
-                    const isOn = item.on !== false;
-                    const weight = item.weight || 1.0;
-
-                    div.innerHTML = `
-                        <button class="toggle-btn ${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</button>
-                        <span class="item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
-                        <div class="item-controls">
-                            <button class="weight-btn" data-action="weight-down">-</button>
-                            <span class="weight-val">${weight.toFixed(1)}</span>
-                            <button class="weight-btn" data-action="weight-up">+</button>
-                            <button class="remove-btn" data-action="remove" title="Remove">x</button>
-                        </div>
-                    `;
-
-                    // Drag and drop listeners
-                    div.addEventListener('dragstart', (e) => {
-                        draggedIndex = index;
-                        div.classList.add('dragging');
-                        e.dataTransfer.effectAllowed = 'move';
-                    });
-                    div.addEventListener('dragend', () => div.classList.remove('dragging'));
-                    div.addEventListener('dragover', (e) => e.preventDefault());
-                    div.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        if (draggedIndex !== -1 && draggedIndex !== index) {
-                            const movedItem = node_instance.promptData[draggedIndex];
-                            node_instance.promptData.splice(draggedIndex, 1);
-                            node_instance.promptData.splice(index, 0, movedItem);
-                            saveSelectionData();
-                            renderPrompts();
-                        }
-                        draggedIndex = -1;
-                    });
-
-                    // Toggle button
-                    div.querySelector('.toggle-btn').addEventListener('click', () => {
-                        item.on = !isOn;
-                        saveSelectionData();
-                        renderPrompts();
-                    });
-
-                    // Control buttons
-                    div.querySelectorAll('[data-action]').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const action = btn.dataset.action;
-
-                            if (action === 'remove') {
-                                node_instance.promptData.splice(index, 1);
-                            } else if (action === 'weight-up') {
-                                item.weight = Math.min(2.0, Math.round((item.weight + 0.1) * 10) / 10);
-                            } else if (action === 'weight-down') {
-                                item.weight = Math.max(0.1, Math.round((item.weight - 0.1) * 10) / 10);
-                            }
-
-                            saveSelectionData();
-                            renderPrompts();
-                            if (typeof activeLibraryTab !== 'undefined' && activeLibraryTab) {
-                                renderLibraryDrawer(activeLibraryTab);
-                            }
-                        });
-                    });
-
-                    // Context menu listener for selected item
-                    div.addEventListener('contextmenu', async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const fullPrompt = await UnifiedPromptGalleryNode.getPrompt(item.prompt_id);
-                        if (fullPrompt) {
-                            showContextMenu(fullPrompt, e.clientX, e.clientY, async () => {
-                                // After context menu action, check if name was updated
-                                const checkPrompt = await UnifiedPromptGalleryNode.getPrompt(item.prompt_id);
-                                if (checkPrompt) {
-                                    const idx = node_instance.promptData.findIndex(p => p.prompt_id === item.prompt_id);
-                                    if (idx >= 0) {
-                                        node_instance.promptData[idx].name = checkPrompt.name;
-                                    }
-                                } else {
-                                    // If null, it was deleted
-                                    const idx = node_instance.promptData.findIndex(p => p.prompt_id === item.prompt_id);
-                                    if (idx >= 0) {
-                                        node_instance.promptData.splice(idx, 1);
-                                    }
-                                }
-                                saveSelectionData();
-                                await refreshAllSections();
-                            });
-                        }
-                    });
-
-                    selectedList.appendChild(div);
-                });
             }
 
             function updateConfigBarVisibility() {
