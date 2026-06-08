@@ -193,6 +193,14 @@ export function getPromptStyles(uniqueId) {
                         padding: 12px;
                         position: absolute;
                     }
+                    .localprompt-more-category-group.align-left #${uniqueId}-categories-panel {
+                        left: 0;
+                        right: auto;
+                    }
+                    .localprompt-more-category-group.align-right #${uniqueId}-categories-panel {
+                        left: auto;
+                        right: 0;
+                    }
                     #${uniqueId}-categories-panel .localprompt-library-bar-container {
                         display: block;
                         padding-top: 0;
@@ -306,6 +314,14 @@ export function getPromptStyles(uniqueId) {
                         width: min(420px, calc(100vw - 24px));
                         max-width: calc(100vw - 24px);
                         box-sizing: border-box;
+                    }
+                    .localprompt-more-category-group.align-left .localprompt-meta-panel {
+                        left: 0;
+                        right: auto;
+                    }
+                    .localprompt-more-category-group.align-right .localprompt-meta-panel {
+                        left: auto;
+                        right: 0;
                     }
                     .localprompt-meta-header {
                         display: flex;

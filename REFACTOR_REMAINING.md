@@ -25,6 +25,7 @@ The node is much safer than the original merged file:
 - The large inline CSS stylesheet has been extracted from `js/prompt/ui.js` into `js/prompt/styles.js`.
 - The prompt HTML shell has been extracted from `js/prompt/ui.js` into `js/prompt/template.js`.
 - The prompt hidden widgets and state setup have been extracted from `js/prompt/ui.js` into `js/prompt/stateWidgets.js`.
+- The prompt hidden/meta tag logic has been extracted from `js/prompt/ui.js` into `js/prompt/metaTags.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - The backend now includes wildcard RNG mode/shuffle nonce state and optional hidden/meta prompt text through `prompt_meta_tags`.
 - A baseline tag/commit exists for fallback.
@@ -72,11 +73,9 @@ It still contains many responsibilities:
 
 Recommended next prompt-side extractions:
 
-1. Extract prompt hidden widget/state setup into `js/prompt/stateWidgets.js`.
-2. Extract hidden/meta prompt tag logic into `js/prompt/metaTags.js`.
-3. Extract workspace shell/navigation into `js/prompt/workspace.js`.
-4. Extract bottom toolbar, dropdown, size, and wildcard control wiring into `js/prompt/toolbar.js`.
-5. Extract selected prompt list rendering into `js/prompt/selectedList.js`.
+1. Extract workspace shell/navigation into `js/prompt/workspace.js`.
+2. Extract bottom toolbar, dropdown, size, and wildcard control wiring into `js/prompt/toolbar.js`.
+3. Extract selected prompt list rendering into `js/prompt/selectedList.js`.
 
 Avoid doing all of this in one pass.
 

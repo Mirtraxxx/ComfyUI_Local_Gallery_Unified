@@ -66,6 +66,7 @@ import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-sid
 import { showWildcardsModal } from "./wildcards.js";
 import { getPromptTemplate } from "./template.js";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js";
+import { createMetaTagsController } from "./metaTags.js";
 import { escapeHtml } from "../shared/dom.js";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 
@@ -426,6 +427,30 @@ const UnifiedPromptGalleryNode = {
 
             widgetContainer.innerHTML = getPromptTemplate(uniqueId);
 
+            const metaTagsController = createMetaTagsController({
+                app,
+                nodeInstance: this,
+                widgetContainer,
+                uniqueId,
+                metaTagsWidget,
+                writeSelectionArray,
+                readSelectionArray,
+                escapeHtml,
+                onRender: () => {
+                    const panel = widgetContainer.querySelector(`#${uniqueId}-meta-tags-panel`);
+                    if (!panel?.classList.contains("open")) return;
+                    fitFloatingPanelToNode(panel);
+                    requestAnimationFrame(() => fitFloatingPanelToNode(panel));
+                },
+            });
+            const {
+                saveMetaTags,
+                renderMetaTags,
+                updateMetaTagsButtonState,
+                loadMetaTagsFromProperties,
+                bindAddMetaTagButton,
+            } = metaTagsController;
+
             // Create hover preview outside the node container so it's not bounded
             const hoverPreview = document.createElement('div');
             hoverPreview.id = `${uniqueId}-hover-preview`;
@@ -451,131 +476,6 @@ const UnifiedPromptGalleryNode = {
                 selectionWidget.value = data;
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
                 if (app.graph) app.graph.change();
-            }
-
-            function normalizeMetaTags(rawTags) {
-                const tags = Array.isArray(rawTags) ? rawTags : [];
-                return tags.map((tag, index) => ({
-                    id: String(tag?.id || `meta-${Date.now()}-${index}`),
-                    name: String(tag?.name ?? ""),
-                    prompt_text: String(tag?.prompt_text || tag?.prompt || ""),
-                    enabled: tag?.enabled === true,
-                    order: Number.isFinite(Number(tag?.order ?? tag?.index))
-                        ? Number(tag?.order ?? tag?.index)
-                        : index,
-                })).sort((a, b) => (a.order - b.order) || String(a.id).localeCompare(String(b.id)));
-            }
-
-            let metaSaveStatusTimer = null;
-            function setMetaSaveStatus(text, statusClass = "") {
-                const statusEl = widgetContainer.querySelector(`#${uniqueId}-meta-save-status`);
-                if (!statusEl) return;
-                statusEl.textContent = text;
-                statusEl.classList.remove("saving", "saved");
-                if (statusClass) statusEl.classList.add(statusClass);
-            }
-
-            function showMetaSaveFeedback() {
-                setMetaSaveStatus("Saving...", "saving");
-                if (metaSaveStatusTimer) {
-                    clearTimeout(metaSaveStatusTimer);
-                }
-                metaSaveStatusTimer = setTimeout(() => {
-                    setMetaSaveStatus("Saved", "saved");
-                    metaSaveStatusTimer = null;
-                }, 220);
-            }
-
-            function saveMetaTags(options = {}) {
-                if (!options.skipStatus) {
-                    showMetaSaveFeedback();
-                }
-                node_instance.metaTags = normalizeMetaTags(node_instance.metaTags).map((tag, index) => ({
-                    ...tag,
-                    order: index,
-                }));
-                const data = writeSelectionArray(node_instance.metaTags);
-                node_instance.properties["prompt_meta_tags"] = data;
-                metaTagsWidget.value = data;
-                if (!options.skipRender) {
-                    renderMetaTags();
-                } else {
-                    updateMetaTagsButtonState();
-                }
-                node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
-                if (app.graph) app.graph.change();
-            }
-
-            function updateMetaTagsButtonState() {
-                const btn = widgetContainer.querySelector(`#${uniqueId}-meta-tags-btn`);
-                const enabledCount = node_instance.metaTags.filter(tag => tag.enabled && tag.prompt_text.trim()).length;
-                if (btn) {
-                    btn.classList.toggle("has-enabled", enabledCount > 0);
-                    btn.title = enabledCount > 0
-                        ? `${enabledCount} hidden prompt${enabledCount === 1 ? "" : "s"} enabled`
-                        : "Meta Tags";
-                }
-            }
-
-            function renderMetaTags() {
-                const list = widgetContainer.querySelector(`#${uniqueId}-meta-tags-list`);
-                if (!list) return;
-                updateMetaTagsButtonState();
-                list.innerHTML = "";
-
-                if (!node_instance.metaTags.length) {
-                    const empty = document.createElement("div");
-                    empty.className = "localprompt-meta-empty";
-                    empty.textContent = "No hidden prompts yet.";
-                    list.appendChild(empty);
-                    return;
-                }
-
-                node_instance.metaTags.forEach((tag, index) => {
-                    const row = document.createElement("div");
-                    row.className = "localprompt-meta-row";
-                    row.dataset.metaId = tag.id;
-                    row.innerHTML = `
-                        <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
-                        <input class="localprompt-meta-name" type="text" value="${escapeHtml(tag.name)}" placeholder="Label" title="Optional label">
-                        <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden prompt" title="Hidden prompt text">${escapeHtml(tag.prompt_text)}</textarea>
-                        <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt" style="background: #4a2a2a; border-color: #6a3a3a;">x</button>
-                    `;
-
-                    const toggleBtn = row.querySelector(".localprompt-meta-toggle");
-                    const promptTextArea = row.querySelector(".localprompt-meta-text");
-                    const autoGrowPromptText = () => {
-                        if (!promptTextArea) return;
-                        promptTextArea.style.height = "24px";
-                        promptTextArea.style.height = `${Math.min(promptTextArea.scrollHeight, 110)}px`;
-                    };
-                    autoGrowPromptText();
-
-                    toggleBtn?.addEventListener("click", () => {
-                        node_instance.metaTags[index].enabled = !node_instance.metaTags[index].enabled;
-                        const isEnabled = node_instance.metaTags[index].enabled;
-                        toggleBtn.textContent = isEnabled ? "ON" : "OFF";
-                        toggleBtn.classList.toggle("on", isEnabled);
-                        toggleBtn.classList.toggle("off", !isEnabled);
-                        saveMetaTags({ redrawCanvas: false, skipRender: true });
-                    });
-                    row.querySelector(".localprompt-meta-name")?.addEventListener("input", (event) => {
-                        node_instance.metaTags[index].name = event.target.value;
-                        saveMetaTags({ redrawCanvas: false, skipRender: true });
-                    });
-                    promptTextArea?.addEventListener("input", (event) => {
-                        node_instance.metaTags[index].prompt_text = event.target.value;
-                        autoGrowPromptText();
-                        saveMetaTags({ redrawCanvas: false, skipRender: true });
-                    });
-                    row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
-                        if (!confirm(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
-                        node_instance.metaTags.splice(index, 1);
-                        saveMetaTags();
-                    });
-
-                    list.appendChild(row);
-                });
             }
 
             function closeToolbarPanels(exceptPanel = null) {
@@ -2715,8 +2615,7 @@ const UnifiedPromptGalleryNode = {
                         node_instance.promptData = [];
                     }
                 }
-                node_instance.metaTags = normalizeMetaTags(readSelectionArray(node_instance.properties?.prompt_meta_tags || "[]", []));
-                saveMetaTags({ redrawCanvas: false, skipStatus: true });
+                loadMetaTagsFromProperties();
 
                 // Load UI preferences and initialize
                 (async () => {
@@ -2774,21 +2673,7 @@ const UnifiedPromptGalleryNode = {
                 };
                 document.addEventListener("click", toolbarOutsideClickHandler);
 
-                widgetContainer.querySelector(`#${uniqueId}-add-meta-tag-btn`)?.addEventListener("click", () => {
-                    node_instance.metaTags.push({
-                        id: `meta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                        name: "",
-                        prompt_text: "",
-                        enabled: true,
-                        order: node_instance.metaTags.length,
-                    });
-                    saveMetaTags();
-                    requestAnimationFrame(() => {
-                        const rows = widgetContainer.querySelectorAll(`#${uniqueId}-meta-tags-list .localprompt-meta-row`);
-                        const lastRow = rows[rows.length - 1];
-                        lastRow?.querySelector(".localprompt-meta-text")?.focus();
-                    });
-                });
+                bindAddMetaTagButton();
 
                 widgetContainer.querySelector(`#${uniqueId}-manage-categories-btn`)?.addEventListener("click", async () => {
                     closeToolbarPanels();
