@@ -30,6 +30,7 @@ The node is much safer than the original merged file:
 - Unreachable legacy selected-list rendering code was removed from `js/prompt/ui.js`; the active prompt list is rendered by `js/prompt/activeSidebar.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - The backend now includes wildcard RNG mode/shuffle nonce state and optional hidden/meta prompt text through `prompt_meta_tags`.
+- The unified node now bundles legacy Prompt/LoRA backend modules for standalone testing; runtime data has been copied under ignored `data/prompt_gallery/` and `data/lora_gallery/` folders. See `STANDALONE_MIGRATION.md`.
 - A baseline tag/commit exists for fallback.
 
 The prompt-side refactor is now good enough to pause unless a real feature or bug requires more cleanup. The main remaining risk has shifted toward LoRA UI size, lifecycle wrapping, and scattered popup/event behavior.
