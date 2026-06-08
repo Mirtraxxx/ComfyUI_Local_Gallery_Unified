@@ -90,5 +90,18 @@ Code syntax checks pass for:
 - `backend/Local_Prompt_Gallery.py`
 - `backend/Local_Lora_Gallery.py`
 
-A direct Python import test from this shell is not a reliable proof because importing ComfyUI's `server` module initializes the local ComfyUI/PyTorch runtime. The real verification is starting ComfyUI normally after the old folders have been renamed.
+A direct Python import test from this shell is not a reliable full ComfyUI proof because importing ComfyUI's `server` module initializes the local ComfyUI/PyTorch runtime. In this environment, one interpreter is missing `torch`, and another reaches local runtime dependencies before custom-node loading can be isolated.
 
+To verify the migration logic without starting the full ComfyUI runtime, a stubbed import check was run with the old folders temporarily renamed. That check confirmed:
+
+- `LocalGalleryPromptLora`, `LocalPromptGallery`, `LocalLoraGallery`, and `LocalLoraGalleryModelOnly` are exposed by the unified package when the old folders are absent.
+- 27 `/localpromptgallery/*` routes are registered from the bundled Prompt backend.
+- 10 `/localloragallery/*` routes are registered from the bundled LoRA backend.
+- The bundled backend metadata, thumbnail, wildcard, preset, preference, and UI-state paths all resolve inside `ComfyUI_Local_Gallery_Unified`.
+
+A second stubbed import check was run with the old folders present. That check confirmed:
+
+- Only `LocalGalleryPromptLora` is exposed by the unified package in the current installed setup.
+- No bundled legacy routes are registered while the old folders are present.
+
+The remaining real-world verification is starting ComfyUI normally after the old folders have been renamed.
