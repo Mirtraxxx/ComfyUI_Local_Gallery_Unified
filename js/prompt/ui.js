@@ -26,7 +26,7 @@ import {
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
-import { showBrowseModal as openBrowseModal } from "./browse.js?v=browse-workspace-load-20260608";
+import { showBrowseModal as openBrowseModal } from "./browse.js?v=default-gallery-pointer-reorder-20260608";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -53,14 +53,14 @@ import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
     renderGallery as renderPromptGallery,
-} from "./gallery.js?v=selected-promotion-20260607";
+} from "./gallery.js?v=default-gallery-pointer-reorder-20260608";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderLibraryBar as renderPromptLibraryBar,
     renderLibraryDrawer as renderPromptLibraryDrawer,
-} from "./library.js?v=main-gallery-cleanup-20260607";
+} from "./library.js?v=prompt-builder-swap-reorder-20260608";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-side-pref-20260607";
 import { showWildcardsModal } from "./wildcards.js";
@@ -259,11 +259,13 @@ const UnifiedPromptGalleryNode = {
                 pinned_categories: null,
                 visible_pinned_category_count: 5,
                 pinned_order: [],
+                prompt_manual_orders: {},
                 category_colors: {},
                 active_sidebar_open: false,
                 active_sidebar_width: 300,
                 auto_hide_toolbars: false,
                 prompt_sort_mode: "manual",
+                prompt_sort_modes: {},
                 meta_tags_button_side: "right",
             };
         }
@@ -409,11 +411,13 @@ const UnifiedPromptGalleryNode = {
                 pinned_categories: null,
                 visible_pinned_category_count: 5,
                 pinned_order: [],
+                prompt_manual_orders: {},
                 category_colors: {},
                 active_sidebar_width: 300,
                 auto_hide_toolbars: false,
                 last_created_category: "",
                 prompt_sort_mode: "manual",
+                prompt_sort_modes: {},
                 meta_tags_button_side: "right",
             };
 
@@ -2747,6 +2751,18 @@ const UnifiedPromptGalleryNode = {
                         height: 15px;
                         stroke: currentColor;
                     }
+                    .localprompt-item.manual-order-draggable,
+                    .localprompt-chip.manual-order-draggable,
+                    .localprompt-chip-thumb.manual-order-draggable {
+                        cursor: grab;
+                        touch-action: none;
+                        user-select: none;
+                    }
+                    .localprompt-item.manual-order-draggable:active,
+                    .localprompt-chip.manual-order-draggable:active,
+                    .localprompt-chip-thumb.manual-order-draggable:active {
+                        cursor: grabbing;
+                    }
 
                     .localprompt-empty-state {
                         padding: 20px;
@@ -3285,6 +3301,16 @@ const UnifiedPromptGalleryNode = {
                         box-shadow: 0 10px 22px rgba(0,0,0,0.14);
                     }
                     .localprompt-gallery-item:hover { border-color: rgba(255,255,255,0.24); transform: translateY(-2px); }
+                    .localprompt-item.pinned-dragging,
+                    .localprompt-gallery-item.pinned-dragging {
+                        opacity: 0.55;
+                        border-style: dashed;
+                    }
+                    .localprompt-item.pinned-drop-target,
+                    .localprompt-gallery-item.pinned-drop-target {
+                        border-color: #88c0ff !important;
+                        box-shadow: 0 0 0 1px rgba(136,192,255,0.35), 0 8px 18px rgba(0,0,0,0.25);
+                    }
                     .localprompt-gallery-item.selected { 
                         border-color: #4a9eff; 
                         box-shadow: 0 0 10px rgba(74, 158, 255, 0.4); 
@@ -4340,17 +4366,59 @@ const UnifiedPromptGalleryNode = {
             }
 
             const PROMPT_SORT_MODES = new Set(["manual", "newest", "oldest", "az", "za"]);
-            function getPromptSortMode() {
-                const mode = String(node_instance.uiPrefs?.prompt_sort_mode || "manual");
-                return PROMPT_SORT_MODES.has(mode) ? mode : "manual";
+            function getPromptSortScope(scope = null) {
+                if (scope && typeof scope === "object") {
+                    if (scope.key) return String(scope.key);
+                    if (scope.tabName) return getPromptSortScope(scope.tabName);
+                    if (scope.category != null) {
+                        const category = String(scope.category).trim();
+                        return category ? `category:${category}` : "all";
+                    }
+                }
+                if (typeof scope === "string") {
+                    if (scope === "pinned") return "favorites";
+                    if (scope === "most_used") return "most_used";
+                    if (scope.trim()) return `category:${scope.trim()}`;
+                }
+
+                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+                const selectedCategory = categorySelect?.value || "";
+                if (selectedCategory) return `category:${selectedCategory}`;
+                if (activeLibraryTab === "pinned") return "favorites";
+                if (activeLibraryTab === "most_used") return "most_used";
+                if (activeLibraryTab) return `category:${activeLibraryTab}`;
+                if (node_instance.showFavoritesOnly) return "favorites";
+                return "all";
+            }
+
+            function normalizePromptSortMode(mode) {
+                const normalized = String(mode || "manual");
+                return PROMPT_SORT_MODES.has(normalized) ? normalized : "manual";
+            }
+
+            function getPromptSortMode(scope = null) {
+                const key = getPromptSortScope(scope);
+                const scopedModes = node_instance.uiPrefs?.prompt_sort_modes;
+                const mode = scopedModes && typeof scopedModes === "object"
+                    ? scopedModes[key]
+                    : null;
+                if (mode) return normalizePromptSortMode(mode);
+                const fallbackMode = key === "all"
+                    ? node_instance.uiPrefs?.prompt_sort_mode
+                    : node_instance.uiPrefs?.prompt_sort_modes?.all || node_instance.uiPrefs?.prompt_sort_mode;
+                return normalizePromptSortMode(fallbackMode);
             }
 
             function syncPromptSortControls() {
-                widgetContainer
-                    .querySelectorAll(`#${uniqueId}-main-sort-select, .localprompt-browse-sort-select`)
-                    .forEach(select => {
-                        select.value = getPromptSortMode();
-                    });
+                const mainSortSelect = widgetContainer.querySelector(`#${uniqueId}-main-sort-select`);
+                if (mainSortSelect) {
+                    mainSortSelect.value = getPromptSortMode();
+                }
+                widgetContainer.querySelectorAll(".localprompt-browse-sort-select").forEach(select => {
+                    const browseRoot = select.closest(".localprompt-browse-page");
+                    const browseCategory = browseRoot?.querySelector("#browse-category")?.value || "";
+                    select.value = getPromptSortMode({ category: browseCategory });
+                });
             }
 
             function getMetaTagsButtonSide() {
@@ -4389,7 +4457,16 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function setPromptSortMode(mode, options = {}) {
-                node_instance.uiPrefs.prompt_sort_mode = PROMPT_SORT_MODES.has(mode) ? mode : "manual";
+                const scopeKey = getPromptSortScope(options.scope ?? null);
+                const sortMode = normalizePromptSortMode(mode);
+                const scopedModes = node_instance.uiPrefs.prompt_sort_modes && typeof node_instance.uiPrefs.prompt_sort_modes === "object"
+                    ? { ...node_instance.uiPrefs.prompt_sort_modes }
+                    : {};
+                scopedModes[scopeKey] = sortMode;
+                node_instance.uiPrefs.prompt_sort_modes = scopedModes;
+                if (scopeKey === "all") {
+                    node_instance.uiPrefs.prompt_sort_mode = sortMode;
+                }
                 syncPromptSortControls();
                 const drawerContainer = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
                 const renderedDrawerTab = drawerContainer?.dataset?.renderedTab;
@@ -4410,6 +4487,53 @@ const UnifiedPromptGalleryNode = {
             async function persistPinnedOrder(nextOrder) {
                 node_instance.uiPrefs.pinned_order = normalizePromptIdList(nextOrder);
                 await saveUiPrefs();
+            }
+
+            function getPromptManualOrder(scope = null) {
+                const scopeKey = getPromptSortScope(scope);
+                const manualOrders = node_instance.uiPrefs?.prompt_manual_orders;
+                return normalizePromptIdList(
+                    manualOrders && typeof manualOrders === "object" ? manualOrders[scopeKey] : []
+                );
+            }
+
+            async function persistPromptManualOrder(scope, nextOrder) {
+                const scopeKey = getPromptSortScope(scope);
+                const manualOrders = node_instance.uiPrefs.prompt_manual_orders && typeof node_instance.uiPrefs.prompt_manual_orders === "object"
+                    ? { ...node_instance.uiPrefs.prompt_manual_orders }
+                    : {};
+                const nextIds = normalizePromptIdList(nextOrder);
+                const currentIds = normalizePromptIdList(manualOrders[scopeKey]);
+                if (currentIds.length) {
+                    const nextSet = new Set(nextIds);
+                    const existingIndexes = currentIds
+                        .map((id, index) => nextSet.has(id) ? index : -1)
+                        .filter(index => index >= 0);
+                    const insertIndex = existingIndexes.length ? Math.min(...existingIndexes) : 0;
+                    const mergedIds = currentIds.filter(id => !nextSet.has(id));
+                    mergedIds.splice(insertIndex, 0, ...nextIds);
+                    manualOrders[scopeKey] = normalizePromptIdList(mergedIds);
+                } else {
+                    manualOrders[scopeKey] = nextIds;
+                }
+                node_instance.uiPrefs.prompt_manual_orders = manualOrders;
+                await saveUiPrefs();
+            }
+
+            function sortPromptsByManualOrder(prompts, order) {
+                const orderMap = new Map(normalizePromptIdList(order).map((id, index) => [id, index]));
+                return [...prompts].sort((a, b) => {
+                    const aIndex = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
+                    const bIndex = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
+                    if (aIndex !== bIndex) return aIndex - bIndex;
+                    return 0;
+                });
+            }
+
+            function applyPromptManualOrderLocally(scope) {
+                const order = getPromptManualOrder(scope);
+                if (!order.length || !Array.isArray(node_instance.availablePrompts)) return;
+                node_instance.availablePrompts = sortPromptsByManualOrder(node_instance.availablePrompts, order);
             }
 
             function syncPinnedOrderWithPrompts(prompts) {
@@ -5027,7 +5151,10 @@ const UnifiedPromptGalleryNode = {
                     addPromptToSelection,
                     attachInfoPopup,
                     attachContextMenu,
-                    getSortMode: getPromptSortMode,
+                    getSortMode: scope => getPromptSortMode(scope || tabName),
+                    setSortMode: setPromptSortMode,
+                    getManualOrder: scope => getPromptManualOrder(scope || tabName),
+                    persistManualOrder: persistPromptManualOrder,
                     getDisplayMode: getCardsDisplayMode,
                 });
             }
@@ -5248,6 +5375,14 @@ const UnifiedPromptGalleryNode = {
                     renderPrompts,
                     preservePromptOrder: false,
                     sortMode: getPromptSortMode(),
+                    manualOrderScope: getPromptSortScope(),
+                    setSortMode: setPromptSortMode,
+                    persistManualOrder: async (scope, nextOrder) => {
+                        await setPromptSortMode("manual", { scope: { key: scope }, reload: false });
+                        await persistPromptManualOrder(scope, nextOrder);
+                        applyPromptManualOrderLocally(scope);
+                        renderGallery();
+                    },
                 });
             }
 
@@ -5478,8 +5613,10 @@ const UnifiedPromptGalleryNode = {
                     showContextMenu,
                     renameCategoryWithPrompt,
                     getCategoryRoleColor,
-                    getSortMode: getPromptSortMode,
+                    getSortMode: scope => getPromptSortMode(scope),
                     setSortMode: setPromptSortMode,
+                    getManualOrder: scope => getPromptManualOrder(scope),
+                    persistManualOrder: persistPromptManualOrder,
                     workspaceContainer: host,
                     onClose,
                     librarySubnavHtml: getLibrarySubnavHtml("cards"),
@@ -5879,8 +6016,10 @@ const UnifiedPromptGalleryNode = {
                         showContextMenu,
                         renameCategoryWithPrompt,
                         getCategoryRoleColor,
-                        getSortMode: getPromptSortMode,
+                        getSortMode: scope => getPromptSortMode(scope),
                         setSortMode: setPromptSortMode,
+                        getManualOrder: scope => getPromptManualOrder(scope),
+                        persistManualOrder: persistPromptManualOrder,
                     });
                 }
 

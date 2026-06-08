@@ -165,6 +165,7 @@ export async function showBrowseModal({
     let lastScrollTop = 0;
     let downwardScrollDistance = 0;
     let upwardScrollDistance = 0;
+    let suppressNextCardClick = false;
 
     if (isWorkspace && workspaceBody) {
         workspaceBody.addEventListener("scroll", () => {
@@ -209,7 +210,9 @@ export async function showBrowseModal({
     async function loadBrowseGallery(page = 1) {
         const filter = filterInput.value;
         const category = categorySelect.value;
-        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, getSortMode());
+        const sortScope = { category };
+        const sortMode = getSortMode(sortScope);
+        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, sortMode);
 
         currentPage = data.current_page || 1;
         totalPages = data.total_pages || 1;
@@ -240,6 +243,10 @@ export async function showBrowseModal({
             item.innerHTML = buildPromptCardHtml(prompt, hasPreview);
 
             item.addEventListener("click", (event) => {
+                if (suppressNextCardClick) {
+                    suppressNextCardClick = false;
+                    return;
+                }
                 if (event.target.classList.contains("favorite-btn")) return;
                 if (browseManageMode) {
                     if (bulkSelectedPromptIds.has(promptId)) {
@@ -288,7 +295,7 @@ export async function showBrowseModal({
     if (!isWorkspace) closeOnOverlayClick(root);
 
     populateCategorySelect(categorySelect, await galleryNode.getCategories());
-    if (sortSelect) sortSelect.value = getSortMode();
+    if (sortSelect) sortSelect.value = getSortMode({ category: categorySelect.value || "" });
 
     manageToggleBtn?.addEventListener("click", () => {
         browseManageMode = !browseManageMode;
@@ -345,13 +352,17 @@ export async function showBrowseModal({
     });
 
     categorySelect.addEventListener("change", () => {
+        if (sortSelect) sortSelect.value = getSortMode({ category: categorySelect.value || "" });
         loadBrowseGallery(1);
         updateCategoryActionButtons(root, categorySelect.value);
     });
 
     sortSelect?.addEventListener("change", async () => {
         if (typeof setSortMode === "function") {
-            await setSortMode(sortSelect.value, { reload: false });
+            await setSortMode(sortSelect.value, {
+                scope: { category: categorySelect.value || "" },
+                reload: false,
+            });
         }
         await loadBrowseGallery(1);
     });

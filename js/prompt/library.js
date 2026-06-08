@@ -31,6 +31,17 @@ function sortPromptsForDisplay(prompts, sortMode = "manual") {
     return sorted;
 }
 
+function sortPromptsByManualOrder(prompts, manualOrder = []) {
+    if (!Array.isArray(manualOrder) || !manualOrder.length) return prompts;
+    const orderMap = new Map(manualOrder.map((id, index) => [String(id), index]));
+    return [...prompts].sort((a, b) => {
+        const aIndex = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
+        const bIndex = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return 0;
+    });
+}
+
 export function getUtilityLibraryTabs() {
     return ["most_used", "pinned"];
 }
@@ -224,10 +235,15 @@ export async function renderLibraryDrawer({
     attachInfoPopup,
     attachContextMenu,
     getSortMode = () => "manual",
+    setSortMode = null,
+    getManualOrder = () => [],
+    persistManualOrder = null,
     getDisplayMode = () => nodeInstance.uiPrefs?.cards_display_mode || nodeInstance.uiPrefs?.display_mode || "thumbnails",
 }) {
     const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
     if (!container) return;
+    container.__localpromptBuilderManualOrderCleanup?.();
+    container.__localpromptBuilderManualOrderCleanup = null;
     hideHoverPreview();
     const previousTabName = container.dataset.renderedTab || "";
     const previousSortMode = container.dataset.renderedSortMode || "";
@@ -261,6 +277,9 @@ export async function renderLibraryDrawer({
         sortMode,
     });
     prompts = sortPromptsForDisplay(prompts, sortMode);
+    if (sortMode === "manual") {
+        prompts = sortPromptsByManualOrder(prompts, getManualOrder(tabName));
+    }
 
     const nextContent = document.createDocumentFragment();
 
@@ -289,6 +308,29 @@ export async function renderLibraryDrawer({
         }
         return;
     }
+
+    const canPointerReorderManualCards = (
+        typeof persistManualOrder === "function"
+        && tabName !== "most_used"
+        && tabName !== "pinned"
+    );
+    const manualOrderScope = tabName;
+    let pointerManualDrag = null;
+    let suppressManualClickUntil = 0;
+    let lastManualDropTarget = null;
+
+    const getPromptBuilderCards = () => Array.from(
+        container.querySelectorAll(".localprompt-chip[data-prompt-id], .localprompt-chip-thumb[data-prompt-id]")
+    );
+    const clearManualDropTargets = () => {
+        getPromptBuilderCards().forEach(card => card.classList.remove("pinned-drop-target"));
+        lastManualDropTarget = null;
+    };
+    const getPromptBuilderCardAtPoint = (clientX, clientY) => {
+        const element = document.elementFromPoint(clientX, clientY);
+        const card = element?.closest?.(".localprompt-chip[data-prompt-id], .localprompt-chip-thumb[data-prompt-id]");
+        return card && container.contains(card) ? card : null;
+    };
 
     let draggedPinnedId = null;
     let dragReordered = false;
@@ -466,11 +508,15 @@ export async function renderLibraryDrawer({
         if (isSelected) {
             bindPinnedManagedControls(chip, prompt);
             chip.addEventListener("click", (event) => {
+                if (suppressManualClickUntil > Date.now()) return;
                 if (event.target.closest("[data-managed-action]")) return;
                 addPromptToSelection(prompt);
             });
         } else {
-            chip.addEventListener("click", () => addPromptToSelection(prompt));
+            chip.addEventListener("click", () => {
+                if (suppressManualClickUntil > Date.now()) return;
+                addPromptToSelection(prompt);
+            });
         }
         if (tabName === "pinned") {
             chip.addEventListener("click", (event) => {
@@ -481,10 +527,111 @@ export async function renderLibraryDrawer({
         }
         attachInfoPopup(chip, prompt);
         attachContextMenu(chip, prompt);
+
+        if (canPointerReorderManualCards) {
+            chip.classList.add("manual-order-draggable");
+            chip.addEventListener("pointerdown", event => {
+                if (event.button !== 0) return;
+                if (event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
+                event.stopPropagation();
+                pointerManualDrag = {
+                    chip,
+                    promptId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    active: false,
+                    pointerId: event.pointerId,
+                };
+                chip.setPointerCapture?.(event.pointerId);
+            });
+        }
+
         nextContent.appendChild(chip);
     });
 
     container.replaceChildren(nextContent);
+
+    if (canPointerReorderManualCards) {
+        const onPointerMove = event => {
+            if (!pointerManualDrag) return;
+            const distance = Math.hypot(event.clientX - pointerManualDrag.startX, event.clientY - pointerManualDrag.startY);
+            if (!pointerManualDrag.active && distance < 8) return;
+
+            if (!pointerManualDrag.active) {
+                pointerManualDrag.active = true;
+                pointerManualDrag.chip.classList.add("pinned-dragging");
+                suppressManualClickUntil = Date.now() + 200;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            clearManualDropTargets();
+            const targetCard = getPromptBuilderCardAtPoint(event.clientX, event.clientY);
+            if (targetCard && targetCard !== pointerManualDrag.chip) {
+                targetCard.classList.add("pinned-drop-target");
+                lastManualDropTarget = targetCard;
+            }
+        };
+
+        const onPointerUp = async event => {
+            if (!pointerManualDrag) return;
+            const dragState = pointerManualDrag;
+            pointerManualDrag = null;
+
+            dragState.chip.classList.remove("pinned-dragging");
+            dragState.chip.releasePointerCapture?.(dragState.pointerId);
+            const targetCard = getPromptBuilderCardAtPoint(event.clientX, event.clientY)
+                || lastManualDropTarget
+                || container.querySelector(".pinned-drop-target");
+
+            if (!dragState.active) return;
+            event.preventDefault();
+            event.stopPropagation();
+            suppressManualClickUntil = Date.now() + 250;
+
+            if (!targetCard || targetCard === dragState.chip) {
+                clearManualDropTargets();
+                return;
+            }
+
+            const placeholder = document.createElement("span");
+            dragState.chip.replaceWith(placeholder);
+            targetCard.replaceWith(dragState.chip);
+            placeholder.replaceWith(targetCard);
+            clearManualDropTargets();
+
+            const nextOrder = getPromptBuilderCards()
+                .map(card => card.dataset.promptId)
+                .filter(Boolean);
+
+            if (sortMode !== "manual" && typeof setSortMode === "function") {
+                await setSortMode("manual", { scope: manualOrderScope, reload: false });
+            }
+            await persistManualOrder(manualOrderScope, nextOrder);
+        };
+
+        const onPointerCancel = () => {
+            if (pointerManualDrag) {
+                pointerManualDrag.chip.classList.remove("pinned-dragging");
+                pointerManualDrag.chip.releasePointerCapture?.(pointerManualDrag.pointerId);
+                pointerManualDrag = null;
+            }
+            clearManualDropTargets();
+        };
+
+        container.__localpromptBuilderManualOrderCleanup?.();
+        container.__localpromptBuilderManualOrderCleanup = () => {
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerup", onPointerUp);
+            window.removeEventListener("pointercancel", onPointerCancel);
+        };
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+        window.addEventListener("pointercancel", onPointerCancel);
+    } else {
+        container.__localpromptBuilderManualOrderCleanup?.();
+        container.__localpromptBuilderManualOrderCleanup = null;
+    }
 
     if (shouldRestoreScroll) {
         requestAnimationFrame(() => {

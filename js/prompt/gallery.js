@@ -103,10 +103,15 @@ export function renderGallery({
     renderPrompts,
     preservePromptOrder = false,
     sortMode = "manual",
+    manualOrderScope = "all",
+    persistManualOrder = null,
+    setSortMode = null,
 }) {
     const gallery = document.getElementById(`${uniqueId}-gallery`);
     if (!gallery) return;
 
+    gallery.__localpromptManualOrderCleanup?.();
+    gallery.__localpromptManualOrderCleanup = null;
     gallery.innerHTML = "";
 
     const selectedPromptIds = nodeInstance.promptData.map(prompt => String(prompt.prompt_id));
@@ -125,9 +130,14 @@ export function renderGallery({
         prompts = promotePromptsById(prompts, selectedPromptIds);
     }
 
+    const canDragManualOrder = typeof persistManualOrder === "function";
+    let suppressNextClick = false;
+
     prompts.forEach(prompt => {
+        const promptId = String(prompt.id);
         const div = document.createElement("div");
         div.className = "localprompt-item";
+        div.dataset.promptId = promptId;
         if (isPromptSelected(prompt)) {
             div.classList.add("selected");
         }
@@ -171,6 +181,10 @@ export function renderGallery({
         attachInfoPopup(div, prompt);
 
         div.addEventListener("click", () => {
+            if (suppressNextClick) {
+                suppressNextClick = false;
+                return;
+            }
             if (isPromptSelected(prompt)) {
                 nodeInstance.promptData = nodeInstance.promptData.filter(item => String(item.prompt_id) !== String(prompt.id));
                 div.classList.remove("selected");
@@ -194,4 +208,116 @@ export function renderGallery({
 
         gallery.appendChild(div);
     });
+
+    if (canDragManualOrder) {
+        let pointerDrag = null;
+
+        const clearDropTargets = () => {
+            gallery.querySelectorAll(".localprompt-item.pinned-drop-target").forEach(item => {
+                item.classList.remove("pinned-drop-target");
+            });
+        };
+
+        const getPromptCardAtPoint = (clientX, clientY) => {
+            const element = document.elementFromPoint(clientX, clientY);
+            const card = element?.closest?.(".localprompt-item[data-prompt-id]");
+            return card && gallery.contains(card) ? card : null;
+        };
+
+        gallery.querySelectorAll(".localprompt-item[data-prompt-id]").forEach(card => {
+            card.classList.add("manual-order-draggable");
+            card.querySelectorAll("img, video").forEach(media => {
+                media.draggable = false;
+            });
+            card.addEventListener("pointerdown", event => {
+                if (event.button !== 0) return;
+                if (event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
+                pointerDrag = {
+                    card,
+                    promptId: card.dataset.promptId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    active: false,
+                };
+            });
+        });
+
+        const onPointerMove = event => {
+            if (!pointerDrag) return;
+            const distance = Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY);
+            if (!pointerDrag.active && distance < 8) return;
+
+            if (!pointerDrag.active) {
+                pointerDrag.active = true;
+                suppressNextClick = true;
+                pointerDrag.card.classList.add("pinned-dragging");
+            }
+
+            event.preventDefault();
+            clearDropTargets();
+            const targetCard = getPromptCardAtPoint(event.clientX, event.clientY);
+            if (targetCard && targetCard !== pointerDrag.card) {
+                targetCard.classList.add("pinned-drop-target");
+            }
+        };
+
+        const onPointerUp = async event => {
+            if (!pointerDrag) return;
+            const dragState = pointerDrag;
+            pointerDrag = null;
+
+            dragState.card.classList.remove("pinned-dragging");
+            const targetCard = getPromptCardAtPoint(event.clientX, event.clientY)
+                || gallery.querySelector(".localprompt-item.pinned-drop-target");
+            clearDropTargets();
+
+            if (!dragState.active) return;
+            event.preventDefault();
+            suppressNextClick = true;
+
+            if (!targetCard || targetCard === dragState.card) {
+                setTimeout(() => {
+                    suppressNextClick = false;
+                }, 0);
+                return;
+            }
+
+            const targetRect = targetCard.getBoundingClientRect();
+            const placeAfter = event.clientY > targetRect.top + targetRect.height / 2;
+            if (placeAfter) {
+                targetCard.after(dragState.card);
+            } else {
+                targetCard.before(dragState.card);
+            }
+
+            const nextOrder = Array.from(gallery.querySelectorAll(".localprompt-item[data-prompt-id]"))
+                .map(card => card.dataset.promptId)
+                .filter(Boolean);
+            if (sortMode !== "manual" && typeof setSortMode === "function") {
+                await setSortMode("manual", { scope: { key: manualOrderScope }, reload: false });
+            }
+            await persistManualOrder(manualOrderScope, nextOrder);
+            setTimeout(() => {
+                suppressNextClick = false;
+            }, 0);
+        };
+
+        const onPointerCancel = () => {
+            if (pointerDrag) {
+                pointerDrag.card.classList.remove("pinned-dragging");
+                pointerDrag = null;
+            }
+            clearDropTargets();
+            suppressNextClick = false;
+        };
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+        window.addEventListener("pointercancel", onPointerCancel);
+        gallery.__localpromptManualOrderCleanup = () => {
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerup", onPointerUp);
+            window.removeEventListener("pointercancel", onPointerCancel);
+        };
+    }
 }
