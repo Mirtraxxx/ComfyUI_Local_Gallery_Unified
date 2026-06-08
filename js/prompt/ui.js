@@ -1767,6 +1767,8 @@ const UnifiedPromptGalleryNode = {
             }
             async function renderActiveSidebar() {
                 await renderPromptActiveSidebar({
+                    widgetContainer,
+                    uniqueId,
                     nodeInstance: node_instance,
                     applyActiveSidebarPreference,
                     isActiveSidebarOpen,
