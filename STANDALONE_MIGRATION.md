@@ -105,3 +105,27 @@ A second stubbed import check was run with the old folders present. That check c
 - No bundled legacy routes are registered while the old folders are present.
 
 The remaining real-world verification is starting ComfyUI normally after the old folders have been renamed.
+
+## ComfyUI Quick-Test Results
+
+The ComfyUI launcher environment was reproduced with:
+
+- `PYTHONHOME=C:\SD\ComfyUI\Python310_portable`
+- `PYTHONPATH=C:\SD\ComfyUI\ComfyUI\venv\Lib\site-packages`
+- `C:\SD\ComfyUI\Python310_portable\python.exe`
+
+Standalone quick test:
+
+- Temporarily renamed the old Prompt and LoRA folders.
+- Ran `main.py --cpu --quick-test-for-ci --disable-all-custom-nodes --whitelist-custom-nodes ComfyUI_Local_Gallery_Unified`.
+- Result: passed with exit code `0`.
+- ComfyUI imported `ComfyUI_Local_Gallery_Unified` successfully while the old folders were absent.
+
+Compatibility quick test:
+
+- Restored the old Prompt and LoRA folders.
+- Ran `main.py --cpu --quick-test-for-ci --disable-all-custom-nodes --whitelist-custom-nodes ComfyUI_Local_Gallery_Unified Local_Prompt_Gallery ComfyUI_Local_Lora_Gallery`.
+- Result: passed with exit code `0`.
+- ComfyUI imported unified, Prompt Gallery, and LoRA Gallery together without duplicate-route failures.
+
+Both quick tests reported an unrelated database-lock warning because another ComfyUI process was using `user/comfyui.db`. The process still exited successfully after custom-node import and route setup.
