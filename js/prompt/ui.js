@@ -62,7 +62,7 @@ import {
     renderLibraryDrawer as renderPromptLibraryDrawer,
 } from "./library.js?v=main-gallery-cleanup-20260607";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-toggle-cleanup-20260607";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=workspace-toggle-cleanup-20260607";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-side-pref-20260607";
 import { showWildcardsModal } from "./wildcards.js";
 import { escapeHtml } from "../shared/dom.js";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
@@ -264,6 +264,7 @@ const UnifiedPromptGalleryNode = {
                 active_sidebar_width: 300,
                 auto_hide_toolbars: false,
                 prompt_sort_mode: "manual",
+                meta_tags_button_side: "right",
             };
         }
     },
@@ -413,6 +414,7 @@ const UnifiedPromptGalleryNode = {
                 auto_hide_toolbars: false,
                 last_created_category: "",
                 prompt_sort_mode: "manual",
+                meta_tags_button_side: "right",
             };
 
             const selectionWidget = this.addWidget(
@@ -655,11 +657,16 @@ const UnifiedPromptGalleryNode = {
                     }
                     .localprompt-more-category-group {
                         position: relative;
-                        margin-left: auto;
                         flex: 0 0 auto;
                         display: inline-flex;
                         align-items: center;
                         gap: 6px;
+                    }
+                    .localprompt-more-category-group.align-right {
+                        margin-left: auto;
+                    }
+                    .localprompt-more-category-group.align-left {
+                        margin-left: 0;
                     }
                     .localprompt-more-category-group.hidden {
                         display: none;
@@ -3342,7 +3349,7 @@ const UnifiedPromptGalleryNode = {
                                 </button>
                                 <div class="localprompt-pinned-categories" id="${uniqueId}-pinned-categories">
                                     <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
-                                    <div class="localprompt-more-category-group" id="${uniqueId}-more-category-group">
+                                    <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
                                         <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
                                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
                                         </button>
@@ -3777,8 +3784,6 @@ const UnifiedPromptGalleryNode = {
                 const allCategories = await UnifiedPromptGalleryNode.getCategories();
                 const pinnedCategories = await ensurePinnedCategoriesInitialized(allCategories);
                 const visiblePinnedCategories = pinnedCategories.slice(0, getVisiblePinnedCategoryCount());
-                const visibleSet = new Set(visiblePinnedCategories);
-                const hiddenCategories = getCategoriesInCurrentOrder(allCategories).filter(category => !visibleSet.has(category));
                 strip.innerHTML = "";
 
                 visiblePinnedCategories.forEach(category => {
@@ -3792,9 +3797,7 @@ const UnifiedPromptGalleryNode = {
                     strip.appendChild(pill);
                 });
 
-                if (moreGroup) {
-                    moreGroup.classList.toggle("hidden", hiddenCategories.length === 0);
-                }
+                moreGroup?.classList.remove("hidden");
                 if (moreBtn) {
                     moreBtn.title = "All categories";
                     moreBtn.setAttribute("aria-label", "All categories");
@@ -4342,6 +4345,27 @@ const UnifiedPromptGalleryNode = {
                     .forEach(select => {
                         select.value = getPromptSortMode();
                     });
+            }
+
+            function getMetaTagsButtonSide() {
+                return node_instance.uiPrefs?.meta_tags_button_side === "left" ? "left" : "right";
+            }
+
+            function applyMetaTagsButtonSidePreference() {
+                const moreGroup = widgetContainer.querySelector(`#${uniqueId}-more-category-group`);
+                const strip = widgetContainer.querySelector(`#${uniqueId}-pinned-category-strip`);
+                const pinnedCategories = widgetContainer.querySelector(`#${uniqueId}-pinned-categories`);
+                if (!moreGroup || !strip || !pinnedCategories) return;
+
+                const side = getMetaTagsButtonSide();
+                moreGroup.classList.toggle("align-left", side === "left");
+                moreGroup.classList.toggle("align-right", side !== "left");
+
+                if (side === "left") {
+                    pinnedCategories.insertBefore(moreGroup, strip);
+                } else {
+                    pinnedCategories.appendChild(moreGroup);
+                }
             }
 
             function bindMainSortSelect() {
@@ -5686,6 +5710,7 @@ const UnifiedPromptGalleryNode = {
                     setupThumbnailSizeSliders();
                     applyActiveSidebarWidthPreference();
                     applyActiveSidebarPreference();
+                    applyMetaTagsButtonSidePreference();
                     syncPromptSortControls();
                     syncAutoHideToolbarState();
                     
@@ -5871,6 +5896,7 @@ const UnifiedPromptGalleryNode = {
                         getCategoryRoleColor,
                         applyThumbnailSizePreference,
                         applyLibraryTabLayoutPreference,
+                        applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
@@ -5898,6 +5924,7 @@ const UnifiedPromptGalleryNode = {
                         getCategoryRoleColor,
                         applyThumbnailSizePreference,
                         applyLibraryTabLayoutPreference,
+                        applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,

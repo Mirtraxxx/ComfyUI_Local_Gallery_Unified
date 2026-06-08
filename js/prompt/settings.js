@@ -232,6 +232,7 @@ export async function showSettingsModal({
     getCategoryRoleColor,
     applyThumbnailSizePreference,
     applyLibraryTabLayoutPreference,
+    applyMetaTagsButtonSidePreference = null,
     renderLibraryBar,
     getActiveLibraryTab,
     renderLibraryDrawer,
@@ -275,6 +276,11 @@ export async function showSettingsModal({
                         <input type="checkbox" id="settings-auto-hide-toolbars">
                         <span>Auto-hide bottom toolbar</span>
                     </label>
+                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Hidden Prompts Button Side</label>
+                    <select id="settings-meta-tags-button-side" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
+                        <option value="right">Right side</option>
+                        <option value="left">Left side</option>
+                    </select>
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
                     <h4>Categories</h4>
@@ -302,6 +308,7 @@ export async function showSettingsModal({
     const displayModeSelect = root.querySelector("#settings-display-mode");
     const mostUsedCountInput = root.querySelector("#settings-most-used-count");
     const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
+    const metaTagsButtonSideSelect = root.querySelector("#settings-meta-tags-button-side");
     const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
     const saveBtn = root.querySelector("#settings-save");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
@@ -319,6 +326,9 @@ export async function showSettingsModal({
     displayModeSelect.value = nodeInstance.uiPrefs.display_mode || "text";
     mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
     if (autoHideToolbarsInput) autoHideToolbarsInput.checked = nodeInstance.uiPrefs.auto_hide_toolbars === true;
+    if (metaTagsButtonSideSelect) {
+        metaTagsButtonSideSelect.value = nodeInstance.uiPrefs.meta_tags_button_side === "left" ? "left" : "right";
+    }
     visiblePinnedCountInput.value = Math.max(1, Math.min(20, parseInt(nodeInstance.uiPrefs.visible_pinned_category_count, 10) || 5));
 
     const orderList = root.querySelector("#settings-category-order-list");
@@ -450,7 +460,7 @@ export async function showSettingsModal({
     };
     renderPinnedCategoryManager();
 
-    closeBtn.addEventListener("click", close);
+    closeBtn?.addEventListener("click", close);
     if (!isWorkspace) closeOnOverlayClick(root);
 
     saveBtn.addEventListener("click", async () => {
@@ -467,6 +477,7 @@ export async function showSettingsModal({
             display_mode: displayModeSelect.value,
             most_used_count: parseInt(mostUsedCountInput.value) || 10,
             auto_hide_toolbars: autoHideToolbarsInput?.checked === true,
+            meta_tags_button_side: metaTagsButtonSideSelect?.value === "left" ? "left" : "right",
             visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
             library_tab_layout: getLibraryTabLayoutMode(),
             thumbnail_size_px: getThumbnailSizePx(),
@@ -482,6 +493,9 @@ export async function showSettingsModal({
         }
         applyThumbnailSizePreference();
         applyLibraryTabLayoutPreference();
+        if (typeof applyMetaTagsButtonSidePreference === "function") {
+            applyMetaTagsButtonSidePreference();
+        }
         if (typeof applyAutoHideToolbarPreference === "function") {
             applyAutoHideToolbarPreference();
         }
