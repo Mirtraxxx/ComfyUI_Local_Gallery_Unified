@@ -22,6 +22,7 @@ The node is much safer than the original merged file:
 - The main prompt gallery renderer and simple gallery filter helpers now live in `js/prompt/gallery.js`.
 - The library tab bar, drawer data loading, drawer renderer, sorting, and selected-prompt promotion now live in `js/prompt/library.js`.
 - The active sidebar renderer, open-state styling, width preference, and resize handling now live in `js/prompt/activeSidebar.js`.
+- The large inline CSS stylesheet has been extracted from `js/prompt/ui.js` into `js/prompt/styles.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - The backend now includes wildcard RNG mode/shuffle nonce state and optional hidden/meta prompt text through `prompt_meta_tags`.
 - A baseline tag/commit exists for fallback.
