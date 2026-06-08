@@ -65,9 +65,9 @@ import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-c
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-side-pref-20260607";
 import { showWildcardsModal } from "./wildcards.js";
 import { getPromptTemplate } from "./template.js";
+import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js";
 import { escapeHtml } from "../shared/dom.js";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
-import { collapseWidget, hideWidget } from "../shared/widgets.js";
 
 export function registerPromptGalleryUi(app, api) {
 const UnifiedPromptGalleryNode = {
@@ -351,32 +351,13 @@ const UnifiedPromptGalleryNode = {
             const result = onNodeCreated?.apply(this, arguments);
             const node_instance = this;
 
-            if (!this.properties || !this.properties.prompt_gallery_unique_id) {
-                if (!this.properties) {
-                    this.properties = {};
-                }
-                this.properties.prompt_gallery_unique_id = "prompt-gallery-" + Math.random().toString(36).substring(2, 11);
-            }
-            if (typeof this.properties.active_sidebar_width !== 'number') {
-                this.properties.active_sidebar_width = 300;
-            }
-
-            // --- WIDGET SETUP ---
-            // Add visible/DOM widgets FIRST to minimize space above them
-            
-            const galleryIdWidget = this.addWidget(
-                "text",
-                "prompt_gallery_unique_id_widget",
-                this.properties.prompt_gallery_unique_id,
-                () => { },
-                {}
-            );
-
-            galleryIdWidget.serializeValue = () => {
-                return this.properties.prompt_gallery_unique_id;
-            };
-
-            collapseWidget(galleryIdWidget);
+            const preDomWidgets = setupPromptPreDomStateWidgets({ nodeInstance: this });
+            const {
+                galleryIdWidget,
+                selectionWidget,
+                metaTagsWidget,
+                activeSidebarWidthWidget,
+            } = preDomWidgets;
 
             this.size = [500, 450];
             let widgetContainer = null;
@@ -422,45 +403,7 @@ const UnifiedPromptGalleryNode = {
                 meta_tags_button_side: "right",
             };
 
-            const selectionWidget = this.addWidget(
-                "text",
-                "prompt_selection_data",
-                this.properties.prompt_selection_data || "[]",
-                () => { },
-                { multiline: true }
-            );
-
-            selectionWidget.serializeValue = () => {
-                return node_instance.properties["prompt_selection_data"] || "[]";
-            };
-
-            collapseWidget(selectionWidget);
-
-            const metaTagsWidget = this.addWidget(
-                "text",
-                "prompt_meta_tags",
-                this.properties.prompt_meta_tags || "[]",
-                () => { },
-                { multiline: true }
-            );
-
-            metaTagsWidget.serializeValue = () => {
-                return node_instance.properties["prompt_meta_tags"] || "[]";
-            };
-
-            collapseWidget(metaTagsWidget);
-
-            const activeSidebarWidthWidget = this.addWidget(
-                "number",
-                "active_sidebar_width",
-                this.properties.active_sidebar_width || 300,
-                () => { },
-                {}
-            );
-            activeSidebarWidthWidget.serializeValue = () => {
-                return Number(node_instance.properties.active_sidebar_width) || 300;
-            };
-            hideWidget(activeSidebarWidthWidget);
+            
 
             // ADD DOM WIDGET HERE - before hidden data widgets
             widgetContainer = document.createElement("div");
@@ -468,81 +411,15 @@ const UnifiedPromptGalleryNode = {
             this.addDOMWidget("prompt_gallery", "div", widgetContainer, {});
 
             // --- HIDDEN DATA WIDGETS (added AFTER DOM widget to not affect its position) ---
-            
-            // Wildcard Mode
-            let wildcardWidget = this.widgets?.find(w => w.name === 'wildcard_mode');
-            if (!wildcardWidget) {
-                wildcardWidget = this.addWidget("text", "wildcard_mode", "off", () => { }, {});
-            }
-            if (typeof this.properties.wildcard_mode === 'string') {
-                wildcardWidget.value = this.properties.wildcard_mode;
-            } else if (typeof wildcardWidget.value === 'string') {
-                this.properties.wildcard_mode = wildcardWidget.value;
-            }
-            wildcardWidget.serializeValue = () => {
-                return node_instance.properties["wildcard_mode"] || "off";
-            };
-            hideWidget(wildcardWidget);
-
-            let wildcardRngModeWidget = this.widgets?.find(w => w.name === 'wildcard_rng_mode');
-            if (!wildcardRngModeWidget) {
-                wildcardRngModeWidget = this.addWidget("text", "wildcard_rng_mode", "seed_stable", () => { }, {});
-            }
-            if (typeof this.properties.wildcard_rng_mode === 'string') {
-                wildcardRngModeWidget.value = this.properties.wildcard_rng_mode;
-            } else if (typeof wildcardRngModeWidget.value === 'string') {
-                this.properties.wildcard_rng_mode = wildcardRngModeWidget.value;
-            }
-            wildcardRngModeWidget.serializeValue = () => {
-                return node_instance.properties["wildcard_rng_mode"] || "seed_stable";
-            };
-            hideWidget(wildcardRngModeWidget);
-
-            let wildcardShuffleNonceWidget = this.widgets?.find(w => w.name === 'wildcard_shuffle_nonce');
-            if (!wildcardShuffleNonceWidget) {
-                wildcardShuffleNonceWidget = this.addWidget("text", "wildcard_shuffle_nonce", "0", () => { }, {});
-            }
-            if (typeof this.properties.wildcard_shuffle_nonce === 'string') {
-                wildcardShuffleNonceWidget.value = this.properties.wildcard_shuffle_nonce;
-            } else if (typeof wildcardShuffleNonceWidget.value === 'string') {
-                this.properties.wildcard_shuffle_nonce = wildcardShuffleNonceWidget.value;
-            }
-            wildcardShuffleNonceWidget.serializeValue = () => {
-                return node_instance.properties["wildcard_shuffle_nonce"] || "0";
-            };
-            hideWidget(wildcardShuffleNonceWidget);
-
-            // Wildcard Categories
-            let categoriesWidget = this.widgets?.find(w => w.name === 'wildcard_categories');
-            if (!categoriesWidget) {
-                categoriesWidget = this.addWidget("text", "wildcard_categories", "", () => { }, {});
-            }
-            if (typeof this.properties.wildcard_categories === 'string') {
-                categoriesWidget.value = this.properties.wildcard_categories;
-            } else if (typeof categoriesWidget.value === 'string') {
-                this.properties.wildcard_categories = categoriesWidget.value;
-            }
-            categoriesWidget.serializeValue = () => {
-                return node_instance.properties["wildcard_categories"] || "[]";
-            };
-            hideWidget(categoriesWidget);
-
-            // Seed
-            let seedWidget = this.widgets?.find(w => w.name === 'seed');
-            if (!seedWidget) {
-                seedWidget = this.addWidget("number", "seed", 0, (v) => { }, { min: 0, max: 0xffffffffffffffff });
-            }
-            hideWidget(seedWidget);
-
-            // Control After Generate
-            let controlWidget = this.widgets?.find(w => w.name === 'control_after_generate');
-            if (!controlWidget) {
-                controlWidget = this.addWidget("combo", "control_after_generate", "increment",
-                    (v) => { },
-                    { values: ["fixed", "increment", "decrement", "randomize"] }
-                );
-            }
-            hideWidget(controlWidget);
+            const postDomWidgets = setupPromptPostDomStateWidgets({ nodeInstance: this });
+            const {
+                wildcardWidget,
+                wildcardRngModeWidget,
+                wildcardShuffleNonceWidget,
+                categoriesWidget,
+                seedWidget,
+                controlWidget,
+            } = postDomWidgets;
 
 
             const uniqueId = `localprompt-gallery-${this.id}`;

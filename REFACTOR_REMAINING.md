@@ -24,6 +24,7 @@ The node is much safer than the original merged file:
 - The active sidebar renderer, open-state styling, width preference, and resize handling now live in `js/prompt/activeSidebar.js`.
 - The large inline CSS stylesheet has been extracted from `js/prompt/ui.js` into `js/prompt/styles.js`.
 - The prompt HTML shell has been extracted from `js/prompt/ui.js` into `js/prompt/template.js`.
+- The prompt hidden widgets and state setup have been extracted from `js/prompt/ui.js` into `js/prompt/stateWidgets.js`.
 - The backend caches unchanged LoRA stacks so prompt-only reruns do not reload identical LoRAs.
 - The backend now includes wildcard RNG mode/shuffle nonce state and optional hidden/meta prompt text through `prompt_meta_tags`.
 - A baseline tag/commit exists for fallback.
