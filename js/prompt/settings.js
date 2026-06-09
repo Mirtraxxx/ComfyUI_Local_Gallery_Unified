@@ -239,6 +239,7 @@ export async function showSettingsModal({
     getPinnedCategories = null,
     savePinnedCategories = null,
     applyAutoHideToolbarPreference = null,
+    applyActiveBorderThemePreference = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -285,6 +286,30 @@ export async function showSettingsModal({
                         <option value="right">Right side</option>
                         <option value="left">Left side</option>
                     </select>
+
+                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Active Border Glow Theme</label>
+                    <select id="settings-active-border-theme" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
+                        <option value="default">Classic Theme (Role/White)</option>
+                        <option value="cyberpunk">Cyberpunk (Magenta & Cyan)</option>
+                        <option value="sunset">Cosmic Sunset (Amber & Blue)</option>
+                        <option value="aurora">Aurora Borealis (Green & Violet)</option>
+                        <option value="ice">Electric Ice (Glacier Blue & Pink)</option>
+                        <option value="fire-ice">Fire & Ice (Crimson & Cyan)</option>
+                        <option value="golden-mint">Golden Mint (Gold & Mint Green)</option>
+                        <option value="rainbow-sync">Rainbow Cycle (Synchronized)</option>
+                        <option value="rainbow-split">Rainbow Cycle (Split Spectrum)</option>
+                        <option value="custom">Custom Colors...</option>
+                    </select>
+                    <div id="settings-active-border-custom-colors" style="display: none; align-items: center; gap: 12px; margin-top: 8px;">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 10px; color: #aaa; white-space: nowrap;">Dot 1:</label>
+                            <input type="color" id="settings-active-border-custom-1" style="width: 100%; height: 28px; padding: 2px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+                        </div>
+                        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 10px; color: #aaa; white-space: nowrap;">Dot 2:</label>
+                            <input type="color" id="settings-active-border-custom-2" style="width: 100%; height: 28px; padding: 2px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+                        </div>
+                    </div>
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
                     <h4>Categories</h4>
@@ -315,6 +340,10 @@ export async function showSettingsModal({
     const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
     const metaTagsButtonSideSelect = root.querySelector("#settings-meta-tags-button-side");
     const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
+    const activeBorderThemeSelect = root.querySelector("#settings-active-border-theme");
+    const activeBorderCustomColorsDiv = root.querySelector("#settings-active-border-custom-colors");
+    const activeBorderCustom1Input = root.querySelector("#settings-active-border-custom-1");
+    const activeBorderCustom2Input = root.querySelector("#settings-active-border-custom-2");
     const saveBtn = root.querySelector("#settings-save");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
 
@@ -336,6 +365,24 @@ export async function showSettingsModal({
         metaTagsButtonSideSelect.value = nodeInstance.uiPrefs.meta_tags_button_side === "left" ? "left" : "right";
     }
     visiblePinnedCountInput.value = Math.max(1, Math.min(20, parseInt(nodeInstance.uiPrefs.visible_pinned_category_count, 10) || 5));
+
+    if (activeBorderThemeSelect) {
+        activeBorderThemeSelect.value = nodeInstance.uiPrefs.active_border_theme || "default";
+        activeBorderThemeSelect.addEventListener("change", () => {
+            if (activeBorderCustomColorsDiv) {
+                activeBorderCustomColorsDiv.style.display = activeBorderThemeSelect.value === "custom" ? "flex" : "none";
+            }
+        });
+    }
+    if (activeBorderCustom1Input) {
+        activeBorderCustom1Input.value = nodeInstance.uiPrefs.active_border_custom_1 || "#ff0000";
+    }
+    if (activeBorderCustom2Input) {
+        activeBorderCustom2Input.value = nodeInstance.uiPrefs.active_border_custom_2 || "#0000ff";
+    }
+    if (activeBorderCustomColorsDiv && activeBorderThemeSelect) {
+        activeBorderCustomColorsDiv.style.display = activeBorderThemeSelect.value === "custom" ? "flex" : "none";
+    }
 
     const orderList = root.querySelector("#settings-category-order-list");
     const pinnedCategoryList = root.querySelector("#settings-pinned-category-list");
@@ -486,6 +533,9 @@ export async function showSettingsModal({
             active_sidebar_hover_open: activeSidebarHoverOpenInput?.checked !== false,
             meta_tags_button_side: metaTagsButtonSideSelect?.value === "left" ? "left" : "right",
             visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
+            active_border_theme: activeBorderThemeSelect?.value || "default",
+            active_border_custom_1: activeBorderCustom1Input?.value || "#ff0000",
+            active_border_custom_2: activeBorderCustom2Input?.value || "#0000ff",
             library_tab_layout: getLibraryTabLayoutMode(),
             thumbnail_size_px: getThumbnailSizePx(),
             active_thumbnail_size_px: getActiveThumbnailSizePx(),
@@ -505,6 +555,9 @@ export async function showSettingsModal({
         }
         if (typeof applyAutoHideToolbarPreference === "function") {
             applyAutoHideToolbarPreference();
+        }
+        if (typeof applyActiveBorderThemePreference === "function") {
+            applyActiveBorderThemePreference();
         }
         await renderLibraryBar();
 

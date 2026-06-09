@@ -405,6 +405,9 @@ const UnifiedPromptGalleryNode = {
                 prompt_sort_mode: "manual",
                 prompt_sort_modes: {},
                 meta_tags_button_side: "right",
+                active_border_theme: "default",
+                active_border_custom_1: "#ff0000",
+                active_border_custom_2: "#0000ff",
             };
 
             
@@ -916,6 +919,37 @@ const UnifiedPromptGalleryNode = {
                     applyThumbnailVariables(activeSidebar, sizePx);
                 }
                 syncThumbnailSizeSliders();
+            }
+
+            function applyActiveBorderThemePreference() {
+                const theme = node_instance.uiPrefs.active_border_theme || "default";
+                const themeClasses = [
+                    "zip-theme-default",
+                    "zip-theme-cyberpunk",
+                    "zip-theme-sunset",
+                    "zip-theme-aurora",
+                    "zip-theme-ice",
+                    "zip-theme-fire-ice",
+                    "zip-theme-golden-mint",
+                    "zip-theme-rainbow-sync",
+                    "zip-theme-rainbow-split",
+                    "zip-theme-custom"
+                ];
+                themeClasses.forEach(cls => {
+                    widgetContainer.classList.remove(cls);
+                });
+                
+                widgetContainer.classList.add(`zip-theme-${theme}`);
+                
+                if (theme === "custom") {
+                    const color1 = node_instance.uiPrefs.active_border_custom_1 || "#ff0000";
+                    const color2 = node_instance.uiPrefs.active_border_custom_2 || "#0000ff";
+                    widgetContainer.style.setProperty('--localprompt-zip-color-1', color1);
+                    widgetContainer.style.setProperty('--localprompt-zip-color-2', color2);
+                } else {
+                    widgetContainer.style.removeProperty('--localprompt-zip-color-1');
+                    widgetContainer.style.removeProperty('--localprompt-zip-color-2');
+                }
             }
 
             let thumbnailSizeSaveTimer = null;
@@ -2460,6 +2494,7 @@ const UnifiedPromptGalleryNode = {
                     applyActiveSidebarWidthPreference();
                     applyActiveSidebarPreference();
                     applyMetaTagsButtonSidePreference();
+                    applyActiveBorderThemePreference();
                     syncPromptSortControls();
                     syncAutoHideToolbarState();
                     
@@ -2656,6 +2691,7 @@ const UnifiedPromptGalleryNode = {
                         applyLibraryTabLayoutPreference,
                         applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
+                        applyActiveBorderThemePreference,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,
@@ -2684,6 +2720,7 @@ const UnifiedPromptGalleryNode = {
                         applyLibraryTabLayoutPreference,
                         applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
+                        applyActiveBorderThemePreference,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,

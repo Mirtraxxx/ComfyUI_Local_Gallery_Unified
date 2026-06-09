@@ -1710,7 +1710,7 @@ export function getPromptStyles(uniqueId) {
                         left: -50%;
                         width: 200%;
                         height: 200%;
-                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 3%, transparent 6%, transparent 100%);
+                        background: conic-gradient(from 0deg, transparent 0%, var(--localprompt-zip-color-1, #ffffff) 3%, transparent 6%, transparent 100%);
                         animation: border-zip 4s linear infinite;
                         z-index: 1;
                         filter: blur(2.5px);
@@ -1722,10 +1722,68 @@ export function getPromptStyles(uniqueId) {
                         left: -50%;
                         width: 200%;
                         height: 200%;
-                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 3%, transparent 6%, transparent 100%);
+                        background: conic-gradient(from 0deg, transparent 0%, var(--localprompt-zip-color-2, #ffffff) 3%, transparent 6%, transparent 100%);
                         animation: border-zip-reverse 4s linear infinite;
                         z-index: 1;
                         filter: blur(2.5px);
+                    }
+
+                    /* Active border tracer themes */
+                    .localprompt-container-wrapper.zip-theme-cyberpunk {
+                        --localprompt-zip-color-1: #00f0ff;
+                        --localprompt-zip-color-2: #ff007f;
+                    }
+                    .localprompt-container-wrapper.zip-theme-sunset {
+                        --localprompt-zip-color-1: #007cff;
+                        --localprompt-zip-color-2: #ff7b00;
+                    }
+                    .localprompt-container-wrapper.zip-theme-aurora {
+                        --localprompt-zip-color-1: #00ff87;
+                        --localprompt-zip-color-2: #9b51e0;
+                    }
+                    .localprompt-container-wrapper.zip-theme-ice {
+                        --localprompt-zip-color-1: #00d2ff;
+                        --localprompt-zip-color-2: #ff758c;
+                    }
+                    .localprompt-container-wrapper.zip-theme-fire-ice {
+                        --localprompt-zip-color-1: #00f5ff;
+                        --localprompt-zip-color-2: #ff3333;
+                    }
+                    .localprompt-container-wrapper.zip-theme-golden-mint {
+                        --localprompt-zip-color-1: #00ffaa;
+                        --localprompt-zip-color-2: #ffdd00;
+                    }
+
+                    /* Rainbow Cycle animations */
+                    @keyframes rainbow-cycle-1 {
+                        0% { filter: blur(2.5px) hue-rotate(0deg); }
+                        100% { filter: blur(2.5px) hue-rotate(360deg); }
+                    }
+                    @keyframes rainbow-cycle-2 {
+                        0% { filter: blur(2.5px) hue-rotate(180deg); }
+                        100% { filter: blur(2.5px) hue-rotate(540deg); }
+                    }
+
+                    .localprompt-container-wrapper.zip-theme-rainbow-sync {
+                        --localprompt-zip-color-1: #ff0055;
+                        --localprompt-zip-color-2: #ff0055;
+                    }
+                    .localprompt-container-wrapper.zip-theme-rainbow-sync .localprompt-chip-thumb.pinned-managed::before {
+                        animation: border-zip 4s linear infinite, rainbow-cycle-1 6s linear infinite;
+                    }
+                    .localprompt-container-wrapper.zip-theme-rainbow-sync .localprompt-chip-thumb.pinned-managed::after {
+                        animation: border-zip-reverse 4s linear infinite, rainbow-cycle-1 6s linear infinite;
+                    }
+
+                    .localprompt-container-wrapper.zip-theme-rainbow-split {
+                        --localprompt-zip-color-1: #ff0055;
+                        --localprompt-zip-color-2: #ff0055;
+                    }
+                    .localprompt-container-wrapper.zip-theme-rainbow-split .localprompt-chip-thumb.pinned-managed::before {
+                        animation: border-zip 4s linear infinite, rainbow-cycle-1 6s linear infinite;
+                    }
+                    .localprompt-container-wrapper.zip-theme-rainbow-split .localprompt-chip-thumb.pinned-managed::after {
+                        animation: border-zip-reverse 4s linear infinite, rainbow-cycle-2 6s linear infinite;
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-thumb-media {
                         position: absolute;
@@ -2038,7 +2096,7 @@ export function getPromptStyles(uniqueId) {
                         background: conic-gradient(
                             from 0deg,
                             transparent 0%,
-                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 3%,
+                            var(--localprompt-zip-color-1, color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff)) 3%,
                             transparent 6%,
                             transparent 100%
                         );
@@ -2047,11 +2105,10 @@ export function getPromptStyles(uniqueId) {
                         background: conic-gradient(
                             from 0deg,
                             transparent 0%,
-                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 3%,
+                            var(--localprompt-zip-color-2, color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff)) 3%,
                             transparent 6%,
                             transparent 100%
                         );
-                        animation: border-zip-reverse 4s linear infinite;
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed .managed-thumb-media::after {
                         content: '';
