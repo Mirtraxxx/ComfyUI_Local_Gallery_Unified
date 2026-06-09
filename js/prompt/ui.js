@@ -1003,7 +1003,7 @@ const UnifiedPromptGalleryNode = {
                 if (!element || !roleColor) return;
                 element.classList.add('role-colored');
                 element.style.setProperty('--role-color', roleColor);
-                if (soften) {
+                if (soften && !element.classList.contains('pinned-managed')) {
                     element.style.borderColor = `color-mix(in srgb, ${roleColor} 50%, #444)`;
                 }
             }

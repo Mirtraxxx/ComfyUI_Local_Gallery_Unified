@@ -1690,6 +1690,7 @@ export function getPromptStyles(uniqueId) {
                         height: var(--localprompt-thumb-height);
                         border-width: 2px;
                         border-color: rgba(109, 220, 255, 0.55);
+                        z-index: 5;
                         box-shadow:
                             0 0 14px rgba(109, 220, 255, 0.25),
                             0 0 28px rgba(109, 220, 255, 0.10),
@@ -1767,62 +1768,99 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-chip-thumb.pinned-managed.no-thumb .thumb-label {
                         display: none;
                     }
-                    .localprompt-chip-thumb.pinned-managed .thumb-label {
-                        left: 50%;
-                        right: auto;
-                        bottom: 42px;
-                        transform: translateX(-50%);
-                        max-width: calc(100% - 20px);
-                        z-index: 4;
-                        padding: 4px 10px;
-                        background: rgba(10, 10, 10, 0.52);
-                        border: 1px solid rgba(255,255,255,0.12);
-                        border-radius: 10px;
-                        backdrop-filter: blur(8px);
-                        box-shadow: 0 8px 18px rgba(0,0,0,0.28);
-                    }
                     .localprompt-chip-thumb.pinned-managed .managed-card-overlay {
                         position: absolute;
-                        left: 8px;
-                        right: 8px;
-                        bottom: 8px;
+                        left: 6px;
+                        right: 6px;
+                        bottom: 22px;
                         height: auto;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        padding: 0;
-                        background: rgba(18, 22, 28, 0.82);
-                        backdrop-filter: blur(16px) saturate(1.3);
-                        -webkit-backdrop-filter: blur(16px) saturate(1.3);
-                        border: 1px solid rgba(255, 255, 255, 0.18);
+                        padding: 4px 5px;
+                        background: rgba(18, 22, 28, 0.65);
+                        backdrop-filter: blur(12px) saturate(1.2);
+                        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
                         border-radius: 10px;
-                        overflow: hidden;
+                        overflow: visible;
                         z-index: 4;
-                        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+                        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-card-controls {
                         display: flex;
                         align-items: center;
-                        justify-content: center;
-                        gap: 0;
+                        justify-content: space-between;
+                        gap: 4px;
                         width: 100%;
                         background: transparent;
                         border: none;
                         border-radius: 0;
-                        overflow: hidden;
+                        overflow: visible;
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-weight-val {
-                        min-width: 28px;
+                        min-width: 24px;
+                        height: 20px;
                         text-align: center;
-                        font-size: 12px;
+                        font-size: 10px;
                         font-weight: 600;
                         color: #f0f0f0;
-                        padding: 6px 10px;
-                        background: transparent;
-                        border: none;
-                        border-radius: 0;
+                        padding: 0 4px;
+                        background: rgba(0, 0, 0, 0.45);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border-radius: 10px;
                         backdrop-filter: none;
                         box-shadow: none;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .managed-state-pill {
+                        min-width: 28px;
+                        height: 20px;
+                        padding: 0 6px;
+                        border-radius: 6px;
+                        border: none;
+                        font-size: 8px;
+                        font-weight: 700;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        transition: background 0.15s ease, color 0.15s ease;
+                        flex-shrink: 0;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .managed-state-pill.on {
+                        background: #00c882;
+                        color: #fff;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .managed-state-pill.off {
+                        background: rgba(255, 255, 255, 0.08);
+                        color: rgba(255, 255, 255, 0.7);
+                    }
+                    .localprompt-chip-thumb.pinned-managed .localprompt-inline-btn {
+                        width: 20px;
+                        height: 20px;
+                        min-width: 20px;
+                        flex: 0 0 20px;
+                        border-radius: 50%;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        background: rgba(255, 255, 255, 0.08);
+                        color: #fff;
+                        font-size: 11px;
+                        padding: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        transition: background 0.15s, border-color 0.15s;
+                        backdrop-filter: none;
+                        box-shadow: none;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .localprompt-inline-btn:hover {
+                        background: rgba(255, 255, 255, 0.18);
+                        border-color: rgba(255, 255, 255, 0.3);
                     }
                     .localprompt-chip-thumb.pinned-managed.selected::after {
                         display: none;
@@ -1953,26 +1991,12 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-chip-thumb.role-colored {
                         border-color: var(--role-color, #4c4c4c);
-                        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--role-color, #4c4c4c) 55%, transparent);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed {
                         border-color: color-mix(in srgb, var(--role-color, #4c4c4c) 85%, #ffffff);
                         box-shadow:
                             0 0 14px color-mix(in srgb, var(--role-color, #4c4c4c) 50%, transparent),
-                            0 0 28px color-mix(in srgb, var(--role-color, #4c4c4c) 22%, transparent),
-                            inset 0 0 0 1px color-mix(in srgb, var(--role-color, #4c4c4c) 25%, transparent);
-                    }
-                    .localprompt-chip-thumb.role-colored::before {
-                        content: '';
-                        position: absolute;
-                        inset: 0;
-                        border: 1px solid color-mix(in srgb, var(--role-color, #4c4c4c) 65%, transparent);
-                        border-radius: inherit;
-                        z-index: 3;
-                        pointer-events: none;
-                    }
-                    .localprompt-chip-thumb.role-colored.pinned-managed::before {
-                        border-color: color-mix(in srgb, var(--role-color, #4c4c4c) 40%, transparent);
+                            0 0 28px color-mix(in srgb, var(--role-color, #4c4c4c) 22%, transparent);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed::after {
                         content: '';
@@ -2033,13 +2057,7 @@ export function getPromptStyles(uniqueId) {
                         min-width: 26px;
                         padding: 0;
                     }
-                    .localprompt-chip-thumb.pinned-managed .localprompt-inline-btn {
-                        flex: 1 1 26px;
-                        border-radius: 0;
-                    }
-                    .localprompt-chip-thumb.pinned-managed .localprompt-inline-btn:last-child {
-                        border-radius: 0;
-                    }
+                    /* inline button overrides are handled in card overlay section */
                     .localprompt-inline-btn:hover {
                         background: rgba(255, 255, 255, 0.1);
                     }

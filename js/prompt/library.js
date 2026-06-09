@@ -364,6 +364,7 @@ export async function renderLibraryDrawer({
                         <img src="${prompt.preview_url}" alt="${prompt.name}">
                     </div>
                     ${createPinnedManagedControlsHtml(selectedEntry)}
+                    <span class="thumb-label">${prompt.name}</span>
                 `;
             } else {
                 content += `
