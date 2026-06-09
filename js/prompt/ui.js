@@ -1160,7 +1160,12 @@ const UnifiedPromptGalleryNode = {
                 activeSidebarOpenTimer = null;
             }
 
+            function isActiveSidebarHoverBehaviorEnabled() {
+                return node_instance.uiPrefs?.active_sidebar_hover_open !== false;
+            }
+
             function scheduleActiveSidebarHoverOpen() {
+                if (!isActiveSidebarHoverBehaviorEnabled()) return;
                 clearActiveSidebarOpenTimer();
                 clearActiveSidebarCloseTimer();
                 if (node_instance.promptData.length === 0) return;
@@ -1172,6 +1177,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             function scheduleActiveSidebarHoverClose() {
+                if (!isActiveSidebarHoverBehaviorEnabled()) return;
                 clearActiveSidebarOpenTimer();
                 clearActiveSidebarCloseTimer();
                 activeSidebarCloseTimer = setTimeout(() => {
@@ -2540,7 +2546,6 @@ const UnifiedPromptGalleryNode = {
                 const activeSideTab = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
                 const activeSidebarEl = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
                 activeSideTab?.addEventListener('mouseenter', () => {
-                    if (node_instance.uiPrefs?.active_sidebar_hover_open === false) return;
                     scheduleActiveSidebarHoverOpen();
                 });
                 activeSideTab?.addEventListener('mouseleave', () => {
