@@ -266,6 +266,7 @@ const UnifiedPromptGalleryNode = {
                 category_colors: {},
                 active_sidebar_open: false,
                 active_sidebar_width: 300,
+                active_sidebar_hover_open: true,
                 auto_hide_toolbars: false,
                 prompt_sort_mode: "manual",
                 prompt_sort_modes: {},
@@ -398,6 +399,7 @@ const UnifiedPromptGalleryNode = {
                 prompt_manual_orders: {},
                 category_colors: {},
                 active_sidebar_width: 300,
+                active_sidebar_hover_open: true,
                 auto_hide_toolbars: false,
                 last_created_category: "",
                 prompt_sort_mode: "manual",
@@ -2538,6 +2540,7 @@ const UnifiedPromptGalleryNode = {
                 const activeSideTab = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
                 const activeSidebarEl = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
                 activeSideTab?.addEventListener('mouseenter', () => {
+                    if (node_instance.uiPrefs?.active_sidebar_hover_open === false) return;
                     scheduleActiveSidebarHoverOpen();
                 });
                 activeSideTab?.addEventListener('mouseleave', () => {

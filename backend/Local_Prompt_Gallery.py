@@ -368,6 +368,7 @@ def load_ui_prefs():
         "category_colors": {},
         "active_sidebar_open": False,
         "active_sidebar_width": 392,
+        "active_sidebar_hover_open": True,
         "auto_hide_toolbars": False,
         "prompt_sort_mode": "manual",
         "prompt_sort_modes": {},
@@ -1224,6 +1225,7 @@ async def get_ui_prefs_endpoint(request):
             "prompt_manual_orders": {},
             "category_colors": {},
             "active_sidebar_open": False,
+            "active_sidebar_hover_open": True,
             "auto_hide_toolbars": False,
             "prompt_sort_mode": "manual",
             "prompt_sort_modes": {},
@@ -1292,6 +1294,8 @@ async def save_ui_prefs_endpoint(request):
                 prefs['active_sidebar_width'] = max(220, int(data['active_sidebar_width']))
             except (TypeError, ValueError):
                 prefs['active_sidebar_width'] = 392
+        if 'active_sidebar_hover_open' in data:
+            prefs['active_sidebar_hover_open'] = bool(data['active_sidebar_hover_open'])
         if 'auto_hide_toolbars' in data:
             prefs['auto_hide_toolbars'] = bool(data['auto_hide_toolbars'])
         if 'prompt_sort_mode' in data:

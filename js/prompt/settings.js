@@ -276,6 +276,10 @@ export async function showSettingsModal({
                         <input type="checkbox" id="settings-auto-hide-toolbars">
                         <span>Auto-hide bottom toolbar</span>
                     </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
+                        <input type="checkbox" id="settings-active-sidebar-hover-open">
+                        <span>Open Active overlay on hover</span>
+                    </label>
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Hidden Prompts Button Side</label>
                     <select id="settings-meta-tags-button-side" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                         <option value="right">Right side</option>
@@ -308,6 +312,7 @@ export async function showSettingsModal({
     const displayModeSelect = root.querySelector("#settings-display-mode");
     const mostUsedCountInput = root.querySelector("#settings-most-used-count");
     const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
+    const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
     const metaTagsButtonSideSelect = root.querySelector("#settings-meta-tags-button-side");
     const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
     const saveBtn = root.querySelector("#settings-save");
@@ -326,6 +331,7 @@ export async function showSettingsModal({
     displayModeSelect.value = nodeInstance.uiPrefs.display_mode || "text";
     mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
     if (autoHideToolbarsInput) autoHideToolbarsInput.checked = nodeInstance.uiPrefs.auto_hide_toolbars === true;
+    if (activeSidebarHoverOpenInput) activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs.active_sidebar_hover_open !== false;
     if (metaTagsButtonSideSelect) {
         metaTagsButtonSideSelect.value = nodeInstance.uiPrefs.meta_tags_button_side === "left" ? "left" : "right";
     }
@@ -477,6 +483,7 @@ export async function showSettingsModal({
             display_mode: displayModeSelect.value,
             most_used_count: parseInt(mostUsedCountInput.value) || 10,
             auto_hide_toolbars: autoHideToolbarsInput?.checked === true,
+            active_sidebar_hover_open: activeSidebarHoverOpenInput?.checked !== false,
             meta_tags_button_side: metaTagsButtonSideSelect?.value === "left" ? "left" : "right",
             visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
             library_tab_layout: getLibraryTabLayoutMode(),
