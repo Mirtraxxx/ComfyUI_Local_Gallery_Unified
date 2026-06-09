@@ -1981,6 +1981,8 @@ export function getPromptStyles(uniqueId) {
                     
                     .localprompt-bottom-bar {
                         position: relative;
+                        z-index: 120;
+                        isolation: isolate;
                         padding: 8px 10px;
                         background: #252525;
                         border-top: 1px solid #333;
@@ -2067,7 +2069,8 @@ export function getPromptStyles(uniqueId) {
                         position: absolute;
                         left: 0;
                         bottom: calc(100% + 8px);
-                        z-index: 2100;
+                        z-index: 2600;
+                        isolation: isolate;
                         width: 204px;
                         max-width: calc(100vw - 24px);
                         box-sizing: border-box;
@@ -2085,7 +2088,7 @@ export function getPromptStyles(uniqueId) {
                         grid-template-columns: 1fr;
                         gap: 7px;
                         padding: 7px;
-                        background: #1b1f24;
+                        background: rgb(27, 31, 36);
                         border: 1px solid #3a4148;
                         border-radius: 8px;
                         box-shadow: 0 8px 20px rgba(0,0,0,0.28);
