@@ -1689,11 +1689,15 @@ export function getPromptStyles(uniqueId) {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
                     }
+                    @keyframes border-zip-reverse {
+                        0% { transform: rotate(360deg); }
+                        100% { transform: rotate(0deg); }
+                    }
                     .localprompt-chip-thumb.pinned-managed {
                         width: var(--localprompt-thumb-width);
                         height: var(--localprompt-thumb-height);
                         border-width: 2px;
-                        border-color: rgba(255, 255, 255, 0.08);
+                        border-color: rgba(255, 255, 255, 0.12);
                         z-index: 5;
                         position: relative;
                         overflow: hidden;
@@ -1706,10 +1710,22 @@ export function getPromptStyles(uniqueId) {
                         left: -50%;
                         width: 200%;
                         height: 200%;
-                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 1.5%, transparent 3.5%, transparent 100%);
+                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 3%, transparent 6%, transparent 100%);
                         animation: border-zip 4s linear infinite;
                         z-index: 1;
-                        filter: blur(0.5px);
+                        filter: blur(2.5px);
+                    }
+                    .localprompt-chip-thumb.pinned-managed::after {
+                        content: '';
+                        position: absolute;
+                        top: -50%;
+                        left: -50%;
+                        width: 200%;
+                        height: 200%;
+                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 3%, transparent 6%, transparent 100%);
+                        animation: border-zip-reverse 4s linear infinite;
+                        z-index: 1;
+                        filter: blur(2.5px);
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-thumb-media {
                         position: absolute;
@@ -1717,6 +1733,13 @@ export function getPromptStyles(uniqueId) {
                         border-radius: 4px;
                         overflow: hidden;
                         z-index: 2;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .thumb-label {
+                        bottom: 2px;
+                        left: 2px;
+                        right: 2px;
+                        border-bottom-left-radius: 4px;
+                        border-bottom-right-radius: 4px;
                     }
                     .localprompt-chip-thumb.pinned-managed.no-thumb {
                         background:
@@ -1879,9 +1902,7 @@ export function getPromptStyles(uniqueId) {
                         background: rgba(255, 255, 255, 0.18);
                         border-color: rgba(255, 255, 255, 0.3);
                     }
-                    .localprompt-chip-thumb.pinned-managed.selected::after {
-                        display: none;
-                    }
+                    /* display rule is freed up now since selected badge uses :not(.pinned-managed) */
                     .localprompt-info-btn,
                     .localprompt-favorite-star,
                     .localprompt-gallery-item .favorite-btn,
@@ -1988,7 +2009,7 @@ export function getPromptStyles(uniqueId) {
                         border-color: #88c0ff;
                         box-shadow: 0 0 0 2px rgba(136, 192, 255, 0.45);
                     }
-                    .localprompt-chip-thumb.selected::after {
+                    .localprompt-chip-thumb.selected:not(.pinned-managed)::after {
                         content: '+';
                         position: absolute;
                         top: 4px;
@@ -2010,22 +2031,32 @@ export function getPromptStyles(uniqueId) {
                         border-color: var(--role-color, #4c4c4c);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed {
-                        border-color: rgba(255, 255, 255, 0.1);
+                        border-color: color-mix(in srgb, var(--role-color, #ffffff) 40%, rgba(255, 255, 255, 0.08));
                         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed::before {
                         background: conic-gradient(
                             from 0deg,
                             transparent 0%,
-                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 1.5%,
-                            transparent 3.5%,
+                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 3%,
+                            transparent 6%,
                             transparent 100%
                         );
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed::after {
+                        background: conic-gradient(
+                            from 0deg,
+                            transparent 0%,
+                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 3%,
+                            transparent 6%,
+                            transparent 100%
+                        );
+                        animation: border-zip-reverse 4s linear infinite;
+                    }
+                    .localprompt-chip-thumb.role-colored.pinned-managed .managed-thumb-media::after {
                         content: '';
                         position: absolute;
-                        inset: 2px;
+                        inset: 0;
                         z-index: 3;
                         pointer-events: none;
                         background: linear-gradient(180deg, color-mix(in srgb, var(--role-color, #4c4c4c) 12%, transparent) 0%, transparent 38%);
