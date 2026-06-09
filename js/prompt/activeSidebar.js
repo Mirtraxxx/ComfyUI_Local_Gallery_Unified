@@ -242,7 +242,6 @@ export async function renderActiveSidebar({
                 </div>
                 <div class="localprompt-active-row-actions">
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "Preview details" })}
-                    ${createPromptActionButton({ icon: "trash", className: "localprompt-active-remove", title: "Remove from active" })}
                 </div>
             `;
             const rowImage = chip.querySelector("img");
@@ -293,12 +292,7 @@ export async function renderActiveSidebar({
             draggedSelectedPromptId = null;
         });
         chip.addEventListener("click", (event) => {
-            if (event.target.closest("[data-managed-action], .localprompt-info-btn, .localprompt-active-remove")) return;
-            addPromptToSelection(prompt);
-        });
-        chip.querySelector(".localprompt-active-remove")?.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
+            if (event.target.closest("[data-managed-action], .localprompt-info-btn")) return;
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);
