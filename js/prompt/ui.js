@@ -532,6 +532,13 @@ const UnifiedPromptGalleryNode = {
                 button.addEventListener("click", async (event) => {
                     event.preventDefault();
                     event.stopPropagation();
+                    // Retract active sidebar on toolbar dropdown interaction (focus change)
+                    if (isActiveSidebarOpen()) {
+                        clearActiveSidebarOpenTimer();
+                        clearActiveSidebarCloseTimer();
+                        activeSidebarHoverOpen = false;
+                        applyActiveSidebarPreference();
+                    }
                     closeDisplayOptionsPopover();
                     const willOpen = !panel.classList.contains("open");
                     if (willOpen && getWorkspaceMode() !== "gallery") {
@@ -2524,6 +2531,13 @@ const UnifiedPromptGalleryNode = {
                 widgetContainer.querySelector(`#${uniqueId}-size-toggle-btn`)?.addEventListener('click', (event) => {
                     event.preventDefault();
                     event.stopPropagation();
+                    // Retract active sidebar on toolbar interaction (focus change)
+                    if (isActiveSidebarOpen()) {
+                        clearActiveSidebarOpenTimer();
+                        clearActiveSidebarCloseTimer();
+                        activeSidebarHoverOpen = false;
+                        applyActiveSidebarPreference();
+                    }
                     closeToolbarPanels();
                     const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
                     const sizeToggleBtn = widgetContainer.querySelector(`#${uniqueId}-size-toggle-btn`);
@@ -2556,6 +2570,20 @@ const UnifiedPromptGalleryNode = {
                 });
                 activeSidebarEl?.addEventListener('mouseenter', clearActiveSidebarCloseTimer);
                 activeSidebarEl?.addEventListener('mouseleave', scheduleActiveSidebarHoverClose);
+
+                // Close active sidebar on "focus change" — clicking anywhere else on the node
+                widgetContainer.addEventListener('click', (e) => {
+                    if (!isActiveSidebarOpen()) return;
+                    const clickedInsideSidebar = activeSidebarEl?.contains(e.target);
+                    const clickedInsideToggle = activeSideTab?.contains(e.target);
+                    if (!clickedInsideSidebar && !clickedInsideToggle) {
+                        clearActiveSidebarOpenTimer();
+                        clearActiveSidebarCloseTimer();
+                        activeSidebarHoverOpen = false;
+                        applyActiveSidebarPreference();
+                    }
+                });
+
                 widgetContainer.querySelector(`#${uniqueId}-active-clear-btn`)?.addEventListener('click', () => {
                     if (node_instance.promptData.length > 0 && confirm("Remove all prompts from selection?")) {
                         clearAllSelections();

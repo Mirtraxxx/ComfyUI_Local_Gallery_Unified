@@ -93,9 +93,8 @@ export function createMetaTagsController({
             row.dataset.metaId = tag.id;
             row.innerHTML = `
                 <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
-                <input class="localprompt-meta-name" type="text" value="${escapeHtml(tag.name)}" placeholder="Label" title="Optional label">
                 <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden prompt" title="Hidden prompt text">${escapeHtml(tag.prompt_text)}</textarea>
-                <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt" style="background: #4a2a2a; border-color: #6a3a3a;">x</button>
+                <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt">x</button>
             `;
 
             const toggleBtn = row.querySelector(".localprompt-meta-toggle");
@@ -115,10 +114,7 @@ export function createMetaTagsController({
                 toggleBtn.classList.toggle("off", !isEnabled);
                 saveMetaTags({ redrawCanvas: false, skipRender: true });
             });
-            row.querySelector(".localprompt-meta-name")?.addEventListener("input", (event) => {
-                nodeInstance.metaTags[index].name = event.target.value;
-                saveMetaTags({ redrawCanvas: false, skipRender: true });
-            });
+
             promptTextArea?.addEventListener("input", (event) => {
                 nodeInstance.metaTags[index].prompt_text = event.target.value;
                 autoGrowPromptText();

@@ -217,9 +217,9 @@ export function stepManagedPromptWeight(weight, delta, { min = 0.1, max = 2.0, s
 export function createPinnedManagedControlsHtml(selectedEntry) {
     const { weight, isOn } = getManagedPromptState(selectedEntry);
     return `
-                    <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on">${isOn ? "ON" : "OFF"}</button>
                     <div class="managed-card-overlay">
                         <div class="managed-card-controls">
+                        <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on">${isOn ? "ON" : "OFF"}</button>
                         <button class="localprompt-inline-btn" data-managed-action="weight-down">-</button>
                         <span class="managed-weight-val">${weight.toFixed(1)}</span>
                         <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>

@@ -359,9 +359,9 @@ export async function renderLibraryDrawer({
             if (isSelected && selectedEntry) {
                 chip.classList.add("pinned-managed");
                 content += `
+                    ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                     <div class="managed-thumb-media">
                         <img src="${prompt.preview_url}" alt="${prompt.name}">
-                        <span class="thumb-label">${prompt.name}</span>
                     </div>
                     ${createPinnedManagedControlsHtml(selectedEntry)}
                 `;
