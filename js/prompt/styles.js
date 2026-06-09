@@ -1685,21 +1685,38 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-chip-thumb:hover { border-color: #666; }
                     .localprompt-chip-thumb.selected { border-width: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 1px rgba(255,255,255,0.02); }
+                    @keyframes border-zip {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
                     .localprompt-chip-thumb.pinned-managed {
                         width: var(--localprompt-thumb-width);
                         height: var(--localprompt-thumb-height);
                         border-width: 2px;
-                        border-color: rgba(109, 220, 255, 0.55);
+                        border-color: rgba(255, 255, 255, 0.08);
                         z-index: 5;
-                        box-shadow:
-                            0 0 14px rgba(109, 220, 255, 0.25),
-                            0 0 28px rgba(109, 220, 255, 0.10),
-                            inset 0 0 0 1px rgba(109, 220, 255, 0.12);
+                        position: relative;
+                        overflow: hidden;
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+                    }
+                    .localprompt-chip-thumb.pinned-managed::before {
+                        content: '';
+                        position: absolute;
+                        top: -50%;
+                        left: -50%;
+                        width: 200%;
+                        height: 200%;
+                        background: conic-gradient(from 0deg, transparent 0%, #ffffff 1.5%, transparent 3.5%, transparent 100%);
+                        animation: border-zip 4s linear infinite;
+                        z-index: 1;
+                        filter: blur(0.5px);
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-thumb-media {
                         position: absolute;
-                        inset: 0;
+                        inset: 2px;
+                        border-radius: 4px;
                         overflow: hidden;
+                        z-index: 2;
                     }
                     .localprompt-chip-thumb.pinned-managed.no-thumb {
                         background:
@@ -1993,18 +2010,26 @@ export function getPromptStyles(uniqueId) {
                         border-color: var(--role-color, #4c4c4c);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed {
-                        border-color: color-mix(in srgb, var(--role-color, #4c4c4c) 85%, #ffffff);
-                        box-shadow:
-                            0 0 14px color-mix(in srgb, var(--role-color, #4c4c4c) 50%, transparent),
-                            0 0 28px color-mix(in srgb, var(--role-color, #4c4c4c) 22%, transparent);
+                        border-color: rgba(255, 255, 255, 0.1);
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+                    }
+                    .localprompt-chip-thumb.role-colored.pinned-managed::before {
+                        background: conic-gradient(
+                            from 0deg,
+                            transparent 0%,
+                            color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff) 1.5%,
+                            transparent 3.5%,
+                            transparent 100%
+                        );
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed::after {
                         content: '';
                         position: absolute;
-                        inset: 0;
-                        z-index: 1;
+                        inset: 2px;
+                        z-index: 3;
                         pointer-events: none;
                         background: linear-gradient(180deg, color-mix(in srgb, var(--role-color, #4c4c4c) 12%, transparent) 0%, transparent 38%);
+                        border-radius: 4px;
                     }
                     .localprompt-role-badge {
                         position: absolute;
@@ -2038,6 +2063,7 @@ export function getPromptStyles(uniqueId) {
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
+                        z-index: 3;
                     }
                     .localprompt-inline-btn {
                         height: 26px;
