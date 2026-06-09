@@ -87,10 +87,10 @@ export function attachInfoPopup({
     showHoverPreview,
     hideHoverPreview,
 }) {
-    const infoBtn = element.querySelector(".localprompt-info-btn");
+    const infoBtn = element.querySelector(".localprompt-info-btn, .localprompt-active-preview-target");
     if (!infoBtn) return;
 
-    infoBtn.addEventListener("click", (event) => {
+    const togglePreview = (event) => {
         event.stopPropagation();
         const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
         const isShowing = hoverPreview && hoverPreview.classList.contains("active");
@@ -108,6 +108,13 @@ export function attachInfoPopup({
             };
             setTimeout(() => document.addEventListener("click", closePreview), 10);
         }
+    };
+
+    infoBtn.addEventListener("click", togglePreview);
+    infoBtn.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        togglePreview(event);
     });
 }
 

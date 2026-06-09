@@ -4,7 +4,6 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
-    createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
@@ -208,8 +207,7 @@ export async function renderActiveSidebar({
             chip = document.createElement("div");
             chip.className = `localprompt-chip-thumb selected pinned-managed${prompt.preview_url ? "" : " no-thumb"}`;
             chip.innerHTML = `
-                ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
-                <div class="managed-thumb-media">
+                <div class="managed-thumb-media localprompt-active-preview-target" title="View details" role="button" tabindex="0">
                     ${previewHtml}
                     <span class="thumb-label">${safeName}</span>
                 </div>
@@ -230,7 +228,7 @@ export async function renderActiveSidebar({
                 <span class="localprompt-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
                     <span></span><span></span><span></span><span></span><span></span><span></span>
                 </span>
-                <div class="localprompt-active-row-thumb">${previewHtml}</div>
+                <div class="localprompt-active-row-thumb localprompt-active-preview-target" title="View details" role="button" tabindex="0">${previewHtml}</div>
                 <div class="localprompt-active-main">
                     <div class="localprompt-active-name" title="${safeName}">${safeName}</div>
                     <div class="localprompt-active-controls">
@@ -239,9 +237,6 @@ export async function renderActiveSidebar({
                         <span class="managed-weight-val">${weight.toFixed(1)}</span>
                         <button class="localprompt-inline-btn" data-managed-action="weight-up" title="Increase weight">+</button>
                     </div>
-                </div>
-                <div class="localprompt-active-row-actions">
-                    ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "Preview details" })}
                 </div>
             `;
             const rowImage = chip.querySelector("img");
@@ -292,7 +287,7 @@ export async function renderActiveSidebar({
             draggedSelectedPromptId = null;
         });
         chip.addEventListener("click", (event) => {
-            if (event.target.closest("[data-managed-action], .localprompt-info-btn")) return;
+            if (event.target.closest("[data-managed-action], .localprompt-info-btn, .localprompt-active-preview-target")) return;
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);
