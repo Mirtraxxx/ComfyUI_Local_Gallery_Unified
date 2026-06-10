@@ -19,8 +19,11 @@ export function getPromptTemplate(uniqueId) {
                                         </button>
                                         <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
                                             <div class="localprompt-meta-header">
-                                                <div class="localprompt-dropdown-note">Hidden prompts are injected into final output but do not appear in Active Prompts.</div>
-                                                <div class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></div>
+                                                <span class="localprompt-meta-title">Hidden Prompts</span>
+                                                <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
+                                            </div>
+                                            <div class="localprompt-dropdown-note" style="padding: 2px 0 6px; font-size: 9px; line-height: 1.3; color: rgba(225, 237, 245, 0.45);">
+                                                Injected into output, hidden from Active Prompts.
                                             </div>
                                             <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
                                             <div class="localprompt-dropdown-divider"></div>

@@ -130,6 +130,11 @@ export function showHoverPreview({
     if (anchorElement && !anchorElement.isConnected) return;
 
     const roleColor = getCategoryRoleColor(prompt);
+    if (roleColor) {
+        hoverPreview.style.setProperty("--role-color", roleColor);
+    } else {
+        hoverPreview.style.removeProperty("--role-color");
+    }
     const previewHTML = buildPromptHoverPreviewHtml(prompt, roleColor);
 
     hoverPreview.innerHTML = previewHTML;
@@ -153,5 +158,6 @@ export function hideHoverPreview({ uniqueId }) {
     const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
     if (hoverPreview) {
         hoverPreview.classList.remove("active");
+        hoverPreview.style.removeProperty("--role-color");
     }
 }

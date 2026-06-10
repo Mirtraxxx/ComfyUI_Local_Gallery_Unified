@@ -92,6 +92,9 @@ export function createMetaTagsController({
             row.className = "localprompt-meta-row";
             row.dataset.metaId = tag.id;
             row.innerHTML = `
+                <span class="localprompt-meta-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                </span>
                 <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
                 <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden prompt" title="Hidden prompt text">${escapeHtml(tag.prompt_text)}</textarea>
                 <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt">x</button>
@@ -127,6 +130,113 @@ export function createMetaTagsController({
             });
 
             list.appendChild(row);
+        });
+
+        // Setup pointer drag-and-drop reordering
+        let pointerDrag = null;
+
+        const clearDropTargets = () => {
+            list.querySelectorAll(".localprompt-meta-row.pinned-drop-target").forEach(r => {
+                r.classList.remove("pinned-drop-target");
+            });
+        };
+
+        const getMetaRowAtPoint = (clientX, clientY) => {
+            const element = document.elementFromPoint(clientX, clientY);
+            const r = element?.closest?.(".localprompt-meta-row[data-meta-id]");
+            return r && list.contains(r) ? r : null;
+        };
+
+        list.querySelectorAll(".localprompt-meta-row[data-meta-id]").forEach(row => {
+            const handle = row.querySelector(".localprompt-meta-drag-handle");
+            if (!handle) return;
+
+            handle.addEventListener("pointerdown", event => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                pointerDrag = {
+                    row,
+                    metaId: row.dataset.metaId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    active: false,
+                };
+
+                const onPointerMove = moveEvent => {
+                    if (!pointerDrag) return;
+                    const distance = Math.hypot(moveEvent.clientX - pointerDrag.startX, moveEvent.clientY - pointerDrag.startY);
+                    if (!pointerDrag.active && distance < 4) return;
+
+                    if (!pointerDrag.active) {
+                        pointerDrag.active = true;
+                        pointerDrag.row.classList.add("pinned-dragging");
+                    }
+
+                    moveEvent.preventDefault();
+                    clearDropTargets();
+                    const targetRow = getMetaRowAtPoint(moveEvent.clientX, moveEvent.clientY);
+                    if (targetRow && targetRow !== pointerDrag.row) {
+                        targetRow.classList.add("pinned-drop-target");
+                    }
+                };
+
+                const onPointerUp = async upEvent => {
+                    if (!pointerDrag) return;
+                    const dragState = pointerDrag;
+                    pointerDrag = null;
+
+                    window.removeEventListener("pointermove", onPointerMove);
+                    window.removeEventListener("pointerup", onPointerUp);
+                    window.removeEventListener("pointercancel", onPointerCancel);
+
+                    dragState.row.classList.remove("pinned-dragging");
+                    const targetRow = getMetaRowAtPoint(upEvent.clientX, upEvent.clientY)
+                        || list.querySelector(".localprompt-meta-row.pinned-drop-target");
+                    clearDropTargets();
+
+                    if (!dragState.active) return;
+                    upEvent.preventDefault();
+
+                    if (!targetRow || targetRow === dragState.row) return;
+
+                    const targetRect = targetRow.getBoundingClientRect();
+                    const placeAfter = upEvent.clientY > targetRect.top + targetRect.height / 2;
+                    if (placeAfter) {
+                        targetRow.after(dragState.row);
+                    } else {
+                        targetRow.before(dragState.row);
+                    }
+
+                    // Save new order
+                    const nextOrderIds = Array.from(list.querySelectorAll(".localprompt-meta-row[data-meta-id]"))
+                        .map(r => r.dataset.metaId)
+                        .filter(Boolean);
+
+                    const tagsMap = new Map(nodeInstance.metaTags.map(tag => [tag.id, tag]));
+                    nodeInstance.metaTags = nextOrderIds.map((id, index) => {
+                        const tag = tagsMap.get(id);
+                        return { ...tag, order: index };
+                    });
+
+                    // Save and re-render
+                    saveMetaTags();
+                };
+
+                const onPointerCancel = () => {
+                    if (pointerDrag) {
+                        pointerDrag.row.classList.remove("pinned-dragging");
+                        pointerDrag = null;
+                    }
+                    clearDropTargets();
+                    window.removeEventListener("pointermove", onPointerMove);
+                    window.removeEventListener("pointerup", onPointerUp);
+                    window.removeEventListener("pointercancel", onPointerCancel);
+                };
+
+                window.addEventListener("pointermove", onPointerMove);
+                window.addEventListener("pointerup", onPointerUp);
+                window.addEventListener("pointercancel", onPointerCancel);
+            });
         });
 
         if (typeof onRender === "function") {
