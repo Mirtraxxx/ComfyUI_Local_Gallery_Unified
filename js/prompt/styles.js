@@ -2600,11 +2600,11 @@ export function getPromptStyles(uniqueId) {
                         opacity: 1;
                     }
                     .localprompt-hover-preview .preview-media-button.image-preview img {
-                        width: auto;
+                        width: 100%;
                         max-width: 100%;
                         height: auto;
                         max-height: min(420px, 62vh);
-                        object-fit: contain;
+                        object-fit: cover;
                         margin: 0 auto;
                     }
                     .localprompt-hover-preview .preview-meta {
