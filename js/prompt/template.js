@@ -26,8 +26,11 @@ export function getPromptTemplate(uniqueId) {
                                             <div class="localprompt-dropdown-divider"></div>
                                             <button class="localprompt-btn localprompt-meta-add-btn" id="${uniqueId}-add-meta-tag-btn" type="button">+ Add Hidden Prompt</button>
                                         </div>
+                                        <button class="localprompt-favorite-toggle-btn localprompt-icon-btn" id="${uniqueId}-fav-toggle-btn" type="button" title="Favorites" aria-label="Favorites">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17.18l-5.56 2.93 1.06-6.19L3 9.53l6.22-.9L12 3z"></path></svg>
+                                        </button>
                                         <button class="localprompt-category-grid-button" id="${uniqueId}-categories-menu-btn" type="button" title="All categories" aria-label="All categories">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5" rx="1"></rect><rect x="9.5" y="3" width="5" height="5" rx="1"></rect><rect x="16" y="3" width="5" height="5" rx="1"></rect><rect x="3" y="9.5" width="5" height="5" rx="1"></rect><rect x="9.5" y="9.5" width="5" height="5" rx="1"></rect><rect x="16" y="9.5" width="5" height="5" rx="1"></rect><rect x="3" y="16" width="5" height="5" rx="1"></rect><rect x="9.5" y="16" width="5" height="5" rx="1"></rect><rect x="16" y="16" width="5" height="5" rx="1"></rect></svg>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
                                         </button>
                                         <div class="localprompt-dropdown-panel" id="${uniqueId}-categories-panel">
                                             <div class="localprompt-category-sort-row">

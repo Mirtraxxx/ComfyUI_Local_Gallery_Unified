@@ -286,7 +286,7 @@ export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
     const previewPills = [];
     if (prompt.category) {
         const categoryStyle = roleColor ? ` style="--role-color: ${escapeHtml(roleColor)};"` : "";
-        previewPills.push(`<span class="preview-pill category-pill"${categoryStyle}>Category: ${escapeHtml(prompt.category)}</span>`);
+        previewPills.push(`<span class="preview-pill category-pill"${categoryStyle}><span class="category-color-dot"></span>${escapeHtml(prompt.category)}</span>`);
     }
     if (prompt.favorite) {
         previewPills.push("<span class=\"preview-pill\">Pinned</span>");
@@ -303,7 +303,6 @@ export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
                         <div class="preview-actions">
                             ${prompt.prompt_text ? `<button type="button" data-preview-action="toggle-prompt">Show Prompt</button>` : ""}
                             ${prompt.prompt_text ? `<button type="button" data-preview-action="copy-prompt">Copy Prompt</button>` : ""}
-                            ${prompt.preview_url && prompt.preview_type ? `<button type="button" data-preview-action="expand-image">Expand Image</button>` : ""}
                         </div>
                         ${prompt.prompt_text ? `<div class="preview-text" hidden>${escapeHtml(prompt.prompt_text)}</div>` : ""}
                     </div>

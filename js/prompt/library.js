@@ -73,12 +73,16 @@ export async function renderLibraryBar({
     renderLibraryDrawer,
     syncSelectedSectionVisibility,
     rerenderLibraryBar,
+    uiPrefs,
 }) {
     const tabsContainer = widgetContainer.querySelector(`#${uniqueId}-library-tabs`);
     const utilityContainer = widgetContainer.querySelector(`#${uniqueId}-utility-tabs`);
     if (!tabsContainer || !utilityContainer) return;
 
-    const utilityTabs = getUtilityLibraryTabs();
+    const utilityTabs = [];
+    if (uiPrefs?.show_most_used !== false) {
+        utilityTabs.push("most_used");
+    }
     const categoryTabs = getLibraryTabs();
     let draggedLibraryTab = null;
 

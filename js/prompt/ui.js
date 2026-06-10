@@ -1124,7 +1124,7 @@ const UnifiedPromptGalleryNode = {
 
             function clearLibraryNavActiveState() {
                 widgetContainer
-                    .querySelectorAll(`#${uniqueId}-library-tabs .localprompt-library-tab, #${uniqueId}-utility-tabs .localprompt-library-tab`)
+                    .querySelectorAll(`#${uniqueId}-library-tabs .localprompt-library-tab, #${uniqueId}-utility-tabs .localprompt-library-tab, #${uniqueId}-fav-toggle-btn`)
                     .forEach(button => button.classList.remove('active'));
             }
 
@@ -1752,9 +1752,14 @@ const UnifiedPromptGalleryNode = {
                     renderLibraryDrawer,
                     syncSelectedSectionVisibility,
                     rerenderLibraryBar: renderLibraryBar,
+                    uiPrefs: node_instance.uiPrefs,
                 });
+                const favBtn = widgetContainer.querySelector(`#${uniqueId}-fav-toggle-btn`);
+                if (favBtn) {
+                    favBtn.classList.toggle("active", activeLibraryTab === "pinned");
+                }
                 widgetContainer
-                    .querySelectorAll(`#${uniqueId}-library-tabs .localprompt-library-tab, #${uniqueId}-utility-tabs .localprompt-library-tab`)
+                    .querySelectorAll(`#${uniqueId}-library-tabs .localprompt-library-tab, #${uniqueId}-utility-tabs .localprompt-library-tab, #${uniqueId}-fav-toggle-btn`)
                     .forEach(button => {
                         button.addEventListener("click", () => {
                             if (getWorkspaceMode() !== "gallery") {
@@ -2520,6 +2525,28 @@ const UnifiedPromptGalleryNode = {
                     `${uniqueId}-meta-tags-panel`,
                     () => renderMetaTags()
                 );
+                const favBtn = widgetContainer.querySelector(`#${uniqueId}-fav-toggle-btn`);
+                if (favBtn) {
+                    favBtn.addEventListener("click", async () => {
+                        if (getWorkspaceMode() !== "gallery") {
+                            setWorkspaceMode("gallery");
+                        }
+                        const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
+                        if (activeLibraryTab === "pinned") {
+                            activeLibraryTab = null;
+                            clearLibraryNavActiveState();
+                            drawer.classList.remove("active");
+                        } else {
+                            activeLibraryTab = "pinned";
+                            clearLibraryNavActiveState();
+                            favBtn.classList.add("active");
+                            drawer.classList.add("active");
+                            await renderLibraryDrawer("pinned");
+                        }
+                        syncSelectedSectionVisibility();
+                    });
+                }
+
                 setupAutoHideToolbarBehavior();
 
                 toolbarOutsideClickHandler = () => {
