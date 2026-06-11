@@ -1,7 +1,10 @@
 # Prompt UI Terminology
 
+Updated: 2026-06-11
+
 This file defines the product terms for the prompt side of `ComfyUI_Local_Gallery_Unified`.
 Use these names when discussing features, bugs, or refactors so the UI intent stays clear.
+For current backend/routes/data architecture, read `AI_NODE_OVERVIEW.md`.
 
 ## Product Areas
 
