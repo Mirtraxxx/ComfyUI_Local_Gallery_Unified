@@ -273,6 +273,7 @@ const UnifiedPromptGalleryNode = {
                 prompt_sort_mode: "manual",
                 prompt_sort_modes: {},
                 meta_tags_button_side: "right",
+                card_contrast_mode: "off",
             };
         }
     },
@@ -411,6 +412,7 @@ const UnifiedPromptGalleryNode = {
                 active_border_custom_1: "#ff0000",
                 active_border_custom_2: "#0000ff",
                 promote_selected_prompts: true,
+                card_contrast_mode: "off",
             };
 
             
@@ -967,7 +969,14 @@ const UnifiedPromptGalleryNode = {
                 contrastClasses.forEach(cls => {
                     widgetContainer.classList.remove(cls);
                 });
-                widgetContainer.classList.add(`contrast-${mode}`);
+                widgetContainer.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
+
+                // Also apply to any active browse modal or workspace panel
+                const activeModals = document.querySelectorAll(".localprompt-modal-overlay, .localprompt-workspace-panel");
+                activeModals.forEach(modal => {
+                    contrastClasses.forEach(cls => modal.classList.remove(cls));
+                    modal.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
+                });
             }
 
             let thumbnailSizeSaveTimer = null;

@@ -3233,57 +3233,57 @@ export function getPromptStyles(uniqueId) {
                     /* --- Card Contrast Themes --- */
 
                     /* Theme 1: Highlight Active (Dim Inactive cards when at least one card is active) */
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
+                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
                         opacity: 0.65;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
+                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
                         opacity: 0.65;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected) {
+                    .contrast-dim-inactive .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected) {
                         opacity: 0.65;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
+                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
                         opacity: 0.95;
                         filter: none;
                     }
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
+                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
                         opacity: 0.95;
                         filter: none;
                     }
-                    .localprompt-container-wrapper.contrast-dim-inactive .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected):hover {
+                    .contrast-dim-inactive .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected):hover {
                         opacity: 0.95;
                         filter: none;
                         transform: translateY(-2px);
                     }
 
                     /* Theme 2: Highlight Active/Hover (Dim by default, highlight on hover or selection) */
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip {
+                    .contrast-dim-by-default .localprompt-chip {
                         opacity: 0.75;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip:hover,
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip.selected {
+                    .contrast-dim-by-default .localprompt-chip:hover,
+                    .contrast-dim-by-default .localprompt-chip.selected {
                         opacity: 1.0;
                         filter: none;
                     }
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip-thumb {
+                    .contrast-dim-by-default .localprompt-chip-thumb {
                         opacity: 0.75;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip-thumb:hover,
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-chip-thumb.selected {
+                    .contrast-dim-by-default .localprompt-chip-thumb:hover,
+                    .contrast-dim-by-default .localprompt-chip-thumb.selected {
                         opacity: 1.0;
                         filter: none;
                     }
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-gallery-item {
+                    .contrast-dim-by-default .localprompt-gallery-item {
                         opacity: 0.75;
                         filter: grayscale(35%);
                     }
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-gallery-item:hover,
-                    .localprompt-container-wrapper.contrast-dim-by-default .localprompt-gallery-item.selected {
+                    .contrast-dim-by-default .localprompt-gallery-item:hover,
+                    .contrast-dim-by-default .localprompt-gallery-item.selected {
                         opacity: 1.0;
                         filter: none;
                     }

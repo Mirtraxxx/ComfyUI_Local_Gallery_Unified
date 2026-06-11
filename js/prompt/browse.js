@@ -101,6 +101,8 @@ export async function showBrowseModal({
     const bulkSelectedPromptIds = new Set();
     const surface = createBrowseSurface({ workspaceContainer, onClose });
     const { root, close, isWorkspace } = surface;
+    const contrastMode = (nodeInstance?.uiPrefs?.card_contrast_mode || "off").replace(/_/g, "-");
+    root.classList.add(`contrast-${contrastMode}`);
     root.innerHTML = `
         <div class="localprompt-modal localprompt-browse-page${isWorkspace ? " localprompt-workspace-page" : ""}">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">

@@ -1237,6 +1237,7 @@ async def get_ui_prefs_endpoint(request):
             "prompt_sort_modes": {},
             "meta_tags_button_side": "right",
             "from_last_output_name_default": "time",
+            "card_contrast_mode": "off",
         }, status=500)
 
 @server.PromptServer.instance.routes.post("/localpromptgallery/save_ui_prefs")
