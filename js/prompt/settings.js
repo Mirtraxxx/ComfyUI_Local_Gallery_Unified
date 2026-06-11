@@ -1,4 +1,8 @@
 import { escapeHtml } from "../shared/dom.js";
+import {
+    getCardsDisplayMode,
+    normalizeDisplayMode,
+} from "./preferences.js?v=prefs-schema-20260611";
 
 function closeOnOverlayClick(overlay) {
     overlay.addEventListener("click", (event) => {
@@ -240,6 +244,7 @@ export async function showSettingsModal({
     savePinnedCategories = null,
     applyAutoHideToolbarPreference = null,
     applyActiveBorderThemePreference = null,
+    renderGallery = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -268,7 +273,7 @@ export async function showSettingsModal({
                     <h4>Display</h4>
                     <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Display Mode</label>
                     <select id="settings-display-mode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="text">Text Only</option>
+                        <option value="compact">Text Only</option>
                         <option value="thumbnails">With Thumbnails</option>
                     </select>
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Most Used Count</label>
@@ -367,7 +372,7 @@ export async function showSettingsModal({
     });
     updatePromptSourceStatus();
 
-    displayModeSelect.value = nodeInstance.uiPrefs.display_mode || "text";
+    displayModeSelect.value = getCardsDisplayMode(nodeInstance.uiPrefs);
     mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
     if (autoHideToolbarsInput) autoHideToolbarsInput.checked = nodeInstance.uiPrefs.auto_hide_toolbars === true;
     if (activeSidebarHoverOpenInput) activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs.active_sidebar_hover_open !== false;
@@ -537,9 +542,11 @@ export async function showSettingsModal({
                 categoryColors[category] = draftCategoryColors[category];
             }
         });
+        const cardsDisplayMode = normalizeDisplayMode(displayModeSelect.value, "thumbnails");
         const newPrefs = {
             ...nodeInstance.uiPrefs,
-            display_mode: displayModeSelect.value,
+            display_mode: cardsDisplayMode,
+            cards_display_mode: cardsDisplayMode,
             most_used_count: parseInt(mostUsedCountInput.value) || 10,
             auto_hide_toolbars: autoHideToolbarsInput?.checked === true,
             active_sidebar_hover_open: activeSidebarHoverOpenInput?.checked !== false,
@@ -572,6 +579,9 @@ export async function showSettingsModal({
         }
         if (typeof applyActiveBorderThemePreference === "function") {
             applyActiveBorderThemePreference();
+        }
+        if (typeof renderGallery === "function") {
+            renderGallery();
         }
         await renderLibraryBar();
 

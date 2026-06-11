@@ -2,7 +2,7 @@ import { api } from "../../../scripts/api.js";
 
 export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual") {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
-    let url = `/localpromptgallery/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
+    let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
     selectedPrompts.forEach((prompt) => {
         url += `&selected_prompts=${encodeURIComponent(prompt)}`;
     });
@@ -11,7 +11,7 @@ export async function getPrompts(filterName = "", mode = "OR", page = 1, selecte
 }
 
 export async function getPrompt(promptId) {
-    const response = await api.fetchApi(`/localpromptgallery/get_prompt?prompt_id=${encodeURIComponent(promptId)}`);
+    const response = await api.fetchApi(`/localgalleryunified/prompt/get_prompt?prompt_id=${encodeURIComponent(promptId)}`);
     const data = await response.json();
     return data.prompt || null;
 }
@@ -20,7 +20,7 @@ export async function getPromptsByIds(promptIds = []) {
     if (!Array.isArray(promptIds) || promptIds.length === 0) {
         return [];
     }
-    const response = await api.fetchApi("/localpromptgallery/get_prompts_by_ids", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_prompts_by_ids", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_ids: promptIds }),
@@ -30,14 +30,14 @@ export async function getPromptsByIds(promptIds = []) {
 }
 
 export async function getCategories() {
-    const response = await api.fetchApi("/localpromptgallery/get_categories");
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_categories");
     const data = await response.json();
     return data.categories || [];
 }
 
 export async function updateMetadata(promptId, data) {
     const body = { prompt_id: promptId, ...data };
-    const response = await api.fetchApi("/localpromptgallery/update_metadata", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/update_metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -50,7 +50,7 @@ export async function updateMetadata(promptId, data) {
 }
 
 export async function createPrompt(name, promptText, category = "") {
-    const response = await api.fetchApi("/localpromptgallery/create_prompt", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/create_prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, prompt_text: promptText, category }),
@@ -59,7 +59,7 @@ export async function createPrompt(name, promptText, category = "") {
 }
 
 export async function createPromptFromOutput(name, promptText, category = "", lastOutput = null) {
-    const response = await api.fetchApi("/localpromptgallery/create_prompt_from_output", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/create_prompt_from_output", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,7 +73,7 @@ export async function createPromptFromOutput(name, promptText, category = "", la
 }
 
 export async function deletePrompt(promptId) {
-    const response = await api.fetchApi("/localpromptgallery/delete_prompt", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/delete_prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_id: promptId }),
@@ -82,7 +82,7 @@ export async function deletePrompt(promptId) {
 }
 
 export async function deletePromptsBulk(promptIds) {
-    const response = await api.fetchApi("/localpromptgallery/delete_prompts_bulk", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/delete_prompts_bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_ids: promptIds }),
@@ -94,7 +94,7 @@ export async function uploadThumbnail(promptId, file) {
     const formData = new FormData();
     formData.append("prompt_id", promptId);
     formData.append("file", file);
-    const response = await api.fetchApi("/localpromptgallery/upload_thumbnail", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/upload_thumbnail", {
         method: "POST",
         body: formData,
     });
@@ -104,7 +104,7 @@ export async function uploadThumbnail(promptId, file) {
 export async function toggleFavorite(promptId, category = null) {
     const body = { prompt_id: promptId };
     if (category) body.category = category;
-    const response = await api.fetchApi("/localpromptgallery/toggle_favorite", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/toggle_favorite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -113,7 +113,7 @@ export async function toggleFavorite(promptId, category = null) {
 }
 
 export async function setFavoriteColor(promptId, color) {
-    const response = await api.fetchApi("/localpromptgallery/set_favorite_color", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/set_favorite_color", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_id: promptId, color }),
@@ -124,7 +124,7 @@ export async function setFavoriteColor(promptId, color) {
 export async function uploadWildcardFile(file) {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.fetchApi("/localpromptgallery/upload_wildcard_file", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/upload_wildcard_file", {
         method: "POST",
         body: formData,
     });
@@ -132,7 +132,7 @@ export async function uploadWildcardFile(file) {
 }
 
 export async function importWildcardFile(filename, category) {
-    const response = await api.fetchApi("/localpromptgallery/import_wildcard_file", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/import_wildcard_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename, category }),
@@ -141,7 +141,7 @@ export async function importWildcardFile(filename, category) {
 }
 
 export async function deleteCategory(category) {
-    const response = await api.fetchApi("/localpromptgallery/delete_category", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/delete_category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category }),
@@ -150,7 +150,7 @@ export async function deleteCategory(category) {
 }
 
 export async function renameCategory(oldCategory, newCategory) {
-    const response = await api.fetchApi("/localpromptgallery/rename_category", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/rename_category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ old_category: oldCategory, new_category: newCategory }),
@@ -159,18 +159,18 @@ export async function renameCategory(oldCategory, newCategory) {
 }
 
 export async function getMostUsed(count = 10) {
-    const response = await api.fetchApi(`/localpromptgallery/get_most_used?count=${count}`);
+    const response = await api.fetchApi(`/localgalleryunified/prompt/get_most_used?count=${count}`);
     const data = await response.json();
     return data.prompts || [];
 }
 
 export async function getUiPrefs() {
-    const response = await api.fetchApi("/localpromptgallery/get_ui_prefs");
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_ui_prefs");
     return await response.json();
 }
 
 export async function saveUiPrefs(prefs) {
-    const response = await api.fetchApi("/localpromptgallery/save_ui_prefs", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/save_ui_prefs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefs),
@@ -179,13 +179,13 @@ export async function saveUiPrefs(prefs) {
 }
 
 export async function getPresets() {
-    const response = await api.fetchApi("/localpromptgallery/get_presets");
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_presets");
     const data = await response.json();
     return data.presets || [];
 }
 
 export async function savePreset(name, selection, wildcardMode, wildcardCategories) {
-    const response = await api.fetchApi("/localpromptgallery/save_preset", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/save_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -199,7 +199,7 @@ export async function savePreset(name, selection, wildcardMode, wildcardCategori
 }
 
 export async function getOrCreatePrompts(prompts) {
-    const response = await api.fetchApi("/localpromptgallery/get_or_create_prompts", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_or_create_prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompts }),
@@ -208,7 +208,7 @@ export async function getOrCreatePrompts(prompts) {
 }
 
 export async function loadPreset(name) {
-    const response = await api.fetchApi("/localpromptgallery/load_preset", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/load_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -217,7 +217,7 @@ export async function loadPreset(name) {
 }
 
 export async function deletePreset(name) {
-    const response = await api.fetchApi("/localpromptgallery/delete_preset", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/delete_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -226,7 +226,7 @@ export async function deletePreset(name) {
 }
 
 export async function resetUsageCount(promptId) {
-    const response = await api.fetchApi("/localpromptgallery/reset_usage_count", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/reset_usage_count", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_id: promptId }),
@@ -235,7 +235,7 @@ export async function resetUsageCount(promptId) {
 }
 
 export async function assignThumbnail(promptId, lastOutput) {
-    const response = await api.fetchApi("/localpromptgallery/assign_thumbnail", {
+    const response = await api.fetchApi("/localgalleryunified/prompt/assign_thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

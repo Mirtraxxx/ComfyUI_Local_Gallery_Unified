@@ -334,7 +334,7 @@ def prompt_response(prompt_id, data, include_usage=False):
     preview_url = None
     if preview_type:
         preview_version = data.get('preview_version', 0)
-        preview_url = f"/localpromptgallery/thumbnail/{prompt_id}?v={preview_version}"
+        preview_url = f"/localgalleryunified/prompt/thumbnail/{prompt_id}?v={preview_version}"
 
     response = {
         'id': prompt_id,
@@ -352,56 +352,190 @@ def prompt_response(prompt_id, data, include_usage=False):
         response['usage_count'] = data.get('usage_count', 0)
     return response
 
-def load_ui_prefs():
-    defaults = {
-        "display_mode": "thumbnails",
-        "most_used_count": 10,
-        "library_tabs": ["most_used", "pinned"],
-        "library_tab_layout": "scroll",
-        "thumbnail_size": "medium",
-        "thumbnail_size_px": 96,
-        "active_thumbnail_size_px": 96,
-        "pinned_categories": None,
-        "visible_pinned_category_count": 5,
-        "pinned_order": [],
-        "prompt_manual_orders": {},
-        "category_colors": {},
-        "active_sidebar_open": False,
-        "active_sidebar_width": 392,
-        "active_sidebar_hover_open": True,
-        "auto_hide_toolbars": False,
-        "show_most_used": True,
-        "prompt_sort_mode": "manual",
-        "prompt_sort_modes": {},
-        "meta_tags_button_side": "right",
-        "wildcard_cycle_state": {},
-        "last_created_category": "",
-        "from_last_output_name_default": "time",
-        "active_border_theme": "default",
-        "active_border_custom_1": "#ff0000",
-        "active_border_custom_2": "#0000ff",
-        "promote_selected_prompts": True,
-        "card_contrast_mode": "off",
+UI_PREF_DEFAULTS = {
+    "display_mode": "thumbnails",
+    "cards_display_mode": "thumbnails",
+    "active_display_mode": "compact",
+    "most_used_count": 10,
+    "library_tabs": ["most_used", "pinned"],
+    "library_tab_layout": "scroll",
+    "thumbnail_size": "medium",
+    "thumbnail_size_px": 96,
+    "active_thumbnail_size_px": 96,
+    "pinned_categories": None,
+    "visible_pinned_category_count": 5,
+    "pinned_order": [],
+    "prompt_manual_orders": {},
+    "category_colors": {},
+    "active_sidebar_open": False,
+    "active_sidebar_width": 392,
+    "active_sidebar_hover_open": True,
+    "auto_hide_toolbars": False,
+    "show_most_used": True,
+    "prompt_sort_mode": "manual",
+    "prompt_sort_modes": {},
+    "meta_tags_button_side": "right",
+    "wildcard_cycle_state": {},
+    "last_created_category": "",
+    "from_last_output_name_default": "time",
+    "active_border_theme": "default",
+    "active_border_custom_1": "#ff0000",
+    "active_border_custom_2": "#0000ff",
+    "promote_selected_prompts": True,
+    "card_contrast_mode": "off",
+}
+
+DISPLAY_MODES = {"compact", "thumbnails"}
+SORT_MODES = {"manual", "newest", "oldest", "az", "za"}
+ACTIVE_BORDER_THEMES = {
+    "default", "cyberpunk", "sunset", "aurora", "ice", "fire-ice",
+    "golden-mint", "rainbow-sync", "rainbow-split", "custom",
+}
+CARD_CONTRAST_MODES = {"off", "dim_inactive", "dim_by_default"}
+
+def _normalize_choice(value, allowed, fallback):
+    return value if value in allowed else fallback
+
+def _normalize_display_mode(value, fallback="compact"):
+    if value == "text":
+        return "compact"
+    return _normalize_choice(value, DISPLAY_MODES, fallback)
+
+def _normalize_int(value, fallback, min_value=None, max_value=None):
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        normalized = fallback
+    if min_value is not None:
+        normalized = max(min_value, normalized)
+    if max_value is not None:
+        normalized = min(max_value, normalized)
+    return normalized
+
+def _normalize_str_list(value):
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item]
+
+def _normalize_nullable_str_list(value):
+    if value is None:
+        return None
+    return _normalize_str_list(value)
+
+def _normalize_manual_orders(value):
+    manual_orders = value if isinstance(value, dict) else {}
+    return {
+        str(scope): _normalize_str_list(ids)
+        for scope, ids in manual_orders.items()
+        if scope and isinstance(ids, list)
     }
-    prefs = load_json_file(UI_PREFS_FILE, defaults)
-    if not isinstance(prefs, dict):
-        return defaults
 
-    if "thumbnail_size_px" not in prefs:
-        legacy_thumbnail_sizes = {
-            "small": 81,
-            "medium": 96,
-            "large": 115,
+def _normalize_category_colors(value):
+    color_map = value if isinstance(value, dict) else {}
+    return {
+        str(category): str(color)
+        for category, color in color_map.items()
+        if category and isinstance(color, str) and color.strip()
+    }
+
+def _normalize_sort_modes(value):
+    sort_modes = value if isinstance(value, dict) else {}
+    return {
+        str(scope): mode
+        for scope, mode in sort_modes.items()
+        if scope and mode in SORT_MODES
+    }
+
+def _normalize_hex_color(value, fallback):
+    color = str(value).strip()
+    return color if color.startswith("#") and len(color) in (4, 7, 9) else fallback
+
+def _normalize_dict(value):
+    return value if isinstance(value, dict) else {}
+
+UI_PREF_VALIDATORS = {
+    "display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["display_mode"]),
+    "cards_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["cards_display_mode"]),
+    "active_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["active_display_mode"]),
+    "most_used_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["most_used_count"]),
+    "library_tabs": lambda value, prefs: _normalize_str_list(value),
+    "library_tab_layout": lambda value, prefs: _normalize_choice(value, {"scroll", "wrap"}, UI_PREF_DEFAULTS["library_tab_layout"]),
+    "thumbnail_size": lambda value, prefs: _normalize_choice(value, {"small", "medium", "large"}, UI_PREF_DEFAULTS["thumbnail_size"]),
+    "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 70, 180),
+    "active_thumbnail_size_px": lambda value, prefs: _normalize_int(value, prefs.get("thumbnail_size_px", UI_PREF_DEFAULTS["active_thumbnail_size_px"]), 70, 180),
+    "pinned_categories": lambda value, prefs: _normalize_nullable_str_list(value),
+    "visible_pinned_category_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["visible_pinned_category_count"], 1, 20),
+    "pinned_order": lambda value, prefs: _normalize_str_list(value),
+    "prompt_manual_orders": lambda value, prefs: _normalize_manual_orders(value),
+    "category_colors": lambda value, prefs: _normalize_category_colors(value),
+    "active_sidebar_open": lambda value, prefs: bool(value),
+    "active_sidebar_width": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["active_sidebar_width"], 220),
+    "active_sidebar_hover_open": lambda value, prefs: bool(value),
+    "auto_hide_toolbars": lambda value, prefs: bool(value),
+    "show_most_used": lambda value, prefs: bool(value),
+    "prompt_sort_mode": lambda value, prefs: _normalize_choice(value, SORT_MODES, UI_PREF_DEFAULTS["prompt_sort_mode"]),
+    "prompt_sort_modes": lambda value, prefs: _normalize_sort_modes(value),
+    "meta_tags_button_side": lambda value, prefs: _normalize_choice(value, {"left", "right"}, UI_PREF_DEFAULTS["meta_tags_button_side"]),
+    "wildcard_cycle_state": lambda value, prefs: _normalize_dict(value),
+    "last_created_category": lambda value, prefs: str(value or ""),
+    "from_last_output_name_default": lambda value, prefs: _normalize_choice(value, {"time", "blank"}, UI_PREF_DEFAULTS["from_last_output_name_default"]),
+    "active_border_theme": lambda value, prefs: _normalize_choice(value, ACTIVE_BORDER_THEMES, UI_PREF_DEFAULTS["active_border_theme"]),
+    "active_border_custom_1": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_1"]),
+    "active_border_custom_2": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_2"]),
+    "promote_selected_prompts": lambda value, prefs: bool(value),
+    "card_contrast_mode": lambda value, prefs: _normalize_choice(value, CARD_CONTRAST_MODES, UI_PREF_DEFAULTS["card_contrast_mode"]),
+}
+
+def normalize_ui_prefs(raw_prefs):
+    source = raw_prefs if isinstance(raw_prefs, dict) else {}
+    prefs = copy.deepcopy(UI_PREF_DEFAULTS)
+
+    if "cards_display_mode" not in source and "display_mode" in source:
+        source = {
+            **source,
+            "cards_display_mode": source.get("display_mode"),
         }
-        prefs["thumbnail_size_px"] = legacy_thumbnail_sizes.get(prefs.get("thumbnail_size"), defaults["thumbnail_size_px"])
-    if "active_thumbnail_size_px" not in prefs:
-        prefs["active_thumbnail_size_px"] = prefs.get("thumbnail_size_px", defaults["active_thumbnail_size_px"])
 
-    merged = {**defaults, **prefs}
-    if merged != prefs:
-        save_json_file(merged, UI_PREFS_FILE)
-    return merged
-save_ui_prefs = lambda data: save_json_file(data, UI_PREFS_FILE)
+    for key, validator in UI_PREF_VALIDATORS.items():
+        if key in source:
+            prefs[key] = validator(source[key], prefs)
+
+    legacy_thumbnail_sizes = {
+        "small": 81,
+        "medium": 96,
+        "large": 115,
+    }
+    if "thumbnail_size_px" not in source:
+        prefs["thumbnail_size_px"] = legacy_thumbnail_sizes.get(
+            prefs.get("thumbnail_size"),
+            UI_PREF_DEFAULTS["thumbnail_size_px"],
+        )
+    if "active_thumbnail_size_px" not in source:
+        prefs["active_thumbnail_size_px"] = prefs.get(
+            "thumbnail_size_px",
+            UI_PREF_DEFAULTS["active_thumbnail_size_px"],
+        )
+
+    prefs["cards_display_mode"] = _normalize_display_mode(
+        prefs.get("cards_display_mode"),
+        UI_PREF_DEFAULTS["cards_display_mode"],
+    )
+    prefs["active_display_mode"] = _normalize_display_mode(
+        prefs.get("active_display_mode"),
+        UI_PREF_DEFAULTS["active_display_mode"],
+    )
+    prefs["display_mode"] = prefs["cards_display_mode"]
+    return prefs
+
+def load_ui_prefs():
+    prefs = load_json_file(UI_PREFS_FILE, UI_PREF_DEFAULTS)
+    normalized = normalize_ui_prefs(prefs)
+    if normalized != prefs:
+        save_json_file(normalized, UI_PREFS_FILE)
+    return normalized
+
+def save_ui_prefs(data):
+    save_json_file(normalize_ui_prefs(data), UI_PREFS_FILE)
 def load_presets():
     presets = load_json_file(PRESETS_FILE, {}, strict=True)
     if not isinstance(presets, dict):
@@ -484,7 +618,7 @@ def _rename_category_prefs(old_category, new_category):
 
     return prefs_changed
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_prompts")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_prompts")
 async def get_prompts_endpoint(request):
     try:
         filter_name = request.query.get('filter_name', '')
@@ -615,7 +749,7 @@ async def get_prompts_endpoint(request):
             'total_prompts': 0,
         }, status=500)
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_prompt")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_prompt")
 async def get_prompt_endpoint(request):
     try:
         prompt_id = request.query.get('prompt_id')
@@ -631,7 +765,7 @@ async def get_prompt_endpoint(request):
         preview_url = None
         if preview_type:
             preview_version = data.get('preview_version', 0)
-            preview_url = f"/localpromptgallery/thumbnail/{prompt_id}?v={preview_version}"
+            preview_url = f"/localgalleryunified/prompt/thumbnail/{prompt_id}?v={preview_version}"
             
         prompt = {
             'id': prompt_id,
@@ -651,7 +785,7 @@ async def get_prompt_endpoint(request):
         print(f"Error in get_prompt_endpoint: {e}")
         return web.json_response({'status': 'error', 'message': str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/get_prompts_by_ids")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/get_prompts_by_ids")
 async def get_prompts_by_ids_endpoint(request):
     try:
         data = await request.json()
@@ -672,7 +806,7 @@ async def get_prompts_by_ids_endpoint(request):
         print(f"Error in get_prompts_by_ids_endpoint: {e}")
         return web.json_response({'status': 'error', 'message': str(e), 'prompts': []}, status=500)
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_categories")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_categories")
 async def get_categories_endpoint(request):
     try:
         indexes = get_metadata_indexes()
@@ -681,7 +815,7 @@ async def get_categories_endpoint(request):
         print(f"Error getting categories: {e}")
         return web.json_response({'status': 'error', 'message': str(e), 'categories': []}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/update_metadata")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/update_metadata")
 async def update_metadata_endpoint(request):
     try:
         data = await request.json()
@@ -710,7 +844,7 @@ async def update_metadata_endpoint(request):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/rename_category")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/rename_category")
 async def rename_category_endpoint(request):
     try:
         data = await request.json()
@@ -756,7 +890,7 @@ async def rename_category_endpoint(request):
         print(f"Error renaming category: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/create_prompt")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/create_prompt")
 async def create_prompt_endpoint(request):
     try:
         data = await request.json()
@@ -791,7 +925,7 @@ async def create_prompt_endpoint(request):
         print(f"Error creating prompt: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/create_prompt_from_output")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/create_prompt_from_output")
 async def create_prompt_from_output_endpoint(request):
     try:
         data = await request.json()
@@ -860,7 +994,7 @@ async def create_prompt_from_output_endpoint(request):
         print(f"Error creating prompt from output: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/delete_prompt")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/delete_prompt")
 async def delete_prompt_endpoint(request):
     try:
         data = await request.json()
@@ -882,7 +1016,7 @@ async def delete_prompt_endpoint(request):
         print(f"Error deleting prompt: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/delete_prompts_bulk")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/delete_prompts_bulk")
 async def delete_prompts_bulk_endpoint(request):
     try:
         data = await request.json()
@@ -918,7 +1052,7 @@ async def delete_prompts_bulk_endpoint(request):
         print(f"Error bulk deleting prompts: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/upload_thumbnail")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/upload_thumbnail")
 async def upload_thumbnail_endpoint(request):
     try:
         reader = await request.multipart()
@@ -984,7 +1118,7 @@ async def upload_thumbnail_endpoint(request):
         print(f"Error uploading thumbnail: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/assign_thumbnail")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/assign_thumbnail")
 async def assign_thumbnail_endpoint(request):
     try:
         data = await request.json()
@@ -1041,7 +1175,7 @@ async def assign_thumbnail_endpoint(request):
         print(f"Error assigning thumbnail: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/thumbnail/{prompt_id}")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/thumbnail/{prompt_id}")
 async def serve_thumbnail(request):
     try:
         prompt_id = request.match_info['prompt_id']
@@ -1057,7 +1191,7 @@ async def serve_thumbnail(request):
         print(f"Error serving thumbnail: {e}")
         return web.Response(status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/delete_category")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/delete_category")
 async def delete_category_endpoint(request):
     """Delete all prompts in a category"""
     try:
@@ -1097,7 +1231,7 @@ async def delete_category_endpoint(request):
         print(f"Error deleting category: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/toggle_favorite")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/toggle_favorite")
 async def toggle_favorite_endpoint(request):
     try:
         data = await request.json()
@@ -1129,7 +1263,7 @@ async def toggle_favorite_endpoint(request):
         print(f"Error toggling favorite: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/set_favorite_color")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/set_favorite_color")
 async def set_favorite_color_endpoint(request):
     try:
         data = await request.json()
@@ -1151,7 +1285,7 @@ async def set_favorite_color_endpoint(request):
         print(f"Error setting favorite color: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_most_used")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_most_used")
 async def get_most_used_endpoint(request):
     """Get the most frequently used prompts"""
     try:
@@ -1186,7 +1320,7 @@ async def get_most_used_endpoint(request):
         print(f"Error getting most used prompts: {e}")
         return web.json_response({'status': 'error', 'message': str(e), 'prompts': []}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/reset_usage_count")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/reset_usage_count")
 async def reset_usage_count_endpoint(request):
     """Reset usage count for a prompt to 0"""
     try:
@@ -1209,7 +1343,7 @@ async def reset_usage_count_endpoint(request):
         print(f"Error resetting usage count: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_ui_prefs")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_ui_prefs")
 async def get_ui_prefs_endpoint(request):
     """Get UI preferences"""
     try:
@@ -1217,138 +1351,28 @@ async def get_ui_prefs_endpoint(request):
         return web.json_response(prefs)
     except Exception as e:
         print(f"Error getting UI prefs: {e}")
-        return web.json_response({
-            "display_mode": "thumbnails",
-            "most_used_count": 10,
-            "library_tabs": ["most_used", "pinned"],
-            "library_tab_layout": "scroll",
-            "thumbnail_size": "medium",
-            "thumbnail_size_px": 96,
-            "active_thumbnail_size_px": 96,
-            "pinned_categories": None,
-            "visible_pinned_category_count": 5,
-            "pinned_order": [],
-            "prompt_manual_orders": {},
-            "category_colors": {},
-            "active_sidebar_open": False,
-            "active_sidebar_hover_open": True,
-            "auto_hide_toolbars": False,
-            "prompt_sort_mode": "manual",
-            "prompt_sort_modes": {},
-            "meta_tags_button_side": "right",
-            "from_last_output_name_default": "time",
-            "card_contrast_mode": "off",
-        }, status=500)
+        return web.json_response(copy.deepcopy(UI_PREF_DEFAULTS), status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/save_ui_prefs")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/save_ui_prefs")
 async def save_ui_prefs_endpoint(request):
     """Save UI preferences"""
     try:
         data = await request.json()
         prefs = load_ui_prefs()
-        
-        # Update only provided fields
-        if 'display_mode' in data:
-            prefs['display_mode'] = data['display_mode']
-        if 'most_used_count' in data:
-            prefs['most_used_count'] = int(data['most_used_count'])
-        if 'show_most_used' in data:
-            prefs['show_most_used'] = data['show_most_used']
-        if 'library_tabs' in data:
-            prefs['library_tabs'] = data['library_tabs']
-        if 'library_tab_layout' in data:
-            prefs['library_tab_layout'] = data['library_tab_layout'] if data['library_tab_layout'] in ('scroll', 'wrap') else 'scroll'
-        if 'thumbnail_size' in data:
-            prefs['thumbnail_size'] = data['thumbnail_size'] if data['thumbnail_size'] in ('small', 'medium', 'large') else 'medium'
-        if 'thumbnail_size_px' in data:
-            try:
-                prefs['thumbnail_size_px'] = max(70, min(180, int(data['thumbnail_size_px'])))
-            except (TypeError, ValueError):
-                prefs['thumbnail_size_px'] = 96
-        if 'active_thumbnail_size_px' in data:
-            try:
-                prefs['active_thumbnail_size_px'] = max(70, min(180, int(data['active_thumbnail_size_px'])))
-            except (TypeError, ValueError):
-                prefs['active_thumbnail_size_px'] = prefs.get('thumbnail_size_px', 96)
-        if 'pinned_categories' in data:
-            pinned_categories = data['pinned_categories'] if isinstance(data['pinned_categories'], list) else []
-            prefs['pinned_categories'] = [str(item) for item in pinned_categories if item]
-        if 'visible_pinned_category_count' in data:
-            try:
-                prefs['visible_pinned_category_count'] = max(1, min(20, int(data['visible_pinned_category_count'])))
-            except (TypeError, ValueError):
-                prefs['visible_pinned_category_count'] = 5
-        if 'pinned_order' in data:
-            prefs['pinned_order'] = [str(item) for item in data['pinned_order'] if item]
-        if 'prompt_manual_orders' in data:
-            manual_orders = data['prompt_manual_orders'] if isinstance(data['prompt_manual_orders'], dict) else {}
-            prefs['prompt_manual_orders'] = {
-                str(scope): [str(item) for item in ids if item]
-                for scope, ids in manual_orders.items()
-                if scope and isinstance(ids, list)
-            }
-        if 'category_colors' in data:
-            color_map = data['category_colors'] if isinstance(data['category_colors'], dict) else {}
-            prefs['category_colors'] = {
-                str(category): str(color)
-                for category, color in color_map.items()
-                if category and isinstance(color, str) and color.strip()
-            }
-        if 'active_sidebar_open' in data:
-            prefs['active_sidebar_open'] = bool(data['active_sidebar_open'])
-        if 'active_sidebar_width' in data:
-            try:
-                prefs['active_sidebar_width'] = max(220, int(data['active_sidebar_width']))
-            except (TypeError, ValueError):
-                prefs['active_sidebar_width'] = 392
-        if 'active_sidebar_hover_open' in data:
-            prefs['active_sidebar_hover_open'] = data['active_sidebar_hover_open']
-        if 'auto_hide_toolbars' in data:
-            prefs['auto_hide_toolbars'] = bool(data['auto_hide_toolbars'])
-        if 'promote_selected_prompts' in data:
-            prefs['promote_selected_prompts'] = data['promote_selected_prompts']
-        if 'prompt_sort_mode' in data:
-            prefs['prompt_sort_mode'] = (
-                data['prompt_sort_mode']
-                if data['prompt_sort_mode'] in ('manual', 'newest', 'oldest', 'az', 'za')
-                else 'manual'
-            )
-        if 'prompt_sort_modes' in data:
-            sort_modes = data['prompt_sort_modes'] if isinstance(data['prompt_sort_modes'], dict) else {}
-            prefs['prompt_sort_modes'] = {
-                str(scope): mode
-                for scope, mode in sort_modes.items()
-                if scope and mode in ('manual', 'newest', 'oldest', 'az', 'za')
-            }
-        if 'meta_tags_button_side' in data:
-            prefs['meta_tags_button_side'] = (
-                data['meta_tags_button_side']
-                if data['meta_tags_button_side'] in ('left', 'right')
-                else 'right'
-            )
-        if 'from_last_output_name_default' in data:
-            prefs['from_last_output_name_default'] = (
-                data['from_last_output_name_default']
-                if data['from_last_output_name_default'] in ('time', 'blank')
-                else 'time'
-            )
-        if 'active_border_theme' in data:
-            theme = data['active_border_theme']
-            if theme in ('default', 'cyberpunk', 'sunset', 'aurora', 'ice', 'fire-ice', 'golden-mint', 'rainbow-sync', 'rainbow-split', 'custom'):
-                prefs['active_border_theme'] = theme
-        if 'active_border_custom_1' in data:
-            color = str(data['active_border_custom_1']).strip()
-            if color.startswith('#') and len(color) in (4, 7, 9):
-                prefs['active_border_custom_1'] = color
-        if 'active_border_custom_2' in data:
-            color = str(data['active_border_custom_2']).strip()
-            if color.startswith('#') and len(color) in (4, 7, 9):
-                prefs['active_border_custom_2'] = color
-        if 'card_contrast_mode' in data:
-            mode = data['card_contrast_mode']
-            if mode in ('off', 'dim_inactive', 'dim_by_default'):
-                prefs['card_contrast_mode'] = mode
- 
+
+        if not isinstance(data, dict):
+            return web.json_response({"status": "error", "message": "UI prefs payload must be an object"}, status=400)
+
+        for key, value in data.items():
+            validator = UI_PREF_VALIDATORS.get(key)
+            if validator:
+                prefs[key] = validator(value, prefs)
+
+        if "cards_display_mode" in data:
+            prefs["display_mode"] = prefs["cards_display_mode"]
+        elif "display_mode" in data:
+            prefs["cards_display_mode"] = prefs["display_mode"]
+
         save_ui_prefs(prefs)
         return web.json_response({"status": "ok"})
     except Exception as e:
@@ -1357,7 +1381,7 @@ async def save_ui_prefs_endpoint(request):
 
 # ========== PRESET ENDPOINTS ==========
 
-@server.PromptServer.instance.routes.get("/localpromptgallery/get_presets")
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_presets")
 async def get_presets_endpoint(request):
     """Get all saved presets"""
     try:
@@ -1369,7 +1393,7 @@ async def get_presets_endpoint(request):
         print(f"Error getting presets: {e}")
         return web.json_response({"status": "error", "message": str(e), "presets": []}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/save_preset")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/save_preset")
 async def save_preset_endpoint(request):
     """Save a new preset or update existing"""
     try:
@@ -1392,7 +1416,7 @@ async def save_preset_endpoint(request):
         print(f"Error saving preset: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/load_preset")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/load_preset")
 async def load_preset_endpoint(request):
     """Load a specific preset by name"""
     try:
@@ -1421,7 +1445,7 @@ async def load_preset_endpoint(request):
         print(f"Error loading preset: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/delete_preset")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/delete_preset")
 async def delete_preset_endpoint(request):
     """Delete a preset by name"""
     try:
@@ -1444,7 +1468,7 @@ async def delete_preset_endpoint(request):
         print(f"Error deleting preset: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/upload_wildcard_file")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/upload_wildcard_file")
 async def upload_wildcard_file_endpoint(request):
     try:
         reader = await request.multipart()
@@ -1487,7 +1511,7 @@ async def upload_wildcard_file_endpoint(request):
         print(f"Error uploading wildcard file: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/import_wildcard_file")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/import_wildcard_file")
 async def import_wildcard_file_endpoint(request):
     try:
         data = await request.json()
@@ -1545,7 +1569,7 @@ async def import_wildcard_file_endpoint(request):
         print(f"Error importing wildcard file: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localpromptgallery/get_or_create_prompts")
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/get_or_create_prompts")
 async def get_or_create_prompts_endpoint(request):
     try:
         data = await request.json()

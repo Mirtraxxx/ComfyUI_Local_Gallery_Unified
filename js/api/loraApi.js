@@ -1,7 +1,7 @@
 import { api } from "../../../scripts/api.js";
 
 export async function getLoras(filterTag = "", mode = "OR", folder = "", page = 1, selectedLoras = [], perPage = 50) {
-    let url = `/localloragallery/get_loras?filter_tag=${encodeURIComponent(filterTag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&per_page=${perPage}`;
+    let url = `/localgalleryunified/lora/get_loras?filter_tag=${encodeURIComponent(filterTag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&per_page=${perPage}`;
     selectedLoras.forEach((lora) => {
         url += `&selected_loras=${encodeURIComponent(lora)}`;
     });
@@ -11,7 +11,7 @@ export async function getLoras(filterTag = "", mode = "OR", folder = "", page = 
 
 export async function updateMetadata(loraName, data) {
     const body = { lora_name: loraName, ...data };
-    await api.fetchApi("/localloragallery/update_metadata", {
+    await api.fetchApi("/localgalleryunified/lora/update_metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -19,7 +19,7 @@ export async function updateMetadata(loraName, data) {
 }
 
 export async function setUiState(nodeId, galleryId, state) {
-    await api.fetchApi("/localloragallery/set_ui_state", {
+    await api.fetchApi("/localgalleryunified/lora/set_ui_state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -31,7 +31,7 @@ export async function setUiState(nodeId, galleryId, state) {
 }
 
 export async function syncCivitai(loraName) {
-    const response = await api.fetchApi("/localloragallery/sync_civitai", {
+    const response = await api.fetchApi("/localgalleryunified/lora/sync_civitai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lora_name: loraName }),
@@ -44,17 +44,17 @@ export async function syncCivitai(loraName) {
 }
 
 export async function getAllTags() {
-    const response = await api.fetchApi("/localloragallery/get_all_tags");
+    const response = await api.fetchApi("/localgalleryunified/lora/get_all_tags");
     return await response.json();
 }
 
 export async function getPresets() {
-    const response = await api.fetchApi("/localloragallery/get_presets");
+    const response = await api.fetchApi("/localgalleryunified/lora/get_presets");
     return await response.json();
 }
 
 export async function deletePreset(name) {
-    const response = await api.fetchApi("/localloragallery/delete_preset", {
+    const response = await api.fetchApi("/localgalleryunified/lora/delete_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -63,12 +63,12 @@ export async function deletePreset(name) {
 }
 
 export async function getUiState(nodeId, galleryId) {
-    const response = await api.fetchApi(`/localloragallery/get_ui_state?node_id=${nodeId}&gallery_id=${galleryId}`);
+    const response = await api.fetchApi(`/localgalleryunified/lora/get_ui_state?node_id=${nodeId}&gallery_id=${galleryId}`);
     return await response.json();
 }
 
 export async function savePreset(name, data) {
-    const response = await api.fetchApi("/localloragallery/save_preset", {
+    const response = await api.fetchApi("/localgalleryunified/lora/save_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, data }),

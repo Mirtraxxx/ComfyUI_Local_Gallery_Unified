@@ -1,6 +1,13 @@
 import json
 import time
 
+try:
+    from .backend.Local_Lora_Gallery import LocalLoraGallery
+    from .backend.Local_Prompt_Gallery import LocalPromptGallery
+except ImportError:
+    from backend.Local_Lora_Gallery import LocalLoraGallery
+    from backend.Local_Prompt_Gallery import LocalPromptGallery
+
 
 class LocalGalleryPromptLora:
     _LORA_CACHE_KEY = None
@@ -75,13 +82,7 @@ class LocalGalleryPromptLora:
         active_tab="prompt",
         **kwargs,
     ):
-        try:
-            from nodes import NODE_CLASS_MAPPINGS
-
-            lora_cls = NODE_CLASS_MAPPINGS.get("LocalLoraGallery")
-            lora_changed = cls._get_lora_change_signature(lora_cls, lora_selection_data)
-        except Exception:
-            lora_changed = lora_selection_data
+        lora_changed = cls._get_lora_change_signature(LocalLoraGallery, lora_selection_data)
 
         return json.dumps(
             {
@@ -142,21 +143,12 @@ class LocalGalleryPromptLora:
         active_tab="prompt",
         **kwargs,
     ):
-        from nodes import NODE_CLASS_MAPPINGS
-
-        lora_cls = NODE_CLASS_MAPPINGS.get("LocalLoraGallery")
-        prompt_cls = NODE_CLASS_MAPPINGS.get("LocalPromptGallery")
-        if lora_cls is None:
-            raise RuntimeError("LocalGalleryPromptLora requires the legacy Local LoRA Gallery node to be enabled.")
-        if prompt_cls is None:
-            raise RuntimeError("LocalGalleryPromptLora requires the legacy Local Prompt Gallery node to be enabled.")
-
-        prompt_node = prompt_cls()
+        prompt_node = LocalPromptGallery()
 
         model_out, clip_out, lora_trigger_words = self._get_cached_lora_outputs(
             model,
             clip,
-            lora_cls,
+            LocalLoraGallery,
             lora_selection_data or "[]",
         )
 

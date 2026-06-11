@@ -272,7 +272,7 @@ def get_lora_preview_asset_info(lora_name):
             preview_filename = os.path.basename(preview_path)
             encoded_lora_name = urllib.parse.quote_plus(lora_name)
             encoded_filename = urllib.parse.quote_plus(preview_filename)
-            url = f"/localloragallery/preview?filename={encoded_filename}&lora_name={encoded_lora_name}"
+            url = f"/localgalleryunified/lora/preview?filename={encoded_filename}&lora_name={encoded_lora_name}"
             
             preview_type = "none"
             if ext.lower() in VIDEO_EXTENSIONS:
@@ -284,7 +284,7 @@ def get_lora_preview_asset_info(lora_name):
 
     return None, "none"
 
-@server.PromptServer.instance.routes.post("/localloragallery/sync_civitai")
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/sync_civitai")
 async def sync_civitai_metadata(request):
     try:
         data = await request.json()
@@ -408,12 +408,12 @@ async def sync_civitai_metadata(request):
         print(f"Error in sync_civitai_metadata: {traceback.format_exc()}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localloragallery/get_presets")
+@server.PromptServer.instance.routes.get("/localgalleryunified/lora/get_presets")
 async def get_presets(request):
     presets = load_presets()
     return web.json_response(presets)
 
-@server.PromptServer.instance.routes.post("/localloragallery/save_preset")
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/save_preset")
 async def save_preset(request):
     try:
         data = await request.json()
@@ -429,7 +429,7 @@ async def save_preset(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localloragallery/delete_preset")
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/delete_preset")
 async def delete_preset(request):
     try:
         data = await request.json()
@@ -445,7 +445,7 @@ async def delete_preset(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localloragallery/get_loras")
+@server.PromptServer.instance.routes.get("/localgalleryunified/lora/get_loras")
 async def get_loras_endpoint(request):
     try:
         filter_tags_str = request.query.get('filter_tag', '').strip().lower()
@@ -562,7 +562,7 @@ async def get_loras_endpoint(request):
         print(f"Error in get_loras_endpoint: {traceback.format_exc()}")
         return web.json_response({"error": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localloragallery/preview")
+@server.PromptServer.instance.routes.get("/localgalleryunified/lora/preview")
 async def get_preview_image(request):
     filename = request.query.get('filename')
     lora_name = request.query.get('lora_name')
@@ -587,7 +587,7 @@ async def get_preview_image(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localloragallery/set_ui_state")
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/set_ui_state")
 async def set_ui_state(request):
     try:
         data = await request.json()
@@ -607,7 +607,7 @@ async def set_ui_state(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localloragallery/get_ui_state")
+@server.PromptServer.instance.routes.get("/localgalleryunified/lora/get_ui_state")
 async def get_ui_state(request):
     try:
         node_id = request.query.get('node_id')
@@ -623,7 +623,7 @@ async def get_ui_state(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/localloragallery/update_metadata")
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/update_metadata")
 async def update_lora_metadata(request):
     try:
         data = await request.json()
@@ -657,7 +657,7 @@ async def update_lora_metadata(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
     
-@server.PromptServer.instance.routes.get("/localloragallery/get_all_tags")
+@server.PromptServer.instance.routes.get("/localgalleryunified/lora/get_all_tags")
 async def get_all_tags(request):
     try:
         metadata = load_metadata()

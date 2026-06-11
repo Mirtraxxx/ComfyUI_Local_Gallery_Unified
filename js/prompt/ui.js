@@ -11,12 +11,10 @@ import {
 import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
-    getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
     getCategoryColorMap as resolveCategoryColorMap,
     getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
     getNearestPaletteColor,
-    getThumbnailSizePx as resolveThumbnailSizePx,
     getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
@@ -62,12 +60,21 @@ import {
     renderLibraryDrawer as renderPromptLibraryDrawer,
 } from "./library.js?v=prompt-builder-swap-reorder-20260608";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=meta-side-pref-20260607";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js";
 import { getPromptTemplate } from "./template.js";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js";
+import {
+    DEFAULT_PROMPT_UI_PREFS,
+    getActiveDisplayMode as resolveActiveDisplayMode,
+    getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
+    getCardsDisplayMode as resolveCardsDisplayMode,
+    getThumbnailSizePx as resolveThumbnailSizePx,
+    mergeUiPrefs,
+    normalizeDisplayMode,
+} from "./preferences.js?v=prefs-schema-20260611";
 import { escapeHtml } from "../shared/dom.js";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 
@@ -249,32 +256,7 @@ const UnifiedPromptGalleryNode = {
             return await promptApi.getUiPrefs();
         } catch (e) {
             console.error("LocalPromptGallery: Failed to get UI prefs", e);
-            return {
-                display_mode: "thumbnails",
-                active_display_mode: "compact",
-                cards_display_mode: "thumbnails",
-                most_used_count: 10,
-                library_tab_layout: "scroll",
-                thumbnail_size: "medium",
-                thumbnail_size_px: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
-                active_thumbnail_size_px: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
-                library_tabs: ["most_used", "pinned"],
-                pinned_categories: null,
-                visible_pinned_category_count: 5,
-                pinned_order: [],
-                prompt_manual_orders: {},
-                category_colors: {},
-                active_sidebar_open: false,
-                active_sidebar_width: 300,
-                active_sidebar_hover_open: true,
-                auto_hide_toolbars: false,
-                show_most_used: true,
-                promote_selected_prompts: true,
-                prompt_sort_mode: "manual",
-                prompt_sort_modes: {},
-                meta_tags_button_side: "right",
-                card_contrast_mode: "off",
-            };
+            return { ...DEFAULT_PROMPT_UI_PREFS };
         }
     },
 
@@ -387,32 +369,11 @@ const UnifiedPromptGalleryNode = {
             this.mostUsedPrompts = [];
             this.showFavoritesOnly = false;
             this.uiPrefs = {
-                display_mode: "text",
-                active_display_mode: "compact",
-                cards_display_mode: "thumbnails",
-                most_used_count: 10,
-                show_most_used: true,
-                library_tab_layout: "scroll",
-                thumbnail_size: "medium",
-                thumbnail_size_px: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
-                active_thumbnail_size_px: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
-                pinned_categories: null,
-                visible_pinned_category_count: 5,
-                pinned_order: [],
-                prompt_manual_orders: {},
-                category_colors: {},
-                active_sidebar_width: 300,
-                active_sidebar_hover_open: true,
-                auto_hide_toolbars: false,
+                ...DEFAULT_PROMPT_UI_PREFS,
                 last_created_category: "",
-                prompt_sort_mode: "manual",
-                prompt_sort_modes: {},
-                meta_tags_button_side: "right",
                 active_border_theme: "default",
                 active_border_custom_1: "#ff0000",
                 active_border_custom_2: "#0000ff",
-                promote_selected_prompts: true,
-                card_contrast_mode: "off",
             };
 
             
@@ -833,40 +794,19 @@ const UnifiedPromptGalleryNode = {
             }
 
             function getThumbnailSizePx() {
-                return resolveThumbnailSizePx(node_instance.uiPrefs, {
-                    legacyPresets: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_LEGACY_PRESETS,
-                    defaultSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_DEFAULT,
-                    minSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
-                    maxSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX,
-                });
+                return resolveThumbnailSizePx(node_instance.uiPrefs);
             }
 
             function getActiveThumbnailSizePx() {
-                return resolveActiveThumbnailSizePx(node_instance.uiPrefs, getThumbnailSizePx(), {
-                    minSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MIN,
-                    maxSize: UnifiedPromptGalleryNode.THUMBNAIL_SIZE_MAX,
-                });
-            }
-
-            function normalizeDisplayMode(mode, fallback = "compact") {
-                const normalized = String(mode || "").toLowerCase();
-                if (normalized === "thumbnails") return "thumbnails";
-                if (normalized === "compact" || normalized === "text") return "compact";
-                return fallback;
+                return resolveActiveThumbnailSizePx(node_instance.uiPrefs);
             }
 
             function getActiveDisplayMode() {
-                return normalizeDisplayMode(
-                    node_instance.uiPrefs?.active_display_mode ?? node_instance.uiPrefs?.display_mode,
-                    "compact"
-                );
+                return resolveActiveDisplayMode(node_instance.uiPrefs);
             }
 
             function getCardsDisplayMode() {
-                return normalizeDisplayMode(
-                    node_instance.uiPrefs?.cards_display_mode ?? node_instance.uiPrefs?.display_mode,
-                    "thumbnails"
-                );
+                return resolveCardsDisplayMode(node_instance.uiPrefs);
             }
 
             function applyThumbnailVariables(target, sizePx) {
@@ -1020,7 +960,9 @@ const UnifiedPromptGalleryNode = {
                         syncThumbnailSizeSliders();
                         if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
                         renderGallery();
-                        queueThumbnailSizeSave();
+                        saveUiPrefs().catch(error => {
+                            console.warn("LocalPromptGallery: Failed to save cards display mode", error);
+                        });
                     });
                 }
                 if (activeModeSelect) {
@@ -1029,7 +971,9 @@ const UnifiedPromptGalleryNode = {
                         node_instance.uiPrefs.active_display_mode = normalizeDisplayMode(activeModeSelect.value, "compact");
                         syncThumbnailSizeSliders();
                         await renderActiveSidebar();
-                        queueThumbnailSizeSave();
+                        saveUiPrefs().catch(error => {
+                            console.warn("LocalPromptGallery: Failed to save active display mode", error);
+                        });
                     });
                 }
                 const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
@@ -1038,7 +982,9 @@ const UnifiedPromptGalleryNode = {
                     contrastSelect.addEventListener('change', () => {
                         node_instance.uiPrefs.card_contrast_mode = contrastSelect.value;
                         applyCardContrastModePreference();
-                        queueThumbnailSizeSave();
+                        saveUiPrefs().catch(error => {
+                            console.warn("LocalPromptGallery: Failed to save card contrast mode", error);
+                        });
                     });
                 }
                 syncDisplayOptionAvailability();
@@ -2529,10 +2475,10 @@ const UnifiedPromptGalleryNode = {
                 // Load UI preferences and initialize
                 (async () => {
                     // Load UI preferences
-                    node_instance.uiPrefs = {
-                        ...node_instance.uiPrefs,
-                        ...(await UnifiedPromptGalleryNode.getUiPrefs()),
-                    };
+                    node_instance.uiPrefs = mergeUiPrefs(
+                        node_instance.uiPrefs,
+                        await UnifiedPromptGalleryNode.getUiPrefs()
+                    );
                     node_instance.uiPrefs.active_sidebar_open = false;
                     node_instance.uiPrefs.active_display_mode = getActiveDisplayMode();
                     node_instance.uiPrefs.cards_display_mode = getCardsDisplayMode();
@@ -2770,6 +2716,7 @@ const UnifiedPromptGalleryNode = {
                         applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         applyActiveBorderThemePreference,
+                        renderGallery,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,
@@ -2799,6 +2746,7 @@ const UnifiedPromptGalleryNode = {
                         applyMetaTagsButtonSidePreference,
                         applyAutoHideToolbarPreference: syncAutoHideToolbarState,
                         applyActiveBorderThemePreference,
+                        renderGallery,
                         renderLibraryBar,
                         getActiveLibraryTab: () => activeLibraryTab,
                         renderLibraryDrawer,

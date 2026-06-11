@@ -8,6 +8,8 @@ from .Local_Gallery_Unified import (
     NODE_CLASS_MAPPINGS as UNIFIED_NODE_CLASS_MAPPINGS,
     NODE_DISPLAY_NAME_MAPPINGS as UNIFIED_NODE_DISPLAY_NAME_MAPPINGS,
 )
+from .backend import Local_Lora_Gallery as BUNDLED_LORA_BACKEND
+from .backend import Local_Prompt_Gallery as BUNDLED_PROMPT_BACKEND
 
 
 def _legacy_folder_exists(folder_name):
@@ -22,22 +24,12 @@ _legacy_prompt_installed = _legacy_folder_exists("Local_Prompt_Gallery")
 _legacy_lora_installed = _legacy_folder_exists("ComfyUI_Local_Lora_Gallery")
 
 if not _legacy_prompt_installed:
-    from .backend.Local_Prompt_Gallery import (  # noqa: F401
-        NODE_CLASS_MAPPINGS as PROMPT_NODE_CLASS_MAPPINGS,
-        NODE_DISPLAY_NAME_MAPPINGS as PROMPT_NODE_DISPLAY_NAME_MAPPINGS,
-    )
-
-    NODE_CLASS_MAPPINGS.update(PROMPT_NODE_CLASS_MAPPINGS)
-    NODE_DISPLAY_NAME_MAPPINGS.update(PROMPT_NODE_DISPLAY_NAME_MAPPINGS)
+    NODE_CLASS_MAPPINGS.update(BUNDLED_PROMPT_BACKEND.NODE_CLASS_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(BUNDLED_PROMPT_BACKEND.NODE_DISPLAY_NAME_MAPPINGS)
 
 if not _legacy_lora_installed:
-    from .backend.Local_Lora_Gallery import (  # noqa: F401
-        NODE_CLASS_MAPPINGS as LORA_NODE_CLASS_MAPPINGS,
-        NODE_DISPLAY_NAME_MAPPINGS as LORA_NODE_DISPLAY_NAME_MAPPINGS,
-    )
-
-    NODE_CLASS_MAPPINGS.update(LORA_NODE_CLASS_MAPPINGS)
-    NODE_DISPLAY_NAME_MAPPINGS.update(LORA_NODE_DISPLAY_NAME_MAPPINGS)
+    NODE_CLASS_MAPPINGS.update(BUNDLED_LORA_BACKEND.NODE_CLASS_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(BUNDLED_LORA_BACKEND.NODE_DISPLAY_NAME_MAPPINGS)
 
 WEB_DIRECTORY = "./js"
 
