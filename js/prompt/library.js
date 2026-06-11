@@ -4,6 +4,9 @@ import {
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
 
+// Product term: Prompt Builder. Historical code names still use "library"
+// for DOM ids, CSS classes, and compatibility exports.
+
 function getPromptCreatedAtValue(prompt) {
     const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
     if (typeof rawValue === "number") return rawValue;
@@ -60,7 +63,7 @@ export function applyLibraryTabLayoutPreference({ widgetContainer, uniqueId, lay
     if (tabsScroll) tabsScroll.classList.toggle("wrap-mode", isWrapMode);
 }
 
-export async function renderLibraryBar({
+export async function renderPromptBuilderBar({
     widgetContainer,
     uniqueId,
     getLibraryTabs,
@@ -191,6 +194,8 @@ export async function renderLibraryBar({
     categoryTabs.forEach(tabContent => renderTabButton(tabContent, tabsContainer, "category"));
 }
 
+export const renderLibraryBar = renderPromptBuilderBar;
+
 export async function getLibraryDrawerPrompts({
     galleryNode,
     tabName,
@@ -213,7 +218,7 @@ export async function getLibraryDrawerPrompts({
     return categoryPrompts;
 }
 
-export async function renderLibraryDrawer({
+export async function renderPromptBuilderDrawer({
     widgetContainer,
     uniqueId,
     tabName,
@@ -644,3 +649,5 @@ export async function renderLibraryDrawer({
         });
     }
 }
+
+export const renderLibraryDrawer = renderPromptBuilderDrawer;

@@ -24,7 +24,7 @@ import {
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
-import { showBrowseModal as openBrowseModal } from "./browse.js?v=default-gallery-pointer-reorder-20260608";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=default-gallery-pointer-reorder-20260608";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -56,8 +56,8 @@ import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
-    renderLibraryBar as renderPromptLibraryBar,
-    renderLibraryDrawer as renderPromptLibraryDrawer,
+    renderPromptBuilderBar,
+    renderPromptBuilderDrawer,
 } from "./library.js?v=prompt-builder-swap-reorder-20260608";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
@@ -1725,7 +1725,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function renderLibraryBar() {
-                await renderPromptLibraryBar({
+                await renderPromptBuilderBar({
                     widgetContainer,
                     uniqueId,
                     getLibraryTabs,
@@ -1763,7 +1763,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function renderLibraryDrawer(tabName) {
-                await renderPromptLibraryDrawer({
+                await renderPromptBuilderDrawer({
                     widgetContainer,
                     uniqueId,
                     tabName,
@@ -2242,7 +2242,7 @@ const UnifiedPromptGalleryNode = {
             async function showBrowseWorkspace(onClose = returnToGallery) {
                 const host = renderLibraryShell("cards");
                 if (!host) return;
-                await openBrowseModal({
+                await openCardManager({
                     app,
                     nodeInstance: node_instance,
                     galleryNode: UnifiedPromptGalleryNode,
@@ -2673,9 +2673,9 @@ const UnifiedPromptGalleryNode = {
 
                 // Control after generate dropdown listener is already bound in the main seed controls block above.
 
-                // Browse Modal function
-                async function showBrowseModal() {
-                    await openBrowseModal({
+                // Card Manager modal function
+                async function showCardManagerModal() {
+                    await openCardManager({
                         app,
                         nodeInstance: node_instance,
                         galleryNode: UnifiedPromptGalleryNode,

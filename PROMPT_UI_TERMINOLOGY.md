@@ -25,6 +25,9 @@ Current code mapping:
 - The active category is tracked as `activeLibraryTab` in `js/prompt/ui.js`
 
 Important note: despite the code name `library`, this path is the Prompt Builder in product language.
+New code should prefer the product-name exports `renderPromptBuilderBar()` and
+`renderPromptBuilderDrawer()`; the old `renderLibraryBar()` and `renderLibraryDrawer()` names remain
+as compatibility aliases.
 
 ### Card Manager
 
@@ -43,6 +46,8 @@ Current code mapping:
 - Card Manager card class: `.localprompt-gallery-item`
 
 Avoid native HTML drag/drop in this area because ComfyUI can interpret drops as workflow imports.
+New code should prefer the product-name export `showCardManagerModal()`; the old `showBrowseModal()`
+name remains as a compatibility alias.
 
 ### Active Stack
 

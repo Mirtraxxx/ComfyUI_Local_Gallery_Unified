@@ -3,6 +3,9 @@ import {
 } from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
+// Product term: Card Manager. Historical code names still use "browse"
+// for DOM ids, CSS classes, and compatibility exports.
+
 function closeOnOverlayClick(overlay) {
     overlay.addEventListener("click", (event) => {
         if (event.target === overlay) {
@@ -78,7 +81,7 @@ function buildPromptCardHtml(prompt, hasPreview) {
     `;
 }
 
-export async function showBrowseModal({
+export async function showCardManagerModal({
     app,
     nodeInstance,
     galleryNode,
@@ -420,3 +423,5 @@ export async function showBrowseModal({
 
     await loadBrowseGallery(1);
 }
+
+export const showBrowseModal = showCardManagerModal;
