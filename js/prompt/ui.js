@@ -883,6 +883,8 @@ const UnifiedPromptGalleryNode = {
                 if (activeSlider) activeSlider.value = String(getActiveThumbnailSizePx());
                 if (cardModeSelect) cardModeSelect.value = getCardsDisplayMode();
                 if (activeModeSelect) activeModeSelect.value = getActiveDisplayMode();
+                const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
+                if (contrastSelect) contrastSelect.value = node_instance.uiPrefs.card_contrast_mode || "off";
                 syncDisplayOptionAvailability();
             }
 
@@ -955,6 +957,19 @@ const UnifiedPromptGalleryNode = {
                 }
             }
 
+            function applyCardContrastModePreference() {
+                const mode = node_instance.uiPrefs.card_contrast_mode || "off";
+                const contrastClasses = [
+                    "contrast-off",
+                    "contrast-dim-inactive",
+                    "contrast-dim-by-default"
+                ];
+                contrastClasses.forEach(cls => {
+                    widgetContainer.classList.remove(cls);
+                });
+                widgetContainer.classList.add(`contrast-${mode}`);
+            }
+
             let thumbnailSizeSaveTimer = null;
             function queueThumbnailSizeSave() {
                 if (thumbnailSizeSaveTimer) {
@@ -1005,6 +1020,15 @@ const UnifiedPromptGalleryNode = {
                         node_instance.uiPrefs.active_display_mode = normalizeDisplayMode(activeModeSelect.value, "compact");
                         syncThumbnailSizeSliders();
                         await renderActiveSidebar();
+                        queueThumbnailSizeSave();
+                    });
+                }
+                const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
+                if (contrastSelect) {
+                    contrastSelect.value = node_instance.uiPrefs.card_contrast_mode || "off";
+                    contrastSelect.addEventListener('change', () => {
+                        node_instance.uiPrefs.card_contrast_mode = contrastSelect.value;
+                        applyCardContrastModePreference();
                         queueThumbnailSizeSave();
                     });
                 }
@@ -2517,6 +2541,7 @@ const UnifiedPromptGalleryNode = {
                     applyActiveSidebarPreference();
                     applyMetaTagsButtonSidePreference();
                     applyActiveBorderThemePreference();
+                    applyCardContrastModePreference();
                     syncPromptSortControls();
                     syncAutoHideToolbarState();
                     

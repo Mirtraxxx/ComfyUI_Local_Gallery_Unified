@@ -127,6 +127,14 @@ export function getPromptTemplate(uniqueId) {
                                             <span>+</span>
                                         </label>
                                     </section>
+                                    <section class="localprompt-display-section">
+                                        <div class="localprompt-display-section-title">CONTRAST</div>
+                                        <select id="${uniqueId}-card-contrast-select" class="localprompt-display-mode-select" title="Card contrast mode">
+                                            <option value="off">Off (Default)</option>
+                                            <option value="dim_inactive">Dim Inactive</option>
+                                            <option value="dim_by_default">Dim by Default</option>
+                                        </select>
+                                    </section>
                                 </div>
                             </div>
                         </div>

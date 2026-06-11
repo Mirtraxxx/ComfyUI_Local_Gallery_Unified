@@ -381,6 +381,7 @@ def load_ui_prefs():
         "active_border_custom_1": "#ff0000",
         "active_border_custom_2": "#0000ff",
         "promote_selected_prompts": True,
+        "card_contrast_mode": "off",
     }
     prefs = load_json_file(UI_PREFS_FILE, defaults)
     if not isinstance(prefs, dict):
@@ -1342,7 +1343,11 @@ async def save_ui_prefs_endpoint(request):
             color = str(data['active_border_custom_2']).strip()
             if color.startswith('#') and len(color) in (4, 7, 9):
                 prefs['active_border_custom_2'] = color
-
+        if 'card_contrast_mode' in data:
+            mode = data['card_contrast_mode']
+            if mode in ('off', 'dim_inactive', 'dim_by_default'):
+                prefs['card_contrast_mode'] = mode
+ 
         save_ui_prefs(prefs)
         return web.json_response({"status": "ok"})
     except Exception as e:
