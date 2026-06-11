@@ -1471,6 +1471,13 @@ export function getPromptStyles(uniqueId) {
                         align-items: center;
                         gap: 4px;
                         white-space: nowrap;
+                        opacity: 0.75;
+                        filter: grayscale(35%);
+                    }
+                    .localprompt-chip:hover,
+                    .localprompt-chip.selected {
+                        opacity: 1;
+                        filter: none;
                     }
                     .localprompt-chip:hover { background: #3a3a3a; border-color: #666; }
                     .localprompt-chip.selected { background: #1a2a3a; border: 2px solid #4a9eff; box-shadow: 0 0 8px rgba(74, 158, 255, 0.4); }
@@ -1747,6 +1754,13 @@ export function getPromptStyles(uniqueId) {
                         justify-content: center;
                         position: relative;
                         transition: all 0.15s;
+                        opacity: 0.75;
+                        filter: grayscale(35%);
+                    }
+                    .localprompt-chip-thumb:hover,
+                    .localprompt-chip-thumb.selected {
+                        opacity: 1;
+                        filter: none;
                     }
                     .localprompt-chip-thumb:hover { border-color: #666; }
                     .localprompt-chip-thumb.selected { border-width: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 1px rgba(255,255,255,0.02); }
@@ -3157,6 +3171,13 @@ export function getPromptStyles(uniqueId) {
                         cursor: pointer;
                         transition: all 0.15s;
                         box-shadow: 0 10px 22px rgba(0,0,0,0.14);
+                        opacity: 0.75;
+                        filter: grayscale(35%);
+                    }
+                    .localprompt-gallery-item:hover,
+                    .localprompt-gallery-item.selected {
+                        opacity: 1;
+                        filter: none;
                     }
                     .localprompt-gallery-item:hover { border-color: rgba(255,255,255,0.24); transform: translateY(-2px); }
                     .localprompt-item.pinned-dragging,
@@ -3228,35 +3249,6 @@ export function getPromptStyles(uniqueId) {
                         inset: 0;
                         border: 1px solid rgba(255,255,255,0.04);
                         pointer-events: none;
-                    }
-
-                    /* Enhance active vs inactive card contrast by dimming inactive ones when a selection is active */
-                    .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
-                        opacity: 0.65;
-                        filter: grayscale(35%);
-                    }
-                    .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
-                        opacity: 0.65;
-                        filter: grayscale(35%);
-                    }
-                    .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected) {
-                        opacity: 0.65;
-                        filter: grayscale(35%);
-                    }
-
-                    /* Smooth hover restoration for inactive dimmed cards */
-                    .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
-                        opacity: 0.95;
-                        filter: none;
-                    }
-                    .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
-                        opacity: 0.95;
-                        filter: none;
-                    }
-                    .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected):hover {
-                        opacity: 0.95;
-                        filter: none;
-                        transform: translateY(-2px);
                     }
                 </style>
     `;
