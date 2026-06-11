@@ -3229,6 +3229,35 @@ export function getPromptStyles(uniqueId) {
                         border: 1px solid rgba(255,255,255,0.04);
                         pointer-events: none;
                     }
+
+                    /* Enhance active vs inactive card contrast by dimming inactive ones when a selection is active */
+                    .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
+                        opacity: 0.65;
+                        filter: grayscale(35%);
+                    }
+                    .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
+                        opacity: 0.65;
+                        filter: grayscale(35%);
+                    }
+                    .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected) {
+                        opacity: 0.65;
+                        filter: grayscale(35%);
+                    }
+
+                    /* Smooth hover restoration for inactive dimmed cards */
+                    .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
+                        opacity: 0.95;
+                        filter: none;
+                    }
+                    .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
+                        opacity: 0.95;
+                        filter: none;
+                    }
+                    .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected):hover {
+                        opacity: 0.95;
+                        filter: none;
+                        transform: translateY(-2px);
+                    }
                 </style>
     `;
 }

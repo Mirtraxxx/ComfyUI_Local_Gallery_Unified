@@ -126,7 +126,7 @@ export function renderGallery({
 
     prompts = sortPromptsForDisplay(prompts, sortMode);
 
-    if (!preservePromptOrder) {
+    if (!preservePromptOrder && nodeInstance.uiPrefs?.promote_selected_prompts !== false) {
         prompts = promotePromptsById(prompts, selectedPromptIds);
     }
 

@@ -268,6 +268,8 @@ const UnifiedPromptGalleryNode = {
                 active_sidebar_width: 300,
                 active_sidebar_hover_open: true,
                 auto_hide_toolbars: false,
+                show_most_used: true,
+                promote_selected_prompts: true,
                 prompt_sort_mode: "manual",
                 prompt_sort_modes: {},
                 meta_tags_button_side: "right",
@@ -408,6 +410,7 @@ const UnifiedPromptGalleryNode = {
                 active_border_theme: "default",
                 active_border_custom_1: "#ff0000",
                 active_border_custom_2: "#0000ff",
+                promote_selected_prompts: true,
             };
 
             
@@ -1414,10 +1417,19 @@ const UnifiedPromptGalleryNode = {
 
             function sortPinnedPrompts(prompts) {
                 const orderedIds = syncPinnedOrderWithPrompts(prompts);
+                if (node_instance.uiPrefs?.promote_selected_prompts === false) {
+                    const promptMap = new Map(prompts.map(prompt => [String(prompt.id), prompt]));
+                    return normalizePromptIdList(orderedIds)
+                        .map(id => promptMap.get(id))
+                        .filter(Boolean);
+                }
                 return sortPromptsByPinnedOrder(prompts, orderedIds, getSelectedPromptIdsInOrder());
             }
 
             function promoteSelectedPrompts(prompts) {
+                if (node_instance.uiPrefs?.promote_selected_prompts === false) {
+                    return prompts;
+                }
                 return promotePromptsById(prompts, getSelectedPromptIdsInOrder());
             }
 
@@ -2051,20 +2063,25 @@ const UnifiedPromptGalleryNode = {
                 const category = categorySelect ? categorySelect.value : "";
 
                 const selectedPromptIds = node_instance.promptData.map(p => p.prompt_id);
-                const data = await UnifiedPromptGalleryNode.getPrompts(filterName, mode, page, selectedPromptIds, category, node_instance.showFavoritesOnly, 10, getPromptSortMode());
+                const querySelectedIds = node_instance.uiPrefs?.promote_selected_prompts === false ? [] : selectedPromptIds;
+                const data = await UnifiedPromptGalleryNode.getPrompts(filterName, mode, page, querySelectedIds, category, node_instance.showFavoritesOnly, 10, getPromptSortMode());
 
                 const prompts = data.prompts || [];
-                const selectedPrompts = selectedPromptIds.length ? await getActivePromptModels() : [];
-                const selectedPromptIdSet = new Set(selectedPromptIds.map(id => String(id)));
-                const visibleSelectedPrompts = selectedPrompts.filter(prompt => promptMatchesCurrentGallery(prompt));
-                const visibleSelectedIdSet = new Set(visibleSelectedPrompts.map(prompt => String(prompt.id)));
-                node_instance.availablePrompts = [
-                    ...visibleSelectedPrompts,
-                    ...prompts.filter(prompt => !visibleSelectedIdSet.has(String(prompt.id))),
-                ].filter((prompt, index, allPrompts) => {
-                    const promptId = String(prompt.id);
-                    return selectedPromptIdSet.has(promptId) || allPrompts.findIndex(item => String(item.id) === promptId) === index;
-                });
+                if (node_instance.uiPrefs?.promote_selected_prompts === false) {
+                    node_instance.availablePrompts = prompts;
+                } else {
+                    const selectedPrompts = selectedPromptIds.length ? await getActivePromptModels() : [];
+                    const selectedPromptIdSet = new Set(selectedPromptIds.map(id => String(id)));
+                    const visibleSelectedPrompts = selectedPrompts.filter(prompt => promptMatchesCurrentGallery(prompt));
+                    const visibleSelectedIdSet = new Set(visibleSelectedPrompts.map(prompt => String(prompt.id)));
+                    node_instance.availablePrompts = [
+                        ...visibleSelectedPrompts,
+                        ...prompts.filter(prompt => !visibleSelectedIdSet.has(String(prompt.id))),
+                    ].filter((prompt, index, allPrompts) => {
+                        const promptId = String(prompt.id);
+                        return selectedPromptIdSet.has(promptId) || allPrompts.findIndex(item => String(item.id) === promptId) === index;
+                    });
+                }
                 renderGallery();
                 renderPrompts();
 

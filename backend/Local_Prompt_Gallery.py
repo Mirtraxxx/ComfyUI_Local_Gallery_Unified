@@ -370,12 +370,17 @@ def load_ui_prefs():
         "active_sidebar_width": 392,
         "active_sidebar_hover_open": True,
         "auto_hide_toolbars": False,
+        "show_most_used": True,
         "prompt_sort_mode": "manual",
         "prompt_sort_modes": {},
         "meta_tags_button_side": "right",
         "wildcard_cycle_state": {},
         "last_created_category": "",
         "from_last_output_name_default": "time",
+        "active_border_theme": "default",
+        "active_border_custom_1": "#ff0000",
+        "active_border_custom_2": "#0000ff",
+        "promote_selected_prompts": True,
     }
     prefs = load_json_file(UI_PREFS_FILE, defaults)
     if not isinstance(prefs, dict):
@@ -1295,9 +1300,11 @@ async def save_ui_prefs_endpoint(request):
             except (TypeError, ValueError):
                 prefs['active_sidebar_width'] = 392
         if 'active_sidebar_hover_open' in data:
-            prefs['active_sidebar_hover_open'] = bool(data['active_sidebar_hover_open'])
+            prefs['active_sidebar_hover_open'] = data['active_sidebar_hover_open']
         if 'auto_hide_toolbars' in data:
             prefs['auto_hide_toolbars'] = bool(data['auto_hide_toolbars'])
+        if 'promote_selected_prompts' in data:
+            prefs['promote_selected_prompts'] = data['promote_selected_prompts']
         if 'prompt_sort_mode' in data:
             prefs['prompt_sort_mode'] = (
                 data['prompt_sort_mode']
@@ -1323,6 +1330,18 @@ async def save_ui_prefs_endpoint(request):
                 if data['from_last_output_name_default'] in ('time', 'blank')
                 else 'time'
             )
+        if 'active_border_theme' in data:
+            theme = data['active_border_theme']
+            if theme in ('default', 'cyberpunk', 'sunset', 'aurora', 'ice', 'fire-ice', 'golden-mint', 'rainbow-sync', 'rainbow-split', 'custom'):
+                prefs['active_border_theme'] = theme
+        if 'active_border_custom_1' in data:
+            color = str(data['active_border_custom_1']).strip()
+            if color.startswith('#') and len(color) in (4, 7, 9):
+                prefs['active_border_custom_1'] = color
+        if 'active_border_custom_2' in data:
+            color = str(data['active_border_custom_2']).strip()
+            if color.startswith('#') and len(color) in (4, 7, 9):
+                prefs['active_border_custom_2'] = color
 
         save_ui_prefs(prefs)
         return web.json_response({"status": "ok"})
