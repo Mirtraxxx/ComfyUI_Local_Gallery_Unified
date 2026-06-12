@@ -82,22 +82,21 @@ export function getPromptStyles(uniqueId) {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 80px;
+                        width: 60px;
                         height: 16px;
                         padding: 0;
                         background: #1e1e1e;
                         border: 1px solid #333;
-                        border-top: none;
-                        border-radius: 0 0 8px 8px;
+                        border-radius: 4px;
                         cursor: pointer;
                         opacity: 0.5;
                         color: #ccc;
                         transition: width 0.16s ease, height 0.16s ease, bottom 0.16s ease, opacity 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
                         position: absolute;
-                        bottom: -16px;
+                        bottom: -8px;
                         left: 50%;
                         transform: translateX(-50%);
-                        z-index: 10;
+                        z-index: 1002;
                     }
                     .localprompt-category-pull-tab svg {
                         width: 12px;
@@ -107,18 +106,18 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-category-pull-tab:hover {
                         opacity: 1;
-                        width: 100px;
+                        width: 70px;
                         height: 18px;
-                        bottom: -18px;
+                        bottom: -9px;
                         background: #252528;
                         border-color: #3b82f6;
                         box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] {
                         opacity: 1;
-                        width: 100px;
+                        width: 70px;
                         height: 18px;
-                        bottom: -18px;
+                        bottom: -9px;
                         background: #252528;
                         border-color: #3b82f6;
                         box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
@@ -129,25 +128,29 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-category-overflow {
                         display: flex;
-                        flex-direction: column;
-                        gap: 12px;
+                        flex-direction: row;
+                        flex-wrap: wrap;
+                        align-items: center;
+                        gap: 8px 10px;
                         position: absolute;
-                        top: calc(100% + 16px);
-                        left: 8px;
-                        right: 8px;
-                        background: rgba(22, 22, 22, 0.93);
+                        top: 100%;
+                        left: 0;
+                        right: 0;
+                        background: rgba(27, 27, 29, 0.98);
                         backdrop-filter: blur(10px);
-                        border: 1px solid rgba(59, 130, 246, 0.25);
-                        border-radius: 8px;
-                        padding: 16px 20px;
+                        border: 1px solid rgba(59, 130, 246, 0.15);
+                        border-top: none;
+                        border-radius: 0 0 8px 8px;
+                        padding: 10px 16px;
                         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
                         z-index: 1000;
                         box-sizing: border-box;
                         opacity: 0;
-                        transform: translateY(-8px);
+                        transform: translateY(-4px);
                         pointer-events: none;
                         transition: opacity 0.18s ease-out, transform 0.18s ease-out;
-                        max-height: 300px;
+                        max-height: 250px;
+                        overflow-y: auto;
                     }
                     .localprompt-category-overflow.open {
                         opacity: 1;
@@ -155,66 +158,19 @@ export function getPromptStyles(uniqueId) {
                         pointer-events: auto;
                     }
                     .localprompt-category-overflow-header {
-                        display: flex;
-                        justify-content: space-between;
+                        display: inline-flex;
                         align-items: center;
-                        width: 100%;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-                        padding-bottom: 8px;
-                        margin-bottom: 4px;
+                        margin-right: 6px;
                     }
                     .localprompt-category-sort-row {
                         display: flex;
                         align-items: center;
-                        gap: 8px;
+                        gap: 6px;
                         font-size: 11px;
-                        color: #888;
-                    }
-                    .localprompt-category-sort-row label {
-                        white-space: nowrap;
-                    }
-                    .localprompt-category-sort-row select {
-                        padding: 4px 8px;
-                        background: #1a1a1a;
-                        border: 1px solid #333;
-                        border-radius: 4px;
-                        color: #ccc;
-                        font-size: 11px;
-                        cursor: pointer;
-                        transition: border-color 0.15s ease;
-                    }
-                    .localprompt-category-sort-row select:hover,
-                    .localprompt-category-sort-row select:focus {
-                        border-color: #3b82f6;
-                        outline: none;
-                    }
-                    .localprompt-category-manage-icon {
-                        background: #1a1a1a;
-                        border: 1px solid #333;
-                        border-radius: 4px;
-                        color: #888;
-                        width: 24px;
-                        height: 24px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 14px;
-                        cursor: pointer;
-                        transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }
-                    .localprompt-category-manage-icon:hover {
-                        color: #3b82f6;
-                        transform: rotate(30deg);
+                        color: rgba(225, 237, 245, 0.45);
                     }
                     .localprompt-category-overflow-chips {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 10px 12px;
-                        overflow-y: auto;
-                        width: 100%;
-                        padding-right: 4px;
+                        display: contents;
                     }
                     .localprompt-category-overflow-chips::-webkit-scrollbar {
                         width: 4px;
@@ -390,26 +346,28 @@ export function getPromptStyles(uniqueId) {
                         border: 1px solid rgba(255,255,255,0.1);
                         border-radius: 9px;
                     }
-                    .localprompt-category-sort-row label {
-                        color: rgba(225, 237, 245, 0.7);
-                        font-size: 11px;
-                        font-weight: 600;
-                        white-space: nowrap;
-                    }
                     .localprompt-sort-select {
-                        min-height: 28px;
-                        min-width: 136px;
-                        padding: 5px 8px;
-                        background: rgba(255, 255, 255, 0.04);
-                        border: 1px solid rgba(255, 255, 255, 0.1);
-                        border-radius: 7px;
+                        padding: 3px 8px;
+                        background: #2a2a2a;
+                        border: 1px solid #444;
+                        border-radius: 999px;
                         color: #ddd;
                         font-size: 11px;
-                        transition: border-color 0.15s;
-                    }
-                    .localprompt-sort-select:focus {
-                        border-color: rgba(174, 226, 255, 0.3);
+                        line-height: 1;
+                        height: 23px;
+                        min-height: 0;
+                        min-width: 0;
+                        cursor: pointer;
+                        font-weight: 500;
+                        transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
                         outline: none;
+                        box-sizing: border-box;
+                    }
+                    .localprompt-sort-select:hover,
+                    .localprompt-sort-select:focus {
+                        border-color: rgba(59, 130, 246, 0.55);
+                        background: #333;
+                        color: #fff;
                     }
                     .localprompt-sort-select option {
                         background: #1a1e24;

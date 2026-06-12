@@ -43,7 +43,7 @@ export function getPromptTemplate(uniqueId) {
                                     <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
                                         <div class="localprompt-category-overflow-header">
                                             <div class="localprompt-category-sort-row">
-                                                <label for="${uniqueId}-main-sort-select">Sort cards by</label>
+                                                <span>Sort:</span>
                                                 <select class="localprompt-sort-select" id="${uniqueId}-main-sort-select" title="Sort cards">
                                                     <option value="manual">Manual / stored order</option>
                                                     <option value="newest">Newest first</option>
@@ -52,7 +52,6 @@ export function getPromptTemplate(uniqueId) {
                                                     <option value="za">Z to A</option>
                                                 </select>
                                             </div>
-                                            <button class="localprompt-category-manage-icon" id="${uniqueId}-manage-categories-btn" type="button" title="Manage categories" aria-label="Manage categories">&#9881;</button>
                                         </div>
                                         <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                     </div>
