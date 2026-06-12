@@ -855,13 +855,13 @@ export function getPromptStyles(uniqueId) {
                         justify-content: center;
                         gap: 8px;
                     }
-                    .localprompt-active-sidebar .managed-thumb-media.localprompt-active-preview-target {
+                    .localprompt-active-sidebar .managed-thumb-media {
                         cursor: pointer;
                         transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
                     }
-                    .localprompt-active-sidebar .managed-thumb-media.localprompt-active-preview-target:hover,
-                    .localprompt-active-sidebar .managed-thumb-media.localprompt-active-preview-target:focus-visible {
-                        transform: scale(1.045);
+                    .localprompt-active-sidebar .localprompt-chip-thumb:hover .managed-thumb-media,
+                    .localprompt-active-sidebar .managed-thumb-media:focus-visible {
+                        transform: scale(1.03);
                         box-shadow: 0 0 22px rgba(135, 231, 255, 0.22), 0 8px 18px rgba(0,0,0,0.28);
                         outline: none;
                     }

@@ -1,6 +1,7 @@
 import {
     clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     createPinnedManagedControlsHtml,
+    createPromptActionButton,
     formatWeight,
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
@@ -208,7 +209,8 @@ export async function renderActiveSidebar({
             chip = document.createElement("div");
             chip.className = `localprompt-chip-thumb selected pinned-managed${prompt.preview_url ? "" : " no-thumb"}`;
             chip.innerHTML = `
-                <div class="managed-thumb-media localprompt-active-preview-target" title="View details" role="button" tabindex="0">
+                ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
+                <div class="managed-thumb-media" tabindex="-1">
                     ${previewHtml}
                     <span class="thumb-label">${safeName}</span>
                 </div>
@@ -287,7 +289,7 @@ export async function renderActiveSidebar({
             draggedSelectedPromptId = null;
         });
         chip.addEventListener("click", (event) => {
-            if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn, .localprompt-active-preview-target")) return;
+            if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn")) return;
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);
