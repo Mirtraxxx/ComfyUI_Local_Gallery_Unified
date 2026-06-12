@@ -424,6 +424,7 @@ const UnifiedPromptGalleryNode = {
             } = metaTagsController;
 
             let activeLibraryTab = null;
+            let categoryOverflowOpen = false;
             let currentWildcardMode = wildcardWidget?.value || 'off';
 
             const workspaceController = createPromptWorkspaceController({
@@ -490,6 +491,15 @@ const UnifiedPromptGalleryNode = {
                     const panel = panelId ? widgetContainer.querySelector(`#${panelId}`) : null;
                     if (panel !== exceptPanel) btn.classList.remove("active");
                 });
+                const overflow = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
+                if (overflow && overflow !== exceptPanel) {
+                    categoryOverflowOpen = false;
+                    overflow.classList.remove("open");
+                    const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
+                    if (pullTab) {
+                        pullTab.setAttribute("aria-expanded", "false");
+                    }
+                }
                 syncAutoHideToolbarState();
             }
 
@@ -586,6 +596,7 @@ const UnifiedPromptGalleryNode = {
                     activeLibraryTab = null;
                     clearLibraryNavActiveState();
                     drawer?.classList.remove("active");
+                    syncPromptSortControls();
                     syncSelectedSectionVisibility();
                     await renderPinnedCategoryStrip();
                     await renderCategoryDropdownOptions();
@@ -597,6 +608,7 @@ const UnifiedPromptGalleryNode = {
                 clearLibraryNavActiveState();
                 drawer?.classList.add("active");
                 await renderLibraryDrawer(category);
+                syncPromptSortControls();
                 syncSelectedSectionVisibility();
                 await renderPinnedCategoryStrip();
                 await renderCategoryDropdownOptions();
@@ -606,7 +618,6 @@ const UnifiedPromptGalleryNode = {
             async function renderPinnedCategoryStrip() {
                 const strip = widgetContainer.querySelector(`#${uniqueId}-pinned-category-strip`);
                 const moreGroup = widgetContainer.querySelector(`#${uniqueId}-more-category-group`);
-                const moreBtn = widgetContainer.querySelector(`#${uniqueId}-categories-menu-btn`);
                 if (!strip) return;
 
                 const allCategories = await UnifiedPromptGalleryNode.getCategories();
@@ -626,40 +637,54 @@ const UnifiedPromptGalleryNode = {
                 });
 
                 moreGroup?.classList.remove("hidden");
-                if (moreBtn) {
-                    moreBtn.title = "All categories";
-                    moreBtn.setAttribute("aria-label", "All categories");
-                }
+
+                await renderCategoryOverflowCategories();
             }
 
-            async function renderCategoryDropdownOptions() {
-                const list = widgetContainer.querySelector(`#${uniqueId}-library-tabs`);
-                bindMainSortSelect();
-                if (!list) return;
+            async function renderCategoryOverflowCategories() {
+                const overflowContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
+                const chipsContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow-chips`);
+                const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
+                if (!overflowContainer || !chipsContainer) return;
+
                 const categories = await UnifiedPromptGalleryNode.getCategories();
                 const active = activeLibraryTab;
                 const pinnedCategories = await ensurePinnedCategoriesInitialized(categories);
                 const visiblePinned = new Set(pinnedCategories.slice(0, getVisiblePinnedCategoryCount()));
                 const hiddenCategories = getCategoriesInCurrentOrder(categories).filter(category => !visiblePinned.has(category));
-                const paletteCategories = hiddenCategories.length ? hiddenCategories : categories;
-                list.innerHTML = "";
-                if (!paletteCategories.length) {
-                    const empty = document.createElement("div");
-                    empty.className = "localprompt-meta-empty";
-                    empty.textContent = categories.length ? "All categories are visible." : "No categories found.";
-                    list.appendChild(empty);
+
+                chipsContainer.innerHTML = "";
+
+                if (!hiddenCategories.length) {
+                    categoryOverflowOpen = false;
+                    if (pullTab) {
+                        pullTab.style.display = "none";
+                        pullTab.setAttribute("aria-expanded", "false");
+                    }
+                    overflowContainer.classList.remove("open");
                     return;
                 }
-                paletteCategories.forEach(category => {
+
+                if (pullTab) {
+                    pullTab.style.display = "flex";
+                    pullTab.setAttribute("aria-expanded", String(categoryOverflowOpen));
+                }
+                overflowContainer.classList.toggle("open", categoryOverflowOpen);
+
+                hiddenCategories.forEach(category => {
                     const option = document.createElement("button");
-                    option.className = `localprompt-library-tab${active === category ? " active" : ""}`;
+                    option.className = `localprompt-pinned-category-pill${active === category ? " active" : ""}`;
                     option.type = "button";
                     option.textContent = category;
                     option.title = category;
                     applyLibraryTabRoleStyling(option, category, active === category);
                     option.addEventListener("click", () => openCategoryFromMenu(category));
-                    list.appendChild(option);
+                    chipsContainer.appendChild(option);
                 });
+            }
+
+            async function renderCategoryDropdownOptions() {
+                return renderCategoryOverflowCategories();
             }
 
             function saveNodeProperties() {
@@ -987,6 +1012,7 @@ const UnifiedPromptGalleryNode = {
                         });
                     });
                 }
+                bindMainSortSelect();
                 syncDisplayOptionAvailability();
             }
 
@@ -1276,18 +1302,18 @@ const UnifiedPromptGalleryNode = {
 
             function applyMetaTagsButtonSidePreference() {
                 const moreGroup = widgetContainer.querySelector(`#${uniqueId}-more-category-group`);
-                const strip = widgetContainer.querySelector(`#${uniqueId}-pinned-category-strip`);
-                const pinnedCategories = widgetContainer.querySelector(`#${uniqueId}-pinned-categories`);
-                if (!moreGroup || !strip || !pinnedCategories) return;
+                const wrapper = widgetContainer.querySelector(`#${uniqueId}-pinned-category-wrapper`);
+                const firstRow = widgetContainer.querySelector(`#${uniqueId}-pinned-first-row`);
+                if (!moreGroup || !wrapper || !firstRow) return;
 
                 const side = getMetaTagsButtonSide();
                 moreGroup.classList.toggle("align-left", side === "left");
                 moreGroup.classList.toggle("align-right", side !== "left");
 
                 if (side === "left") {
-                    pinnedCategories.insertBefore(moreGroup, strip);
+                    firstRow.insertBefore(moreGroup, wrapper);
                 } else {
-                    pinnedCategories.appendChild(moreGroup);
+                    firstRow.appendChild(moreGroup);
                 }
             }
 
@@ -2512,11 +2538,20 @@ const UnifiedPromptGalleryNode = {
 
                 // ========== NEW BUTTON HANDLERS ==========
 
-                setupToolbarDropdown(
-                    `${uniqueId}-categories-menu-btn`,
-                    `${uniqueId}-categories-panel`,
-                    renderCategoryDropdownOptions
-                );
+                const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
+                if (pullTab) {
+                    pullTab.addEventListener("click", async (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        categoryOverflowOpen = !categoryOverflowOpen;
+                        if (categoryOverflowOpen) {
+                            closeToolbarPanels(widgetContainer.querySelector(`#${uniqueId}-category-overflow`));
+                        } else {
+                            closeToolbarPanels();
+                        }
+                        await renderCategoryOverflowCategories();
+                    });
+                }
                 setupToolbarDropdown(
                     `${uniqueId}-meta-tags-btn`,
                     `${uniqueId}-meta-tags-panel`,
@@ -2540,6 +2575,7 @@ const UnifiedPromptGalleryNode = {
                             drawer.classList.add("active");
                             await renderLibraryDrawer("pinned");
                         }
+                        syncPromptSortControls();
                         syncSelectedSectionVisibility();
                     });
                 }

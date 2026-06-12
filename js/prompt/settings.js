@@ -326,7 +326,7 @@ export async function showSettingsModal({
                 </div>
                 <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
                     <h4>Categories</h4>
-                    <div style="font-size: 10px; color: #777; margin-bottom: 10px;">Manage which categories appear in the top row. Extra pinned categories appear under All Categories.</div>
+                    <div style="font-size: 10px; color: #777; margin-bottom: 10px;">Manage which categories appear in the top row. Extra categories appear in the inline pull-tab drawer under the pinned row.</div>
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Visible pinned categories</label>
                     <input type="number" id="settings-visible-pinned-category-count" min="1" max="20" value="5" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Category Colors</label>

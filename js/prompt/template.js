@@ -12,30 +12,36 @@ export function getPromptTemplate(uniqueId) {
                                     <span class="localprompt-active-side-tab-count" id="${uniqueId}-active-tab-count">0</span>
                                 </button>
                                 <div class="localprompt-pinned-categories" id="${uniqueId}-pinned-categories">
-                                    <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
-                                    <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
-                                        <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
-                                        </button>
-                                        <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
-                                            <div class="localprompt-meta-header">
-                                                <span class="localprompt-meta-title">Hidden Prompts</span>
-                                                <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
-                                            </div>
-                                            <div class="localprompt-dropdown-note" style="padding: 2px 0 6px; font-size: 9px; line-height: 1.3; color: rgba(225, 237, 245, 0.45);">
-                                                Injected into output, hidden from Active Prompts.
-                                            </div>
-                                            <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
-                                            <div class="localprompt-dropdown-divider"></div>
-                                            <button class="localprompt-btn localprompt-meta-add-btn" id="${uniqueId}-add-meta-tag-btn" type="button">+ Add Hidden Prompt</button>
+                                    <div class="localprompt-pinned-first-row" id="${uniqueId}-pinned-first-row">
+                                        <div class="localprompt-pinned-category-wrapper" id="${uniqueId}-pinned-category-wrapper">
+                                            <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
+                                            <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" title="Show all categories">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
                                         </div>
-                                        <button class="localprompt-favorite-toggle-btn localprompt-icon-btn" id="${uniqueId}-fav-toggle-btn" type="button" title="Favorites" aria-label="Favorites">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17.18l-5.56 2.93 1.06-6.19L3 9.53l6.22-.9L12 3z"></path></svg>
-                                        </button>
-                                        <button class="localprompt-category-grid-button" id="${uniqueId}-categories-menu-btn" type="button" title="All categories" aria-label="All categories">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
-                                        </button>
-                                        <div class="localprompt-dropdown-panel" id="${uniqueId}-categories-panel">
+                                        <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
+                                            <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
+                                            </button>
+                                            <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
+                                                <div class="localprompt-meta-header">
+                                                    <span class="localprompt-meta-title">Hidden Prompts</span>
+                                                    <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
+                                                </div>
+                                                <div class="localprompt-dropdown-note" style="padding: 2px 0 6px; font-size: 9px; line-height: 1.3; color: rgba(225, 237, 245, 0.45);">
+                                                    Injected into output, hidden from Active Prompts.
+                                                </div>
+                                                <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
+                                                <div class="localprompt-dropdown-divider"></div>
+                                                <button class="localprompt-btn localprompt-meta-add-btn" id="${uniqueId}-add-meta-tag-btn" type="button">+ Add Hidden Prompt</button>
+                                            </div>
+                                            <button class="localprompt-favorite-toggle-btn localprompt-icon-btn" id="${uniqueId}-fav-toggle-btn" type="button" title="Favorites" aria-label="Favorites">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17.18l-5.56 2.93 1.06-6.19L3 9.53l6.22-.9L12 3z"></path></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
+                                        <div class="localprompt-category-overflow-header">
                                             <div class="localprompt-category-sort-row">
                                                 <label for="${uniqueId}-main-sort-select">Sort cards by</label>
                                                 <select class="localprompt-sort-select" id="${uniqueId}-main-sort-select" title="Sort cards">
@@ -46,17 +52,9 @@ export function getPromptTemplate(uniqueId) {
                                                     <option value="za">Z to A</option>
                                                 </select>
                                             </div>
-                                            <div class="localprompt-library-bar-container">
-                                                <div class="localprompt-library-tab-strip">
-                                                    <div class="localprompt-library-tabs-scroll" id="${uniqueId}-library-tabs"></div>
-                                                    <button class="localprompt-library-add-tab" id="${uniqueId}-add-tab-btn" title="Add Category Tab">+</button>
-                                            </div>
+                                            <button class="localprompt-category-manage-icon" id="${uniqueId}-manage-categories-btn" type="button" title="Manage categories" aria-label="Manage categories">&#9881;</button>
                                         </div>
-                                        <div class="localprompt-dropdown-divider"></div>
-                                            <div class="localprompt-category-popover-footer">
-                                                <button class="localprompt-category-manage-icon" id="${uniqueId}-manage-categories-btn" type="button" title="Manage categories" aria-label="Manage categories">&#9881;</button>
-                                            </div>
-                                        </div>
+                                        <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                     </div>
                                 </div>
                                 <select id="${uniqueId}-category-select" style="display: none;"><option value="">All Categories</option></select>
