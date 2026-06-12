@@ -51,6 +51,8 @@ export function getPromptStyles(uniqueId) {
                         min-width: 0;
                     }
                     .localprompt-pinned-categories {
+                        --category-pull-tab-center-offset: 19px;
+                        --category-pull-tab-edge-offset: 8px;
                         display: flex;
                         align-items: center;
                         gap: 6px;
@@ -85,8 +87,8 @@ export function getPromptStyles(uniqueId) {
                         align-items: center;
                         justify-content: center;
                         position: absolute;
-                        top: 100%;
-                        left: 50%;
+                        top: calc(100% + var(--category-pull-tab-edge-offset));
+                        left: calc(50% - var(--category-pull-tab-center-offset));
                         transform: translateX(-50%);
                         z-index: 1002;
                         width: 50px;
