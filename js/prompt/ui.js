@@ -1067,15 +1067,15 @@ const UnifiedPromptGalleryNode = {
 
             function applyLibraryTabRoleStyling(tabBtn, tabContent, isActive) {
                 const roleColor = getCategoryRoleColor(tabContent);
-                if (!roleColor) return;
-                tabBtn.style.borderColor = roleColor;
-                tabBtn.style.color = isActive ? '#fff' : roleColor;
-                tabBtn.style.boxShadow = isActive
-                    ? `0 0 10px ${hexToRgba(roleColor, 0.26)}`
-                    : `inset 0 0 0 1px ${hexToRgba(roleColor, 0.18)}`;
-                tabBtn.style.background = isActive
-                    ? `linear-gradient(180deg, ${hexToRgba(roleColor, 0.34)} 0%, ${hexToRgba(roleColor, 0.2)} 100%)`
-                    : hexToRgba(roleColor, 0.08);
+                if (!roleColor) {
+                    tabBtn.style.removeProperty('--category-color');
+                    tabBtn.style.removeProperty('--category-color-glow');
+                    tabBtn.classList.remove('has-role-color');
+                } else {
+                    tabBtn.style.setProperty('--category-color', roleColor);
+                    tabBtn.style.setProperty('--category-color-glow', hexToRgba(roleColor, 0.15));
+                    tabBtn.classList.add('has-role-color');
+                }
             }
 
             function getLibraryTabs() {

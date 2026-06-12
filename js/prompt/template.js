@@ -15,9 +15,6 @@ export function getPromptTemplate(uniqueId) {
                                     <div class="localprompt-pinned-first-row" id="${uniqueId}-pinned-first-row">
                                         <div class="localprompt-pinned-category-wrapper" id="${uniqueId}-pinned-category-wrapper">
                                             <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
-                                            <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" title="Show all categories">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                            </button>
                                         </div>
                                         <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
                                             <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
@@ -40,19 +37,10 @@ export function getPromptTemplate(uniqueId) {
                                             </button>
                                         </div>
                                     </div>
+                                    <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" title="Show all categories">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </button>
                                     <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
-                                        <div class="localprompt-category-overflow-header">
-                                            <div class="localprompt-category-sort-row">
-                                                <span>Sort:</span>
-                                                <select class="localprompt-sort-select" id="${uniqueId}-main-sort-select" title="Sort cards">
-                                                    <option value="manual">Manual / stored order</option>
-                                                    <option value="newest">Newest first</option>
-                                                    <option value="oldest">Oldest first</option>
-                                                    <option value="az">A to Z</option>
-                                                    <option value="za">Z to A</option>
-                                                </select>
-                                            </div>
-                                        </div>
                                         <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                     </div>
                                 </div>
@@ -130,6 +118,16 @@ export function getPromptTemplate(uniqueId) {
                                             <option value="off">Off (Default)</option>
                                             <option value="dim_inactive">Dim Inactive</option>
                                             <option value="dim_by_default">Dim by Default</option>
+                                        </select>
+                                    </section>
+                                    <section class="localprompt-display-section">
+                                        <div class="localprompt-display-section-title">SORT CARDS</div>
+                                        <select id="${uniqueId}-main-sort-select" class="localprompt-display-mode-select" title="Sort cards">
+                                            <option value="manual">Manual / stored order</option>
+                                            <option value="newest">Newest first</option>
+                                            <option value="oldest">Oldest first</option>
+                                            <option value="az">A to Z</option>
+                                            <option value="za">Z to A</option>
                                         </select>
                                     </section>
                                 </div>

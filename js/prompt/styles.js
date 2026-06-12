@@ -57,6 +57,7 @@ export function getPromptStyles(uniqueId) {
                         flex: 1 1 auto;
                         min-width: 0;
                         overflow: visible;
+                        position: relative;
                     }
                     .localprompt-pinned-first-row {
                         display: flex;
@@ -77,71 +78,75 @@ export function getPromptStyles(uniqueId) {
                         display: flex;
                         flex: 0 1 auto;
                         min-width: 0;
+                        position: relative;
                     }
                     .localprompt-category-pull-tab {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 60px;
-                        height: 16px;
-                        padding: 0;
-                        background: #1e1e1e;
-                        border: 1px solid #333;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        opacity: 0.5;
-                        color: #ccc;
-                        transition: width 0.16s ease, height 0.16s ease, bottom 0.16s ease, opacity 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
                         position: absolute;
-                        bottom: -8px;
+                        top: 100%;
                         left: 50%;
                         transform: translateX(-50%);
                         z-index: 1002;
+                        width: 50px;
+                        height: 12px;
+                        padding: 0;
+                        background: #1e1e20;
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-top: none;
+                        border-radius: 0 0 4px 4px;
+                        cursor: pointer;
+                        opacity: 0.7;
+                        color: #888;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                        transition: width 0.16s ease, height 0.16s ease, opacity 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
                     }
                     .localprompt-category-pull-tab svg {
-                        width: 12px;
-                        height: 12px;
+                        width: 10px;
+                        height: 10px;
                         stroke: currentColor;
                         transition: transform 0.16s ease;
                     }
                     .localprompt-category-pull-tab:hover {
                         opacity: 1;
-                        width: 70px;
-                        height: 18px;
-                        bottom: -9px;
-                        background: #252528;
-                        border-color: #3b82f6;
-                        box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+                        width: 60px;
+                        height: 16px;
+                        background: #232326;
+                        border-color: rgba(59, 130, 246, 0.4);
+                        box-shadow: 0 3px 6px rgba(59, 130, 246, 0.15);
+                        color: #fff;
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] {
                         opacity: 1;
-                        width: 70px;
-                        height: 18px;
-                        bottom: -9px;
-                        background: #252528;
-                        border-color: #3b82f6;
-                        box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+                        background: #1b1b1d;
+                        border-color: rgba(59, 130, 246, 0.2);
+                        border-bottom: none;
+                        border-radius: 0;
+                        height: 12px;
+                        width: 50px;
+                    }
+                    .localprompt-category-pull-tab[aria-expanded="true"]:hover {
+                        height: 14px;
+                        width: 60px;
+                        border-color: rgba(59, 130, 246, 0.4);
+                        box-shadow: 0 3px 6px rgba(59, 130, 246, 0.15);
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] svg {
                         transform: rotate(180deg);
                         color: #3b82f6;
                     }
                     .localprompt-category-overflow {
-                        display: flex;
-                        flex-direction: row;
-                        flex-wrap: wrap;
-                        align-items: center;
-                        gap: 8px 10px;
                         position: absolute;
                         top: 100%;
                         left: 0;
                         right: 0;
-                        background: rgba(27, 27, 29, 0.98);
+                        background: rgba(22, 22, 24, 0.98);
                         backdrop-filter: blur(10px);
                         border: 1px solid rgba(59, 130, 246, 0.15);
                         border-top: none;
                         border-radius: 0 0 8px 8px;
-                        padding: 10px 16px;
+                        padding: 14px 16px;
                         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
                         z-index: 1000;
                         box-sizing: border-box;
@@ -157,20 +162,11 @@ export function getPromptStyles(uniqueId) {
                         transform: translateY(0);
                         pointer-events: auto;
                     }
-                    .localprompt-category-overflow-header {
-                        display: inline-flex;
-                        align-items: center;
-                        margin-right: 6px;
-                    }
-                    .localprompt-category-sort-row {
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        font-size: 11px;
-                        color: rgba(225, 237, 245, 0.45);
-                    }
                     .localprompt-category-overflow-chips {
-                        display: contents;
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                        gap: 8px 10px;
+                        width: 100%;
                     }
                     .localprompt-category-overflow-chips::-webkit-scrollbar {
                         width: 4px;
@@ -179,25 +175,54 @@ export function getPromptStyles(uniqueId) {
                         background: rgba(255, 255, 255, 0.15);
                         border-radius: 2px;
                     }
+                    .localprompt-category-overflow-chips .localprompt-pinned-category-pill {
+                        max-width: none;
+                        width: 100%;
+                        min-width: 0;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                        box-sizing: border-box;
+                        text-align: left;
+                    }
                     .localprompt-pinned-category-pill {
                         max-width: 128px;
                         overflow: hidden;
                         text-overflow: ellipsis;
                         white-space: nowrap;
-                        border-radius: 999px;
-                        padding: 5px 10px;
+                        border-radius: 4px;
+                        padding: 5px 10px 5px 8px;
                         font-size: 11px;
-                        line-height: 1;
-                        background: #2a2a2a;
-                        color: #ddd;
-                        border: 1px solid #444;
+                        line-height: 1.2;
+                        background: #1a1a1c;
+                        color: #ccc;
+                        border: 1px solid rgba(255, 255, 255, 0.06);
+                        border-left: 3px solid transparent;
                         cursor: pointer;
                         flex: 0 1 auto;
+                        transition: all 0.15s ease;
+                        box-sizing: border-box;
                     }
-                    .localprompt-pinned-category-pill:hover,
+                    .localprompt-pinned-category-pill.has-role-color {
+                        border-left-color: var(--category-color);
+                    }
+                    .localprompt-pinned-category-pill:hover {
+                        color: #fff;
+                        background: #2a2a2d;
+                        border-color: rgba(255, 255, 255, 0.12);
+                    }
                     .localprompt-pinned-category-pill.active {
                         color: #fff;
-                        filter: brightness(1.1);
+                        background: #2d2d30;
+                        border-color: rgba(255, 255, 255, 0.12);
+                        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+                    }
+                    .localprompt-pinned-category-pill.has-role-color:hover,
+                    .localprompt-pinned-category-pill.has-role-color.active {
+                        border-left-color: var(--category-color) !important;
+                    }
+                    .localprompt-pinned-category-pill.has-role-color.active {
+                        box-shadow: 0 0 8px var(--category-color-glow);
                     }
 
                     .localprompt-category-grid-button svg {
@@ -1401,23 +1426,44 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-library-tabs-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
                     
                     .localprompt-library-tab {
-                        padding: 4px 10px;
-                        background: #2a2a2a;
-                        color: #aaa;
-                        border-radius: 12px;
+                        padding: 5px 10px 5px 8px;
+                        background: #1a1a1c;
+                        color: #ccc;
+                        border-radius: 4px;
                         font-size: 11px;
                         cursor: pointer;
                         white-space: nowrap;
                         user-select: none;
                         transition: all 0.15s ease;
-                        border: 1px solid #333;
+                        border: 1px solid rgba(255, 255, 255, 0.06);
+                        border-left: 3px solid transparent;
+                        box-sizing: border-box;
                     }
-                    .localprompt-library-tab:hover { background: #333; color: #ddd; }
-                    .localprompt-library-tab.active { background: #3a5a3a; color: #fff; border-color: #5a9c5a; box-shadow: 0 0 8px rgba(90, 156, 90, 0.4); }
+                    .localprompt-library-tab.has-role-color {
+                        border-left-color: var(--category-color);
+                    }
+                    .localprompt-library-tab:hover {
+                        color: #fff;
+                        background: #2a2a2d;
+                        border-color: rgba(255, 255, 255, 0.12);
+                    }
+                    .localprompt-library-tab.active {
+                        color: #fff;
+                        background: #2d2d30;
+                        border-color: rgba(255, 255, 255, 0.12);
+                        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+                    }
+                    .localprompt-library-tab.has-role-color:hover,
+                    .localprompt-library-tab.has-role-color.active {
+                        border-left-color: var(--category-color) !important;
+                    }
+                    .localprompt-library-tab.has-role-color.active {
+                        box-shadow: 0 0 8px var(--category-color-glow);
+                    }
                     .localprompt-utility-tab {
                         background: rgba(255,255,255,0.05);
                         color: #d7d7d7;
-                        border-color: rgba(255,255,255,0.12);
+                        border: 1px solid rgba(255,255,255,0.12);
                         border-radius: 999px;
                         font-size: 15px;
                         font-weight: 700;
@@ -1429,6 +1475,7 @@ export function getPromptStyles(uniqueId) {
                         display: inline-flex;
                         align-items: center;
                         justify-content: center;
+                        box-sizing: border-box;
                     }
                     .localprompt-utility-tab:hover {
                         background: rgba(255,255,255,0.12);
