@@ -1,6 +1,7 @@
 import {
     clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     createPinnedManagedControlsHtml,
+    formatWeight,
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
@@ -219,6 +220,7 @@ export async function renderActiveSidebar({
             const safeName = escapeHtml(prompt.name || "");
             const safeCategory = escapeHtml(prompt.category || "");
             const { weight, isOn } = getManagedPromptState(selectedEntry);
+            const formattedWeight = formatWeight(weight);
             const previewHtml = prompt.preview_url
                 ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
                 : `<div class="localprompt-active-row-thumb-placeholder">${safeCategory || "#"}</div>`;
@@ -233,9 +235,7 @@ export async function renderActiveSidebar({
                     <div class="localprompt-active-name" title="${safeName}">${safeName}</div>
                     <div class="localprompt-active-controls">
                         <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on">${isOn ? "ON" : "OFF"}</button>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-down" title="Decrease weight">-</button>
-                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-up" title="Increase weight">+</button>
+                        <span class="managed-weight-val" title="Scroll to adjust weight" aria-label="Scroll to adjust weight" tabindex="0">${formattedWeight}</span>
                     </div>
                 </div>
             `;
@@ -287,7 +287,7 @@ export async function renderActiveSidebar({
             draggedSelectedPromptId = null;
         });
         chip.addEventListener("click", (event) => {
-            if (event.target.closest("[data-managed-action], .localprompt-info-btn, .localprompt-active-preview-target")) return;
+            if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn, .localprompt-active-preview-target")) return;
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);

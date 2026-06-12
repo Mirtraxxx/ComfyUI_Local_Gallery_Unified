@@ -202,6 +202,16 @@ export function sortPromptsByPinnedOrder(prompts, pinnedOrder, selectedIds = [])
     return [...selectedPrompts, ...unselectedPrompts];
 }
 
+export function formatWeight(weight) {
+    const rounded = Math.round(weight * 100) / 100;
+    const tenth = Math.round(rounded * 10) / 10;
+    if (Math.abs(rounded - tenth) < 1e-9) {
+        return tenth.toFixed(1);
+    } else {
+        return rounded.toFixed(2);
+    }
+}
+
 export function getManagedPromptState(selectedEntry) {
     const weight = selectedEntry?.weight || 1.0;
     const isOn = selectedEntry?.on !== false;
@@ -210,19 +220,19 @@ export function getManagedPromptState(selectedEntry) {
 
 export function stepManagedPromptWeight(weight, delta, { min = 0.1, max = 2.0, step = 0.1 } = {}) {
     const currentWeight = weight || 1.0;
-    const nextWeight = Math.round((currentWeight + (delta * step)) * 10) / 10;
-    return Math.max(min, Math.min(max, nextWeight));
+    const nextWeight = Math.round((currentWeight + (delta * step)) * 100) / 100;
+    const clamped = Math.max(min, Math.min(max, nextWeight));
+    return Math.round(clamped * 100) / 100;
 }
 
 export function createPinnedManagedControlsHtml(selectedEntry) {
     const { weight, isOn } = getManagedPromptState(selectedEntry);
+    const formattedWeight = formatWeight(weight);
     return `
                     <div class="managed-card-overlay">
                         <div class="managed-card-controls">
                         <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on">${isOn ? "ON" : "OFF"}</button>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-down">-</button>
-                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>
+                        <span class="managed-weight-val" title="Scroll to adjust weight" aria-label="Scroll to adjust weight" tabindex="0">${formattedWeight}</span>
                         </div>
                     </div>
                 `;
@@ -230,12 +240,11 @@ export function createPinnedManagedControlsHtml(selectedEntry) {
 
 export function createManagedTextControlsHtml(selectedEntry) {
     const { weight, isOn } = getManagedPromptState(selectedEntry);
+    const formattedWeight = formatWeight(weight);
     return `
                     <div class="managed-card-controls">
                         <button class="managed-state-pill ${isOn ? "on" : "off"}" data-managed-action="toggle-on" style="position: static;">${isOn ? "ON" : "OFF"}</button>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-down">-</button>
-                        <span class="managed-weight-val">${weight.toFixed(1)}</span>
-                        <button class="localprompt-inline-btn" data-managed-action="weight-up">+</button>
+                        <span class="managed-weight-val" title="Scroll to adjust weight" aria-label="Scroll to adjust weight" tabindex="0">${formattedWeight}</span>
                     </div>
                 `;
 }

@@ -519,7 +519,7 @@ export async function renderPromptBuilderDrawer({
             bindPinnedManagedControls(chip, prompt);
             chip.addEventListener("click", (event) => {
                 if (suppressManualClickUntil > Date.now()) return;
-                if (event.target.closest("[data-managed-action]")) return;
+                if (event.target.closest("[data-managed-action], .managed-weight-val")) return;
                 addPromptToSelection(prompt);
             });
         } else {

@@ -1663,9 +1663,24 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-chip.pinned-managed .managed-weight-val {
                         min-width: 34px;
+                        height: 20px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 0 4px;
+                        border-radius: 4px;
+                        background: rgba(0, 0, 0, 0.25);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
                         text-align: center;
                         font-size: 11px;
                         color: #ddd;
+                        cursor: ns-resize;
+                        transition: background-color 0.2s, border-color 0.2s;
+                    }
+                    .localprompt-chip.pinned-managed .managed-weight-val:hover {
+                        background: rgba(0, 0, 0, 0.45);
+                        border-color: rgba(255, 255, 255, 0.15);
+                        color: #ffffff;
                     }
                     .localprompt-active-row {
                         display: grid;
@@ -1850,18 +1865,25 @@ export function getPromptStyles(uniqueId) {
                         background: rgba(255,255,255,0.09);
                     }
                     .localprompt-active-row .managed-weight-val {
-                        min-width: 34px;
+                        min-width: 38px;
                         height: 28px;
                         display: inline-flex;
                         align-items: center;
                         justify-content: center;
-                        padding: 0 2px;
-                        border-radius: 0;
-                        background: transparent;
-                        border: 0;
+                        padding: 0 6px;
+                        border-radius: 6px;
+                        background: rgba(12, 17, 23, 0.36);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
                         color: #e4e8eb;
                         font-size: 14px;
                         font-weight: 700;
+                        cursor: ns-resize;
+                        transition: background-color 0.2s, border-color 0.2s;
+                    }
+                    .localprompt-active-row .managed-weight-val:hover {
+                        background: rgba(255, 255, 255, 0.08);
+                        border-color: rgba(255, 255, 255, 0.25);
+                        color: #ffffff;
                     }
                     .localprompt-chip.pinned-draggable { cursor: grab; }
                     .localprompt-chip.pinned-draggable:active { cursor: grabbing; }
@@ -2098,19 +2120,20 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-card-overlay {
                         position: absolute;
-                        left: 6px;
-                        right: 6px;
+                        left: 50%;
+                        transform: translateX(-50%);
                         bottom: 32px;
+                        width: max-content;
                         height: auto;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        padding: 4px 5px;
-                        background: rgba(18, 22, 28, 0.65);
+                        padding: 4px 6px;
+                        background: rgba(18, 22, 28, 0.75);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 10px;
+                        border-radius: 12px;
                         overflow: visible;
                         z-index: 4;
                         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
@@ -2118,9 +2141,9 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-chip-thumb.pinned-managed .managed-card-controls {
                         display: flex;
                         align-items: center;
-                        justify-content: space-between;
-                        gap: 4px;
-                        width: 100%;
+                        justify-content: center;
+                        gap: 6px;
+                        width: auto;
                         background: transparent;
                         border: none;
                         border-radius: 0;
@@ -2143,6 +2166,13 @@ export function getPromptStyles(uniqueId) {
                         align-items: center;
                         justify-content: center;
                         flex-shrink: 0;
+                        cursor: ns-resize;
+                        transition: background-color 0.2s, border-color 0.2s;
+                    }
+                    .localprompt-chip-thumb.pinned-managed .managed-weight-val:hover {
+                        background: rgba(0, 0, 0, 0.65);
+                        border-color: rgba(255, 255, 255, 0.15);
+                        color: #ffffff;
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-state-pill {
                         min-width: 28px;
@@ -2234,6 +2264,16 @@ export function getPromptStyles(uniqueId) {
                     }
                     .localprompt-info-btn {
                         left: 6px;
+                    }
+                    .localprompt-chip-thumb .localprompt-info-btn::after,
+                    .localprompt-gallery-item .localprompt-info-btn::after,
+                    .localprompt-item .localprompt-info-btn::after {
+                        content: "";
+                        position: absolute;
+                        top: 0;
+                        right: -3px;
+                        bottom: -8px;
+                        left: -3px;
                     }
                     .localprompt-favorite-star,
                     .localprompt-gallery-item .favorite-btn,

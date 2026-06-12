@@ -19,6 +19,7 @@ import {
     hexToRgba,
     isShowTextNode,
     normalizePromptIdList,
+    formatWeight,
     promotePromptsById,
     sortPromptsByPinnedOrder,
     stepManagedPromptWeight,
@@ -791,7 +792,7 @@ const UnifiedPromptGalleryNode = {
                     if (String(chip.dataset.promptId || '') !== String(promptId)) return;
 
                     chip.querySelectorAll('.managed-weight-val').forEach(label => {
-                        label.textContent = weight.toFixed(1);
+                        label.textContent = formatWeight(weight);
                     });
 
                     chip.querySelectorAll('[data-managed-action="toggle-on"]').forEach(button => {
@@ -1483,13 +1484,20 @@ const UnifiedPromptGalleryNode = {
                         updateSelectedPromptEntry(prompt.id, (item, index) => {
                             if (action === 'toggle-on') {
                                 item.on = item.on === false;
-                            } else if (action === 'weight-up') {
-                                item.weight = stepManagedPromptWeight(item.weight, 1);
-                            } else if (action === 'weight-down') {
-                                item.weight = stepManagedPromptWeight(item.weight, -1);
                             }
                         }, { refreshOnly: true });
                     });
+                });
+
+                chip.querySelectorAll('.managed-weight-val').forEach(el => {
+                    el.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const direction = e.deltaY < 0 ? 1 : -1;
+                        updateSelectedPromptEntry(prompt.id, (item, index) => {
+                            item.weight = stepManagedPromptWeight(item.weight, direction, { step: 0.05 });
+                        }, { refreshOnly: true });
+                    }, { passive: false });
                 });
             }
 
