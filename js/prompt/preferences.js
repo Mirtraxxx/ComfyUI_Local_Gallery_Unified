@@ -17,7 +17,7 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     library_tab_layout: "scroll",
     thumbnail_size: "medium",
     thumbnail_size_px: THUMBNAIL_SIZE_DEFAULT,
-    active_thumbnail_size_px: THUMBNAIL_SIZE_DEFAULT,
+    active_thumbnail_size_px: 110,
     library_tabs: ["most_used", "pinned"],
     pinned_categories: null,
     visible_pinned_category_count: 5,

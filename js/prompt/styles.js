@@ -852,6 +852,8 @@ export function getPromptStyles(uniqueId) {
                         flex-direction: row;
                         flex-wrap: wrap;
                         align-items: flex-start;
+                        justify-content: center;
+                        gap: 8px;
                     }
                     .localprompt-active-sidebar .managed-thumb-media.localprompt-active-preview-target {
                         cursor: pointer;

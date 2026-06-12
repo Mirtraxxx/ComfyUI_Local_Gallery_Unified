@@ -361,7 +361,7 @@ UI_PREF_DEFAULTS = {
     "library_tab_layout": "scroll",
     "thumbnail_size": "medium",
     "thumbnail_size_px": 96,
-    "active_thumbnail_size_px": 96,
+    "active_thumbnail_size_px": 110,
     "pinned_categories": None,
     "visible_pinned_category_count": 5,
     "pinned_order": [],
