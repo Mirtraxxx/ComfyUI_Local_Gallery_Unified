@@ -2047,11 +2047,16 @@ export function getPromptStyles(uniqueId) {
                         z-index: 2;
                     }
                     .localprompt-chip-thumb.pinned-managed .thumb-label {
-                        bottom: 2px;
-                        left: 2px;
-                        right: 2px;
-                        border-bottom-left-radius: 4px;
-                        border-bottom-right-radius: 4px;
+                        left: 7px;
+                        right: 7px;
+                        bottom: 6px;
+                        padding: 2px 6px 3px;
+                        border-radius: 5px;
+                        background: rgba(8, 12, 16, 0.42);
+                        border: 1px solid rgba(255, 255, 255, 0.06);
+                        backdrop-filter: blur(5px) saturate(1.08);
+                        -webkit-backdrop-filter: blur(5px) saturate(1.08);
+                        text-shadow: 0 1px 2px rgba(0,0,0,0.72);
                     }
                     .localprompt-chip-thumb.pinned-managed.no-thumb {
                         background:
