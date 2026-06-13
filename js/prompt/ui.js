@@ -20,6 +20,7 @@ import {
     isShowTextNode,
     normalizePromptIdList,
     formatWeight,
+    getManagedPromptState,
     promotePromptsById,
     sortPromptsByPinnedOrder,
     stepManagedPromptWeight,
@@ -786,8 +787,7 @@ const UnifiedPromptGalleryNode = {
                 const selectedEntry = getSelectedPromptEntry(promptId);
                 if (!selectedEntry) return;
 
-                const weight = selectedEntry.weight || 1.0;
-                const isOn = selectedEntry.on !== false;
+                const { weight, isOn } = getManagedPromptState(selectedEntry);
                 widgetContainer.querySelectorAll('.pinned-managed, .localprompt-active-row').forEach(chip => {
                     if (String(chip.dataset.promptId || '') !== String(promptId)) return;
 

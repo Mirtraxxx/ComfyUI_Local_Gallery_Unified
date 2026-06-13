@@ -2181,6 +2181,35 @@ export function getPromptStyles(uniqueId) {
                         border-color: rgba(255, 255, 255, 0.15);
                         color: #ffffff;
                     }
+                    .localprompt-chip.pinned-managed .managed-weight-val,
+                    .localprompt-chip-thumb.pinned-managed .managed-weight-val,
+                    .localprompt-active-row .managed-weight-val {
+                        position: relative;
+                        z-index: 1;
+                        transform: scale(1);
+                        transform-origin: center;
+                        will-change: transform;
+                        transition:
+                            transform 0.14s ease-out,
+                            background-color 0.2s,
+                            border-color 0.2s,
+                            box-shadow 0.2s;
+                    }
+                    .localprompt-chip.pinned-managed .managed-weight-val:hover,
+                    .localprompt-chip-thumb.pinned-managed .managed-weight-val:hover,
+                    .localprompt-active-row .managed-weight-val:hover,
+                    .localprompt-chip.pinned-managed .managed-weight-val:focus-visible,
+                    .localprompt-chip-thumb.pinned-managed .managed-weight-val:focus-visible,
+                    .localprompt-active-row .managed-weight-val:focus-visible {
+                        z-index: 30;
+                        transform: scale(2);
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.38);
+                    }
+                    .localprompt-chip.pinned-managed .managed-weight-val:hover,
+                    .localprompt-chip-thumb.pinned-managed .managed-weight-val:hover,
+                    .localprompt-active-row .managed-weight-val:hover {
+                        cursor: none;
+                    }
                     .localprompt-chip-thumb.pinned-managed .managed-state-pill {
                         min-width: 28px;
                         height: 20px;

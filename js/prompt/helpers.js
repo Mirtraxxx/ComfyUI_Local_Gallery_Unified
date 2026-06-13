@@ -213,13 +213,15 @@ export function formatWeight(weight) {
 }
 
 export function getManagedPromptState(selectedEntry) {
-    const weight = selectedEntry?.weight || 1.0;
+    const numericWeight = Number(selectedEntry?.weight);
+    const weight = Number.isFinite(numericWeight) ? numericWeight : 1.0;
     const isOn = selectedEntry?.on !== false;
     return { weight, isOn };
 }
 
-export function stepManagedPromptWeight(weight, delta, { min = 0.1, max = 2.0, step = 0.1 } = {}) {
-    const currentWeight = weight || 1.0;
+export function stepManagedPromptWeight(weight, delta, { min = -10.0, max = 10.0, step = 0.1 } = {}) {
+    const numericWeight = Number(weight);
+    const currentWeight = Number.isFinite(numericWeight) ? numericWeight : 1.0;
     const nextWeight = Math.round((currentWeight + (delta * step)) * 100) / 100;
     const clamped = Math.max(min, Math.min(max, nextWeight));
     return Math.round(clamped * 100) / 100;
