@@ -912,61 +912,11 @@ const UnifiedLoraGalleryNode = {
                     }
 
                     card.addEventListener("click", () => {
-                        const loraName = card.dataset.loraName;
-                        const existingIndex = this.loraData.findIndex(item => item.lora === loraName);
-                        let isSelectedNow = false;
-                        if (existingIndex > -1) {
-                            this.loraData.splice(existingIndex, 1);
-                        } else {
-                            const newEntry = { on: true, lora: loraName, strength: 1.0, strength_clip: 1.0 };
-                            const pSelect = card.querySelector('.lora-card-preset-select');
-                            const stackPresetCheckbox = card.querySelector('.lora-card-preset-stack-checkbox');
-                            if (pSelect && stackPresetCheckbox?.checked) {
-                                const selectedPresets = Array.from(card.querySelectorAll('.lora-card-preset-check:checked')).map(checkbox => checkbox.value);
-                                if (selectedPresets.length > 0) {
-                                    newEntry.stack_trigger_presets = true;
-                                    newEntry.selected_presets = selectedPresets;
-                                    newEntry.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
-                                }
-                            } else if (pSelect && pSelect.value) {
-                                newEntry.selected_preset = pSelect.value;
-                            }
-                            this.loraData.push(newEntry);
-                            isSelectedNow = true;
-                        }
-                        card.classList.toggle("selected-flow", isSelectedNow);
-                        renderSelectedList();
-                        updateSelection();
-                        updatePresetButtonText(null);
+                        toggleLoraSelectionFromElement(card, card.dataset.loraName);
                     });
 
                     const editBtn = card.querySelector(".edit-tags-btn");
-                    editBtn.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                    
-                        if (e.ctrlKey) {
-                            if (this.selectedCardsForEditing.has(card)) {
-                                this.selectedCardsForEditing.delete(card);
-                                card.classList.remove("selected-edit");
-                            } else {
-                                this.selectedCardsForEditing.add(card);
-                                card.classList.add("selected-edit");
-                            }
-                        } else {
-                            if (this.selectedCardsForEditing.has(card) && this.selectedCardsForEditing.size === 1) {
-                                this.selectedCardsForEditing.clear();
-                                card.classList.remove("selected-edit");
-                            } else {
-                                document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit, #${uniqueId} .locallora-lora-row.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                                this.selectedCardsForEditing.clear();
-                                
-                                this.selectedCardsForEditing.add(card);
-                                card.classList.add("selected-edit");
-                            }
-                        }
-                    
-                        renderMetadataEditor();
-                    });
+                    bindMetadataEditButton(card, editBtn);
                 });
             };
 
