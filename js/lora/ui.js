@@ -870,27 +870,7 @@ const UnifiedLoraGalleryNode = {
                     
                     const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">🔗</a>` : '';
 
-                    let presetDropdownHTML = '';
-                    if (lora.trigger_presets && Object.keys(lora.trigger_presets).length > 0) {
-                        presetDropdownHTML = `<select class="lora-card-preset-select" style="width: 100%; max-width: 100%; background: #222; color: #ccc; border: 1px solid #555; border-radius: 4px; font-size: 10px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis;">
-                            <option value="">Default Triggers</option>`;
-                        for (const presetName of Object.keys(lora.trigger_presets)) {
-                            presetDropdownHTML += `<option value="${presetName}">${presetName}</option>`;
-                        }
-                        presetDropdownHTML += `</select>
-                            <div class="lora-card-preset-checklist">`;
-                        for (const presetName of Object.keys(lora.trigger_presets)) {
-                            presetDropdownHTML += `<label>
-                                <input type="checkbox" class="lora-card-preset-check" value="${presetName}">
-                                ${presetName}
-                            </label>`;
-                        }
-                        presetDropdownHTML += `</div>
-                            <label class="lora-card-preset-stack-label" title="Allow multiple trigger presets to be appended to this LoRA's prompt output">
-                                <input type="checkbox" class="lora-card-preset-stack-checkbox">
-                                Stack trigger presets
-                            </label>`;
-                    }
+                    const presetDropdownHTML = buildPresetControlsHTML(lora);
 
                     card.innerHTML = `
                         <div class="card-btn sync-civitai-btn" title="Sync with Civitai">☁️</div>
@@ -905,72 +885,7 @@ const UnifiedLoraGalleryNode = {
                         <div class="card-btn edit-tags-btn">✏️</div>
                     `;
 
-                    const presetSelect = card.querySelector('.lora-card-preset-select');
-                    if (presetSelect) {
-                        const presetStackCheckbox = card.querySelector('.lora-card-preset-stack-checkbox');
-                        const presetChecklist = card.querySelector('.lora-card-preset-checklist');
-                        const presetChecks = Array.from(card.querySelectorAll('.lora-card-preset-check'));
-                        const existingItem = this.loraData.find(item => item.lora === lora.name);
-                        const existingPresetNames = existingItem && Array.isArray(existingItem.selected_presets)
-                            ? existingItem.selected_presets
-                            : (existingItem && existingItem.selected_preset ? [existingItem.selected_preset] : []);
-                        const useStackedTriggerPresets = Boolean(existingItem?.stack_trigger_presets || existingPresetNames.length > 1);
-
-                        const syncPresetSelectMode = () => {
-                            const stacking = presetStackCheckbox.checked;
-                            presetSelect.style.display = stacking ? "none" : "";
-                            presetChecklist.classList.toggle("visible", stacking);
-                        };
-
-                        presetStackCheckbox.checked = useStackedTriggerPresets;
-                        syncPresetSelectMode();
-                        if (useStackedTriggerPresets) {
-                            presetChecks.forEach(checkbox => {
-                                checkbox.checked = existingPresetNames.includes(checkbox.value);
-                            });
-                        } else if (existingPresetNames.length > 0) {
-                            presetSelect.value = existingPresetNames[0];
-                        }
-
-                        const applyPresetSelection = () => {
-                            const item = this.loraData.find(item => item.lora === lora.name);
-                            if (!item) return;
-
-                            if (presetStackCheckbox.checked) {
-                                const selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
-                                item.stack_trigger_presets = true;
-                                item.selected_presets = selectedPresets;
-                                item.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
-                            } else {
-                                item.selected_preset = presetSelect.value;
-                                delete item.selected_presets;
-                                delete item.stack_trigger_presets;
-                            }
-                            updateSelection();
-                        };
-
-                        presetSelect.addEventListener('click', (e) => e.stopPropagation());
-                        presetSelect.addEventListener('mousedown', (e) => e.stopPropagation());
-                        presetSelect.addEventListener('change', applyPresetSelection);
-                        presetChecklist.addEventListener('click', (e) => e.stopPropagation());
-                        presetChecks.forEach(checkbox => {
-                            checkbox.addEventListener('change', applyPresetSelection);
-                        });
-                        presetStackCheckbox.addEventListener('click', (e) => e.stopPropagation());
-                        presetStackCheckbox.addEventListener('change', () => {
-                            if (presetStackCheckbox.checked && presetSelect.value) {
-                                presetChecks.forEach(checkbox => {
-                                    checkbox.checked = checkbox.value === presetSelect.value;
-                                });
-                            }
-                            syncPresetSelectMode();
-                            if (!presetStackCheckbox.checked) {
-                                const firstSelected = presetChecks.find(checkbox => checkbox.checked);
-                                presetSelect.value = firstSelected ? firstSelected.value : "";
-                            }
-                            applyPresetSelection();
-                        });
-                    }
+                    setupPresetControls(card, lora);
 
                     if (lora.preview_type !== 'video') {
                         card.querySelector("img").onerror = (e) => { e.target.src = empty_lora_image; };
