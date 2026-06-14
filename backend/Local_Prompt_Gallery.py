@@ -27,6 +27,8 @@ _metadata_cache = None
 _metadata_mtime = 0
 _metadata_indexes_cache = None
 _metadata_indexes_mtime = 0
+_ui_prefs_cache = None
+_ui_prefs_mtime = 0
 _json_file_lock = threading.RLock()
 
 # Deferred usage-count saving
@@ -528,14 +530,29 @@ def normalize_ui_prefs(raw_prefs):
     return prefs
 
 def load_ui_prefs():
-    prefs = load_json_file(UI_PREFS_FILE, UI_PREF_DEFAULTS)
+    global _ui_prefs_cache, _ui_prefs_mtime
+    try:
+        current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
+        if _ui_prefs_cache is not None and current_mtime == _ui_prefs_mtime:
+            return copy.deepcopy(_ui_prefs_cache)
+        prefs = load_json_file(UI_PREFS_FILE, UI_PREF_DEFAULTS)
+    except Exception:
+        prefs = copy.deepcopy(UI_PREF_DEFAULTS)
+        current_mtime = 0
     normalized = normalize_ui_prefs(prefs)
     if normalized != prefs:
         save_json_file(normalized, UI_PREFS_FILE)
-    return normalized
+        current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
+    _ui_prefs_cache = normalized
+    _ui_prefs_mtime = current_mtime
+    return copy.deepcopy(normalized)
 
 def save_ui_prefs(data):
-    save_json_file(normalize_ui_prefs(data), UI_PREFS_FILE)
+    global _ui_prefs_cache, _ui_prefs_mtime
+    normalized = normalize_ui_prefs(data)
+    save_json_file(normalized, UI_PREFS_FILE)
+    _ui_prefs_cache = normalized
+    _ui_prefs_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
 def load_presets():
     presets = load_json_file(PRESETS_FILE, {}, strict=True)
     if not isinstance(presets, dict):
@@ -657,11 +674,10 @@ async def get_prompts_endpoint(request):
         else:
             candidate_ids = list(metadata.keys())
 
-        ordered_candidate_ids = sort_prompt_ids_for_display(metadata, candidate_ids, sort_mode, manual_order)
-
         selected_set = set(selected_prompts)
 
         if not filter_name:
+            ordered_candidate_ids = sort_prompt_ids_for_display(metadata, candidate_ids, sort_mode, manual_order)
             if selected_set:
                 selected_ids = [prompt_id for prompt_id in ordered_candidate_ids if prompt_id in selected_set]
                 ordered_candidate_ids = selected_ids + [
@@ -688,7 +704,8 @@ async def get_prompts_endpoint(request):
                 'total_prompts': total_prompts
             })
 
-        prompts = []
+        filter_lower = filter_name.lower()
+        filtered_candidate_ids = []
 
         for prompt_id in candidate_ids:
             data = metadata.get(prompt_id)
@@ -696,40 +713,35 @@ async def get_prompts_endpoint(request):
                 continue
 
             prompt_text = data.get('prompt_text', '')
+            name_lower = data.get('name', '').lower()
+            prompt_text_lower = prompt_text.lower()
 
-            # Filter by name/prompt_text
-            if filter_name:
-                filter_lower = filter_name.lower()
-                name_lower = data.get('name', '').lower()
-                prompt_text_lower = prompt_text.lower()
+            # Check if filter text is found in name or prompt_text
+            if filter_lower not in name_lower and filter_lower not in prompt_text_lower:
+                continue
 
-                # Check if filter text is found in name or prompt_text
-                if (filter_lower not in name_lower and 
-                    filter_lower not in prompt_text_lower):
-                    continue
+            filtered_candidate_ids.append(prompt_id)
 
-            prompts.append(prompt_response(prompt_id, data, include_usage=True))
-
-        prompts_by_id = {prompt['id']: prompt for prompt in prompts}
-        ordered_filtered_ids = [
-            prompt_id for prompt_id in ordered_candidate_ids
-            if prompt_id in prompts_by_id
-        ]
+        ordered_filtered_ids = sort_prompt_ids_for_display(metadata, filtered_candidate_ids, sort_mode, manual_order)
         if selected_set:
             selected_ids = [prompt_id for prompt_id in ordered_filtered_ids if prompt_id in selected_set]
             ordered_filtered_ids = selected_ids + [
                 prompt_id for prompt_id in ordered_filtered_ids
                 if prompt_id not in selected_set
             ]
-        prompts = [prompts_by_id[prompt_id] for prompt_id in ordered_filtered_ids]
 
         # Pagination
-        total_prompts = len(prompts)
+        total_prompts = len(ordered_filtered_ids)
         total_pages = max(1, (total_prompts + per_page - 1) // per_page)
         page = max(1, min(page, total_pages))
         start_idx = (page - 1) * per_page
         end_idx = start_idx + per_page
-        paginated_prompts = prompts[start_idx:end_idx]
+        paginated_ids = ordered_filtered_ids[start_idx:end_idx]
+        paginated_prompts = [
+            prompt_response(prompt_id, metadata[prompt_id], include_usage=True)
+            for prompt_id in paginated_ids
+            if prompt_id in metadata
+        ]
 
         return web.json_response({
             'prompts': paginated_prompts,
@@ -1824,14 +1836,16 @@ class LocalPromptGallery:
                             cat_hash = int(hashlib.md5(category.encode()).hexdigest(), 16)
                             current_index = (seed_int + cat_hash) % len(category_prompt_ids)
 
-                    wildcard_cycle_state[category] = {
+                    next_cycle_state = {
                         "last_seed": seed_int,
                         "last_index": current_index,
                         "mode": wildcard_rng_mode,
                     }
                     if wildcard_rng_mode == "shuffle":
-                        wildcard_cycle_state[category]["shuffle_nonce"] = wildcard_shuffle_nonce
-                    wildcard_cycle_state_changed = True
+                        next_cycle_state["shuffle_nonce"] = wildcard_shuffle_nonce
+                    if state != next_cycle_state:
+                        wildcard_cycle_state[category] = next_cycle_state
+                        wildcard_cycle_state_changed = True
                     selected_prompt_id = ordered_prompt_ids[current_index]
                     selected_prompt = metadata.get(selected_prompt_id, {})
 

@@ -66,9 +66,11 @@ function updateCategoryActionButtons(overlay, categoryValue) {
 
 function buildPromptCardHtml(prompt, hasPreview) {
     const safeName = escapeHtml(prompt.name);
-    const previewHtml = hasPreview
-        ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
-        : "No Preview";
+    const previewHtml = hasPreview && prompt.preview_type === "video"
+        ? `<video src="${escapeHtml(prompt.preview_url)}" muted playsinline preload="metadata" aria-label="${safeName}"></video>`
+        : hasPreview
+            ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
+            : "No Preview";
     return `
         ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
         <div class="item-preview ${hasPreview ? "" : "no-img"}">
@@ -171,6 +173,7 @@ export async function showCardManagerModal({
     let downwardScrollDistance = 0;
     let upwardScrollDistance = 0;
     let suppressNextCardClick = false;
+    let browseLoadSequence = 0;
 
     if (isWorkspace && workspaceBody) {
         workspaceBody.addEventListener("scroll", () => {
@@ -213,11 +216,13 @@ export async function showCardManagerModal({
     }
 
     async function loadBrowseGallery(page = 1) {
+        const loadSequence = ++browseLoadSequence;
         const filter = filterInput.value;
         const category = categorySelect.value;
         const sortScope = { category };
         const sortMode = getSortMode(sortScope);
         const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, sortMode);
+        if (loadSequence !== browseLoadSequence) return;
 
         currentPage = data.current_page || 1;
         totalPages = data.total_pages || 1;

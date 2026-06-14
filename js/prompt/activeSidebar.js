@@ -144,6 +144,7 @@ export async function renderActiveSidebar({
     attachInfoPopup,
     attachContextMenu,
     getDisplayMode = () => nodeInstance.uiPrefs?.active_display_mode || nodeInstance.uiPrefs?.display_mode || "compact",
+    isRenderCurrent = () => true,
 }) {
     const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
     const container = widgetContainer.querySelector(`#${uniqueId}-active-chips`);
@@ -169,6 +170,7 @@ export async function renderActiveSidebar({
     };
 
     const prompts = await getActivePromptModels();
+    if (!isRenderCurrent()) return;
     const nextContent = document.createDocumentFragment();
     const displayMode = getDisplayMode() === "thumbnails" ? "thumbnails" : "compact";
     container.classList.toggle("active-compact-mode", displayMode === "compact");
@@ -198,7 +200,7 @@ export async function renderActiveSidebar({
             const safeName = escapeHtml(prompt.name || "");
             const safeCategory = escapeHtml(prompt.category || "");
             const previewHtml = prompt.preview_url
-                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
+                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
                 : `
                     <div class="managed-thumb-placeholder">
                         <div class="managed-placeholder-icon">#</div>
@@ -224,7 +226,7 @@ export async function renderActiveSidebar({
             const { weight, isOn } = getManagedPromptState(selectedEntry);
             const formattedWeight = formatWeight(weight);
             const previewHtml = prompt.preview_url
-                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}">`
+                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
                 : `<div class="localprompt-active-row-thumb-placeholder">${safeCategory || "#"}</div>`;
             chip = document.createElement("div");
             chip.className = "localprompt-active-row selected";
@@ -296,6 +298,7 @@ export async function renderActiveSidebar({
         attachContextMenu(chip, prompt);
         nextContent.appendChild(chip);
     });
+    if (!isRenderCurrent()) return;
     container.replaceChildren(nextContent);
     requestAnimationFrame(() => {
         scrollHost.scrollTop = previousScrollTop;

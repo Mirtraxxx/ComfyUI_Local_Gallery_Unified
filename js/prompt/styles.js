@@ -2373,24 +2373,6 @@ export function getPromptStyles(uniqueId) {
                         border-color: #88c0ff;
                         box-shadow: 0 0 0 2px rgba(136, 192, 255, 0.45);
                     }
-                    .localprompt-chip-thumb.selected:not(.pinned-managed)::after {
-                        content: '+';
-                        position: absolute;
-                        top: 4px;
-                        left: 4px;
-                        width: 16px;
-                        height: 16px;
-                        background: #4a9eff;
-                        color: #fff;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 10px;
-                        font-weight: bold;
-                        z-index: 10;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-                    }
                     .localprompt-chip-thumb.role-colored {
                         border-color: var(--role-color, #4c4c4c);
                     }
@@ -3493,7 +3475,8 @@ export function getPromptStyles(uniqueId) {
                         justify-content: center;
                         overflow: hidden;
                     }
-                    .localprompt-gallery-item .item-preview img { width: 100%; height: 100%; object-fit: cover; }
+                    .localprompt-gallery-item .item-preview img,
+                    .localprompt-gallery-item .item-preview video { width: 100%; height: 100%; object-fit: cover; }
                     .localprompt-gallery-item .item-preview.no-img { font-size: 10px; color: #5f6975; }
                     .localprompt-gallery-item .item-info {
                         position: absolute;

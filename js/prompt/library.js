@@ -248,6 +248,7 @@ export async function renderPromptBuilderDrawer({
     getManualOrder = () => [],
     persistManualOrder = null,
     getDisplayMode = () => nodeInstance.uiPrefs?.cards_display_mode || nodeInstance.uiPrefs?.display_mode || "thumbnails",
+    isRenderCurrent = () => true,
 }) {
     const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
     if (!container) return;
@@ -285,10 +286,12 @@ export async function renderPromptBuilderDrawer({
         maxCount,
         sortMode,
     });
+    if (!isRenderCurrent()) return;
     prompts = sortPromptsForDisplay(prompts, sortMode);
     if (sortMode === "manual") {
         prompts = sortPromptsByManualOrder(prompts, getManualOrder(tabName));
     }
+    if (!isRenderCurrent()) return;
 
     const nextContent = document.createDocumentFragment();
 
@@ -309,6 +312,7 @@ export async function renderPromptBuilderDrawer({
         emptyState.style.padding = "4px";
         emptyState.textContent = "No prompts found here.";
         nextContent.appendChild(emptyState);
+        if (!isRenderCurrent()) return;
         container.replaceChildren(nextContent);
         if (shouldRestoreScroll) {
             requestAnimationFrame(() => {
@@ -332,8 +336,15 @@ export async function renderPromptBuilderDrawer({
         container.querySelectorAll(".localprompt-chip[data-prompt-id], .localprompt-chip-thumb[data-prompt-id]")
     );
     const clearManualDropTargets = () => {
-        getPromptBuilderCards().forEach(card => card.classList.remove("pinned-drop-target"));
+        lastManualDropTarget?.classList.remove("pinned-drop-target");
+        container.querySelector(".pinned-drop-target")?.classList.remove("pinned-drop-target");
         lastManualDropTarget = null;
+    };
+    const setManualDropTarget = targetCard => {
+        if (lastManualDropTarget === targetCard) return;
+        lastManualDropTarget?.classList.remove("pinned-drop-target");
+        lastManualDropTarget = targetCard || null;
+        lastManualDropTarget?.classList.add("pinned-drop-target");
     };
     const getPromptBuilderCardAtPoint = (clientX, clientY) => {
         const element = document.elementFromPoint(clientX, clientY);
@@ -370,7 +381,7 @@ export async function renderPromptBuilderDrawer({
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                     <div class="managed-thumb-media">
-                        <img src="${prompt.preview_url}" alt="${prompt.name}">
+                        <img src="${prompt.preview_url}" alt="${prompt.name}" loading="lazy" decoding="async">
                     </div>
                     ${createPinnedManagedControlsHtml(selectedEntry)}
                     <span class="thumb-label">${prompt.name}</span>
@@ -378,7 +389,7 @@ export async function renderPromptBuilderDrawer({
             } else {
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
-                    <img src="${prompt.preview_url}" alt="${prompt.name}">
+                    <img src="${prompt.preview_url}" alt="${prompt.name}" loading="lazy" decoding="async">
                     <span class="thumb-label">${prompt.name}</span>
                 `;
             }
@@ -520,12 +531,14 @@ export async function renderPromptBuilderDrawer({
             chip.addEventListener("click", (event) => {
                 if (suppressManualClickUntil > Date.now()) return;
                 if (event.target.closest("[data-managed-action], .managed-weight-val")) return;
-                addPromptToSelection(prompt);
+                const isNowSelected = addPromptToSelection(prompt);
+                if (typeof isNowSelected === "boolean") chip.classList.toggle("selected", isNowSelected);
             });
         } else {
             chip.addEventListener("click", () => {
                 if (suppressManualClickUntil > Date.now()) return;
-                addPromptToSelection(prompt);
+                const isNowSelected = addPromptToSelection(prompt);
+                if (typeof isNowSelected === "boolean") chip.classList.toggle("selected", isNowSelected);
             });
         }
         if (tabName === "pinned") {
@@ -559,6 +572,7 @@ export async function renderPromptBuilderDrawer({
         nextContent.appendChild(chip);
     });
 
+    if (!isRenderCurrent()) return;
     container.replaceChildren(nextContent);
 
     if (canPointerReorderManualCards) {
@@ -575,11 +589,11 @@ export async function renderPromptBuilderDrawer({
 
             event.preventDefault();
             event.stopPropagation();
-            clearManualDropTargets();
             const targetCard = getPromptBuilderCardAtPoint(event.clientX, event.clientY);
             if (targetCard && targetCard !== pointerManualDrag.chip) {
-                targetCard.classList.add("pinned-drop-target");
-                lastManualDropTarget = targetCard;
+                setManualDropTarget(targetCard);
+            } else {
+                setManualDropTarget(null);
             }
         };
 

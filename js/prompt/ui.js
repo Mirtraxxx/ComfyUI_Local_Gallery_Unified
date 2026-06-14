@@ -428,6 +428,45 @@ const UnifiedPromptGalleryNode = {
             let activeLibraryTab = null;
             let categoryOverflowOpen = false;
             let currentWildcardMode = wildcardWidget?.value || 'off';
+            let libraryDrawerRenderToken = 0;
+            let queuedLibraryDrawerTimer = null;
+            let activeSidebarRenderToken = 0;
+            let cachedCategories = null;
+            let cachedCategoriesPromise = null;
+
+            function queueLibraryDrawerRender(tabName = activeLibraryTab, delay = 60) {
+                if (!tabName) return;
+                if (queuedLibraryDrawerTimer) {
+                    clearTimeout(queuedLibraryDrawerTimer);
+                }
+                queuedLibraryDrawerTimer = setTimeout(() => {
+                    queuedLibraryDrawerTimer = null;
+                    renderLibraryDrawer(tabName);
+                }, delay);
+            }
+
+            function invalidateCategoryCache() {
+                cachedCategories = null;
+                cachedCategoriesPromise = null;
+            }
+
+            async function getCachedCategories({ force = false } = {}) {
+                if (!force && Array.isArray(cachedCategories)) {
+                    return cachedCategories;
+                }
+                if (!force && cachedCategoriesPromise) {
+                    return cachedCategoriesPromise;
+                }
+                cachedCategoriesPromise = UnifiedPromptGalleryNode.getCategories()
+                    .then(categories => {
+                        cachedCategories = Array.isArray(categories) ? categories : [];
+                        return cachedCategories;
+                    })
+                    .finally(() => {
+                        cachedCategoriesPromise = null;
+                    });
+                return cachedCategoriesPromise;
+            }
 
             const workspaceController = createPromptWorkspaceController({
                 widgetContainer,
@@ -470,6 +509,10 @@ const UnifiedPromptGalleryNode = {
                 if (toolbarOutsideClickHandler) {
                     document.removeEventListener("click", toolbarOutsideClickHandler);
                     toolbarOutsideClickHandler = null;
+                }
+                if (queuedLibraryDrawerTimer) {
+                    clearTimeout(queuedLibraryDrawerTimer);
+                    queuedLibraryDrawerTimer = null;
                 }
                 if (originalOnRemoved) originalOnRemoved.call(this);
             };
@@ -622,7 +665,7 @@ const UnifiedPromptGalleryNode = {
                 const moreGroup = widgetContainer.querySelector(`#${uniqueId}-more-category-group`);
                 if (!strip) return;
 
-                const allCategories = await UnifiedPromptGalleryNode.getCategories();
+                const allCategories = await getCachedCategories();
                 const pinnedCategories = await ensurePinnedCategoriesInitialized(allCategories);
                 const visiblePinnedCategories = pinnedCategories.slice(0, getVisiblePinnedCategoryCount());
                 strip.innerHTML = "";
@@ -649,7 +692,7 @@ const UnifiedPromptGalleryNode = {
                 const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
                 if (!overflowContainer || !chipsContainer) return;
 
-                const categories = await UnifiedPromptGalleryNode.getCategories();
+                const categories = await getCachedCategories();
                 const active = activeLibraryTab;
                 const pinnedCategories = await ensurePinnedCategoriesInitialized(categories);
                 const visiblePinned = new Set(pinnedCategories.slice(0, getVisiblePinnedCategoryCount()));
@@ -814,7 +857,7 @@ const UnifiedPromptGalleryNode = {
                 } else {
                     saveSelectionData();
                     renderPrompts();
-                    if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
+                    if (activeLibraryTab) queueLibraryDrawerRender(activeLibraryTab);
                 }
                 return true;
             }
@@ -1118,7 +1161,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function savePinnedCategories(nextPinnedCategories) {
-                const allCategories = await UnifiedPromptGalleryNode.getCategories();
+                const allCategories = await getCachedCategories();
                 const categorySet = new Set(allCategories);
                 node_instance.uiPrefs.pinned_categories = [...new Set(
                     (nextPinnedCategories || [])
@@ -1444,7 +1487,7 @@ const UnifiedPromptGalleryNode = {
                 hideHoverPreview();
                 saveSelectionData();
                 renderPrompts();
-                if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
+                if (activeLibraryTab) queueLibraryDrawerRender(activeLibraryTab);
                 if (app.graph) app.graph.change();
             }
 
@@ -1506,7 +1549,7 @@ const UnifiedPromptGalleryNode = {
             if (addTabBtn) {
                 addTabBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const categories = await UnifiedPromptGalleryNode.getCategories();
+                    const categories = await getCachedCategories();
                     if (!categories || categories.length === 0) {
                         alert("No categories available to add.");
                         return;
@@ -1736,6 +1779,7 @@ const UnifiedPromptGalleryNode = {
                 updateConfigBarVisibility();
             }
             async function renderActiveSidebar() {
+                const renderToken = ++activeSidebarRenderToken;
                 await renderPromptActiveSidebar({
                     widgetContainer,
                     uniqueId,
@@ -1750,11 +1794,12 @@ const UnifiedPromptGalleryNode = {
                     saveSelectionData,
                     renderPrompts,
                     getActiveLibraryTab: () => activeLibraryTab,
-                    renderLibraryDrawer,
+                    renderLibraryDrawer: queueLibraryDrawerRender,
                     addPromptToSelection,
                     attachInfoPopup,
                     attachContextMenu,
                     getDisplayMode: getActiveDisplayMode,
+                    isRenderCurrent: () => renderToken === activeSidebarRenderToken,
                 });
             }
 
@@ -1797,6 +1842,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function renderLibraryDrawer(tabName) {
+                const renderToken = ++libraryDrawerRenderToken;
                 await renderPromptBuilderDrawer({
                     widgetContainer,
                     uniqueId,
@@ -1827,6 +1873,7 @@ const UnifiedPromptGalleryNode = {
                     getManualOrder: scope => getPromptManualOrder(scope || tabName),
                     persistManualOrder: persistPromptManualOrder,
                     getDisplayMode: getCardsDisplayMode,
+                    isRenderCurrent: () => renderToken === libraryDrawerRenderToken && activeLibraryTab === tabName,
                 });
             }
 
@@ -1999,6 +2046,7 @@ const UnifiedPromptGalleryNode = {
             // Helper to add/remove prompt from selection
             function addPromptToSelection(prompt) {
                 const existingIndex = node_instance.promptData.findIndex(p => String(p.prompt_id) === String(prompt.id));
+                let isNowSelected = false;
                 if (existingIndex >= 0) {
                     // Remove if already selected
                     node_instance.promptData.splice(existingIndex, 1);
@@ -2010,13 +2058,15 @@ const UnifiedPromptGalleryNode = {
                         on: true,
                         weight: 1.0
                     });
+                    isNowSelected = true;
                 }
                 hideHoverPreview();
                 saveSelectionData();
                 renderPrompts();
                 if (typeof activeLibraryTab !== 'undefined' && activeLibraryTab) {
-                    renderLibraryDrawer(activeLibraryTab);
+                    queueLibraryDrawerRender(activeLibraryTab);
                 }
+                return isNowSelected;
             }
 
             function showHoverPreview(prompt, event, anchorElement = null) {
@@ -2058,10 +2108,15 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function loadCategories() {
+                invalidateCategoryCache();
+                const categoryAwareGalleryNode = {
+                    ...UnifiedPromptGalleryNode,
+                    getCategories: () => getCachedCategories({ force: true }),
+                };
                 await loadPromptGalleryCategories({
                     widgetContainer,
                     uniqueId,
-                    galleryNode: UnifiedPromptGalleryNode,
+                    galleryNode: categoryAwareGalleryNode,
                 });
                 await renderCategoryDropdownOptions();
             }
@@ -2476,7 +2531,7 @@ const UnifiedPromptGalleryNode = {
                 // Wildcards button handler
                 widgetContainer.querySelector(`#${uniqueId}-wildcards-btn`)?.addEventListener('click', () => {
                     showWildcardsModal({
-                        getCategories: () => UnifiedPromptGalleryNode.getCategories(),
+                        getCategories: () => getCachedCategories(),
                         categoriesWidget,
                         getCurrentWildcardMode: () => currentWildcardMode,
                         saveWildcardState,
