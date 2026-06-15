@@ -599,6 +599,20 @@ const UnifiedLoraGalleryNode = {
                     this.setDirtyCanvas(true, true);
                 });
             };
+
+            const promoteSelectedLorasInAvailableList = () => {
+                if (!Array.isArray(this.availableLoras) || this.availableLoras.length === 0) return;
+                const selectedOrder = this.loraData.map(item => item.lora);
+                const loraByName = new Map(this.availableLoras.map(lora => [lora.name, lora]));
+                const promoted = selectedOrder
+                    .map(name => loraByName.get(name))
+                    .filter(Boolean);
+                const selectedNames = new Set(selectedOrder);
+                const remaining = this.availableLoras
+                    .filter(lora => !selectedNames.has(lora.name))
+                    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+                this.availableLoras = [...promoted, ...remaining];
+            };
             
             const syncWithCivitai = async (loraName, card) => {
                 const syncBtn = card.querySelector('.sync-civitai-btn');
@@ -807,7 +821,11 @@ const UnifiedLoraGalleryNode = {
                 element.classList.toggle("selected-flow", isSelectedNow);
                 const selectedToggle = element.querySelector(".compact-selected-toggle");
                 if (selectedToggle) selectedToggle.checked = isSelectedNow;
+                promoteSelectedLorasInAvailableList();
                 renderSelectedList();
+                if (currentViewMode === "gallery") {
+                    renderGallery(false);
+                }
                 updateSelection();
                 updatePresetButtonText(null);
             };
@@ -953,6 +971,7 @@ const UnifiedLoraGalleryNode = {
                                 this.availableLoras.unshift(lora);
                             }
                             this.loraData.push({ on: true, lora: value, strength: 1.0, strength_clip: 1.0 });
+                            promoteSelectedLorasInAvailableList();
                             renderSelectedList();
                             renderCompact();
                             updateSelection();
@@ -1139,22 +1158,38 @@ const UnifiedLoraGalleryNode = {
                 if (currentViewMode === "compact") renderCompact(append);
                 else renderGallery(append);
             };
+
+            let loraFetchSequence = 0;
+            let pendingFetchAfterLoad = null;
             
             const fetchAndRender = async (append = false) => {
-                if (this.isLoading) return;
+                if (this.isLoading) {
+                    pendingFetchAfterLoad = pendingFetchAfterLoad === false ? false : append;
+                    return;
+                }
+                const fetchSequence = ++loraFetchSequence;
                 const pageToFetch = append ? this.currentPage + 1 : 1;
                 if (append && pageToFetch > this.totalPages) return;
-                const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, this.loraData.map(item => item.lora)); 
+                try {
+                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, this.loraData.map(item => item.lora)); 
+                    if (fetchSequence !== loraFetchSequence) return;
 
-                if (append) {
-                    const existingNames = new Set(this.availableLoras.map(l => l.name));
-                    this.availableLoras.push(...(loras || []).filter(l => !existingNames.has(l.name)));
-                } else {
-                    this.availableLoras = loras || [];
-                    if (!foldersRendered && folders && folders.length > 0) renderFolders(folders);
-                    galleryEl.scrollTop = 0;
+                    if (append) {
+                        const existingNames = new Set(this.availableLoras.map(l => l.name));
+                        this.availableLoras.push(...(loras || []).filter(l => !existingNames.has(l.name)));
+                    } else {
+                        this.availableLoras = loras || [];
+                        if (!foldersRendered && folders && folders.length > 0) renderFolders(folders);
+                        galleryEl.scrollTop = 0;
+                    }
+                    renderCurrentView(append);
+                } finally {
+                    if (fetchSequence === loraFetchSequence && pendingFetchAfterLoad !== null) {
+                        const nextAppend = pendingFetchAfterLoad;
+                        pendingFetchAfterLoad = null;
+                        fetchAndRender(nextAppend);
+                    }
                 }
-                renderCurrentView(append);
             };
 
             const handleTagSelectionChange = () => {
@@ -1225,7 +1260,9 @@ const UnifiedLoraGalleryNode = {
                         e.preventDefault();
                         this.loraData = cloneJsonOr(presets[name], []);
 
+                        promoteSelectedLorasInAvailableList();
                         renderSelectedList();
+                        renderCurrentView(false);
 
                         setTimeout(() => {
                             const HEADER_HEIGHT = 90;
