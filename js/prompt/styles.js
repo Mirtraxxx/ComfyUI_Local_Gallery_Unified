@@ -59,7 +59,6 @@ export function getPromptStyles(uniqueId) {
                         flex: 1 1 auto;
                         min-width: 0;
                         overflow: visible;
-                        position: relative;
                     }
                     .localprompt-pinned-first-row {
                         display: flex;
@@ -82,27 +81,40 @@ export function getPromptStyles(uniqueId) {
                         min-width: 0;
                         position: relative;
                     }
+                    .localprompt-category-overflow-wrapper {
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        right: 0;
+                        z-index: 1000;
+                        pointer-events: none;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
                     .localprompt-category-pull-tab {
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         position: absolute;
-                        top: calc(100% + var(--category-pull-tab-edge-offset));
-                        left: calc(50% - var(--category-pull-tab-center-offset));
+                        top: 100%;
+                        margin-top: -1px;
+                        left: 50%;
                         transform: translateX(-50%);
                         z-index: 1002;
-                        width: 50px;
-                        height: 12px;
+                        width: 60px;
+                        height: 16px;
                         padding: 0;
-                        background: #1e1e20;
-                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        background: #141416;
+                        border: 1px solid #333;
                         border-top: none;
-                        border-radius: 0 0 4px 4px;
+                        border-radius: 0 0 6px 6px;
                         cursor: pointer;
-                        opacity: 0.7;
-                        color: #888;
+                        opacity: 1;
+                        color: #aaa;
                         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-                        transition: width 0.16s ease, height 0.16s ease, opacity 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+                        pointer-events: auto;
+                        transition: width 0.16s ease, height 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
                     }
                     .localprompt-category-pull-tab svg {
                         width: 10px;
@@ -111,58 +123,57 @@ export function getPromptStyles(uniqueId) {
                         transition: transform 0.16s ease;
                     }
                     .localprompt-category-pull-tab:hover {
-                        opacity: 1;
-                        width: 60px;
-                        height: 16px;
-                        background: #232326;
-                        border-color: rgba(59, 130, 246, 0.4);
-                        box-shadow: 0 3px 6px rgba(59, 130, 246, 0.15);
+                        width: 70px;
+                        height: 18px;
+                        background: #252528;
+                        border-color: #555;
+                        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
                         color: #fff;
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] {
-                        opacity: 1;
-                        background: #1b1b1d;
-                        border-color: rgba(59, 130, 246, 0.2);
-                        border-bottom: none;
-                        border-radius: 0;
-                        height: 12px;
-                        width: 50px;
+                        background: #141416;
+                        border-color: #333;
+                        color: #ccc;
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"]:hover {
-                        height: 14px;
-                        width: 60px;
-                        border-color: rgba(59, 130, 246, 0.4);
-                        box-shadow: 0 3px 6px rgba(59, 130, 246, 0.15);
+                        height: 18px;
+                        width: 70px;
+                        background: #252528;
+                        border-color: #555;
+                        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+                        color: #fff;
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] svg {
                         transform: rotate(180deg);
-                        color: #3b82f6;
+                        color: #ccc;
                     }
                     .localprompt-category-overflow {
-                        position: absolute;
-                        top: 100%;
-                        left: 0;
-                        right: 0;
-                        background: rgba(22, 22, 24, 0.98);
-                        backdrop-filter: blur(10px);
-                        border: 1px solid rgba(59, 130, 246, 0.15);
+                        position: relative;
+                        width: 100%;
+                        background: #141416;
+                        margin-top: -1px;
+                        border-bottom: 1px solid transparent;
                         border-top: none;
                         border-radius: 0 0 8px 8px;
-                        padding: 14px 16px;
-                        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-                        z-index: 1000;
+                        padding: 0 10px;
+                        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
+                        clip-path: inset(0px -30px -30px -30px);
                         box-sizing: border-box;
                         opacity: 0;
                         transform: translateY(-4px);
                         pointer-events: none;
-                        transition: opacity 0.18s ease-out, transform 0.18s ease-out;
-                        max-height: 250px;
-                        overflow-y: auto;
+                        max-height: 0;
+                        overflow: hidden;
+                        transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
                     }
                     .localprompt-category-overflow.open {
                         opacity: 1;
                         transform: translateY(0);
                         pointer-events: auto;
+                        max-height: 250px;
+                        padding: 14px 10px;
+                        border-bottom-color: #333;
+                        overflow-y: auto;
                     }
                     .localprompt-category-overflow-chips {
                         display: grid;
@@ -683,11 +694,15 @@ export function getPromptStyles(uniqueId) {
                         display: flex;
                         align-items: flex-start;
                         gap: 10px;
-                        background: #1e1e1e;
+                        background: #141416;
                         padding: 8px 10px;
                         border-bottom: 1px solid #333;
                         overflow: visible;
                         position: relative;
+                        transition: border-bottom-color 0.2s ease;
+                    }
+                    .localprompt-top-row:has(.localprompt-category-overflow.open) {
+                        border-bottom-color: transparent;
                     }
                     .localprompt-top-controls {
                         display: flex;

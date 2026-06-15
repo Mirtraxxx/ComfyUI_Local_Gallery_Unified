@@ -1,6 +1,6 @@
 # Remaining Work
 
-Updated: 2026-06-11
+Updated: 2026-06-15
 
 This file is the current practical work queue. Older baseline audits and migration plans were removed because they described pre-standalone architecture and stale legacy-route assumptions.
 
@@ -19,14 +19,14 @@ Approximate current frontend sizes:
 
 | File | Lines | Notes |
 | --- | ---: | --- |
-| `js/prompt/styles.js` | 3364 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
-| `js/prompt/ui.js` | 2547 | Prompt coordinator; still important but no longer carries every prompt feature. |
-| `js/lora/ui.js` | 1721 | Largest remaining JS behavior module and best cleanup target. |
-| `js/prompt/library.js` | 591 | Prompt Builder card drawer. |
-| `js/prompt/settings.js` | 560 | Settings UI. |
-| `js/prompt/dialogs.js` | 558 | Prompt dialogs. |
-| `js/prompt/browse.js` | 381 | Card Manager. |
-| `js/prompt/preferences.js` | 95 | Frontend preference helpers. |
+| `js/prompt/styles.js` | 3612 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
+| `js/prompt/ui.js` | 2906 | Prompt coordinator; still important but no longer carries every prompt feature. |
+| `js/lora/ui.js` | 1774 | Largest remaining JS behavior module and best cleanup target. |
+| `js/prompt/library.js` | 668 | Prompt Builder card drawer. |
+| `js/prompt/settings.js` | 597 | Settings UI. |
+| `js/prompt/dialogs.js` | 628 | Prompt dialogs. |
+| `js/prompt/browse.js` | 433 | Card Manager. |
+| `js/prompt/preferences.js` | 106 | Frontend preference helpers. |
 
 ## Best Next Refactor Target
 

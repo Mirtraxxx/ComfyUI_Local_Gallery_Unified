@@ -1,6 +1,6 @@
 # ComfyUI Local Gallery Unified - Current Architecture
 
-Updated: 2026-06-11
+Updated: 2026-06-15
 
 ## Purpose
 
@@ -97,6 +97,8 @@ Use product names from `PROMPT_UI_TERMINOLOGY.md` when discussing prompt UI work
 - Wildcard modal: `js/prompt/wildcards.js`
 - Prompt workspace navigation: `js/prompt/workspace.js`
 - Hidden widget setup: `js/prompt/stateWidgets.js`
+- Prompt constants: `js/prompt/constants.js`
+- Prompt UI & DOM helpers: `js/prompt/helpers.js`
 
 Important naming trap:
 
@@ -108,6 +110,12 @@ Important naming trap:
 
 - Main LoRA UI: `js/lora/ui.js`
 - LoRA helpers: `js/lora/helpers.js`
+
+## Shared Frontend Map
+
+- Shared DOM utilities: `js/shared/dom.js`
+- Shared JSON utilities: `js/shared/json.js`
+- Shared ComfyUI widget controllers: `js/shared/widgets.js`
 
 `js/lora/ui.js` is still large and is the best target for future behavior-preserving modular cleanup.
 
