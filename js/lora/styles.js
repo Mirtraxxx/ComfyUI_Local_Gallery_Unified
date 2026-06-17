@@ -47,9 +47,9 @@ export function getLoraStyles(uniqueId) {
                         top: 12px;
                         left: 12px;
                         z-index: 130;
-                        width: min(clamp(280px, var(--locallora-active-sidebar-width, 360px), 540px), calc(100% - 24px));
-                        min-width: min(280px, calc(100% - 24px));
-                        max-width: min(540px, calc(100% - 24px));
+                        width: min(clamp(300px, var(--locallora-active-sidebar-width, 450px), 720px), calc(100% - 24px));
+                        min-width: min(300px, calc(100% - 24px));
+                        max-width: min(720px, calc(100% - 24px));
                         max-height: calc(100% - 24px);
                         box-sizing: border-box;
                         background:
@@ -937,7 +937,7 @@ export function getLoraStyles(uniqueId) {
                         outline: none;
                     }
 
-                    #${uniqueId} .locallora-lora-item .remove-lora-btn {
+                    #${uniqueId} .locallora-lora-item button.remove-lora-btn {
                         width: 24px;
                         height: 24px;
                         border: 1px solid rgba(255,255,255,0.13);
@@ -953,7 +953,7 @@ export function getLoraStyles(uniqueId) {
                         transition: background 0.15s, border-color 0.15s;
                     }
                     
-                    #${uniqueId} .locallora-lora-item .remove-lora-btn:hover {
+                    #${uniqueId} .locallora-lora-item button.remove-lora-btn:hover {
                         background: #8e2f38;
                         border-color: #c85a64;
                     }
@@ -1375,6 +1375,171 @@ export function getLoraStyles(uniqueId) {
                     /* --- Collapsible States --- */
                     #${uniqueId} .locallora-container.gallery-collapsed .locallora-gallery {
                         display: none;
+                    }
+
+                    /* --- Thumbnails-centric Active Stack Grid Styles --- */
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-chips {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                        gap: 12px;
+                        width: 100%;
+                        box-sizing: border-box;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item {
+                        position: relative;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: flex-end;
+                        width: 100%;
+                        height: 180px;
+                        padding: 0;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 122, 0, 0.28);
+                        border-radius: 12px;
+                        background: #111;
+                        overflow: hidden;
+                        box-shadow: 0 8px 18px rgba(0,0,0,0.3);
+                        transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+                    }
+                    
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item:hover {
+                        transform: translateY(-2px);
+                        border-color: rgba(255, 122, 0, 0.62);
+                        box-shadow: 0 12px 24px rgba(0,0,0,0.4), 0 0 10px rgba(255, 122, 0, 0.2);
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-thumb {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        border-radius: 11px;
+                        box-shadow: none;
+                        z-index: 1;
+                        cursor: pointer;
+                        overflow: hidden;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-thumb img,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-thumb video {
+                        width: 100%;
+                        height: 100%;
+                        object-fit: cover;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-drag-handle {
+                        position: absolute;
+                        top: 8px;
+                        left: 8px;
+                        z-index: 10;
+                        background: rgba(18, 22, 28, 0.66);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-radius: 6px;
+                        padding: 4px;
+                        height: auto;
+                        width: auto;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset {
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        z-index: 10;
+                        width: auto;
+                    }
+                    
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-picker {
+                        width: auto;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule {
+                        position: absolute;
+                        bottom: 30px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 5;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 4px;
+                        width: max-content;
+                        padding: 4px 6px;
+                        background: rgba(18, 22, 28, 0.75);
+                        backdrop-filter: blur(12px) saturate(1.2);
+                        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-radius: 12px;
+                        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+                    }
+                    
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-strength-chips-row {
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-strength-chip {
+                        padding: 0 4px;
+                        height: 18px;
+                        gap: 3px;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-selected-toggle-pill {
+                        font-size: 8px;
+                        padding: 2px 6px;
+                        height: 16px;
+                        border-radius: 4px;
+                        margin: 0;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-name {
+                        position: absolute;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        height: 24px;
+                        z-index: 4;
+                        background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.85));
+                        text-align: center;
+                        font-size: 10px;
+                        line-height: 24px;
+                        padding: 0 6px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                        color: #ffffff;
+                        pointer-events: none;
+                        text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+                        font-weight: bold;
+                    }
+
+                    /* --- Hover Zoom & Cursor Hiding for weight adjustment --- */
+                    #${uniqueId} .locallora-lora-item .managed-weight-val {
+                        position: relative;
+                        z-index: 1;
+                        transform: scale(1);
+                        transform-origin: center;
+                        will-change: transform;
+                        transition: transform 0.14s ease-out, background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+                        display: inline-block;
+                        outline: none;
+                    }
+                    
+                    #${uniqueId} .locallora-lora-item .managed-weight-val:hover,
+                    #${uniqueId} .locallora-lora-item .managed-weight-val:focus-visible {
+                        z-index: 30;
+                        transform: scale(1.8);
+                        background: rgba(10, 12, 16, 0.94);
+                        border: 1px solid rgba(255, 122, 0, 0.52);
+                        border-radius: 6px;
+                        padding: 0 4px;
+                        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 0 8px rgba(255, 122, 0, 0.22);
+                        cursor: none;
                     }
                 </style>
     `;

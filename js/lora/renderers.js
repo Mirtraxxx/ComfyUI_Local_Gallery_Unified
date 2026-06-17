@@ -62,12 +62,6 @@ export function buildSelectedPreviewHtml(lora) {
 }
 
 export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isCompact) {
-    const previewHtml = isCompact ? "" : `
-        <div class="locallora-selected-thumb">
-            ${buildSelectedPreviewHtml(lora)}
-        </div>
-    `;
-    
     const formatWeight = (weight) => {
         const rounded = Math.round(weight * 100) / 100;
         const tenth = Math.round(rounded * 10) / 10;
@@ -86,26 +80,54 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
             <span class="managed-weight-val selected-strength-clip" tabindex="0" title="Scroll to adjust CLIP strength">${formatWeight(Number(item.strength_clip ?? item.strength ?? 1.0))}</span>
         </div>
     `;
-    
-    return `
-        <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
-            <span></span><span></span><span></span><span></span><span></span><span></span>
-        </span>
-        ${previewHtml}
-        <div class="locallora-selected-main">
-            <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
-            <div class="locallora-selected-controls">
-                <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
-                <div class="lora-strength-chip" title="Model strength (Scroll to adjust)">
-                    <span>M</span>
-                    <span class="managed-weight-val selected-strength-model" tabindex="0" title="Scroll to adjust Model strength">${formattedModelWeight}</span>
+
+    const presetControlsHtml = buildLoraPresetControlsHtml(lora);
+
+    if (isCompact) {
+        return `
+            <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+            </span>
+            <div class="locallora-selected-main">
+                <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
+                <div class="locallora-selected-controls">
+                    <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
+                    <div class="lora-strength-chip" title="Model strength (Scroll to adjust)">
+                        <span>M</span>
+                        <span class="managed-weight-val selected-strength-model" tabindex="0" title="Scroll to adjust Model strength">${formattedModelWeight}</span>
+                    </div>
+                    ${clipStrengthHtml}
+                    <button type="button" class="remove-lora-btn" title="Remove LoRA">x</button>
                 </div>
-                ${clipStrengthHtml}
-                <button type="button" class="remove-lora-btn" title="Remove LoRA">x</button>
+                <div class="locallora-selected-preset">${presetControlsHtml}</div>
             </div>
-            <div class="locallora-selected-preset">${buildLoraPresetControlsHtml(lora)}</div>
-        </div>
-    `;
+        `;
+    } else {
+        const previewHtml = `
+            <div class="locallora-selected-thumb remove-lora-btn" title="Click image to remove LoRA">
+                ${buildSelectedPreviewHtml(lora)}
+            </div>
+        `;
+        const cleanName = escapeHtml(item.lora.split(/[\\/]/).pop());
+        return `
+            ${previewHtml}
+            <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+            </span>
+            <div class="locallora-selected-preset">${presetControlsHtml}</div>
+            <div class="locallora-active-overlay-capsule">
+                <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
+                <div class="lora-strength-chips-row">
+                    <div class="lora-strength-chip" title="Model strength (Scroll to adjust)">
+                        <span>M</span>
+                        <span class="managed-weight-val selected-strength-model" tabindex="0" title="Scroll to adjust Model strength">${formattedModelWeight}</span>
+                    </div>
+                    ${clipStrengthHtml}
+                </div>
+            </div>
+            <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${cleanName}</div>
+        `;
+    }
 }
 
 export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, svgs = {}) {

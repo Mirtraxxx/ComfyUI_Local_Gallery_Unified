@@ -288,7 +288,7 @@ const UnifiedLoraGalleryNode = {
                 sort_mode: normalizeChoice(this.loraUiState.sort_mode, LORA_SORT_MODES, "az"),
                 active_thumbnail_size_px: clampNumber(this.loraUiState.active_thumbnail_size_px, LORA_ACTIVE_THUMBNAIL_MIN, LORA_ACTIVE_THUMBNAIL_MAX, 96),
                 thumbnail_size_px: clampNumber(this.loraUiState.thumbnail_size_px, LORA_CARD_THUMBNAIL_MIN, LORA_CARD_THUMBNAIL_MAX, 168),
-                active_sidebar_width: clampNumber(this.loraUiState.active_sidebar_width, 280, 540, 360),
+                active_sidebar_width: clampNumber(this.loraUiState.active_sidebar_width, 300, 720, 450),
             });
 
             let loraDisplayStateSaveTimer = null;
@@ -363,7 +363,7 @@ const UnifiedLoraGalleryNode = {
 
             const onMouseMove = (event) => {
                 const deltaX = event.clientX - startX;
-                const nextWidth = Math.max(280, Math.min(540, startWidth + deltaX));
+                const nextWidth = Math.max(300, Math.min(720, startWidth + deltaX));
                 widgetContainer.style.setProperty("--locallora-active-sidebar-width", `${nextWidth}px`);
                 this.loraUiState.active_sidebar_width = nextWidth;
             };
