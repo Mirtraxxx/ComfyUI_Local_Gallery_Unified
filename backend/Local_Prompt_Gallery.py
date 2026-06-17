@@ -1657,6 +1657,15 @@ async def get_or_create_prompts_endpoint(request):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 class LocalPromptGallery:
+    @staticmethod
+    def _has_wildcard_categories(wildcard_categories):
+        if not wildcard_categories:
+            return False
+        if isinstance(wildcard_categories, str):
+            value = wildcard_categories.strip()
+            return bool(value and value not in ("[]", "{}"))
+        return True
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -1689,15 +1698,17 @@ class LocalPromptGallery:
         wildcard_shuffle_nonce="0",
         **kwargs,
     ):
+        uses_wildcards = (wildcard_mode or "off") != "off" and cls._has_wildcard_categories(wildcard_categories)
+
         return json.dumps(
             {
-                "seed": seed,
+                "seed": seed if uses_wildcards else "",
                 "selection_data": selection_data,
                 "wildcard_categories": wildcard_categories,
                 "wildcard_mode": wildcard_mode,
                 "wildcard_rng_mode": wildcard_rng_mode,
                 "wildcard_shuffle_nonce": wildcard_shuffle_nonce,
-                "fresh_wildcard_nonce": time.time() if wildcard_mode != "off" and wildcard_rng_mode == "fresh" else "",
+                "fresh_wildcard_nonce": time.time() if uses_wildcards and wildcard_rng_mode == "fresh" else "",
             },
             sort_keys=True,
         )

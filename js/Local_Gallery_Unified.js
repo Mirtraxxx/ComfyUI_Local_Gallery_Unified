@@ -2,7 +2,7 @@
 import { api } from "../../scripts/api.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
 import { registerLoraGalleryUi } from "./lora/ui.js";
-import { registerPromptGalleryUi } from "./prompt/ui.js?v=prompt-builder-swap-reorder-20260608";
+import { registerPromptGalleryUi } from "./prompt/ui.js?v=cache-stable-wildcard-seed-20260616";
 
 app.registerExtension({
     name: "LocalGalleryPromptLora.Tabs",

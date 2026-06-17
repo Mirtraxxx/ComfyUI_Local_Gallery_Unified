@@ -13,6 +13,15 @@ class LocalGalleryPromptLora:
     _LORA_CACHE_KEY = None
     _LORA_CACHE_VALUE = None
 
+    @staticmethod
+    def _has_wildcard_categories(wildcard_categories):
+        if not wildcard_categories:
+            return False
+        if isinstance(wildcard_categories, str):
+            value = wildcard_categories.strip()
+            return bool(value and value not in ("[]", "{}"))
+        return True
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -103,6 +112,7 @@ class LocalGalleryPromptLora:
         **kwargs,
     ):
         lora_changed = cls._get_lora_change_signature(LocalLoraGallery, lora_selection_data)
+        uses_wildcards = (wildcard_mode or "off") != "off" and cls._has_wildcard_categories(wildcard_categories)
 
         return json.dumps(
             {
@@ -113,8 +123,8 @@ class LocalGalleryPromptLora:
                 "wildcard_mode": wildcard_mode,
                 "wildcard_rng_mode": wildcard_rng_mode,
                 "wildcard_shuffle_nonce": wildcard_shuffle_nonce,
-                "fresh_wildcard_nonce": time.time() if wildcard_mode != "off" and wildcard_rng_mode == "fresh" else "",
-                "seed": seed,
+                "fresh_wildcard_nonce": time.time() if uses_wildcards and wildcard_rng_mode == "fresh" else "",
+                "seed": seed if uses_wildcards else "",
             },
             sort_keys=True,
         )

@@ -74,6 +74,19 @@ export function setupPromptPreDomStateWidgets({ nodeInstance }) {
 }
 
 export function setupPromptPostDomStateWidgets({ nodeInstance }) {
+    const hasWildcardCategories = () => {
+        const categoriesValue = nodeInstance.properties?.wildcard_categories;
+        if (typeof categoriesValue !== 'string') {
+            return Boolean(categoriesValue);
+        }
+        const value = categoriesValue.trim();
+        return Boolean(value && value !== "[]" && value !== "{}");
+    };
+
+    const usesWildcards = () => {
+        return (nodeInstance.properties?.wildcard_mode || "off") !== "off" && hasWildcardCategories();
+    };
+
     // Wildcard Mode
     let wildcardWidget = nodeInstance.widgets?.find(w => w.name === 'wildcard_mode');
     if (!wildcardWidget) {
@@ -137,12 +150,19 @@ export function setupPromptPostDomStateWidgets({ nodeInstance }) {
     if (!seedWidget) {
         seedWidget = nodeInstance.addWidget("number", "seed", 0, (v) => { }, { min: 0, max: 0xffffffffffffffff });
     }
+    seedWidget.serializeValue = () => {
+        if (!usesWildcards()) {
+            return 0;
+        }
+        const value = Number(seedWidget.value);
+        return Number.isFinite(value) ? value : 0;
+    };
     hideWidget(seedWidget);
 
     // Control After Generate
     let controlWidget = nodeInstance.widgets?.find(w => w.name === 'control_after_generate');
     if (!controlWidget) {
-        controlWidget = nodeInstance.addWidget("combo", "control_after_generate", "increment",
+        controlWidget = nodeInstance.addWidget("combo", "control_after_generate", "fixed",
             (v) => { },
             { values: ["fixed", "increment", "decrement", "randomize"] }
         );

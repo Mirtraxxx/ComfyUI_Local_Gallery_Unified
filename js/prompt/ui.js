@@ -2504,7 +2504,7 @@ const UnifiedPromptGalleryNode = {
 
                 const btmControlSelect = widgetContainer.querySelector(`#${uniqueId}-control-select`);
                 if (btmControlSelect) {
-                    btmControlSelect.value = controlWidget?.value || 'increment';
+                    btmControlSelect.value = controlWidget?.value || 'fixed';
                     btmControlSelect.addEventListener('change', (e) => {
                         if (controlWidget) controlWidget.value = e.target.value;
                         if (app.graph) app.graph.change();
