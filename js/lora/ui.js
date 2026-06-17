@@ -475,7 +475,16 @@ const UnifiedLoraGalleryNode = {
             renderFolderPills();
 
             const persistSelectionData = () => {
-                const serializableData = this.loraData.map(({ element, ...rest }) => rest);
+                const serializableData = this.loraData.map(({
+                    element,
+                    preview_url,
+                    preview_type,
+                    tags,
+                    trigger_words,
+                    trigger_presets,
+                    download_url,
+                    ...rest
+                }) => rest);
                 const selectionJson = writeSelectionArray(serializableData);
                 this.setProperty("lora_selection_data", selectionJson);
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
@@ -656,14 +665,28 @@ const UnifiedLoraGalleryNode = {
                 });
             };
 
-            const resolveLoraInfo = (loraName) => this.availableLoras.find(lora => lora.name === loraName) || {
+            const resolveLoraInfo = (loraName, item = null) => this.availableLoras.find(lora => lora.name === loraName) || {
                 name: loraName,
-                tags: [],
-                trigger_words: "",
-                trigger_presets: {},
-                download_url: "",
-                preview_url: "",
-                preview_type: "none"
+                tags: item?.tags || [],
+                trigger_words: item?.trigger_words || "",
+                trigger_presets: item?.trigger_presets || {},
+                download_url: item?.download_url || "",
+                preview_url: item?.preview_url || "",
+                preview_type: item?.preview_type || "none"
+            };
+
+            const hydrateSelectedLoraInfo = () => {
+                const loraInfoByName = new Map(this.availableLoras.map(lora => [lora.name, lora]));
+                this.loraData.forEach(item => {
+                    const lora = loraInfoByName.get(item.lora);
+                    if (!lora) return;
+                    item.preview_url = lora.preview_url || "";
+                    item.preview_type = lora.preview_type || "none";
+                    item.tags = lora.tags || [];
+                    item.trigger_words = lora.trigger_words || "";
+                    item.trigger_presets = lora.trigger_presets || {};
+                    item.download_url = lora.download_url || "";
+                });
             };
 
             const renderSelectedList = () => {
@@ -687,7 +710,7 @@ const UnifiedLoraGalleryNode = {
                 const isCompact = displayState.active_display_mode === "compact";
 
                 this.loraData.forEach((item, index) => {
-                    const lora = resolveLoraInfo(item.lora);
+                    const lora = resolveLoraInfo(item.lora, item);
                     const el = document.createElement("div");
                     el.className = "locallora-lora-item";
                     el.dataset.index = index;
@@ -1050,6 +1073,21 @@ const UnifiedLoraGalleryNode = {
 
             const getNewLoraEntryFromElement = (element, loraName) => {
                 const newEntry = { on: true, lora: loraName, strength: 1.0, strength_clip: 1.0 };
+                const lora = this.availableLoras.find(item => item.name === loraName);
+                if (lora) {
+                    newEntry.preview_url = lora.preview_url || "";
+                    newEntry.preview_type = lora.preview_type || "none";
+                    newEntry.tags = lora.tags || [];
+                    newEntry.trigger_words = lora.trigger_words || "";
+                    newEntry.trigger_presets = lora.trigger_presets || {};
+                    newEntry.download_url = lora.download_url || "";
+                } else {
+                    const previewMedia = element.querySelector(".locallora-media-container img, .locallora-media-container video");
+                    if (previewMedia?.getAttribute("src")) {
+                        newEntry.preview_url = previewMedia.getAttribute("src");
+                        newEntry.preview_type = previewMedia.tagName.toLowerCase() === "video" ? "video" : "image";
+                    }
+                }
 
                 const pSelect = element.querySelector('.lora-card-preset-select');
                 const stackPresetCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
@@ -1215,6 +1253,7 @@ const UnifiedLoraGalleryNode = {
                         if (!foldersRendered && folders && folders.length > 0) renderFolders(folders);
                         galleryEl.scrollTop = 0;
                     }
+                    hydrateSelectedLoraInfo();
                     renderCurrentView(append);
                 } finally {
                     if (fetchSequence === loraFetchSequence && pendingFetchAfterLoad !== null) {

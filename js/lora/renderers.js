@@ -58,7 +58,7 @@ export function buildSelectedPreviewHtml(lora) {
     if (lora.preview_type === "video" && lora.preview_url) {
         return `<video muted loop playsinline src="${escapeHtml(previewUrl)}"></video>`;
     }
-    return `<img src="${escapeHtml(previewUrl)}" loading="lazy">`;
+    return `<img src="${escapeHtml(previewUrl)}" loading="eager" decoding="async">`;
 }
 
 export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isCompact) {

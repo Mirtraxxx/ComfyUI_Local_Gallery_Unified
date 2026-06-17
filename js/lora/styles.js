@@ -1027,8 +1027,7 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     /* --- Card Contrast Themes --- */
-                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-gallery:has(.locallora-lora-card.selected-flow) .locallora-lora-card:not(.selected-flow),
-                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-active-chips:has(.locallora-lora-item:not(.disabled)) .locallora-lora-item.disabled {
+                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-gallery:has(.locallora-lora-card.selected-flow) .locallora-lora-card:not(.selected-flow) {
                         opacity: 0.65;
                         filter: grayscale(35%);
                     }
@@ -1036,18 +1035,16 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-gallery:has(.locallora-lora-card.selected-flow) .locallora-lora-card:not(.selected-flow):hover {
                         opacity: 0.95;
                         filter: none;
+                        transform: translateY(-2px);
                     }
                     
-                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card,
-                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item {
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card {
                         opacity: 0.75;
                         filter: grayscale(35%);
                     }
                     
                     #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card:hover,
-                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card.selected-flow,
-                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item:hover,
-                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item:not(.disabled) {
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card.selected-flow {
                         opacity: 1;
                         filter: none;
                     }
