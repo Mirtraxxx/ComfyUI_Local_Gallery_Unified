@@ -1600,6 +1600,121 @@ export function getLoraStyles(uniqueId) {
                         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 0 8px rgba(255, 122, 0, 0.22);
                         cursor: none;
                     }
+
+                    /* Folder Context Menu & Drag highlights */
+                    .lora-folder-ctx-menu {
+                        background: rgba(28, 28, 30, 0.96);
+                        backdrop-filter: blur(8px);
+                        border: 1px solid rgba(255, 122, 0, 0.22);
+                        border-radius: 8px;
+                        padding: 6px;
+                        color: #ddd;
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+                        z-index: 25001;
+                        min-width: 150px;
+                        font-family: sans-serif;
+                        box-sizing: border-box;
+                    }
+                    .lora-folder-ctx-menu .menu-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        border-radius: 4px;
+                        transition: background-color 0.1s;
+                    }
+                    .lora-folder-ctx-menu .menu-item:hover {
+                        background-color: rgba(255, 122, 0, 0.15);
+                        color: #ff7a00;
+                    }
+                    .lora-folder-ctx-menu .menu-item svg {
+                        width: 14px;
+                        height: 14px;
+                        stroke: currentColor;
+                    }
+                    .lora-folder-ctx-menu .menu-divider {
+                        height: 1px;
+                        background: rgba(255, 255, 255, 0.08);
+                        margin: 6px 0;
+                    }
+                    .lora-folder-ctx-menu .menu-header {
+                        font-size: 10px;
+                        color: #888;
+                        text-transform: uppercase;
+                        padding: 4px 12px;
+                        font-weight: 600;
+                        letter-spacing: 0.5px;
+                    }
+                    .lora-folder-ctx-menu .color-presets-grid {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 6px;
+                        padding: 6px 12px;
+                    }
+                    .lora-folder-ctx-menu .color-dot {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        cursor: pointer;
+                        padding: 0;
+                        transition: transform 0.1s, border-color 0.1s;
+                    }
+                    .lora-folder-ctx-menu .color-dot:hover,
+                    .lora-folder-ctx-menu .color-dot.active {
+                        transform: scale(1.15);
+                        border-color: #ff7a00;
+                    }
+                    .lora-folder-ctx-menu .color-picker-row {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 6px 12px 4px;
+                        gap: 8px;
+                    }
+                    .lora-folder-ctx-menu .custom-color-picker-label {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        color: #aaa;
+                    }
+                    .lora-folder-ctx-menu .custom-color-picker-label:hover {
+                        color: #fff;
+                    }
+                    .lora-folder-ctx-menu .custom-color-input {
+                        width: 18px;
+                        height: 18px;
+                        padding: 0;
+                        border: none;
+                        background: transparent;
+                        cursor: pointer;
+                    }
+                    .lora-folder-ctx-menu .reset-color-btn {
+                        background: transparent;
+                        border: 1px solid rgba(255,255,255,0.15);
+                        color: #aaa;
+                        font-size: 9px;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        cursor: pointer;
+                    }
+                    .lora-folder-ctx-menu .reset-color-btn:hover {
+                        color: #fff;
+                        border-color: #ff7a00;
+                        background: rgba(255, 122, 0, 0.1);
+                    }
+                    
+                    /* Drag over visual drop indicator */
+                    #${uniqueId} .lora-folder-pill.drag-over {
+                        box-shadow: inset 0 0 0 2px rgba(255, 122, 0, 0.42) !important;
+                    }
+                    #${uniqueId} .lora-folder-pill.pinned-dragging {
+                        opacity: 0.45;
+                    }
                 </style>
     `;
 }

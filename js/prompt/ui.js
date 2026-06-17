@@ -501,6 +501,123 @@ const UnifiedPromptGalleryNode = {
             document.body.appendChild(hoverPreview);
             let toolbarOutsideClickHandler = null;
 
+            // Category Context Menu & Pointer drag event handlers
+            const globalPointerDownHandler = (event) => {
+                if (activeCategoryContextMenu && !activeCategoryContextMenu.contains(event.target)) {
+                    closeCategoryContextMenu();
+                }
+            };
+            const globalKeydownHandler = (event) => {
+                if (event.key === "Escape") {
+                    closeCategoryContextMenu();
+                    if (categoryDragState) {
+                        categoryDragState.pill.classList.remove("pinned-dragging");
+                        categoryDragState.pill.releasePointerCapture?.(categoryDragState.pointerId);
+                        categoryDragState = null;
+                        clearCategoryDragTargets();
+                    }
+                }
+            };
+            const globalResizeHandler = () => {
+                closeCategoryContextMenu();
+            };
+
+            const onCategoryPointerMove = async (event) => {
+                if (!categoryDragState) return;
+                const distance = Math.hypot(event.clientX - categoryDragState.startX, event.clientY - categoryDragState.startY);
+                if (!categoryDragState.active && distance < 8) return;
+
+                if (!categoryDragState.active) {
+                    categoryDragState.active = true;
+                    categoryDragState.pill.classList.add("pinned-dragging");
+                    suppressCategoryClickUntil = Date.now() + 200;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                
+                const targetPill = getCategoryPillAtPoint(event.clientX, event.clientY);
+                if (targetPill && targetPill !== categoryDragState.pill) {
+                    setCategoryDragTarget(targetPill);
+                } else {
+                    setCategoryDragTarget(null);
+                }
+            };
+
+            const onCategoryPointerUp = async (event) => {
+                if (!categoryDragState) return;
+                const dragState = categoryDragState;
+                categoryDragState = null;
+
+                dragState.pill.classList.remove("pinned-dragging");
+                dragState.pill.releasePointerCapture?.(dragState.pointerId);
+
+                if (!dragState.active) return;
+                event.preventDefault();
+                event.stopPropagation();
+                suppressCategoryClickUntil = Date.now() + 250;
+
+                const targetPill = getCategoryPillAtPoint(event.clientX, event.clientY) || lastCategoryDragTarget;
+                clearCategoryDragTargets();
+
+                if (!targetPill || targetPill === dragState.pill) {
+                    return;
+                }
+
+                const targetCategory = targetPill.dataset.category;
+                const draggedCategory = dragState.category;
+                if (!targetCategory || !draggedCategory) return;
+
+                // Determine if target is pinned or unpinned
+                const isTargetPinned = targetPill.dataset.pinned === "true" || targetPill.closest(`#${uniqueId}-pinned-category-strip`) !== null;
+                const allCategories = await getCachedCategories();
+                let pinned = getPinnedCategories(allCategories);
+                
+                // Remove draggedCategory from pinned if it's there
+                pinned = pinned.filter(c => c !== draggedCategory);
+
+                if (isTargetPinned) {
+                    // Pinned zone drop
+                    const targetIndex = pinned.indexOf(targetCategory);
+                    if (targetIndex >= 0) {
+                        pinned.splice(targetIndex + 1, 0, draggedCategory);
+                    } else {
+                        pinned.push(draggedCategory);
+                    }
+                    await savePinnedCategories(pinned);
+                } else {
+                    // Unpinned zone drop
+                    const currentTabs = getCategoriesInCurrentOrder(allCategories);
+                    const unpinnedOrder = currentTabs.filter(c => !pinned.includes(c));
+                    const nextUnpinned = unpinnedOrder.filter(c => c !== draggedCategory);
+                    const targetIndex = nextUnpinned.indexOf(targetCategory);
+                    if (targetIndex >= 0) {
+                        nextUnpinned.splice(targetIndex + 1, 0, draggedCategory);
+                    } else {
+                        nextUnpinned.push(draggedCategory);
+                    }
+                    
+                    await saveCategoryOrder(nextUnpinned);
+                    await savePinnedCategories(pinned);
+                }
+            };
+
+            const onCategoryPointerCancel = () => {
+                if (categoryDragState) {
+                    categoryDragState.pill.classList.remove("pinned-dragging");
+                    categoryDragState.pill.releasePointerCapture?.(categoryDragState.pointerId);
+                    categoryDragState = null;
+                }
+                clearCategoryDragTargets();
+            };
+
+            document.addEventListener("pointerdown", globalPointerDownHandler, { capture: true });
+            document.addEventListener("keydown", globalKeydownHandler);
+            window.addEventListener("resize", globalResizeHandler);
+            window.addEventListener("pointermove", onCategoryPointerMove);
+            window.addEventListener("pointerup", onCategoryPointerUp);
+            window.addEventListener("pointercancel", onCategoryPointerCancel);
+
             // Clean up on node removal
             const originalOnRemoved = this.onRemoved;
             this.onRemoved = function () {
@@ -514,6 +631,13 @@ const UnifiedPromptGalleryNode = {
                     clearTimeout(queuedLibraryDrawerTimer);
                     queuedLibraryDrawerTimer = null;
                 }
+                document.removeEventListener("pointerdown", globalPointerDownHandler, { capture: true });
+                document.removeEventListener("keydown", globalKeydownHandler);
+                window.removeEventListener("resize", globalResizeHandler);
+                window.removeEventListener("pointermove", onCategoryPointerMove);
+                window.removeEventListener("pointerup", onCategoryPointerUp);
+                window.removeEventListener("pointercancel", onCategoryPointerCancel);
+                closeCategoryContextMenu();
                 if (originalOnRemoved) originalOnRemoved.call(this);
             };
 
@@ -676,8 +800,75 @@ const UnifiedPromptGalleryNode = {
                     pill.className = `localprompt-pinned-category-pill${activeLibraryTab === category ? " active" : ""}`;
                     pill.textContent = category;
                     pill.title = category;
+                    pill.dataset.category = category;
+                    pill.dataset.pinned = "true";
                     applyLibraryTabRoleStyling(pill, category, activeLibraryTab === category);
-                    pill.addEventListener("click", () => openCategoryFromMenu(category));
+                    
+                    pill.addEventListener("click", (e) => {
+                        if (Date.now() < suppressCategoryClickUntil) {
+                            e.stopImmediatePropagation();
+                            return;
+                        }
+                        openCategoryFromMenu(category);
+                    });
+
+                    // Context Menu
+                    pill.addEventListener("contextmenu", (event) => {
+                        event.preventDefault();
+                        showCategoryPillContextMenu(event, category, true);
+                    });
+
+                    // Pointer Long Press & Drag setup
+                    let longPressTimer = null;
+                    let startX = 0;
+                    let startY = 0;
+
+                    pill.addEventListener("pointerdown", (event) => {
+                        if (event.button !== 0) return;
+                        if (event.target.closest("button:not(.localprompt-pinned-category-pill), input, select, textarea")) return;
+                        
+                        startX = event.clientX;
+                        startY = event.clientY;
+                        if (longPressTimer) clearTimeout(longPressTimer);
+                        
+                        longPressTimer = setTimeout(() => {
+                            suppressCategoryClickUntil = Date.now() + 250;
+                            showCategoryPillContextMenu(event, category, true);
+                        }, 500);
+
+                        categoryDragState = {
+                            pill,
+                            category,
+                            isPinned: true,
+                            startX: event.clientX,
+                            startY: event.clientY,
+                            active: false,
+                            pointerId: event.pointerId,
+                        };
+                        pill.setPointerCapture?.(event.pointerId);
+                    });
+
+                    pill.addEventListener("pointermove", (event) => {
+                        if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
+                    pill.addEventListener("pointerup", (event) => {
+                        if (longPressTimer) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
+                    pill.addEventListener("pointercancel", () => {
+                        if (longPressTimer) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
                     strip.appendChild(pill);
                 });
 
@@ -718,12 +909,80 @@ const UnifiedPromptGalleryNode = {
 
                 hiddenCategories.forEach(category => {
                     const option = document.createElement("button");
+                    const isPinned = pinnedCategories.includes(category);
                     option.className = `localprompt-pinned-category-pill${active === category ? " active" : ""}`;
                     option.type = "button";
                     option.textContent = category;
                     option.title = category;
+                    option.dataset.category = category;
+                    option.dataset.pinned = String(isPinned);
                     applyLibraryTabRoleStyling(option, category, active === category);
-                    option.addEventListener("click", () => openCategoryFromMenu(category));
+                    
+                    option.addEventListener("click", (e) => {
+                        if (Date.now() < suppressCategoryClickUntil) {
+                            e.stopImmediatePropagation();
+                            return;
+                        }
+                        openCategoryFromMenu(category);
+                    });
+
+                    // Context Menu
+                    option.addEventListener("contextmenu", (event) => {
+                        event.preventDefault();
+                        showCategoryPillContextMenu(event, category, isPinned);
+                    });
+
+                    // Pointer Long Press & Drag setup
+                    let longPressTimer = null;
+                    let startX = 0;
+                    let startY = 0;
+
+                    option.addEventListener("pointerdown", (event) => {
+                        if (event.button !== 0) return;
+                        if (event.target.closest("button:not(.localprompt-pinned-category-pill), input, select, textarea")) return;
+                        
+                        startX = event.clientX;
+                        startY = event.clientY;
+                        if (longPressTimer) clearTimeout(longPressTimer);
+                        
+                        longPressTimer = setTimeout(() => {
+                            suppressCategoryClickUntil = Date.now() + 250;
+                            showCategoryPillContextMenu(event, category, isPinned);
+                        }, 500);
+
+                        categoryDragState = {
+                            pill: option,
+                            category,
+                            isPinned,
+                            startX: event.clientX,
+                            startY: event.clientY,
+                            active: false,
+                            pointerId: event.pointerId,
+                        };
+                        option.setPointerCapture?.(event.pointerId);
+                    });
+
+                    option.addEventListener("pointermove", (event) => {
+                        if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
+                    option.addEventListener("pointerup", (event) => {
+                        if (longPressTimer) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
+                    option.addEventListener("pointercancel", () => {
+                        if (longPressTimer) {
+                            clearTimeout(longPressTimer);
+                            longPressTimer = null;
+                        }
+                    });
+
                     chipsContainer.appendChild(option);
                 });
             }
@@ -1282,6 +1541,144 @@ const UnifiedPromptGalleryNode = {
             async function saveUiPrefs() {
                 node_instance.uiPrefs.library_tabs = getLibraryTabs();
                 await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+            }
+
+            let activeCategoryContextMenu = null;
+
+            function closeCategoryContextMenu() {
+                if (activeCategoryContextMenu) {
+                    activeCategoryContextMenu.remove();
+                    activeCategoryContextMenu = null;
+                }
+            }
+
+            async function saveCategoryOrder(nextCategoryOrder) {
+                const currentTabs = Array.isArray(node_instance.uiPrefs.library_tabs) 
+                    ? node_instance.uiPrefs.library_tabs 
+                    : [];
+                const utilityTabs = currentTabs.filter(tab => !nextCategoryOrder.includes(tab));
+                const nextTabs = [...utilityTabs, ...nextCategoryOrder];
+                node_instance.uiPrefs.library_tabs = nextTabs;
+                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+            }
+
+            function showCategoryPillContextMenu(e, category, isCurrentlyPinned) {
+                closeCategoryContextMenu();
+                
+                const menu = document.createElement("div");
+                menu.className = "localprompt-category-ctx-menu";
+                
+                const presetColors = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899", "#94a3b8"];
+                const activeColor = node_instance.uiPrefs.category_colors?.[category] || "";
+                
+                let colorsHtml = presetColors.map(color => `
+                    <button class="color-dot${activeColor === color ? ' active' : ''}" style="background-color: ${color};" data-color="${color}"></button>
+                `).join("");
+                
+                menu.innerHTML = `
+                    <div class="menu-item pin-toggle-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        <span>${isCurrentlyPinned ? "Unpin Category" : "Pin Category"}</span>
+                    </div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-header">Category Color</div>
+                    <div class="color-presets-grid">
+                        ${colorsHtml}
+                    </div>
+                    <div class="color-picker-row">
+                        <label class="custom-color-picker-label">
+                            <input type="color" class="custom-color-input" value="${activeColor || "#3b82f6"}">
+                            <span>Custom Color...</span>
+                        </label>
+                        <button class="reset-color-btn" style="${activeColor ? "" : "display: none;"}">Reset</button>
+                    </div>
+                `;
+                
+                menu.style.position = "fixed";
+                menu.style.left = `${e.clientX}px`;
+                menu.style.top = `${e.clientY}px`;
+                document.body.appendChild(menu);
+                activeCategoryContextMenu = menu;
+                
+                const rect = menu.getBoundingClientRect();
+                if (e.clientX + rect.width > window.innerWidth) {
+                    menu.style.left = `${window.innerWidth - rect.width - 8}px`;
+                }
+                if (e.clientY + rect.height > window.innerHeight) {
+                    menu.style.top = `${window.innerHeight - rect.height - 8}px`;
+                }
+                
+                menu.querySelector(".pin-toggle-btn").addEventListener("click", async () => {
+                    const allCategories = await getCachedCategories();
+                    let pinned = getPinnedCategories(allCategories);
+                    if (isCurrentlyPinned) {
+                        pinned = pinned.filter(c => c !== category);
+                    } else {
+                        pinned = [...pinned, category];
+                    }
+                    await savePinnedCategories(pinned);
+                    closeCategoryContextMenu();
+                });
+                
+                menu.querySelectorAll(".color-dot").forEach(dot => {
+                    dot.addEventListener("click", async () => {
+                        const color = dot.dataset.color;
+                        if (!node_instance.uiPrefs.category_colors) {
+                            node_instance.uiPrefs.category_colors = {};
+                        }
+                        node_instance.uiPrefs.category_colors[category] = color;
+                        await saveUiPrefs();
+                        await renderPinnedCategoryStrip();
+                        await renderCategoryOverflowCategories();
+                        closeCategoryContextMenu();
+                    });
+                });
+                
+                const customPicker = menu.querySelector(".custom-color-input");
+                customPicker.addEventListener("input", (event) => {
+                    menu.querySelector(".reset-color-btn").style.display = "";
+                });
+                customPicker.addEventListener("change", async (event) => {
+                    const color = event.target.value;
+                    if (!node_instance.uiPrefs.category_colors) {
+                        node_instance.uiPrefs.category_colors = {};
+                    }
+                    node_instance.uiPrefs.category_colors[category] = color;
+                    await saveUiPrefs();
+                    await renderPinnedCategoryStrip();
+                    await renderCategoryOverflowCategories();
+                    closeCategoryContextMenu();
+                });
+                
+                menu.querySelector(".reset-color-btn").addEventListener("click", async () => {
+                    if (node_instance.uiPrefs.category_colors) {
+                        delete node_instance.uiPrefs.category_colors[category];
+                        await saveUiPrefs();
+                        await renderPinnedCategoryStrip();
+                        await renderCategoryOverflowCategories();
+                    }
+                    closeCategoryContextMenu();
+                });
+            }
+
+            let lastCategoryDragTarget = null;
+            function getCategoryPillAtPoint(x, y) {
+                const el = document.elementFromPoint(x, y);
+                return el?.closest(".localprompt-pinned-category-pill");
+            }
+            function setCategoryDragTarget(element) {
+                if (lastCategoryDragTarget === element) return;
+                clearCategoryDragTargets();
+                if (element) {
+                    element.classList.add("drag-over");
+                    lastCategoryDragTarget = element;
+                }
+            }
+            function clearCategoryDragTargets() {
+                widgetContainer.querySelectorAll(".localprompt-pinned-category-pill.drag-over").forEach(el => {
+                    el.classList.remove("drag-over");
+                });
+                lastCategoryDragTarget = null;
             }
 
             const PROMPT_SORT_MODES = new Set(["manual", "newest", "oldest", "az", "za"]);
