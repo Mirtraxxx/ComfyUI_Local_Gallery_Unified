@@ -158,6 +158,13 @@ export function getLoraStyles(uniqueId) {
                         flex-shrink: 0;
                         background: #1f1f1f;
                         border-bottom: 1px solid #2d2d2d;
+                        position: relative;
+                        overflow: visible;
+                        transition: border-bottom-color 0.2s ease;
+                    }
+                    
+                    #${uniqueId} .locallora-controls:has(.lora-folder-overflow.open) {
+                        border-bottom-color: transparent;
                     }
                     
                     #${uniqueId} .locallora-controls-row {
@@ -167,7 +174,6 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .locallora-primary-controls {
-                        position: relative;
                         z-index: 10;
                     }
                     
@@ -257,7 +263,6 @@ export function getLoraStyles(uniqueId) {
                         --lora-folder-pull-tab-edge-offset: 8px;
                         flex: 1 1 auto;
                         min-width: 0;
-                        position: relative;
                     }
                     
                     #${uniqueId} .lora-folder-first-row {
@@ -313,7 +318,7 @@ export function getLoraStyles(uniqueId) {
                     
                     #${uniqueId} .lora-folder-overflow-wrapper {
                         position: absolute;
-                        top: calc(100% + 6px);
+                        top: 100%;
                         left: 0;
                         right: 0;
                         z-index: 4200;
@@ -324,29 +329,53 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-folder-overflow {
-                        display: none;
+                        position: relative;
                         width: 100%;
-                        max-height: 142px;
-                        overflow-y: auto;
-                        padding: 8px;
-                        border: 1px solid rgba(255, 122, 0, 0.22);
-                        border-radius: 10px;
-                        background: rgba(18, 20, 24, 0.96);
-                        box-shadow: 0 16px 38px rgba(0,0,0,0.46), inset 0 0 0 1px rgba(255,255,255,0.04);
+                        background: #1f1f1f;
+                        margin-top: -1px;
+                        border-bottom: 1px solid transparent;
+                        border-top: none;
+                        border-left: none;
+                        border-right: none;
+                        border-radius: 0 0 8px 8px;
+                        padding: 0 10px;
+                        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
+                        clip-path: inset(0px -30px -30px -30px);
                         box-sizing: border-box;
                         pointer-events: auto;
+                        max-height: 0;
+                        overflow: hidden;
+                        transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
+                        display: block !important;
+                        opacity: 0;
+                        transform: translateY(-4px);
                     }
                     
                     #${uniqueId} .lora-folder-overflow.open {
-                        display: block;
+                        opacity: 1;
+                        transform: translateY(0);
+                        max-height: 250px;
+                        padding: 14px 10px;
+                        border-bottom-color: #2d2d2d;
+                        overflow-y: auto;
                     }
                     
                     #${uniqueId} .lora-folder-overflow-chips {
                         display: grid;
                         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                        gap: 7px 9px;
+                        gap: 8px 10px;
+                        width: 100%;
                     }
                     
+                    #${uniqueId} .lora-folder-overflow-chips::-webkit-scrollbar {
+                        width: 4px;
+                    }
+                    
+                    #${uniqueId} .lora-folder-overflow-chips::-webkit-scrollbar-thumb {
+                        background: rgba(255, 255, 255, 0.15);
+                        border-radius: 2px;
+                    }
+
                     #${uniqueId} .lora-folder-overflow-chips .lora-folder-pill {
                         width: 100%;
                         max-width: none;
@@ -359,32 +388,62 @@ export function getLoraStyles(uniqueId) {
                         justify-content: center;
                         position: absolute;
                         top: 100%;
+                        margin-top: -1px;
                         left: 50%;
                         transform: translateX(-50%);
                         z-index: 4201;
                         width: 60px;
                         height: 16px;
                         padding: 0;
-                        background: #141416;
-                        border: 1px solid #333;
+                        background: #1f1f1f;
+                        border: 1px solid #2d2d2d;
                         border-top: none;
                         border-radius: 0 0 6px 6px;
                         cursor: pointer;
                         color: #aaa;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                         pointer-events: auto;
+                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+                    }
+                    
+                    #${uniqueId} .lora-folder-pull-tab::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -1px;
+                        right: -1px;
+                        height: 1px;
+                        background: #1f1f1f;
+                        z-index: 4203;
+                        transition: background-color 0.16s ease;
+                    }
+                    
+                    #${uniqueId} .lora-folder-pull-tab:hover::before,
+                    #${uniqueId} .lora-folder-pull-tab.open::before {
+                        background: #1f1f1f;
                     }
                     
                     #${uniqueId} .lora-folder-pull-tab svg {
                         width: 10px;
                         height: 10px;
+                        stroke: currentColor;
+                        transition: transform 0.16s ease, color 0.16s ease;
+                    }
+
+                    #${uniqueId} .lora-folder-pull-tab.open svg {
+                        transform: rotate(180deg);
+                        color: #ccc;
+                    }
+
+                    #${uniqueId} .lora-folder-pull-tab:hover svg {
+                        color: #ff7a00;
                     }
                     
                     #${uniqueId} .lora-folder-pull-tab:hover,
                     #${uniqueId} .lora-folder-pull-tab.open {
-                        background: #202024;
-                        color: #fff;
-                        border-color: #444;
+                        background: #1f1f1f;
+                        color: #ccc;
+                        border-color: #2d2d2d;
                     }
                     
                     #${uniqueId} .folder-filter-select {
