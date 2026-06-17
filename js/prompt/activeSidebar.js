@@ -15,7 +15,7 @@ export function getActiveSidebarWidth({ nodeInstance }) {
 
 export function getActiveSidebarWidthBounds({ widgetContainer, nodeInstance }) {
     const shell = widgetContainer.querySelector(".localprompt-body-shell");
-    return resolveActiveSidebarWidthBounds(shell?.clientWidth, nodeInstance.size?.[0]);
+    return resolveActiveSidebarWidthBounds(shell?.clientWidth, nodeInstance.size?.[0], {}, nodeInstance.uiPrefs);
 }
 
 export function clampActiveSidebarWidth({ widgetContainer, nodeInstance, width }) {
@@ -55,7 +55,13 @@ export function applyActiveSidebarPreference({
     const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
     const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
     const isOpen = isActiveSidebarOpen({ nodeInstance });
-    if (sidebar) sidebar.classList.toggle("active", isOpen);
+    
+    if (sidebar) {
+        sidebar.classList.toggle("active", isOpen);
+        const activeDisplay = nodeInstance.uiPrefs?.active_display_mode || nodeInstance.uiPrefs?.display_mode || "compact";
+        const isLargeMode = nodeInstance.uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
+        sidebar.classList.toggle("large-mode", isLargeMode);
+    }
     if (splitter) splitter.classList.toggle("active", isOpen);
     if (toggleBtn) {
         toggleBtn.classList.toggle("active", isOpen);
@@ -175,6 +181,8 @@ export async function renderActiveSidebar({
     const displayMode = getDisplayMode() === "thumbnails" ? "thumbnails" : "compact";
     container.classList.toggle("active-compact-mode", displayMode === "compact");
     container.classList.toggle("active-thumbnail-mode", displayMode === "thumbnails");
+    const isLargeMode = nodeInstance.uiPrefs?.active_card_size_mode === "large" && displayMode === "thumbnails";
+    container.classList.toggle("active-large-mode", isLargeMode);
 
     if (prompts.length === 0) {
         const emptyState = document.createElement("div");

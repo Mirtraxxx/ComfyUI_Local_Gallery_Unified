@@ -385,6 +385,7 @@ UI_PREF_DEFAULTS = {
     "active_border_custom_2": "#0000ff",
     "promote_selected_prompts": True,
     "card_contrast_mode": "off",
+    "active_card_size_mode": "default",
 }
 
 DISPLAY_MODES = {"compact", "thumbnails"}
@@ -486,6 +487,7 @@ UI_PREF_VALIDATORS = {
     "active_border_custom_2": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_2"]),
     "promote_selected_prompts": lambda value, prefs: bool(value),
     "card_contrast_mode": lambda value, prefs: _normalize_choice(value, CARD_CONTRAST_MODES, UI_PREF_DEFAULTS["card_contrast_mode"]),
+    "active_card_size_mode": lambda value, prefs: _normalize_choice(value, {"default", "large"}, UI_PREF_DEFAULTS["active_card_size_mode"]),
 }
 
 def normalize_ui_prefs(raw_prefs):

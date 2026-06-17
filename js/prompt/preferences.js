@@ -34,6 +34,7 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     prompt_sort_modes: {},
     meta_tags_button_side: "right",
     card_contrast_mode: "off",
+    active_card_size_mode: "default",
 };
 
 export function normalizeDisplayMode(mode, fallback = "compact") {
@@ -91,6 +92,7 @@ export function normalizeUiPrefs(uiPrefs = {}) {
         DEFAULT_PROMPT_UI_PREFS.active_display_mode
     );
     merged.display_mode = merged.cards_display_mode;
+    merged.active_card_size_mode = source.active_card_size_mode === "large" ? "large" : "default";
     merged.thumbnail_size_px = getThumbnailSizePx(merged);
     merged.active_thumbnail_size_px = getActiveThumbnailSizePx(merged);
 

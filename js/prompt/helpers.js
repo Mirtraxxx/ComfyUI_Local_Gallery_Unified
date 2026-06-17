@@ -119,8 +119,15 @@ export function getThumbnailSizePx(uiPrefs, { legacyPresets, defaultSize, minSiz
 }
 
 export function getActiveThumbnailSizePx(uiPrefs, thumbnailSizePx, { minSize, maxSize }) {
-    const rawSize = Number(uiPrefs?.active_thumbnail_size_px ?? thumbnailSizePx);
-    return clampThumbnailSize(rawSize, thumbnailSizePx, minSize, maxSize);
+    const activeDisplay = uiPrefs?.active_display_mode || uiPrefs?.display_mode || "compact";
+    const isLarge = uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
+    const defaultBaseline = isLarge ? 143 : thumbnailSizePx;
+    const rawSize = Number(uiPrefs?.active_thumbnail_size_px ?? defaultBaseline);
+    let resolvedSize = rawSize;
+    if (isLarge && resolvedSize < 143) {
+        resolvedSize = 143;
+    }
+    return clampThumbnailSize(resolvedSize, defaultBaseline, minSize, maxSize);
 }
 
 export function getThumbnailVariables(sizePx) {
@@ -132,11 +139,28 @@ export function getThumbnailVariables(sizePx) {
 }
 
 export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = 300) {
+    const activeDisplay = uiPrefs?.active_display_mode || uiPrefs?.display_mode || "compact";
+    const isLarge = uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
+    const defaultFallback = isLarge ? 660 : fallbackWidth;
     const rawWidth = Number(properties?.active_sidebar_width ?? uiPrefs?.active_sidebar_width);
-    return Number.isFinite(rawWidth) ? rawWidth : fallbackWidth;
+    let resolvedWidth = Number.isFinite(rawWidth) ? rawWidth : defaultFallback;
+    if (isLarge && resolvedWidth < 640) {
+        resolvedWidth = 640;
+    }
+    return resolvedWidth;
 }
 
-export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, { minWidth = 300, fallbackWidth = 500, reservedWidth = 180 } = {}) {
+export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, options = {}, uiPrefs = null) {
+    const activeDisplay = uiPrefs?.active_display_mode || uiPrefs?.display_mode || "compact";
+    const isLarge = uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
+    
+    const defaultMin = isLarge ? 640 : 300;
+    const defaultFallback = isLarge ? 660 : 500;
+    
+    const minWidth = options?.minWidth ?? defaultMin;
+    const fallbackWidth = options?.fallbackWidth ?? defaultFallback;
+    const reservedWidth = options?.reservedWidth ?? 180;
+    
     const availableWidth = shellWidth || nodeWidth || fallbackWidth;
     const maxWidth = Math.max(minWidth + 20, availableWidth - reservedWidth);
     return { minWidth, maxWidth };

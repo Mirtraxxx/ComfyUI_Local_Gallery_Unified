@@ -244,6 +244,9 @@ export async function showSettingsModal({
     savePinnedCategories = null,
     applyAutoHideToolbarPreference = null,
     applyActiveBorderThemePreference = null,
+    applyActiveSidebarPreference = null,
+    applyActiveThumbnailSizePreference = null,
+    renderActiveSidebar = null,
     renderGallery = null,
     workspaceContainer = null,
     onClose = null,
@@ -294,6 +297,13 @@ export async function showSettingsModal({
                         <input type="checkbox" id="settings-show-most-used">
                         <span>Show Most Used tab</span>
                     </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
+                        <input type="checkbox" id="settings-large-active-cards">
+                        <span>Large active thumbnail cards</span>
+                    </label>
+                    <div style="font-size: 10px; color: #777; margin-left: 20px; margin-top: 2px;">
+                        Only applies when Active display mode is set to "With Thumbnails".
+                    </div>
                     <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Hidden Prompts Button Side</label>
                     <select id="settings-meta-tags-button-side" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
                         <option value="right">Right side</option>
@@ -359,6 +369,7 @@ export async function showSettingsModal({
     const activeBorderCustomColorsDiv = root.querySelector("#settings-active-border-custom-colors");
     const activeBorderCustom1Input = root.querySelector("#settings-active-border-custom-1");
     const activeBorderCustom2Input = root.querySelector("#settings-active-border-custom-2");
+    const largeActiveCardsInput = root.querySelector("#settings-large-active-cards");
     const saveBtn = root.querySelector("#settings-save");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
 
@@ -378,6 +389,7 @@ export async function showSettingsModal({
     if (activeSidebarHoverOpenInput) activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs.active_sidebar_hover_open !== false;
     if (promoteSelectedPromptsInput) promoteSelectedPromptsInput.checked = nodeInstance.uiPrefs.promote_selected_prompts !== false;
     if (showMostUsedInput) showMostUsedInput.checked = nodeInstance.uiPrefs.show_most_used !== false;
+    if (largeActiveCardsInput) largeActiveCardsInput.checked = nodeInstance.uiPrefs.active_card_size_mode === "large";
     if (metaTagsButtonSideSelect) {
         metaTagsButtonSideSelect.value = nodeInstance.uiPrefs.meta_tags_button_side === "left" ? "left" : "right";
     }
@@ -557,6 +569,7 @@ export async function showSettingsModal({
             active_border_theme: activeBorderThemeSelect?.value || "default",
             active_border_custom_1: activeBorderCustom1Input?.value || "#ff0000",
             active_border_custom_2: activeBorderCustom2Input?.value || "#0000ff",
+            active_card_size_mode: largeActiveCardsInput?.checked ? "large" : "default",
             library_tab_layout: getLibraryTabLayoutMode(),
             thumbnail_size_px: getThumbnailSizePx(),
             active_thumbnail_size_px: getActiveThumbnailSizePx(),
@@ -579,6 +592,15 @@ export async function showSettingsModal({
         }
         if (typeof applyActiveBorderThemePreference === "function") {
             applyActiveBorderThemePreference();
+        }
+        if (typeof applyActiveSidebarPreference === "function") {
+            applyActiveSidebarPreference();
+        }
+        if (typeof applyActiveThumbnailSizePreference === "function") {
+            applyActiveThumbnailSizePreference();
+        }
+        if (typeof renderActiveSidebar === "function") {
+            await renderActiveSidebar();
         }
         if (typeof renderGallery === "function") {
             renderGallery();

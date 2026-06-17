@@ -800,6 +800,11 @@ export function getPromptStyles(uniqueId) {
                             transform 0.2s ease-out,
                             visibility 0s;
                     }
+                    .localprompt-active-sidebar.large-mode {
+                        width: min(clamp(640px, var(--localprompt-active-sidebar-width, 660px), 740px), calc(100% - 24px));
+                        min-width: min(620px, calc(100% - 24px));
+                        max-width: min(840px, calc(100% - 24px));
+                    }
                     .localprompt-active-sidebar-header {
                         display: flex;
                         align-items: center;
@@ -2264,6 +2269,117 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-chip-thumb.pinned-managed .localprompt-inline-btn:hover {
                         background: rgba(255, 255, 255, 0.18);
                         border-color: rgba(255, 255, 255, 0.3);
+                    }
+
+                    /* Sleek Glassy Active Card Overrides */
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .localprompt-info-btn {
+                        background: rgba(255, 255, 255, 0.08);
+                        backdrop-filter: blur(12px) saturate(1.2);
+                        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.25);
+                        border-radius: 6px;
+                        width: 20px;
+                        height: 20px;
+                        left: 6px;
+                        top: 6px;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .localprompt-info-btn:hover {
+                        background: rgba(255, 255, 255, 0.18);
+                        border-color: rgba(255, 255, 255, 0.3);
+                        box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 4px 16px rgba(0, 0, 0, 0.35);
+                        transform: scale(1.05);
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .localprompt-info-btn svg {
+                        width: 12px;
+                        height: 12px;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-state-pill {
+                        min-width: 32px;
+                        height: 22px;
+                        padding: 2px 8px;
+                        border-radius: 20px;
+                        font-size: 9px;
+                        font-weight: 700;
+                        border: 1px solid transparent;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+                        flex-shrink: 0;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-state-pill.on {
+                        background: linear-gradient(135deg, rgba(0, 200, 130, 0.85), rgba(0, 160, 100, 0.9));
+                        border-color: rgba(0, 255, 160, 0.3);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 200, 130, 0.35);
+                        color: #ffffff;
+                        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-state-pill.off {
+                        background: rgba(255, 255, 255, 0.08);
+                        border-color: rgba(255, 255, 255, 0.1);
+                        color: rgba(255, 255, 255, 0.6);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-weight-val {
+                        min-width: 28px;
+                        height: 22px;
+                        font-size: 10px;
+                        font-weight: 600;
+                        color: #ffffff;
+                        padding: 0 6px;
+                        background: rgba(20, 20, 20, 0.65);
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        border-radius: 20px;
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0,0,0,0.15);
+                        cursor: ns-resize;
+                        margin-left: 2px;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-weight-val:hover {
+                        background: rgba(30, 30, 30, 0.8);
+                        border-color: rgba(255, 255, 255, 0.25);
+                        color: #ffffff;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .thumb-label {
+                        left: 6px;
+                        right: 6px;
+                        bottom: 6px;
+                        padding: 4px 8px;
+                        border-radius: 8px;
+                        background: rgba(16, 20, 26, 0.68);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        backdrop-filter: blur(12px) saturate(1.2);
+                        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+                        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.2);
+                        font-size: 9px;
+                        font-weight: 500;
+                        color: #f3f5f6;
+                        text-align: center;
+                        line-height: 1.25;
+                        letter-spacing: 0.01em;
+                    }
+                    .localprompt-active-sidebar.large-mode .localprompt-chip-thumb.pinned-managed .thumb-label {
+                        font-size: 10px;
+                        padding: 5px 10px;
+                        bottom: 8px;
+                        left: 8px;
+                        right: 8px;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-thumb.pinned-managed .managed-card-overlay {
+                        bottom: 34px;
+                        padding: 3px 5px;
+                        border-radius: 20px;
+                        background: rgba(10, 10, 10, 0.6);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    }
+                    .localprompt-active-sidebar.large-mode .localprompt-chip-thumb.pinned-managed .managed-card-overlay {
+                        bottom: 46px;
                     }
                     /* display rule is freed up now since selected badge uses :not(.pinned-managed) */
                     .localprompt-info-btn,
