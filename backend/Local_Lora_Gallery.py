@@ -453,6 +453,9 @@ async def get_loras_endpoint(request):
         filter_mode = request.query.get('mode', 'OR').upper()
         filter_folder = request.query.get('folder', '').strip()
         selected_loras = request.query.getall('selected_loras', [])
+        sort_mode = request.query.get('sort', request.query.get('sort_mode', 'az')).strip().lower()
+        if sort_mode not in ('az', 'za', 'newest', 'oldest'):
+            sort_mode = 'az'
         
         page = int(request.query.get('page', 1))
         per_page = int(request.query.get('per_page', 50))
@@ -463,11 +466,20 @@ async def get_loras_endpoint(request):
         basename_index = build_metadata_basename_index(metadata)
         all_folders = set()
         metadata_changed = False
+        lora_sort_values = {}
 
         filtered_loras = []
         for lora in lora_files:
             lora_full_path = folder_paths.get_full_path("loras", lora)
             if not lora_full_path: continue
+            try:
+                lora_mtime = os.path.getmtime(lora_full_path)
+            except OSError:
+                lora_mtime = 0
+            lora_sort_values[lora] = {
+                "name": lora.lower(),
+                "mtime": lora_mtime,
+            }
 
             this_lora_root = None
             for root in lora_roots:
@@ -515,7 +527,14 @@ async def get_loras_endpoint(request):
 
         pinned_items = [lora for lora in selected_loras if pinned_items_dict.get(lora)]
 
-        remaining_items.sort(key=lambda x: x.lower())
+        if sort_mode == 'za':
+            remaining_items.sort(key=lambda x: (lora_sort_values.get(x, {}).get("name", x.lower()), x), reverse=True)
+        elif sort_mode == 'newest':
+            remaining_items.sort(key=lambda x: (lora_sort_values.get(x, {}).get("mtime", 0), lora_sort_values.get(x, {}).get("name", x.lower())), reverse=True)
+        elif sort_mode == 'oldest':
+            remaining_items.sort(key=lambda x: (lora_sort_values.get(x, {}).get("mtime", 0), lora_sort_values.get(x, {}).get("name", x.lower())))
+        else:
+            remaining_items.sort(key=lambda x: (lora_sort_values.get(x, {}).get("name", x.lower()), x))
         final_lora_list = pinned_items + remaining_items
 
         total_loras = len(final_lora_list)

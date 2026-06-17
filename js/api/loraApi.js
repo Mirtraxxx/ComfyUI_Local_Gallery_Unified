@@ -33,13 +33,14 @@ function appendQueryParam(params, name, value) {
     }
 }
 
-export async function getLoras(filterTag = "", mode = "OR", folder = "", page = 1, selectedLoras = [], perPage = 50) {
+export async function getLoras(filterTag = "", mode = "OR", folder = "", page = 1, selectedLoras = [], perPage = 50, sortMode = "az") {
     const params = new URLSearchParams();
     appendQueryParam(params, "filter_tag", filterTag);
     appendQueryParam(params, "mode", mode);
     appendQueryParam(params, "folder", folder);
     appendQueryParam(params, "page", page);
     appendQueryParam(params, "per_page", perPage);
+    appendQueryParam(params, "sort", sortMode);
     selectedLoras.forEach((lora) => {
         appendQueryParam(params, "selected_loras", lora);
     });

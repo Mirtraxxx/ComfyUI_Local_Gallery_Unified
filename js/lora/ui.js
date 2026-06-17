@@ -12,10 +12,10 @@ const UnifiedLoraGalleryNode = {
     currentPage: 1,
     totalPages: 1,
     
-    async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], per_page = 50) {
+    async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], per_page = 50, sort_mode = "az") {
         this.isLoading = true;
         try {
-            const data = await loraApi.getLoras(filter_tag, mode, folder, page, selected_loras, per_page);
+            const data = await loraApi.getLoras(filter_tag, mode, folder, page, selected_loras, per_page, sort_mode);
             this.totalPages = data.total_pages || 1;
             this.currentPage = data.current_page || 1;
             return data;
@@ -58,6 +58,7 @@ const UnifiedLoraGalleryNode = {
             this.availableLoras = [];
             this.isModelOnly = nodeData.name.includes("ModelOnly");
             this.selectedCardsForEditing = new Set();
+            this.loraUiState = {};
 
             const widgetContainer = document.createElement("div");
             widgetContainer.className = "locallora-container-wrapper";
@@ -67,7 +68,7 @@ const UnifiedLoraGalleryNode = {
             widgetContainer.innerHTML = `
                 <style>
                     /* --- General Styles --- */
-                    #${uniqueId} .locallora-container { display: flex; flex-direction: column; height: 100%; font-family: sans-serif; background: #171717; border-radius: 8px; overflow: hidden; position: relative; }
+                    #${uniqueId} .locallora-container { --lora-card-thumb-size: 168px; --lora-card-min-width: 132px; --lora-active-thumb-size: 96px; display: flex; flex-direction: column; height: 100%; font-family: sans-serif; background: #171717; border-radius: 8px; overflow: hidden; position: relative; }
                     #${uniqueId} .locallora-selected-list { position: absolute; top: 42px; left: 8px; right: 8px; z-index: 4000; display: none; gap: 10px; align-items: stretch; min-height: 0; max-height: min(302px, calc(100% - 56px)); padding: 0; overflow-x: auto; overflow-y: auto; }
                     #${uniqueId} .locallora-container.active-stack-open .locallora-selected-list:not(:empty) { display: flex; }
                     #${uniqueId} .locallora-selected-list:not(:empty) { padding: 36px 12px 10px; border: 1px solid rgba(178, 224, 255, 0.36); border-radius: 13px; background: radial-gradient(circle at 5% 10%, rgba(163, 239, 255, 0.14), transparent 36%), radial-gradient(circle at 100% 0%, rgba(255, 158, 217, 0.16), transparent 32%), linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.07)), rgba(22, 24, 30, 0.94); box-shadow: 0 18px 46px rgba(0,0,0,0.52), inset 0 0 0 1px rgba(255,255,255,0.06); backdrop-filter: blur(14px) saturate(1.08); -webkit-backdrop-filter: blur(14px) saturate(1.08); }
@@ -83,7 +84,40 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .lora-active-stack-count { min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,0.11); color: #fff; font-size: 10px; font-weight: 800; }
                     #${uniqueId} .lora-active-clear-btn { position: absolute; top: 10px; right: 12px; height: 22px; padding: 0 9px; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; background: rgba(255,255,255,0.08); color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
                     #${uniqueId} .lora-active-clear-btn:hover { background: rgba(142, 47, 56, 0.72); border-color: rgba(200, 90, 100, 0.72); }
-                    #${uniqueId} .locallora-gallery { flex-grow: 1; overflow-y: auto; background-color: #101010; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 7px; align-content: start; }
+                    #${uniqueId} .lora-folder-nav { --lora-folder-pull-tab-center-offset: 19px; --lora-folder-pull-tab-edge-offset: 8px; flex: 1 1 auto; min-width: 0; position: relative; }
+                    #${uniqueId} .lora-folder-first-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+                    #${uniqueId} .lora-folder-strip { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+                    #${uniqueId} .lora-folder-pill { max-width: 128px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 4px; padding: 5px 10px 5px 8px; font-size: 11px; line-height: 1.2; background: #1a1a1c; color: #ccc; border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid var(--folder-color, transparent); cursor: pointer; flex: 0 1 auto; transition: all 0.15s ease; box-sizing: border-box; }
+                    #${uniqueId} .lora-folder-pill:hover { color: #fff; background: #2a2a2d; border-color: rgba(255,255,255,0.12); border-left-color: var(--folder-color, rgba(255,255,255,0.26)); }
+                    #${uniqueId} .lora-folder-pill.active { color: #fff; background: #2d2d30; border-color: rgba(255,255,255,0.12); border-left-color: var(--folder-color, #ff7a00); box-shadow: 0 0 8px var(--folder-glow, rgba(255,122,0,0.22)); }
+                    #${uniqueId} .lora-folder-overflow-wrapper { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 4200; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+                    #${uniqueId} .lora-folder-overflow { display: none; width: 100%; max-height: 142px; overflow-y: auto; padding: 8px; border: 1px solid rgba(174, 226, 255, 0.22); border-radius: 10px; background: rgba(18, 20, 24, 0.96); box-shadow: 0 16px 38px rgba(0,0,0,0.46), inset 0 0 0 1px rgba(255,255,255,0.04); box-sizing: border-box; pointer-events: auto; }
+                    #${uniqueId} .lora-folder-overflow.open { display: block; }
+                    #${uniqueId} .lora-folder-overflow-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 7px 9px; }
+                    #${uniqueId} .lora-folder-overflow-chips .lora-folder-pill { width: 100%; max-width: none; text-align: left; }
+                    #${uniqueId} .lora-folder-pull-tab { display: none; align-items: center; justify-content: center; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 4201; width: 60px; height: 16px; padding: 0; background: #141416; border: 1px solid #333; border-top: none; border-radius: 0 0 6px 6px; cursor: pointer; color: #aaa; box-shadow: 0 2px 4px rgba(0,0,0,0.2); pointer-events: auto; }
+                    #${uniqueId} .lora-folder-pull-tab svg { width: 10px; height: 10px; }
+                    #${uniqueId} .lora-folder-pull-tab:hover,
+                    #${uniqueId} .lora-folder-pull-tab.open { background: #202024; color: #fff; border-color: #444; }
+                    #${uniqueId} .folder-filter-select { display: none; }
+                    #${uniqueId} .locallora-gallery { flex-grow: 1; overflow-y: auto; background-color: #101010; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--lora-card-min-width), 1fr)); gap: 7px; align-content: start; }
+                    #${uniqueId} .locallora-bottom-bar { position: relative; z-index: 120; isolation: isolate; padding: 8px 10px; background: #252525; border-top: 1px solid #333; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; overflow: visible; }
+                    #${uniqueId} .lora-action-btn { position: relative; z-index: 55; width: 32px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: 0 0 auto; border: 1px solid rgba(210, 235, 255, 0.22); border-radius: 8px; background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015)), #181c20; color: #e8ecef; box-shadow: 0 2px 5px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(255,255,255,0.06); cursor: pointer; opacity: 0.96; transition: opacity 0.14s ease, border-color 0.14s ease, background 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease; }
+                    #${uniqueId} .lora-action-btn:hover,
+                    #${uniqueId} .lora-action-btn.active,
+                    #${uniqueId} .lora-action-btn.has-preset { border-color: rgba(178, 233, 255, 0.52); background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)), #252b32; box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.09); color: #fff; opacity: 1; }
+                    #${uniqueId} .lora-action-btn.has-preset { border-color: rgba(255, 145, 40, 0.58); color: #ffd2a1; }
+                    #${uniqueId} .lora-action-btn svg { width: 16px; height: 16px; stroke: currentColor; }
+                    #${uniqueId} .lora-display-options-anchor { position: relative; display: inline-flex; flex: 0 0 auto; }
+                    #${uniqueId} .lora-display-options-popover { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5200; isolation: isolate; width: 228px; max-width: calc(100vw - 24px); box-sizing: border-box; }
+                    #${uniqueId} .lora-display-options-panel { display: grid; grid-template-columns: 1fr; gap: 7px; padding: 7px; background: rgb(27, 31, 36); border: 1px solid #3a4148; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.28); }
+                    #${uniqueId} .lora-display-section { display: grid; gap: 6px; min-width: 0; }
+                    #${uniqueId} .lora-display-section-title { color: #9ea9b2; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; }
+                    #${uniqueId} .lora-display-mode-select { width: 100%; min-height: 26px; padding: 4px 7px; background: #111820; border: 1px solid #3b4652; border-radius: 6px; color: #e8ecef; font-size: 11px; }
+                    #${uniqueId} .lora-display-mode-select option { background: #111820; color: #e8ecef; }
+                    #${uniqueId} .lora-thumbnail-size-control { display: grid; grid-template-columns: 10px minmax(0, 1fr) 10px; align-items: center; gap: 5px; color: #9ea9b2; font-size: 10px; }
+                    #${uniqueId} .lora-thumbnail-size-control.disabled { opacity: 0.42; }
+                    #${uniqueId} .lora-thumbnail-size-control input[type=range] { width: 100%; min-width: 0; accent-color: #83aef5; }
                     
                     /* --- Lora Card --- */
                     #${uniqueId} .locallora-lora-card { cursor: pointer; border: 2px solid rgba(255, 122, 0, 0.72); border-radius: 7px; background: #111; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease; display: flex; flex-direction: column; position: relative; overflow: hidden; min-height: 174px; box-shadow: 0 8px 18px rgba(0,0,0,0.22); }
@@ -92,7 +126,7 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-lora-card.selected-edit { border-color: #FFD15C; box-shadow: 0 0 0 1px rgba(255,209,92,0.5), 0 0 18px rgba(255, 209, 92, 0.35); }
                     #${uniqueId} .locallora-lora-card.selected-flow { border-color: #ff7a00; box-shadow: 0 0 0 1px rgba(255,122,0,0.35), 0 0 18px rgba(255,122,0,0.24); }
                     #${uniqueId} .locallora-lora-card.selected-flow::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
-                    #${uniqueId} .locallora-media-container { width: 100%; height: 168px; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 44%, transparent 70%), #0d1116; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+                    #${uniqueId} .locallora-media-container { width: 100%; height: var(--lora-card-thumb-size); background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 44%, transparent 70%), #0d1116; overflow: hidden; display: flex; align-items: center; justify-content: center; }
                     #${uniqueId} .locallora-media-container img, #${uniqueId} .locallora-media-container video { width: 100%; height: 100%; object-fit: cover; }
                     #${uniqueId} .locallora-lora-card-info { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; box-sizing: border-box; padding: 34px 7px 7px; display: flex; flex-direction: column; gap: 4px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(6,10,14,0.82)); opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity 0.16s ease, transform 0.16s ease; }
                     #${uniqueId} .locallora-lora-card:hover .locallora-lora-card-info,
@@ -132,12 +166,12 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .tag-editor-list .tag .remove-tag { margin-left: 4px; color: #fdd; cursor: pointer; font-weight: bold; }
                     
                     /* --- Active LoRA Drawer --- */
-                    #${uniqueId} .locallora-lora-item { flex: 0 0 142px; display: grid; grid-template-columns: 10px minmax(0, 1fr); grid-template-rows: 96px auto; gap: 6px; user-select: none; position: relative; padding: 6px; border: 2px solid rgba(255, 122, 0, 0.68); border-radius: 8px; background: rgba(12, 14, 18, 0.56); box-shadow: 0 8px 18px rgba(0,0,0,0.28); }
+                    #${uniqueId} .locallora-lora-item { flex: 0 0 calc(var(--lora-active-thumb-size) + 46px); display: grid; grid-template-columns: 10px minmax(0, 1fr); grid-template-rows: var(--lora-active-thumb-size) auto; gap: 6px; user-select: none; position: relative; padding: 6px; border: 2px solid rgba(255, 122, 0, 0.68); border-radius: 8px; background: rgba(12, 14, 18, 0.56); box-shadow: 0 8px 18px rgba(0,0,0,0.28); }
                     #${uniqueId} .locallora-lora-item.disabled { opacity: 0.58; filter: grayscale(30%); }
                     #${uniqueId} .lora-active-drag-handle { grid-row: 1 / 3; display: grid; grid-template-columns: repeat(2, 2px); grid-auto-rows: 2px; gap: 3px 2px; justify-content: center; align-content: center; width: 10px; cursor: grab; opacity: 0.75; }
                     #${uniqueId} .lora-active-drag-handle:active { cursor: grabbing; }
                     #${uniqueId} .lora-active-drag-handle span { width: 2px; height: 2px; border-radius: 50%; background: rgba(216, 232, 240, 0.68); }
-                    #${uniqueId} .locallora-selected-thumb { grid-column: 2; width: 100%; height: 96px; border-radius: 7px; overflow: hidden; background: #0d1116; border: 1px solid rgba(255, 145, 40, 0.46); }
+                    #${uniqueId} .locallora-selected-thumb { grid-column: 2; width: 100%; height: var(--lora-active-thumb-size); border-radius: 7px; overflow: hidden; background: #0d1116; border: 1px solid rgba(255, 145, 40, 0.46); }
                     #${uniqueId} .locallora-selected-thumb img,
                     #${uniqueId} .locallora-selected-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
                     #${uniqueId} .locallora-selected-main { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -154,6 +188,27 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-lora-item.dragging { opacity: 0.45; background: #333; }
                     #${uniqueId} .locallora-lora-item.drag-over-before { box-shadow: inset 3px 0 0 #88c0ff, 0 8px 18px rgba(0,0,0,0.28); }
                     #${uniqueId} .locallora-lora-item.drag-over-after { box-shadow: inset -3px 0 0 #88c0ff, 0 8px 18px rgba(0,0,0,0.28); }
+                    #${uniqueId} .locallora-container.active-mode-compact .locallora-selected-list:not(:empty) { max-height: min(230px, calc(100% - 56px)); }
+                    #${uniqueId} .locallora-container.active-mode-compact .locallora-lora-item { flex-basis: 174px; grid-template-rows: auto; }
+                    #${uniqueId} .locallora-container.active-mode-compact .lora-active-drag-handle { grid-row: 1; }
+                    #${uniqueId} .locallora-container.active-mode-compact .locallora-selected-thumb { display: none; }
+                    #${uniqueId} .locallora-container.active-mode-compact .locallora-selected-main { justify-content: center; }
+                    #${uniqueId} .locallora-container.cards-mode-compact .locallora-gallery { grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); }
+                    #${uniqueId} .locallora-container.cards-mode-compact .locallora-lora-card { min-height: 68px; display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: auto; }
+                    #${uniqueId} .locallora-container.cards-mode-compact .locallora-media-container { width: 64px; height: 64px; }
+                    #${uniqueId} .locallora-container.cards-mode-compact .locallora-lora-card-info { position: static; padding: 7px 8px; opacity: 1; transform: none; pointer-events: auto; background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); }
+                    #${uniqueId} .locallora-container.cards-mode-compact .lora-card-tags,
+                    #${uniqueId} .locallora-container.cards-mode-compact .lora-trigger-preset-picker { display: none; }
+                    #${uniqueId} .locallora-container.cards-mode-compact .edit-tags-btn { bottom: 4px; right: 4px; }
+                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-gallery:has(.locallora-lora-card.selected-flow) .locallora-lora-card:not(.selected-flow),
+                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-selected-list:has(.locallora-lora-item:not(.disabled)) .locallora-lora-item.disabled { opacity: 0.42; filter: saturate(0.55); }
+                    #${uniqueId} .locallora-container.contrast-dim-inactive .locallora-gallery:has(.locallora-lora-card.selected-flow) .locallora-lora-card:not(.selected-flow):hover { opacity: 0.86; filter: saturate(0.9); }
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card,
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item { opacity: 0.54; filter: saturate(0.65); }
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card:hover,
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-card.selected-flow,
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item:hover,
+                    #${uniqueId} .locallora-container.contrast-dim-by-default .locallora-lora-item:not(.disabled) { opacity: 1; filter: none; }
                     
                     /* --- Controls & Inputs --- */
                     #${uniqueId} .locallora-controls-row input[type=text], #${uniqueId} .locallora-controls-row select { background: #222; color: #ccc; border: 1px solid #555; padding: 4px; border-radius: 4px; }
@@ -175,8 +230,8 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-multiselect-tag-dropdown label:hover { background-color: #444; }
 
                     /* --- Presets --- */
-                    #${uniqueId} .locallora-preset-container { position: relative; display: inline-block; margin-bottom: 3px; }
-                    #${uniqueId} .preset-dropdown { display: none; position: absolute; background-color: #222; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 10; border: 1px solid #555; right: 0; }
+                    #${uniqueId} .locallora-preset-container { position: relative; display: inline-flex; }
+                    #${uniqueId} .preset-dropdown { display: none; position: absolute; bottom: calc(100% + 8px); left: 0; background-color: #222; min-width: 180px; max-height: min(260px, 70vh); overflow-y: auto; box-shadow: 0px 12px 28px rgba(0,0,0,0.42); z-index: 5000; border: 1px solid rgba(174, 226, 255, 0.24); border-radius: 8px; }
                     #${uniqueId} .preset-dropdown a { color: #ccc; padding: 8px 12px; text-decoration: none; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
                     #${uniqueId} .preset-dropdown a:hover { background-color: #444; }
                     #${uniqueId} .delete-preset-btn { color: #ff6666; cursor: pointer; font-weight: bold; padding-left: 10px; }
@@ -213,13 +268,18 @@ const UnifiedLoraGalleryNode = {
                         <div class="locallora-controls">
                             <div class="locallora-controls-row locallora-primary-controls">
                                 <button class="lora-active-stack-btn" title="Show selected LoRAs">Active <span class="lora-active-stack-count">0</span></button>
-                                <select class="folder-filter-select" style="max-width: 180px;">
-                                    <option value="">All Folders</option>
-                                </select>
-                                <button class="save-preset-btn" title="Save current stack as preset">Save Preset</button>
-                                <div class="locallora-preset-container">
-                                    <button class="load-preset-btn">Load Preset v</button>
-                                    <div class="preset-dropdown"></div>
+                                <div class="lora-folder-nav">
+                                    <div class="lora-folder-first-row">
+                                        <div class="lora-folder-strip"></div>
+                                    </div>
+                                    <div class="lora-folder-overflow-wrapper">
+                                        <div class="lora-folder-overflow">
+                                            <div class="lora-folder-overflow-chips"></div>
+                                        </div>
+                                        <button class="lora-folder-pull-tab" type="button" aria-expanded="false" title="Show all LoRA folders">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
@@ -268,9 +328,73 @@ const UnifiedLoraGalleryNode = {
                                     <div class="locallora-multiselect-tag-dropdown"></div>
                                 </div>
                             </div>
+                            <select class="folder-filter-select">
+                                <option value="">All Folders</option>
+                            </select>
                         </div>
                         <div class="locallora-selected-list"></div>
                         <div class="locallora-gallery"><p>Loading LoRAs...</p></div>
+                        <div class="locallora-bottom-bar">
+                            <button class="lora-action-btn save-preset-btn" title="Save current stack as preset" aria-label="Save LoRA preset">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
+                            </button>
+                            <div class="locallora-preset-container">
+                                <button class="lora-action-btn load-preset-btn" title="Load a saved preset" aria-label="Load LoRA preset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg>
+                                </button>
+                                <div class="preset-dropdown"></div>
+                            </div>
+                            <div class="lora-display-options-anchor">
+                                <button class="lora-action-btn lora-settings-btn lora-display-options-btn" title="Display options" aria-label="Display options">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 8h4"></path><path d="M18 16h4"></path></svg>
+                                </button>
+                                <div class="lora-display-options-popover" style="display: none;">
+                                    <div class="lora-display-options-panel">
+                                        <section class="lora-display-section">
+                                            <div class="lora-display-section-title">ACTIVE</div>
+                                            <select class="lora-display-mode-select lora-active-display-mode" title="Active display mode">
+                                                <option value="thumbnails">Thumbnails</option>
+                                                <option value="compact">Compact</option>
+                                            </select>
+                                            <label class="lora-thumbnail-size-control lora-active-size-control" title="Active LoRA thumbnail size">
+                                                <span>-</span>
+                                                <input class="lora-active-thumbnail-size-slider" type="range" min="72" max="156" step="1">
+                                                <span>+</span>
+                                            </label>
+                                        </section>
+                                        <section class="lora-display-section">
+                                            <div class="lora-display-section-title">CARDS</div>
+                                            <select class="lora-display-mode-select lora-cards-display-mode" title="Cards display mode">
+                                                <option value="thumbnails">Thumbnails</option>
+                                                <option value="compact">Compact</option>
+                                            </select>
+                                            <label class="lora-thumbnail-size-control lora-cards-size-control" title="LoRA card thumbnail size">
+                                                <span>-</span>
+                                                <input class="lora-thumbnail-size-slider" type="range" min="112" max="260" step="1">
+                                                <span>+</span>
+                                            </label>
+                                        </section>
+                                        <section class="lora-display-section">
+                                            <div class="lora-display-section-title">CONTRAST</div>
+                                            <select class="lora-display-mode-select lora-card-contrast-select" title="Card contrast mode">
+                                                <option value="off">Off (Default)</option>
+                                                <option value="dim_inactive">Dim Inactive</option>
+                                                <option value="dim_by_default">Dim by Default</option>
+                                            </select>
+                                        </section>
+                                        <section class="lora-display-section">
+                                            <div class="lora-display-section-title">SORT CARDS</div>
+                                            <select class="lora-display-mode-select lora-sort-select" title="Sort LoRA cards">
+                                                <option value="az">A to Z</option>
+                                                <option value="za">Z to A</option>
+                                                <option value="newest">Newest first</option>
+                                                <option value="oldest">Oldest first</option>
+                                            </select>
+                                        </section>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -302,26 +426,133 @@ const UnifiedLoraGalleryNode = {
             const selectedCountEl = widgetContainer.querySelector(".selected-count");
             const clearTagFilterBtn = widgetContainer.querySelector(".clear-tag-filter-btn");
             const folderFilterSelect = widgetContainer.querySelector(".folder-filter-select");
+            const folderStrip = widgetContainer.querySelector(".lora-folder-strip");
+            const folderOverflow = widgetContainer.querySelector(".lora-folder-overflow");
+            const folderOverflowChips = widgetContainer.querySelector(".lora-folder-overflow-chips");
+            const folderPullTab = widgetContainer.querySelector(".lora-folder-pull-tab");
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
+            const displayOptionsBtn = widgetContainer.querySelector(".lora-display-options-btn");
+            const displayOptionsPopover = widgetContainer.querySelector(".lora-display-options-popover");
+            const getLoraChromeHeight = () => {
+                const controlsEl = widgetContainer.querySelector(".locallora-controls");
+                const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
+                return (controlsEl?.offsetHeight || 0) + (bottomBarEl?.offsetHeight || 0);
+            };
             let currentViewMode = "gallery";
+            let folderOverflowOpen = false;
+            const VISIBLE_LORA_FOLDER_COUNT = 8;
+            const LORA_FOLDER_COLORS = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8"];
+            const LORA_DISPLAY_MODES = new Set(["thumbnails", "compact"]);
+            const LORA_CONTRAST_MODES = new Set(["off", "dim_inactive", "dim_by_default"]);
+            const LORA_SORT_MODES = new Set(["az", "za", "newest", "oldest"]);
+            const LORA_CARD_THUMBNAIL_MIN = 112;
+            const LORA_CARD_THUMBNAIL_MAX = 260;
+            const LORA_ACTIVE_THUMBNAIL_MIN = 72;
+            const LORA_ACTIVE_THUMBNAIL_MAX = 156;
+
+            const clampNumber = (value, min, max, fallback) => {
+                const number = Number(value);
+                if (!Number.isFinite(number)) return fallback;
+                return Math.min(max, Math.max(min, Math.round(number)));
+            };
+
+            const normalizeChoice = (value, allowed, fallback) => allowed.has(String(value || "")) ? String(value) : fallback;
+
+            const getLoraDisplayState = () => ({
+                active_display_mode: normalizeChoice(this.loraUiState.active_display_mode, LORA_DISPLAY_MODES, "thumbnails"),
+                cards_display_mode: normalizeChoice(this.loraUiState.cards_display_mode, LORA_DISPLAY_MODES, "thumbnails"),
+                card_contrast_mode: normalizeChoice(this.loraUiState.card_contrast_mode, LORA_CONTRAST_MODES, "off"),
+                sort_mode: normalizeChoice(this.loraUiState.sort_mode, LORA_SORT_MODES, "az"),
+                active_thumbnail_size_px: clampNumber(this.loraUiState.active_thumbnail_size_px, LORA_ACTIVE_THUMBNAIL_MIN, LORA_ACTIVE_THUMBNAIL_MAX, 96),
+                thumbnail_size_px: clampNumber(this.loraUiState.thumbnail_size_px, LORA_CARD_THUMBNAIL_MIN, LORA_CARD_THUMBNAIL_MAX, 168),
+            });
+
+            let loraDisplayStateSaveTimer = null;
+            const persistLoraUiState = (extraState = {}) => {
+                this.loraUiState = { ...this.loraUiState, ...extraState };
+                return UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, {
+                    filter_tag: tagFilterInput.value,
+                    filter_mode: tagFilterModeBtn.textContent,
+                    filter_folder: folderFilterSelect.value,
+                    view_mode: currentViewMode,
+                    ...getLoraDisplayState(),
+                    ...extraState,
+                });
+            };
+
+            const queueLoraDisplayStateSave = () => {
+                if (loraDisplayStateSaveTimer) clearTimeout(loraDisplayStateSaveTimer);
+                loraDisplayStateSaveTimer = setTimeout(() => persistLoraUiState(), 250);
+            };
+
+            const syncDisplayOptionAvailability = () => {
+                const state = getLoraDisplayState();
+                const activeSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
+                const activeControl = widgetContainer.querySelector(".lora-active-size-control");
+                const cardSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
+                const cardControl = widgetContainer.querySelector(".lora-cards-size-control");
+                const activeEnabled = state.active_display_mode === "thumbnails";
+                const cardsEnabled = state.cards_display_mode === "thumbnails";
+                if (activeSlider) activeSlider.disabled = !activeEnabled;
+                if (activeControl) {
+                    activeControl.classList.toggle("disabled", !activeEnabled);
+                    activeControl.title = activeEnabled ? "Active LoRA thumbnail size" : "Only available in Thumbnails mode";
+                }
+                if (cardSlider) cardSlider.disabled = !cardsEnabled;
+                if (cardControl) {
+                    cardControl.classList.toggle("disabled", !cardsEnabled);
+                    cardControl.title = cardsEnabled ? "LoRA card thumbnail size" : "Only available in Thumbnails mode";
+                }
+            };
+
+            const syncDisplayOptionControls = () => {
+                const state = getLoraDisplayState();
+                const activeModeSelect = widgetContainer.querySelector(".lora-active-display-mode");
+                const cardsModeSelect = widgetContainer.querySelector(".lora-cards-display-mode");
+                const contrastSelect = widgetContainer.querySelector(".lora-card-contrast-select");
+                const sortSelect = widgetContainer.querySelector(".lora-sort-select");
+                const activeSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
+                const cardSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
+                if (activeModeSelect) activeModeSelect.value = state.active_display_mode;
+                if (cardsModeSelect) cardsModeSelect.value = state.cards_display_mode;
+                if (contrastSelect) contrastSelect.value = state.card_contrast_mode;
+                if (sortSelect) sortSelect.value = state.sort_mode;
+                if (activeSlider) activeSlider.value = String(state.active_thumbnail_size_px);
+                if (cardSlider) cardSlider.value = String(state.thumbnail_size_px);
+                syncDisplayOptionAvailability();
+            };
+
+            const applyLoraDisplayState = () => {
+                const state = getLoraDisplayState();
+                mainContainer.classList.toggle("active-mode-thumbnails", state.active_display_mode === "thumbnails");
+                mainContainer.classList.toggle("active-mode-compact", state.active_display_mode === "compact");
+                mainContainer.classList.toggle("cards-mode-thumbnails", state.cards_display_mode === "thumbnails");
+                mainContainer.classList.toggle("cards-mode-compact", state.cards_display_mode === "compact");
+                ["contrast-off", "contrast-dim-inactive", "contrast-dim-by-default"].forEach(cls => mainContainer.classList.remove(cls));
+                mainContainer.classList.add(`contrast-${state.card_contrast_mode.replace(/_/g, "-")}`);
+                mainContainer.style.setProperty("--lora-card-thumb-size", `${state.thumbnail_size_px}px`);
+                mainContainer.style.setProperty("--lora-card-min-width", `${Math.max(118, Math.round(state.thumbnail_size_px * 0.78))}px`);
+                mainContainer.style.setProperty("--lora-active-thumb-size", `${state.active_thumbnail_size_px}px`);
+                syncDisplayOptionControls();
+            };
 
             const saveStateAndFetch = async () => {
                 const stateToSave = {
                     filter_tag: tagFilterInput.value,
                     filter_mode: tagFilterModeBtn.textContent,
                     filter_folder: folderFilterSelect.value,
-                    view_mode: currentViewMode
+                    view_mode: currentViewMode,
+                    ...getLoraDisplayState(),
                 };
+                this.loraUiState = { ...this.loraUiState, ...stateToSave };
                 await UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, stateToSave);
                 await fetchAndRender(false);
             };
 
             const saveViewModeState = async () => {
-                await UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, {
-                    view_mode: currentViewMode
-                });
+                await persistLoraUiState({ view_mode: currentViewMode });
             };
 
             const setViewMode = (viewMode, shouldRender = true, shouldPersist = true) => {
@@ -330,6 +561,70 @@ const UnifiedLoraGalleryNode = {
                 if (shouldRender) renderCurrentView(false);
                 if (shouldPersist) saveViewModeState();
             };
+
+            const getFolderLabel = (folder) => {
+                if (!folder) return "All Folders";
+                return folder === "." ? "Root" : String(folder).replaceAll('\\', '/');
+            };
+
+            const getFolderColor = (folder, index) => {
+                if (!folder) return "#8fb6d9";
+                let hash = 0;
+                String(folder).split("").forEach(char => {
+                    hash = ((hash << 5) - hash) + char.charCodeAt(0);
+                    hash |= 0;
+                });
+                return LORA_FOLDER_COLORS[Math.abs(hash || index) % LORA_FOLDER_COLORS.length];
+            };
+
+            const buildFolderButton = (folder, index, isOverflow = false) => {
+                const label = getFolderLabel(folder);
+                const isActive = folderFilterSelect.value === folder;
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = `lora-folder-pill${isActive ? " active" : ""}`;
+                button.textContent = label;
+                button.title = label;
+                const color = getFolderColor(folder, index);
+                button.style.setProperty("--folder-color", color);
+                button.style.setProperty("--folder-glow", `${color}55`);
+                button.addEventListener("click", () => {
+                    folderFilterSelect.value = folder;
+                    folderOverflowOpen = false;
+                    renderFolderPills();
+                    saveStateAndFetch();
+                });
+                if (isOverflow) button.dataset.overflow = "true";
+                return button;
+            };
+
+            const getFolderOptions = () => Array.from(folderFilterSelect.options).map(option => option.value);
+
+            const renderFolderPills = () => {
+                if (!folderStrip || !folderOverflow || !folderOverflowChips) return;
+                const folders = getFolderOptions();
+                const visibleFolders = folders.slice(0, VISIBLE_LORA_FOLDER_COUNT);
+                const overflowFolders = folders.slice(VISIBLE_LORA_FOLDER_COUNT);
+
+                folderStrip.innerHTML = "";
+                visibleFolders.forEach((folder, index) => {
+                    folderStrip.appendChild(buildFolderButton(folder, index));
+                });
+
+                folderOverflowChips.innerHTML = "";
+                overflowFolders.forEach((folder, index) => {
+                    folderOverflowChips.appendChild(buildFolderButton(folder, index + VISIBLE_LORA_FOLDER_COUNT, true));
+                });
+
+                const hasOverflow = overflowFolders.length > 0;
+                folderOverflow.classList.toggle("open", hasOverflow && folderOverflowOpen);
+                if (folderPullTab) {
+                    folderPullTab.style.display = hasOverflow ? "flex" : "none";
+                    folderPullTab.classList.toggle("open", hasOverflow && folderOverflowOpen);
+                    folderPullTab.setAttribute("aria-expanded", String(hasOverflow && folderOverflowOpen));
+                }
+            };
+            renderFolderPills();
 
             // Keep selection local to the serialized workflow node.
             // Shared backend UI state is only for transient view controls.
@@ -343,8 +638,10 @@ const UnifiedLoraGalleryNode = {
             };
 
             const updatePresetButtonText = (presetName = null) => {
-                loadPresetBtn.textContent = presetName ? `Preset: ${presetName} v` : "Load Preset v";
+                loadPresetBtn.classList.toggle("has-preset", Boolean(presetName));
+                loadPresetBtn.dataset.currentPreset = presetName || "";
                 loadPresetBtn.title = presetName ? `Current Preset: ${presetName}` : "Load a saved preset";
+                loadPresetBtn.setAttribute("aria-label", presetName ? `Load LoRA preset. Current: ${presetName}` : "Load LoRA preset");
             };
 
             const closeActiveStack = () => {
@@ -357,9 +654,9 @@ const UnifiedLoraGalleryNode = {
                 closeActiveStack();
                 if (mainContainer.classList.contains("gallery-collapsed")) {
                     setTimeout(() => {
-                        const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                        if (!controlsEl) return;
-                        this.size[1] = controlsEl.offsetHeight + HEADER_HEIGHT;
+                        const contentHeight = getLoraChromeHeight();
+                        if (!contentHeight) return;
+                        this.size[1] = contentHeight + HEADER_HEIGHT;
                         this.setDirtyCanvas(true, true);
                     }, 0);
                 }
@@ -620,8 +917,7 @@ const UnifiedLoraGalleryNode = {
                         updateSelection();
                         if (mainContainer.classList.contains("gallery-collapsed")) {
                             setTimeout(() => {
-                                const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                                const contentHeight = controlsEl.offsetHeight;
+                                const contentHeight = getLoraChromeHeight();
                                 this.size[1] = contentHeight + HEADER_HEIGHT;
                                 this.setDirtyCanvas(true, true);
                             }, 0);
@@ -1041,7 +1337,7 @@ const UnifiedLoraGalleryNode = {
                 const pageToFetch = append ? this.currentPage + 1 : 1;
                 if (append && pageToFetch > this.totalPages) return;
                 try {
-                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, this.loraData.map(item => item.lora)); 
+                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, this.loraData.map(item => item.lora), 50, getLoraDisplayState().sort_mode); 
                     if (fetchSequence !== loraFetchSequence) return;
 
                     if (append) {
@@ -1098,6 +1394,7 @@ const UnifiedLoraGalleryNode = {
                     folderFilterSelect.appendChild(option);
                 });
                 folderFilterSelect.value = currentVal;
+                renderFolderPills();
                 if (folders.length > 0) foldersRendered = true;
             };
 
@@ -1136,8 +1433,7 @@ const UnifiedLoraGalleryNode = {
 
                         setTimeout(() => {
                             const HEADER_HEIGHT = 90;
-                            const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                            const requiredTopHeight = controlsEl.offsetHeight;
+                            const requiredTopHeight = getLoraChromeHeight();
 
                             if (mainContainer.classList.contains("gallery-collapsed")) {
                                 this.size[1] = requiredTopHeight + HEADER_HEIGHT;
@@ -1320,7 +1616,13 @@ const UnifiedLoraGalleryNode = {
                     filter_tag: "",
                     filter_mode: "OR",
                     filter_folder: "",
-                    view_mode: "gallery"
+                    view_mode: "gallery",
+                    active_display_mode: "thumbnails",
+                    cards_display_mode: "thumbnails",
+                    card_contrast_mode: "off",
+                    sort_mode: "az",
+                    active_thumbnail_size_px: 96,
+                    thumbnail_size_px: 168,
                 };
 
                 try {
@@ -1336,6 +1638,8 @@ const UnifiedLoraGalleryNode = {
                     console.error("LocalLoraGallery: Failed to get initial UI state.", e); 
                 }
                 initialState.is_collapsed = false;
+                this.loraUiState = { ...initialState };
+                applyLoraDisplayState();
 
                 persistSelectionData();
 
@@ -1357,6 +1661,7 @@ const UnifiedLoraGalleryNode = {
                 if (initialState.filter_folder && folderFilterSelect.querySelector(`option[value="${initialState.filter_folder}"]`)) {
                     if (folderFilterSelect.value !== initialState.filter_folder) {
                         folderFilterSelect.value = initialState.filter_folder;
+                        renderFolderPills();
                         needs_refetch = true;
                     }
                 }
@@ -1370,9 +1675,8 @@ const UnifiedLoraGalleryNode = {
                 
                 if (initialState.is_collapsed) {
                     setTimeout(() => {
-                        const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                        if (!controlsEl) return;
-                        const contentHeight = controlsEl.offsetHeight;
+                        const contentHeight = getLoraChromeHeight();
+                        if (!contentHeight) return;
                         this.size[1] = contentHeight + HEADER_HEIGHT;
                         mainContainer.classList.add("gallery-collapsed");
                         toggleGalleryBtn.textContent = "Show Gallery";
@@ -1520,7 +1824,16 @@ const UnifiedLoraGalleryNode = {
 
                 widgetContainer.querySelector(".clear-all-btn").addEventListener("click", clearAllLoras);
                 
-                folderFilterSelect.addEventListener("change", saveStateAndFetch);
+                folderFilterSelect.addEventListener("change", () => {
+                    folderOverflowOpen = false;
+                    renderFolderPills();
+                    saveStateAndFetch();
+                });
+                folderPullTab?.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    folderOverflowOpen = !folderOverflowOpen;
+                    renderFolderPills();
+                });
                 tagFilterModeBtn.addEventListener("click", () => {
                     if (tagFilterModeBtn.textContent === "OR") {
                         tagFilterModeBtn.textContent = "AND";
@@ -1543,6 +1856,63 @@ const UnifiedLoraGalleryNode = {
                 loadPresetBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     presetDropdown.style.display = presetDropdown.style.display === 'block' ? 'none' : 'block';
+                    if (presetDropdown.style.display === 'block') {
+                        displayOptionsPopover.style.display = 'none';
+                        displayOptionsBtn.classList.remove("active");
+                    }
+                });
+
+                displayOptionsBtn?.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const shouldOpen = displayOptionsPopover.style.display !== "block";
+                    presetDropdown.style.display = "none";
+                    displayOptionsPopover.style.display = shouldOpen ? "block" : "none";
+                    displayOptionsBtn.classList.toggle("active", shouldOpen);
+                    if (shouldOpen) syncDisplayOptionControls();
+                });
+
+                widgetContainer.querySelector(".lora-active-display-mode")?.addEventListener("change", (event) => {
+                    this.loraUiState.active_display_mode = normalizeChoice(event.target.value, LORA_DISPLAY_MODES, "thumbnails");
+                    applyLoraDisplayState();
+                    renderSelectedList();
+                    queueLoraDisplayStateSave();
+                    this.setDirtyCanvas(true, true);
+                });
+
+                widgetContainer.querySelector(".lora-cards-display-mode")?.addEventListener("change", (event) => {
+                    this.loraUiState.cards_display_mode = normalizeChoice(event.target.value, LORA_DISPLAY_MODES, "thumbnails");
+                    applyLoraDisplayState();
+                    renderCurrentView(false);
+                    queueLoraDisplayStateSave();
+                    this.setDirtyCanvas(true, true);
+                });
+
+                widgetContainer.querySelector(".lora-card-contrast-select")?.addEventListener("change", (event) => {
+                    this.loraUiState.card_contrast_mode = normalizeChoice(event.target.value, LORA_CONTRAST_MODES, "off");
+                    applyLoraDisplayState();
+                    queueLoraDisplayStateSave();
+                });
+
+                widgetContainer.querySelector(".lora-active-thumbnail-size-slider")?.addEventListener("input", (event) => {
+                    if (event.target.disabled) return;
+                    this.loraUiState.active_thumbnail_size_px = clampNumber(event.target.value, LORA_ACTIVE_THUMBNAIL_MIN, LORA_ACTIVE_THUMBNAIL_MAX, 96);
+                    applyLoraDisplayState();
+                    queueLoraDisplayStateSave();
+                    this.setDirtyCanvas(true, true);
+                });
+
+                widgetContainer.querySelector(".lora-thumbnail-size-slider")?.addEventListener("input", (event) => {
+                    if (event.target.disabled) return;
+                    this.loraUiState.thumbnail_size_px = clampNumber(event.target.value, LORA_CARD_THUMBNAIL_MIN, LORA_CARD_THUMBNAIL_MAX, 168);
+                    applyLoraDisplayState();
+                    queueLoraDisplayStateSave();
+                });
+
+                widgetContainer.querySelector(".lora-sort-select")?.addEventListener("change", async (event) => {
+                    this.loraUiState.sort_mode = normalizeChoice(event.target.value, LORA_SORT_MODES, "az");
+                    syncDisplayOptionControls();
+                    await persistLoraUiState({ sort_mode: this.loraUiState.sort_mode });
+                    await fetchAndRender(false);
                 });
 
                 activeStackBtn.addEventListener("click", (e) => {
@@ -1558,8 +1928,7 @@ const UnifiedLoraGalleryNode = {
                     
                     if (isCollapsing) {
                         this.expandedHeight = this.size[1];
-                        const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                        const contentHeight = controlsEl.offsetHeight;
+                        const contentHeight = getLoraChromeHeight();
                         this.size[1] = contentHeight + HEADER_HEIGHT;
                         mainContainer.classList.add("gallery-collapsed");
                         toggleGalleryBtn.textContent = "Show Gallery";
@@ -1599,8 +1968,16 @@ const UnifiedLoraGalleryNode = {
                     if (presetDropdown && !loadPresetBtn.contains(e.target) && !presetDropdown.contains(e.target)) {
                        presetDropdown.style.display = 'none';
                     }
+                    if (displayOptionsPopover && !e.target.closest?.(`#${uniqueId} .lora-display-options-anchor`)) {
+                        displayOptionsPopover.style.display = "none";
+                        displayOptionsBtn?.classList.remove("active");
+                    }
                     if (!e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId} .locallora-selected-list`)) {
                         closeActiveStack();
+                    }
+                    if (!e.target.closest?.(`#${uniqueId} .lora-folder-nav`)) {
+                        folderOverflowOpen = false;
+                        renderFolderPills();
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
                         widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
@@ -1612,8 +1989,7 @@ const UnifiedLoraGalleryNode = {
             };
 
             this.onResize = function(size) {
-                const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                const dynamicMinHeight = (controlsEl?.offsetHeight || 0) + HEADER_HEIGHT;
+                const dynamicMinHeight = getLoraChromeHeight() + HEADER_HEIGHT;
                 if (!mainContainer.classList.contains("gallery-collapsed")) {
                     this.expandedHeight = size[1];
                 }
