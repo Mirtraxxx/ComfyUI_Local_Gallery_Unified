@@ -114,38 +114,36 @@ export function getPromptStyles(uniqueId) {
                         color: #aaa;
                         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
                         pointer-events: auto;
-                        transition: width 0.16s ease, height 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
                     }
                     .localprompt-category-pull-tab svg {
                         width: 10px;
                         height: 10px;
                         stroke: currentColor;
-                        transition: transform 0.16s ease;
+                        transition: transform 0.16s ease, color 0.16s ease;
                     }
-                    .localprompt-category-pull-tab:hover {
-                        width: 70px;
-                        height: 18px;
-                        background: #252528;
-                        border-color: #555;
-                        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-                        color: #fff;
+                    .localprompt-category-pull-tab::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -1px;
+                        right: -1px;
+                        height: 1px;
+                        background: #141416;
+                        z-index: 1003;
+                        transition: background-color 0.16s ease;
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] {
                         background: #141416;
                         border-color: #333;
                         color: #ccc;
                     }
-                    .localprompt-category-pull-tab[aria-expanded="true"]:hover {
-                        height: 18px;
-                        width: 70px;
-                        background: #252528;
-                        border-color: #555;
-                        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-                        color: #fff;
-                    }
                     .localprompt-category-pull-tab[aria-expanded="true"] svg {
                         transform: rotate(180deg);
                         color: #ccc;
+                    }
+                    .localprompt-category-pull-tab:hover svg {
+                        color: #3b82f6;
                     }
                     .localprompt-category-overflow {
                         position: relative;
@@ -906,14 +904,12 @@ export function getPromptStyles(uniqueId) {
                         border: 1px solid rgba(210, 235, 255, 0.22);
                         border-radius: 8px;
                         background:
-                            linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.045)),
-                            rgba(24, 28, 32, 0.52);
+                            linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015)),
+                            #181c20;
                         color: #e8ecef;
                         box-shadow:
-                            0 9px 22px rgba(0,0,0,0.28),
-                            inset 0 0 0 1px rgba(255,255,255,0.07);
-                        backdrop-filter: blur(10px) saturate(1.18);
-                        -webkit-backdrop-filter: blur(10px) saturate(1.18);
+                            0 2px 5px rgba(0,0,0,0.32),
+                            inset 0 0 0 1px rgba(255,255,255,0.06);
                         cursor: pointer;
                         opacity: 0.96;
                         transition: opacity 0.14s ease, border-color 0.14s ease, background 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
@@ -928,27 +924,25 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-toolbar-button.localprompt-icon-btn.active,
                     .localprompt-bottom-bar .localprompt-icon-btn:hover,
                     .localprompt-bottom-bar .localprompt-icon-btn.active {
-                        border-color: rgba(178, 233, 255, 0.58);
+                        border-color: rgba(178, 233, 255, 0.52);
                         background:
-                            linear-gradient(135deg, rgba(255,255,255,0.26), rgba(255,255,255,0.07)),
-                            rgba(31, 38, 44, 0.62);
+                            linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+                            #252b32;
                         box-shadow:
-                            0 10px 26px rgba(0,0,0,0.32),
-                            0 0 24px rgba(125, 226, 255, 0.2),
-                            inset 0 0 0 1px rgba(255,255,255,0.1);
+                            0 3px 8px rgba(0,0,0,0.4),
+                            inset 0 0 0 1px rgba(255,255,255,0.09);
                         color: #fff;
                         opacity: 1;
                     }
                     .localprompt-favorite-toggle-btn:hover,
                     .localprompt-favorite-toggle-btn.active {
-                        border-color: rgba(255, 215, 0, 0.58);
+                        border-color: rgba(255, 215, 0, 0.52);
                         background:
-                            linear-gradient(135deg, rgba(255,255,255,0.26), rgba(255,255,255,0.07)),
-                            rgba(45, 40, 20, 0.62);
+                            linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+                            #2d2714;
                         box-shadow:
-                            0 10px 26px rgba(0,0,0,0.32),
-                            0 0 24px rgba(255, 215, 0, 0.22),
-                            inset 0 0 0 1px rgba(255,255,255,0.1);
+                            0 3px 8px rgba(0,0,0,0.4),
+                            inset 0 0 0 1px rgba(255,255,255,0.09);
                         color: #ffd700;
                     }
                     .localprompt-active-side-tab svg,

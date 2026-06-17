@@ -19,7 +19,7 @@ Approximate current frontend sizes:
 
 | File | Lines | Notes |
 | --- | ---: | --- |
-| `js/prompt/styles.js` | 3612 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
+| `js/prompt/styles.js` | 3607 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
 | `js/prompt/ui.js` | 2906 | Prompt coordinator; still important but no longer carries every prompt feature. |
 | `js/lora/ui.js` | 1774 | Largest remaining JS behavior module and best cleanup target. |
 | `js/prompt/library.js` | 668 | Prompt Builder card drawer. |

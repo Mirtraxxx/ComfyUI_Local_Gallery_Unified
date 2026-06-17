@@ -50,21 +50,41 @@ class LocalGalleryPromptLora:
         return lora_selection_data
 
     @classmethod
+    def _get_lora_model_signature(cls, lora_cls, lora_selection_data):
+        if lora_cls and hasattr(lora_cls, "MODEL_CHANGED"):
+            try:
+                return lora_cls.MODEL_CHANGED(lora_selection_data)
+            except Exception:
+                pass
+        return cls._get_lora_change_signature(lora_cls, lora_selection_data)
+
+    @classmethod
+    def _get_lora_trigger_words(cls, lora_cls, lora_selection_data):
+        if lora_cls and hasattr(lora_cls, "get_trigger_words_for_selection"):
+            try:
+                return lora_cls.get_trigger_words_for_selection(lora_selection_data)
+            except Exception:
+                pass
+        return ""
+
+    @classmethod
     def _get_cached_lora_outputs(cls, model, clip, lora_cls, lora_selection_data):
-        lora_signature = cls._get_lora_change_signature(lora_cls, lora_selection_data)
+        lora_signature = cls._get_lora_model_signature(lora_cls, lora_selection_data)
         cache_key = (id(model), id(clip), lora_signature)
         if cls._LORA_CACHE_KEY == cache_key and cls._LORA_CACHE_VALUE is not None:
-            return cls._LORA_CACHE_VALUE
+            model_out, clip_out = cls._LORA_CACHE_VALUE
+            lora_trigger_words = cls._get_lora_trigger_words(lora_cls, lora_selection_data or "[]")
+            return model_out, clip_out, lora_trigger_words
 
-        lora_outputs = lora_cls().load_loras(
+        model_out, clip_out, lora_trigger_words = lora_cls().load_loras(
             model,
             clip,
             "unified-gallery",
             lora_selection_data or "[]",
         )
         cls._LORA_CACHE_KEY = cache_key
-        cls._LORA_CACHE_VALUE = lora_outputs
-        return lora_outputs
+        cls._LORA_CACHE_VALUE = (model_out, clip_out)
+        return model_out, clip_out, lora_trigger_words
 
     @classmethod
     def IS_CHANGED(

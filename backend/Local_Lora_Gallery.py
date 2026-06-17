@@ -700,13 +700,66 @@ class BaseLoraGallery:
             if preset_name in presets and isinstance(presets[preset_name], str) and presets[preset_name].strip()
         ]
         return ", ".join(preset_triggers) if preset_triggers else triggers
+
+    @staticmethod
+    def _parse_selection_data(selection_data):
+        try:
+            lora_configs = json.loads(selection_data)
+            return lora_configs if isinstance(lora_configs, list) else []
+        except Exception:
+            return []
+
+    @staticmethod
+    def _float_config_value(config, key, fallback):
+        try:
+            return float(config.get(key, fallback))
+        except (TypeError, ValueError):
+            return fallback
+
+    @classmethod
+    def MODEL_CHANGED(cls, selection_data, **kwargs):
+        model_state = []
+        for config in cls._parse_selection_data(selection_data):
+            if not isinstance(config, dict) or not config.get('on', True) or not config.get('lora'):
+                continue
+
+            strength_model = cls._float_config_value(config, 'strength', 1.0)
+            strength_clip = cls._float_config_value(config, 'strength_clip', strength_model)
+            if strength_model == 0 and strength_clip == 0:
+                continue
+
+            model_state.append({
+                "lora": str(config.get('lora')),
+                "strength": strength_model,
+                "strength_clip": strength_clip,
+            })
+
+        return json.dumps(model_state, sort_keys=True)
+
+    @classmethod
+    def get_trigger_words_for_selection(cls, selection_data):
+        all_metadata = load_metadata()
+        trigger_words_list = []
+
+        for config in cls._parse_selection_data(selection_data):
+            if not isinstance(config, dict) or not config.get('on', True) or not config.get('lora'):
+                continue
+
+            lora_name = config['lora']
+            lora_full_path = folder_paths.get_full_path("loras", lora_name)
+            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+            if metadata_changed:
+                save_metadata(all_metadata)
+
+            triggers = cls._get_trigger_words_for_config(lora_meta, config)
+            if triggers:
+                trigger_words_list.append(triggers)
+
+        return ", ".join(trigger_words_list)
     
     @classmethod
     def IS_CHANGED(cls, selection_data, **kwargs):
-        try:
-            lora_configs = json.loads(selection_data)
-        except:
-            lora_configs = []
+        lora_configs = cls._parse_selection_data(selection_data)
 
         all_metadata = load_metadata()
         trigger_state = ""
