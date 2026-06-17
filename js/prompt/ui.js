@@ -48,7 +48,7 @@ import {
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
     renderActiveSidebar as renderPromptActiveSidebar,
-} from "./activeSidebar.js?v=active-peek-toggle-20260607";
+} from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
 import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
@@ -60,7 +60,7 @@ import {
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=prompt-builder-swap-reorder-20260608";
+} from "./library.js?v=prompt-builder-swap-reorder-20260617";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js";
@@ -500,6 +500,9 @@ const UnifiedPromptGalleryNode = {
             hoverPreview.className = 'localprompt-hover-preview';
             document.body.appendChild(hoverPreview);
             let toolbarOutsideClickHandler = null;
+            let activeCategoryContextMenu = null;
+            let categoryDragState = null;
+            let suppressCategoryClickUntil = 0;
 
             // Category Context Menu & Pointer drag event handlers
             const globalPointerDownHandler = (event) => {
@@ -572,32 +575,48 @@ const UnifiedPromptGalleryNode = {
                 const isTargetPinned = targetPill.dataset.pinned === "true" || targetPill.closest(`#${uniqueId}-pinned-category-strip`) !== null;
                 const allCategories = await getCachedCategories();
                 let pinned = getPinnedCategories(allCategories);
+                const swapItems = (items, first, second) => {
+                    const firstIndex = items.indexOf(first);
+                    const secondIndex = items.indexOf(second);
+                    if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex) return false;
+                    [items[firstIndex], items[secondIndex]] = [items[secondIndex], items[firstIndex]];
+                    return true;
+                };
                 
                 // Remove draggedCategory from pinned if it's there
-                pinned = pinned.filter(c => c !== draggedCategory);
-
                 if (isTargetPinned) {
                     // Pinned zone drop
-                    const targetIndex = pinned.indexOf(targetCategory);
-                    if (targetIndex >= 0) {
-                        pinned.splice(targetIndex + 1, 0, draggedCategory);
-                    } else {
+                    if (!swapItems(pinned, draggedCategory, targetCategory)) {
+                        pinned = pinned.filter(c => c !== draggedCategory);
+                        const targetIndex = pinned.indexOf(targetCategory);
+                        if (targetIndex >= 0) {
+                            pinned.splice(targetIndex, 0, draggedCategory);
+                        } else {
+                            pinned.push(draggedCategory);
+                        }
+                    }
+                    if (!pinned.includes(draggedCategory)) {
                         pinned.push(draggedCategory);
                     }
                     await savePinnedCategories(pinned);
                 } else {
                     // Unpinned zone drop
+                    pinned = pinned.filter(c => c !== draggedCategory);
                     const currentTabs = getCategoriesInCurrentOrder(allCategories);
                     const unpinnedOrder = currentTabs.filter(c => !pinned.includes(c));
-                    const nextUnpinned = unpinnedOrder.filter(c => c !== draggedCategory);
-                    const targetIndex = nextUnpinned.indexOf(targetCategory);
-                    if (targetIndex >= 0) {
-                        nextUnpinned.splice(targetIndex + 1, 0, draggedCategory);
+                    if (!swapItems(unpinnedOrder, draggedCategory, targetCategory)) {
+                        const nextUnpinned = unpinnedOrder.filter(c => c !== draggedCategory);
+                        const targetIndex = nextUnpinned.indexOf(targetCategory);
+                        if (targetIndex >= 0) {
+                            nextUnpinned.splice(targetIndex, 0, draggedCategory);
+                            await saveCategoryOrder(nextUnpinned);
+                        } else {
+                            nextUnpinned.push(draggedCategory);
+                            await saveCategoryOrder(nextUnpinned);
+                        }
                     } else {
-                        nextUnpinned.push(draggedCategory);
+                        await saveCategoryOrder(unpinnedOrder);
                     }
-                    
-                    await saveCategoryOrder(nextUnpinned);
                     await savePinnedCategories(pinned);
                 }
             };
@@ -1525,7 +1544,7 @@ const UnifiedPromptGalleryNode = {
                     setActiveSidebarHoverOpen(true).catch(error => {
                         console.error('LocalPromptGallery: Failed to hover-open active sidebar', error);
                     });
-                }, 300);
+                }, 150);
             }
 
             function scheduleActiveSidebarHoverClose() {
@@ -1542,8 +1561,6 @@ const UnifiedPromptGalleryNode = {
                 node_instance.uiPrefs.library_tabs = getLibraryTabs();
                 await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
             }
-
-            let activeCategoryContextMenu = null;
 
             function closeCategoryContextMenu() {
                 if (activeCategoryContextMenu) {

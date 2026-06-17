@@ -187,7 +187,135 @@ export async function renderActiveSidebar({
         return;
     }
 
-    let draggedSelectedPromptId = null;
+    let suppressActiveClickUntil = 0;
+
+    const clearActiveDropTargets = () => {
+        container.querySelectorAll(".pinned-drop-target").forEach(card => {
+            card.classList.remove("pinned-drop-target");
+        });
+    };
+
+    const getActiveCards = () => Array.from(container.querySelectorAll("[data-prompt-id]"));
+
+    const getSwapTarget = (dragState, clientX, clientY) => {
+        const cards = getActiveCards().filter(card => card !== dragState.chip);
+        if (!cards.length) return null;
+        const dragCenterX = clientX - dragState.pointerOffsetX;
+        const dragCenterY = clientY - dragState.pointerOffsetY;
+        const containerRect = container.getBoundingClientRect();
+        if (
+            dragCenterX < containerRect.left ||
+            dragCenterX > containerRect.right ||
+            dragCenterY < containerRect.top ||
+            dragCenterY > containerRect.bottom
+        ) {
+            return null;
+        }
+
+        const directTarget = cards.find(card => {
+            const rect = card.getBoundingClientRect();
+            return dragCenterX >= rect.left && dragCenterX <= rect.right && dragCenterY >= rect.top && dragCenterY <= rect.bottom;
+        });
+        if (directTarget) return directTarget;
+
+        return cards.reduce((nearest, card) => {
+            const rect = card.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
+            if (!nearest || distance < nearest.distance) return { card, distance };
+            return nearest;
+        }, null)?.card || null;
+    };
+
+    const swapActivePrompts = async (fromPromptId, toPromptId) => {
+        if (!fromPromptId || !toPromptId || fromPromptId === toPromptId) return;
+        const currentOrder = [...nodeInstance.promptData];
+        const fromIndex = currentOrder.findIndex(item => String(item.prompt_id) === String(fromPromptId));
+        const toIndex = currentOrder.findIndex(item => String(item.prompt_id) === String(toPromptId));
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+        [currentOrder[fromIndex], currentOrder[toIndex]] = [currentOrder[toIndex], currentOrder[fromIndex]];
+        nodeInstance.promptData = currentOrder;
+        saveSelectionData();
+        renderPrompts();
+        const activeLibraryTab = getActiveLibraryTab();
+        if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
+    };
+
+    const bindActivePointerSwap = (chip, promptId) => {
+        chip.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn, button, input, select, textarea, a")) return;
+
+            const rect = chip.getBoundingClientRect();
+            const dragState = {
+                chip,
+                promptId,
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                pointerOffsetX: event.clientX - (rect.left + rect.width / 2),
+                pointerOffsetY: event.clientY - (rect.top + rect.height / 2),
+                active: false,
+                lastTarget: null,
+            };
+            chip.setPointerCapture?.(event.pointerId);
+
+            const cleanup = () => {
+                chip.classList.remove("pinned-dragging");
+                chip.releasePointerCapture?.(dragState.pointerId);
+                clearActiveDropTargets();
+                document.removeEventListener("pointermove", onPointerMove, true);
+                document.removeEventListener("pointerup", onPointerUp, true);
+                document.removeEventListener("pointercancel", onPointerCancel, true);
+                window.removeEventListener("blur", onPointerCancel);
+            };
+
+            const updateTarget = moveEvent => {
+                clearActiveDropTargets();
+                const target = getSwapTarget(dragState, moveEvent.clientX, moveEvent.clientY);
+                if (target) target.classList.add("pinned-drop-target");
+                dragState.lastTarget = target || dragState.lastTarget;
+                return target;
+            };
+
+            const onPointerMove = moveEvent => {
+                if (moveEvent.pointerId !== dragState.pointerId) return;
+                if (!dragState.active) {
+                    const distance = Math.hypot(moveEvent.clientX - dragState.startX, moveEvent.clientY - dragState.startY);
+                    if (distance < 6) return;
+                    dragState.active = true;
+                    chip.classList.add("pinned-dragging");
+                }
+                moveEvent.preventDefault();
+                moveEvent.stopPropagation();
+                updateTarget(moveEvent);
+            };
+
+            const onPointerUp = async upEvent => {
+                if (upEvent.pointerId !== dragState.pointerId) return;
+                if (!dragState.active) {
+                    cleanup();
+                    return;
+                }
+                upEvent.preventDefault();
+                upEvent.stopPropagation();
+                const target = updateTarget(upEvent) || dragState.lastTarget;
+                cleanup();
+                suppressActiveClickUntil = Date.now() + 250;
+                if (target && target !== chip) {
+                    await swapActivePrompts(promptId, target.dataset.promptId);
+                }
+            };
+
+            const onPointerCancel = () => cleanup();
+
+            document.addEventListener("pointermove", onPointerMove, true);
+            document.addEventListener("pointerup", onPointerUp, true);
+            document.addEventListener("pointercancel", onPointerCancel, true);
+            window.addEventListener("blur", onPointerCancel);
+        });
+    };
 
     prompts.forEach(prompt => {
         const selectedEntry = getSelectedPromptEntry(prompt.id);
@@ -247,50 +375,13 @@ export async function renderActiveSidebar({
             if (rowImage) rowImage.draggable = false;
         }
 
-        chip.draggable = true;
+        chip.draggable = false;
         chip.dataset.promptId = promptId;
         applyCategoryRoleStyling(chip, prompt, { soften: true });
         bindPinnedManagedControls(chip, prompt);
-
-        chip.addEventListener("dragstart", (event) => {
-            draggedSelectedPromptId = promptId;
-            chip.classList.add("pinned-dragging");
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("application/x-localpromptgallery-selected", promptId);
-            }
-        });
-        chip.addEventListener("dragover", (event) => {
-            if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-            event.preventDefault();
-            event.stopPropagation();
-            chip.classList.add("pinned-drop-target");
-        });
-        chip.addEventListener("dragleave", () => {
-            chip.classList.remove("pinned-drop-target");
-        });
-        chip.addEventListener("drop", (event) => {
-            if (!draggedSelectedPromptId || draggedSelectedPromptId === promptId) return;
-            event.preventDefault();
-            event.stopPropagation();
-            chip.classList.remove("pinned-drop-target");
-            const currentOrder = [...nodeInstance.promptData];
-            const fromIndex = currentOrder.findIndex(item => String(item.prompt_id) === draggedSelectedPromptId);
-            const toIndex = currentOrder.findIndex(item => String(item.prompt_id) === promptId);
-            if (fromIndex < 0 || toIndex < 0) return;
-            const [movedItem] = currentOrder.splice(fromIndex, 1);
-            currentOrder.splice(toIndex, 0, movedItem);
-            nodeInstance.promptData = currentOrder;
-            saveSelectionData();
-            renderPrompts();
-            const activeLibraryTab = getActiveLibraryTab();
-            if (activeLibraryTab) renderLibraryDrawer(activeLibraryTab);
-        });
-        chip.addEventListener("dragend", () => {
-            chip.classList.remove("pinned-dragging", "pinned-drop-target");
-            draggedSelectedPromptId = null;
-        });
+        bindActivePointerSwap(chip, promptId);
         chip.addEventListener("click", (event) => {
+            if (suppressActiveClickUntil > Date.now()) return;
             if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn")) return;
             addPromptToSelection(prompt);
         });

@@ -4,7 +4,6 @@ import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/
 import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
 import { getLoraStyles } from "./styles.js";
-import { moveSelectedLora } from "./helpers.js";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -756,31 +755,47 @@ const UnifiedLoraGalleryNode = {
                 const discovered = getFolderOptions();
                 
                 let pinned = [...(this.loraUiState.pinned_folders || [])];
-                pinned = pinned.filter(f => f !== draggedFolder);
+                const swapItems = (items, first, second) => {
+                    const firstIndex = items.indexOf(first);
+                    const secondIndex = items.indexOf(second);
+                    if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex) return false;
+                    [items[firstIndex], items[secondIndex]] = [items[secondIndex], items[firstIndex]];
+                    return true;
+                };
 
                 if (isTargetPinned) {
                     // Pinned zone drop
-                    const targetIndex = pinned.indexOf(targetFolder);
-                    if (targetIndex >= 0) {
-                        pinned.splice(targetIndex + 1, 0, draggedFolder);
-                    } else {
+                    if (!swapItems(pinned, draggedFolder, targetFolder)) {
+                        pinned = pinned.filter(f => f !== draggedFolder);
+                        const targetIndex = pinned.indexOf(targetFolder);
+                        if (targetIndex >= 0) {
+                            pinned.splice(targetIndex, 0, draggedFolder);
+                        } else {
+                            pinned.push(draggedFolder);
+                        }
+                    }
+                    if (!pinned.includes(draggedFolder)) {
                         pinned.push(draggedFolder);
                     }
                     this.loraUiState.pinned_folders = pinned;
                     await saveStateAndFetch();
                 } else {
                     // Unpinned zone drop
+                    pinned = pinned.filter(f => f !== draggedFolder);
                     const currentFolders = getFoldersInCurrentOrder(discovered);
                     const unpinnedOrder = currentFolders.filter(f => !pinned.includes(f));
-                    const nextUnpinned = unpinnedOrder.filter(f => f !== draggedFolder);
-                    const targetIndex = nextUnpinned.indexOf(targetFolder);
-                    if (targetIndex >= 0) {
-                        nextUnpinned.splice(targetIndex + 1, 0, draggedFolder);
+                    if (!swapItems(unpinnedOrder, draggedFolder, targetFolder)) {
+                        const nextUnpinned = unpinnedOrder.filter(f => f !== draggedFolder);
+                        const targetIndex = nextUnpinned.indexOf(targetFolder);
+                        if (targetIndex >= 0) {
+                            nextUnpinned.splice(targetIndex, 0, draggedFolder);
+                        } else {
+                            nextUnpinned.push(draggedFolder);
+                        }
+                        this.loraUiState.folder_order = nextUnpinned;
                     } else {
-                        nextUnpinned.push(draggedFolder);
+                        this.loraUiState.folder_order = unpinnedOrder;
                     }
-                    
-                    this.loraUiState.folder_order = nextUnpinned;
                     this.loraUiState.pinned_folders = pinned;
                     await saveStateAndFetch();
                 }
@@ -890,43 +905,75 @@ const UnifiedLoraGalleryNode = {
             let cleanupMouseReorder = null;
 
             const clearDragMarkers = (root = widgetContainer) => {
-                root.querySelectorAll(".drag-over-before, .drag-over-after").forEach(row => {
-                    row.classList.remove("drag-over-before", "drag-over-after");
+                root.querySelectorAll(".locallora-lora-item.drag-over-before, .locallora-lora-item.drag-over-after, .locallora-lora-item.drag-over").forEach(row => {
+                    row.classList.remove("drag-over-before", "drag-over-after", "drag-over");
                 });
             };
 
             const bindMouseReorderHandle = (row, handle, rowSelector, root, onMoved) => {
-                if (!handle) return;
+                if (!row || !handle) return;
 
-                handle.addEventListener("pointerdown", (event) => {
+                const shouldStartReorder = (event) => {
+                    if (event.target.closest?.(".locallora-active-drag-handle")) return true;
+                    return !event.target.closest?.("button, input, select, textarea, a, .managed-weight-val, .lora-trigger-preset-picker");
+                };
+
+                const containsPoint = (rect, x, y) => (
+                    x >= rect.left &&
+                    x <= rect.right &&
+                    y >= rect.top &&
+                    y <= rect.bottom
+                );
+
+                row.addEventListener("pointerdown", (event) => {
                     if (event.button !== 0) return;
-                    event.preventDefault();
-                    event.stopPropagation();
+                    if (!shouldStartReorder(event)) return;
+
+                    const startedFromHandle = Boolean(event.target.closest?.(".locallora-active-drag-handle"));
+                    if (startedFromHandle) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
 
                     cleanupMouseReorder?.();
                     draggedIndex = parseInt(row.dataset.index);
-                    row.classList.add("dragging");
-                    document.body.style.userSelect = "none";
                     const pointerId = event.pointerId;
-                    handle.setPointerCapture?.(event.pointerId);
+                    const startX = event.clientX;
+                    const startY = event.clientY;
+                    const startRect = row.getBoundingClientRect();
+                    const pointerOffsetX = startX - (startRect.left + startRect.width / 2);
+                    const pointerOffsetY = startY - (startRect.top + startRect.height / 2);
+                    let hasDragged = false;
                     let lastDropMarker = null;
+                    row.setPointerCapture?.(event.pointerId);
 
                     const getTargetRow = (moveEvent) => {
                         const rows = Array.from(root.querySelectorAll(rowSelector)).filter(candidate => candidate !== row);
                         if (!rows.length) return null;
+                        const dragCenterX = moveEvent.clientX - pointerOffsetX;
+                        const dragCenterY = moveEvent.clientY - pointerOffsetY;
+
+                        const sourceRect = row.getBoundingClientRect();
+                        if (containsPoint(sourceRect, dragCenterX, dragCenterY)) {
+                            return null;
+                        }
+
+                        const rootRect = root.getBoundingClientRect();
+                        if (!containsPoint(rootRect, dragCenterX, dragCenterY)) {
+                            return null;
+                        }
 
                         const rowUnderPointer = rows.find(candidate => {
                             const rect = candidate.getBoundingClientRect();
-                            return moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom;
+                            return containsPoint(rect, dragCenterX, dragCenterY);
                         });
                         if (rowUnderPointer) return rowUnderPointer;
 
                         return rows.reduce((nearestRow, candidate) => {
                             const rect = candidate.getBoundingClientRect();
-                            const distance = Math.min(
-                                Math.abs(moveEvent.clientY - rect.top),
-                                Math.abs(moveEvent.clientY - rect.bottom)
-                            );
+                            const centerX = rect.left + rect.width / 2;
+                            const centerY = rect.top + rect.height / 2;
+                            const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
                             if (!nearestRow || distance < nearestRow.distance) {
                                 return { row: candidate, distance };
                             }
@@ -938,31 +985,47 @@ const UnifiedLoraGalleryNode = {
                         clearDragMarkers(root);
                         const targetRow = getTargetRow(moveEvent);
                         if (!targetRow) return null;
-                        const rect = targetRow.getBoundingClientRect();
-                        const insertAfter = moveEvent.clientY > rect.top + rect.height / 2;
-                        targetRow.classList.add(insertAfter ? "drag-over-after" : "drag-over-before");
-                        lastDropMarker = { targetRow, insertAfter };
+                        targetRow.classList.add("drag-over");
+                        lastDropMarker = { targetRow };
                         return lastDropMarker;
                     };
 
                     const onPointerMove = (moveEvent) => {
                         if (moveEvent.pointerId !== pointerId) return;
+                        if (!hasDragged) {
+                            const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+                            if (distance < 4) return;
+                            hasDragged = true;
+                            row.classList.add("dragging");
+                            document.body.style.userSelect = "none";
+                        }
                         moveEvent.preventDefault();
                         moveEvent.stopPropagation();
                         updateMarker(moveEvent);
                     };
 
+                    const suppressClickAfterDrag = (clickEvent) => {
+                        clickEvent.preventDefault();
+                        clickEvent.stopPropagation();
+                        row.removeEventListener("click", suppressClickAfterDrag, true);
+                    };
+
                     const onPointerUp = (upEvent) => {
                         if (upEvent.pointerId !== pointerId) return;
+                        if (!hasDragged) {
+                            cleanupMouseReorder?.();
+                            return;
+                        }
                         upEvent.preventDefault();
                         upEvent.stopPropagation();
                         const marker = updateMarker(upEvent) || lastDropMarker;
                         const fromIndex = draggedIndex;
                         const targetIndex = marker ? parseInt(marker.targetRow.dataset.index) : -1;
-                        const insertAfter = marker?.insertAfter;
                         cleanupMouseReorder?.();
-                        if (marker && fromIndex >= 0) {
-                            onMoved(fromIndex, targetIndex, insertAfter);
+                        row.addEventListener("click", suppressClickAfterDrag, true);
+                        window.setTimeout(() => row.removeEventListener("click", suppressClickAfterDrag, true), 0);
+                        if (marker && fromIndex >= 0 && targetIndex >= 0 && fromIndex !== targetIndex) {
+                            onMoved(fromIndex, targetIndex);
                         }
                     };
 
@@ -971,8 +1034,8 @@ const UnifiedLoraGalleryNode = {
                         clearDragMarkers(root);
                         draggedIndex = -1;
                         document.body.style.userSelect = "";
-                        if (handle.hasPointerCapture?.(pointerId)) {
-                            handle.releasePointerCapture?.(pointerId);
+                        if (row.hasPointerCapture?.(pointerId)) {
+                            row.releasePointerCapture?.(pointerId);
                         }
                         document.removeEventListener("pointermove", onPointerMove, true);
                         document.removeEventListener("pointerup", onPointerUp, true);
@@ -1137,14 +1200,13 @@ const UnifiedLoraGalleryNode = {
                     });
 
                     const dragHandle = el.querySelector(".locallora-active-drag-handle") || el;
-                    bindMouseReorderHandle(el, dragHandle, ".locallora-lora-item", selectedListEl, (fromIdx, targetIdx, insertAfter) => {
+                    bindMouseReorderHandle(el, dragHandle, ".locallora-lora-item", selectedListEl, (fromIdx, targetIdx) => {
+                        if (fromIdx === targetIdx || fromIdx < 0 || targetIdx < 0 || fromIdx >= this.loraData.length || targetIdx >= this.loraData.length) return;
                         const items = [...this.loraData];
-                        const moved = moveSelectedLora(items, fromIdx, targetIdx, insertAfter);
-                        if (moved) {
-                            this.loraData = items;
-                            repaintLoraOrder();
-                            updateSelection();
-                        }
+                        [items[fromIdx], items[targetIdx]] = [items[targetIdx], items[fromIdx]];
+                        this.loraData = items;
+                        repaintLoraOrder();
+                        updateSelection();
                     });
 
                     selectedListEl.appendChild(el);

@@ -1042,14 +1042,13 @@ export function getLoraStyles(uniqueId) {
                         border-style: dashed;
                     }
                     
-                    #${uniqueId} .locallora-lora-item.drag-over-before {
-                        border-top-color: #ff7a00;
-                        box-shadow: 0 -3px 0 #ff7a00, 0 8px 18px rgba(0,0,0,0.28);
+                    #${uniqueId} .locallora-lora-item.drag-over {
+                        border-color: #ff7a00 !important;
+                        box-shadow: 0 0 14px rgba(255, 122, 0, 0.52) !important;
                     }
-                    
-                    #${uniqueId} .locallora-lora-item.drag-over-after {
-                        border-bottom-color: #ff7a00;
-                        box-shadow: 0 3px 0 #ff7a00, 0 8px 18px rgba(0,0,0,0.28);
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item.drag-over,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item.drag-over:hover {
+                        transform: scale(1.025) !important;
                     }
                     
                     /* --- Compact Mode for Active Sidebar --- */
@@ -1286,6 +1285,10 @@ export function getLoraStyles(uniqueId) {
                         position: relative;
                         width: 100%;
                         min-width: 0;
+                    }
+
+                    #${uniqueId} .locallora-lora-card .lora-trigger-preset-picker {
+                        width: calc(100% - 32px);
                     }
                     
                     #${uniqueId} .lora-card-preset-select,
@@ -1541,14 +1544,14 @@ export function getLoraStyles(uniqueId) {
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        gap: 4px;
+                        gap: 6px;
                         width: max-content;
-                        padding: 4px 6px;
-                        background: rgba(18, 22, 28, 0.75);
+                        padding: 8px 10px;
+                        background: rgba(18, 22, 28, 0.78);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 12px;
+                        border-radius: 14px;
                         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
                     }
                     
@@ -1556,20 +1559,6 @@ export function getLoraStyles(uniqueId) {
                         display: flex;
                         align-items: center;
                         gap: 4px;
-                    }
-
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-strength-chip {
-                        padding: 0 4px;
-                        height: 18px;
-                        gap: 3px;
-                    }
-
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-selected-toggle-pill {
-                        font-size: 8px;
-                        padding: 2px 6px;
-                        height: 16px;
-                        border-radius: 4px;
-                        margin: 0;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-name {
