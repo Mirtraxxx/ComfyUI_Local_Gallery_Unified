@@ -18,11 +18,11 @@ Current code mapping:
 
 - Main UI coordinator: `js/lora/ui.js`
 - Gallery grid/cards: `.locallora-gallery` / `.locallora-lora-card`
-- Compact list: `.locallora-gallery.compact-view` / `.locallora-lora-row`
+- Active drawer cards: `.locallora-selected-list` / `.locallora-lora-item`
 - API wrapper: `js/api/loraApi.js`
 
-The LoRA Browser currently owns filtering, paging, preview cards, compact rows,
-metadata-edit entry points, preset controls, and selection changes. Future cleanup
+The LoRA Browser currently owns filtering, paging, preview cards, active drawer cards,
+metadata-edit entry points, trigger preset controls, and selection changes. Future cleanup
 should split these implementation details without changing user-visible behavior.
 
 ### LoRA Stack
@@ -34,6 +34,7 @@ Current code mapping:
 - Serialized workflow widget/key: `lora_selection_data`
 - Frontend runtime state: `node_instance.loraData`
 - Selected list container: `.locallora-selected-list`
+- Active drawer item: `.locallora-lora-item`
 - Reorder helper: `moveSelectedLora()` in `js/lora/helpers.js`
 
 Do not change the saved `lora_selection_data` array shape casually. Existing workflows
@@ -49,7 +50,8 @@ Current code mapping:
 - Tag filter: `filter_tag`
 - Filter mode: `filter_mode`
 - Folder filter: `filter_folder`
-- View mode: `view_mode`
+- View mode: `view_mode` remains as a compatibility UI-state key, but the retired compact
+  mode is normalized back to gallery mode.
 - Transient UI state routes: `/localgalleryunified/lora/get_ui_state` and
   `/localgalleryunified/lora/set_ui_state`
 
@@ -100,7 +102,7 @@ Leave these alone unless doing a dedicated compatibility pass:
 - UI state keys such as `filter_tag`, `filter_mode`, `filter_folder`, `view_mode`,
   and `is_collapsed`.
 - DOM classes such as `.locallora-gallery`, `.locallora-lora-card`,
-  `.locallora-lora-row`, and `.locallora-selected-list`.
+  `.locallora-selected-list`, and `.locallora-lora-item`.
 - API routes and backend JSON fields.
 - Runtime files under `data/lora_gallery/`.
 
@@ -109,8 +111,8 @@ Leave these alone unless doing a dedicated compatibility pass:
 Safe first-pass cleanup:
 
 - Extract state/widget setup out of `js/lora/ui.js`.
-- Extract pure HTML/render helpers for cards, compact rows, selected stack rows,
-  preset controls, and metadata editor sections.
+- Extract pure HTML/render helpers for cards, active drawer cards, trigger preset controls,
+  and metadata editor sections.
 - Keep reorder math in `js/lora/helpers.js`.
 - Keep route calls under `/localgalleryunified/lora/*`.
 

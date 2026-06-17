@@ -2,7 +2,7 @@ import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import { moveSelectedLora } from "./helpers.js";
-import { buildCompactHeaderHtml, buildCompactRowHtml, buildLoraPresetControlsHtml } from "./renderers.js";
+import { buildLoraPresetControlsHtml } from "./renderers.js";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
 
 export function registerLoraGalleryUi(app) {
@@ -52,7 +52,6 @@ const UnifiedLoraGalleryNode = {
             
             const HEADER_HEIGHT = 90;
             const MIN_NODE_WIDTH = 600;
-            const COMPACT_NODE_WIDTH = 480;
 
             this.size = [700, 600];
             this.loraData = [];
@@ -68,75 +67,58 @@ const UnifiedLoraGalleryNode = {
             widgetContainer.innerHTML = `
                 <style>
                     /* --- General Styles --- */
-                    #${uniqueId} .locallora-container { display: flex; flex-direction: column; height: 100%; font-family: sans-serif; }
-                    #${uniqueId} .locallora-selected-list { flex-shrink: 0; padding: 5px; background-color: #22222200; max-height: 100%; }
-                    #${uniqueId} .locallora-controls { display: flex; flex-direction: column; padding: 5px; gap: 5px; flex-shrink: 0; }
-                    #${uniqueId} .locallora-controls-row { display: flex; gap: 10px; align-items: center; }
-                    #${uniqueId} .locallora-gallery { flex-grow: 1; overflow-y: auto; background-color: #1a1a1a; padding: 5px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-content: start; }
-                    #${uniqueId} .locallora-gallery.compact-view { display: flex; flex-direction: column; gap: 5px; background-color: transparent; padding: 4px 5px 5px; overflow-y: visible; flex-grow: 0; }
+                    #${uniqueId} .locallora-container { display: flex; flex-direction: column; height: 100%; font-family: sans-serif; background: #171717; border-radius: 8px; overflow: hidden; position: relative; }
+                    #${uniqueId} .locallora-selected-list { position: absolute; top: 42px; left: 8px; right: 8px; z-index: 4000; display: none; gap: 10px; align-items: stretch; min-height: 0; max-height: min(302px, calc(100% - 56px)); padding: 0; overflow-x: auto; overflow-y: auto; }
+                    #${uniqueId} .locallora-container.active-stack-open .locallora-selected-list:not(:empty) { display: flex; }
+                    #${uniqueId} .locallora-selected-list:not(:empty) { padding: 36px 12px 10px; border: 1px solid rgba(178, 224, 255, 0.36); border-radius: 13px; background: radial-gradient(circle at 5% 10%, rgba(163, 239, 255, 0.14), transparent 36%), radial-gradient(circle at 100% 0%, rgba(255, 158, 217, 0.16), transparent 32%), linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.07)), rgba(22, 24, 30, 0.94); box-shadow: 0 18px 46px rgba(0,0,0,0.52), inset 0 0 0 1px rgba(255,255,255,0.06); backdrop-filter: blur(14px) saturate(1.08); -webkit-backdrop-filter: blur(14px) saturate(1.08); }
+                    #${uniqueId} .locallora-selected-list:not(:empty)::before { content: "ACTIVE"; position: absolute; top: 13px; left: 18px; color: #f4f8fb; font-size: 13px; font-weight: 800; letter-spacing: 0; }
+                    #${uniqueId} .locallora-selected-list:not(:empty)::after { content: attr(data-count) " selected"; position: absolute; top: 14px; left: 78px; color: rgba(230, 239, 245, 0.66); font-size: 11px; font-weight: 650; }
+                    #${uniqueId} .locallora-controls { display: flex; flex-direction: column; padding: 6px 8px; gap: 6px; flex-shrink: 0; }
+                    #${uniqueId} .locallora-controls-row { display: flex; gap: 8px; align-items: center; }
+                    #${uniqueId} .locallora-primary-controls { position: relative; z-index: 4100; }
+                    #${uniqueId} .locallora-hidden-filters { display: none; }
+                    #${uniqueId} .lora-active-stack-btn { height: 28px; min-width: 74px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(174, 226, 255, 0.24); border-radius: 8px; background: #2b3239; color: #edf5f8; font-size: 11px; font-weight: 750; cursor: pointer; }
+                    #${uniqueId} .lora-active-stack-btn.has-active { border-color: rgba(255, 145, 40, 0.62); box-shadow: inset 0 0 0 1px rgba(255,145,40,0.12); }
+                    #${uniqueId} .lora-active-stack-btn.open { background: #344a34; border-color: #5a9c5a; }
+                    #${uniqueId} .lora-active-stack-count { min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,0.11); color: #fff; font-size: 10px; font-weight: 800; }
+                    #${uniqueId} .lora-active-clear-btn { position: absolute; top: 10px; right: 12px; height: 22px; padding: 0 9px; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; background: rgba(255,255,255,0.08); color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
+                    #${uniqueId} .lora-active-clear-btn:hover { background: rgba(142, 47, 56, 0.72); border-color: rgba(200, 90, 100, 0.72); }
+                    #${uniqueId} .locallora-gallery { flex-grow: 1; overflow-y: auto; background-color: #101010; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 7px; align-content: start; }
                     
                     /* --- Lora Card --- */
-                    #${uniqueId} .locallora-lora-card { cursor: pointer; border: 3px solid transparent; border-radius: 8px; background-color: var(--comfy-input-bg); transition: border-color 0.2s; display: flex; flex-direction: column; position: relative; }
-                    #${uniqueId} .locallora-lora-card.selected-edit { border-color: #FFD700; box-shadow: 0 0 10px #FFD700; }
-                    #${uniqueId} .locallora-lora-card.selected-flow { border-color: #00FFC9; }
-                    #${uniqueId} .locallora-media-container { width: 100%; height: 150px; background-color: #111; border-top-left-radius: 5px; border-top-right-radius: 5px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+                    #${uniqueId} .locallora-lora-card { cursor: pointer; border: 2px solid rgba(255, 122, 0, 0.72); border-radius: 7px; background: #111; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease; display: flex; flex-direction: column; position: relative; overflow: hidden; min-height: 174px; box-shadow: 0 8px 18px rgba(0,0,0,0.22); }
+                    #${uniqueId} .locallora-lora-card.preset-open { overflow: visible; z-index: 60; }
+                    #${uniqueId} .locallora-lora-card:hover { transform: translateY(-1px); border-color: rgba(255, 145, 40, 0.96); box-shadow: 0 12px 24px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,145,40,0.25); }
+                    #${uniqueId} .locallora-lora-card.selected-edit { border-color: #FFD15C; box-shadow: 0 0 0 1px rgba(255,209,92,0.5), 0 0 18px rgba(255, 209, 92, 0.35); }
+                    #${uniqueId} .locallora-lora-card.selected-flow { border-color: #ff7a00; box-shadow: 0 0 0 1px rgba(255,122,0,0.35), 0 0 18px rgba(255,122,0,0.24); }
+                    #${uniqueId} .locallora-lora-card.selected-flow::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+                    #${uniqueId} .locallora-media-container { width: 100%; height: 168px; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 44%, transparent 70%), #0d1116; overflow: hidden; display: flex; align-items: center; justify-content: center; }
                     #${uniqueId} .locallora-media-container img, #${uniqueId} .locallora-media-container video { width: 100%; height: 100%; object-fit: cover; }
-                    #${uniqueId} .locallora-lora-card-info { padding: 4px; flex-grow: 1; display: flex; flex-direction: column; }
-                    #${uniqueId} .locallora-lora-card p { font-size: 11px; margin: 0; word-break: break-all; text-align: center; color: var(--node-text-color); }
-                    #${uniqueId} .lora-card-triggers { font-size: 10px; color: #a5a5a5; padding: 2px 4px; margin-top: 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; }
-                    #${uniqueId} .lora-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; padding-top: 4px; }
-                    #${uniqueId} .lora-card-tags .tag { background-color: #006699; color: #fff; padding: 1px 4px; font-size: 10px; border-radius: 3px; cursor: pointer; }
-                    #${uniqueId} .lora-card-tags .tag:hover { background-color: #0088CC; }
+                    #${uniqueId} .locallora-lora-card-info { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; box-sizing: border-box; padding: 34px 7px 7px; display: flex; flex-direction: column; gap: 4px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(6,10,14,0.82)); opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity 0.16s ease, transform 0.16s ease; }
+                    #${uniqueId} .locallora-lora-card:hover .locallora-lora-card-info,
+                    #${uniqueId} .locallora-lora-card:focus-within .locallora-lora-card-info,
+                    #${uniqueId} .locallora-lora-card.selected-flow .locallora-lora-card-info { opacity: 1; transform: translateY(0); pointer-events: auto; }
+                    #${uniqueId} .locallora-lora-card p { font-size: 11px; font-weight: 700; line-height: 1.15; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f4f8fb; text-shadow: 0 1px 8px rgba(0,0,0,0.82); }
+                    #${uniqueId} .lora-card-triggers { font-size: 10px; color: rgba(230, 238, 245, 0.72); padding: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 13px; }
+                    #${uniqueId} .lora-card-tags { display: flex; flex-wrap: wrap; gap: 3px; padding-top: 2px; }
+                    #${uniqueId} .lora-card-tags .tag { background: rgba(22, 114, 161, 0.72); color: #fff; padding: 1px 5px; font-size: 10px; border-radius: 999px; cursor: pointer; }
+                    #${uniqueId} .lora-card-tags .tag:hover { background: rgba(38, 151, 211, 0.88); }
 
                     /* --- Card Buttons (Edit, Link, Sync) --- */
                     #${uniqueId} .card-btn {
-                        position: absolute; width: 22px; height: 22px; background-color: rgba(0,0,0,0.5);
-                        color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-                        font-size: 14px; cursor: pointer; transition: all 0.2s; opacity: 0; text-decoration: none;
+                        position: absolute; width: 24px; height: 24px; background: rgba(10, 12, 15, 0.62);
+                        color: white; border: 1px solid rgba(255,255,255,0.22); border-radius: 7px; display: flex; align-items: center; justify-content: center;
+                        font-size: 12px; cursor: pointer; transition: all 0.16s ease; opacity: 0.82; text-decoration: none;
                         z-index: 10;
                     }
                     #${uniqueId} .locallora-lora-card:hover .card-btn { opacity: 1; }
-                    #${uniqueId} .card-btn:hover { background-color: rgba(0,0,0,0.8); }
+                    #${uniqueId} .card-btn:hover { background: rgba(10, 12, 15, 0.86); border-color: rgba(255,255,255,0.38); }
 
                     #${uniqueId} .lora-card-link-btn { top: 4px; right: 4px; }
                     #${uniqueId} .edit-tags-btn { bottom: 4px; right: 4px; font-size: 12px; }
                     #${uniqueId} .sync-civitai-btn { top: 4px; left: 4px; font-size: 12px; }
                     #${uniqueId} .sync-civitai-btn.loading { animation: spin 1s linear infinite; pointer-events: none; background-color: #4a90e2; }
                     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-                    /* --- Compact Rows --- */
-                    #${uniqueId} .compact-header-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 0 8px; color: #999; font-size: 11px; }
-                    #${uniqueId} .compact-header-actions { display: flex; gap: 18px; align-items: center; }
-                    #${uniqueId} .locallora-lora-row { display: grid; grid-template-columns: 20px minmax(90px, 1fr) 76px 76px minmax(80px, 120px) minmax(70px, 0.8fr) auto; align-items: center; gap: 4px; min-height: 24px; padding: 2px 4px; border: 1px solid #5b5b5b; border-radius: 12px; background-color: #2b2b2b; cursor: default; }
-                    #${uniqueId} .locallora-lora-row.model-only { grid-template-columns: 20px minmax(110px, 1fr) 76px minmax(80px, 120px) minmax(70px, 0.8fr) auto; }
-                    #${uniqueId} .locallora-lora-row.disabled { opacity: 0.45; }
-                    #${uniqueId} .locallora-lora-row.selected-edit { border-color: #FFD700; box-shadow: 0 0 6px #FFD700; }
-                    #${uniqueId} .compact-lora-name, #${uniqueId} .compact-trigger-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--node-text-color); font-size: 11px; }
-                    #${uniqueId} .compact-lora-name { cursor: grab; }
-                    #${uniqueId} .compact-lora-name:active { cursor: grabbing; }
-                    #${uniqueId} .compact-trigger-preview { color: #a5a5a5; }
-                    #${uniqueId} .compact-strength { display: flex; align-items: center; gap: 3px; }
-                    #${uniqueId} .compact-strength label { color: var(--node-text-color); font-size: 9px; }
-                    #${uniqueId} .compact-strength input { width: 48px; background-color: #333; border: 1px solid #555; border-radius: 4px; color: #ccc; font-size: 10px; }
-                    #${uniqueId} .compact-strength-stepper { display: grid; grid-template-columns: 16px 42px 16px; align-items: center; border: 1px solid #444; border-radius: 10px; overflow: hidden; background: #1f1f1f; }
-                    #${uniqueId} .compact-strength-stepper button { height: 20px; border: none; background: transparent; color: #ddd; cursor: pointer; font-size: 10px; }
-                    #${uniqueId} .compact-strength-stepper input { width: 42px; border: none; border-left: 1px solid #444; border-right: 1px solid #444; border-radius: 0; text-align: center; }
-                    #${uniqueId} .compact-preset-area { min-width: 0; }
-                    #${uniqueId} .compact-preset-area .lora-card-preset-select { margin-bottom: 0 !important; }
-                    #${uniqueId} .compact-preset-area .lora-card-preset-stack-label { margin-bottom: 0; display: none; }
-                    #${uniqueId} .compact-actions { display: flex; gap: 4px; align-items: center; justify-content: flex-end; }
-                    #${uniqueId} .compact-actions .row-action-btn { width: 20px; height: 20px; border: 1px solid #555; border-radius: 4px; background: #333; color: #ddd; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 11px; cursor: pointer; }
-                    #${uniqueId} .compact-actions .row-action-btn:hover { background: #444; }
-                    #${uniqueId} .compact-actions .sync-civitai-btn.loading { animation: spin 1s linear infinite; pointer-events: none; background-color: #4a90e2; }
-                    #${uniqueId} .compact-add-lora-btn { border: 1px solid #5b5b5b; border-radius: 4px; background: #2b2b2b; color: #ddd; height: 24px; cursor: pointer; font-size: 12px; }
-                    #${uniqueId} .compact-add-lora-btn:hover { background: #383838; }
-                    #${uniqueId} .locallora-container.compact-mode .search-input,
-                    #${uniqueId} .locallora-container.compact-mode .toggle-all-btn,
-                    #${uniqueId} .locallora-container.compact-mode .tag-filter-mode-btn,
-                    #${uniqueId} .locallora-container.compact-mode .tag-filter-input-wrapper,
-                    #${uniqueId} .locallora-container.compact-mode .locallora-multiselect-tag,
-                    #${uniqueId} .locallora-container.compact-mode .folder-filter-select { display: none; }
-                    #${uniqueId} .locallora-container.compact-mode .locallora-controls-row { gap: 5px; }
 
                     /* --- Scrollbar --- */
                     #${uniqueId} .locallora-gallery::-webkit-scrollbar { width: 8px; }
@@ -149,27 +131,35 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .locallora-metadata-editor.visible { display: flex; }
                     #${uniqueId} .tag-editor-list .tag .remove-tag { margin-left: 4px; color: #fdd; cursor: pointer; font-weight: bold; }
                     
-                    /* --- Selected List Item --- */
-                    #${uniqueId} .locallora-lora-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; user-select: none; position: relative; }
-                    #${uniqueId} .locallora-lora-item .lora-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; cursor: grab; }
-                    #${uniqueId} .locallora-lora-item .lora-name:active { cursor: grabbing; }
-                    #${uniqueId} .locallora-lora-item input[type=number] { width: 60px; background-color: #333; border: 1px solid #555; border-radius: 4px; color: #ccc; }
-                    #${uniqueId} .locallora-lora-item .lora-label { font-size: 10px; color: var(--node-text-color); }
-                    #${uniqueId} .locallora-lora-item .remove-lora-btn { background: #555; color: #fff; border: none; border-radius: 10%; text-align: center; cursor: pointer; margin-left: auto; flex-shrink: 0; }
-                    #${uniqueId} .locallora-lora-item .remove-lora-btn:hover { background: #ff4444; }
-                    #${uniqueId} .locallora-lora-item.dragging,
-                    #${uniqueId} .locallora-lora-row.dragging { opacity: 0.45; background: #555; }
-                    #${uniqueId} .locallora-lora-item.drag-over-before,
-                    #${uniqueId} .locallora-lora-row.drag-over-before { box-shadow: inset 0 2px 0 #4A90E2; }
-                    #${uniqueId} .locallora-lora-item.drag-over-after,
-                    #${uniqueId} .locallora-lora-row.drag-over-after { box-shadow: inset 0 -2px 0 #4A90E2; }
+                    /* --- Active LoRA Drawer --- */
+                    #${uniqueId} .locallora-lora-item { flex: 0 0 142px; display: grid; grid-template-columns: 10px minmax(0, 1fr); grid-template-rows: 96px auto; gap: 6px; user-select: none; position: relative; padding: 6px; border: 2px solid rgba(255, 122, 0, 0.68); border-radius: 8px; background: rgba(12, 14, 18, 0.56); box-shadow: 0 8px 18px rgba(0,0,0,0.28); }
+                    #${uniqueId} .locallora-lora-item.disabled { opacity: 0.58; filter: grayscale(30%); }
+                    #${uniqueId} .lora-active-drag-handle { grid-row: 1 / 3; display: grid; grid-template-columns: repeat(2, 2px); grid-auto-rows: 2px; gap: 3px 2px; justify-content: center; align-content: center; width: 10px; cursor: grab; opacity: 0.75; }
+                    #${uniqueId} .lora-active-drag-handle:active { cursor: grabbing; }
+                    #${uniqueId} .lora-active-drag-handle span { width: 2px; height: 2px; border-radius: 50%; background: rgba(216, 232, 240, 0.68); }
+                    #${uniqueId} .locallora-selected-thumb { grid-column: 2; width: 100%; height: 96px; border-radius: 7px; overflow: hidden; background: #0d1116; border: 1px solid rgba(255, 145, 40, 0.46); }
+                    #${uniqueId} .locallora-selected-thumb img,
+                    #${uniqueId} .locallora-selected-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+                    #${uniqueId} .locallora-selected-main { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+                    #${uniqueId} .locallora-selected-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f5fbff; font-size: 10px; font-weight: 750; text-align: center; }
+                    #${uniqueId} .locallora-selected-controls { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; flex-wrap: wrap; }
+                    #${uniqueId} .lora-selected-toggle-pill { height: 27px; min-width: 40px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); color: #fff; font-size: 9px; font-weight: 800; cursor: pointer; }
+                    #${uniqueId} .lora-selected-toggle-pill.on { background: linear-gradient(180deg, #10c791, #07835f); border-color: #3ce7b6; }
+                    #${uniqueId} .lora-selected-toggle-pill.off { background: linear-gradient(180deg, #4a4a4a, #303030); border-color: #5a5a5a; color: #d8d8d8; }
+                    #${uniqueId} .lora-strength-chip { height: 27px; display: inline-flex; align-items: center; gap: 3px; padding: 0 4px; border-radius: 999px; background: rgba(8, 10, 14, 0.54); border: 1px solid rgba(255,255,255,0.12); color: #dfe7ec; font-size: 9px; font-weight: 750; }
+                    #${uniqueId} .lora-strength-chip input { width: 31px; min-width: 0; padding: 0; border: none; background: transparent; color: #f4f8fb; font-size: 11px; font-weight: 800; text-align: center; outline: none; }
+                    #${uniqueId} .locallora-lora-item .remove-lora-btn { width: 27px; height: 27px; border: 1px solid rgba(255,255,255,0.13); border-radius: 999px; background: rgba(20, 24, 30, 0.64); color: #fff; cursor: pointer; flex-shrink: 0; }
+                    #${uniqueId} .locallora-lora-item .remove-lora-btn:hover { background: #8e2f38; border-color: #c85a64; }
+                    #${uniqueId} .locallora-selected-preset { min-width: 0; }
+                    #${uniqueId} .locallora-lora-item.dragging { opacity: 0.45; background: #333; }
+                    #${uniqueId} .locallora-lora-item.drag-over-before { box-shadow: inset 3px 0 0 #88c0ff, 0 8px 18px rgba(0,0,0,0.28); }
+                    #${uniqueId} .locallora-lora-item.drag-over-after { box-shadow: inset -3px 0 0 #88c0ff, 0 8px 18px rgba(0,0,0,0.28); }
                     
                     /* --- Controls & Inputs --- */
                     #${uniqueId} .locallora-controls-row input[type=text], #${uniqueId} .locallora-controls-row select { background: #222; color: #ccc; border: 1px solid #555; padding: 4px; border-radius: 4px; }
                     #${uniqueId} .tag-filter-mode-btn { padding: 4px 8px; background-color: #555; color: #fff; border: 1px solid #666; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
                     #${uniqueId} .tag-filter-mode-btn:hover { background-color: #666; }
                     #${uniqueId} .view-mode-btn { padding: 4px 8px; background-color: #333; color: #fff; border: 1px solid #666; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
-                    #${uniqueId} .view-mode-btn.compact { background-color: #4A90E2; border-color: #6aa6ee; }
                     #${uniqueId} .tag-filter-input-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
                     #${uniqueId} .tag-filter-input-wrapper input { flex-grow: 1; }
                     #${uniqueId} .clear-tag-filter-btn { background: none; border: none; color: #ccc; cursor: pointer; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: none; }
@@ -191,30 +181,52 @@ const UnifiedLoraGalleryNode = {
                     #${uniqueId} .preset-dropdown a:hover { background-color: #444; }
                     #${uniqueId} .delete-preset-btn { color: #ff6666; cursor: pointer; font-weight: bold; padding-left: 10px; }
                     #${uniqueId} .delete-preset-btn:hover { color: #ff0000; }
-                    #${uniqueId} .lora-card-preset-stack-label { display: flex; align-items: center; gap: 4px; color: #ccc; font-size: 10px; margin-bottom: 4px; cursor: pointer; }
+                    #${uniqueId} .lora-trigger-preset-picker { position: relative; width: 100%; min-width: 0; }
+                    #${uniqueId} .lora-card-preset-select,
+                    #${uniqueId} .lora-card-preset-checklist { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; overflow: hidden; }
+                    #${uniqueId} .lora-trigger-preset-button { width: 100%; min-width: 0; height: 24px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 7px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: rgba(8, 10, 14, 0.58); color: #f0f4f7; font-size: 10px; font-weight: 700; cursor: pointer; }
+                    #${uniqueId} .lora-trigger-preset-button:hover,
+                    #${uniqueId} .lora-trigger-preset-picker.open .lora-trigger-preset-button { border-color: rgba(255, 145, 40, 0.62); background: rgba(26, 23, 20, 0.86); }
+                    #${uniqueId} .lora-trigger-preset-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    #${uniqueId} .lora-trigger-preset-count { min-width: 0; color: #95e8ca; }
+                    #${uniqueId} .lora-trigger-preset-arrow { color: rgba(230,238,245,0.62); font-size: 9px; }
+                    #${uniqueId} .lora-trigger-preset-popover { position: absolute; left: 0; bottom: calc(100% + 6px); display: none; z-index: 5000; width: min(260px, 76vw); max-height: 240px; overflow: hidden; padding: 8px; border: 1px solid rgba(174, 226, 255, 0.28); border-radius: 12px; background: radial-gradient(circle at 8% 8%, rgba(146, 238, 255, 0.10), transparent 40%), linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.025) 45%, rgba(255,255,255,0.05)), rgba(16, 20, 26, 0.94); box-shadow: 0 16px 42px rgba(0,0,0,0.46), inset 0 0 0 1px rgba(255,255,255,0.05); }
+                    #${uniqueId} .locallora-lora-card .lora-trigger-preset-popover { bottom: auto; top: calc(100% + 6px); }
+                    #${uniqueId} .lora-trigger-preset-picker.open .lora-trigger-preset-popover { display: block; }
+                    #${uniqueId} .lora-trigger-preset-search { width: 100%; box-sizing: border-box; margin-bottom: 6px; background: #1d2229; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: #eaf1f5; font-size: 11px; padding: 5px 7px; outline: none; }
+                    #${uniqueId} .lora-trigger-preset-options { display: flex; flex-direction: column; gap: 3px; max-height: 172px; overflow-y: auto; }
+                    #${uniqueId} .lora-trigger-preset-option { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(72px, 0.65fr) minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #dce6eb; text-align: left; cursor: pointer; }
+                    #${uniqueId} .lora-trigger-preset-option:hover { background: rgba(255,255,255,0.07); }
+                    #${uniqueId} .lora-trigger-preset-option.selected { background: rgba(16, 199, 145, 0.18); border-color: rgba(67, 231, 182, 0.42); color: #fff; }
+                    #${uniqueId} .lora-trigger-preset-option-name,
+                    #${uniqueId} .lora-trigger-preset-option-preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    #${uniqueId} .lora-trigger-preset-option-name { font-size: 11px; font-weight: 750; }
+                    #${uniqueId} .lora-trigger-preset-option-preview { color: rgba(226, 238, 245, 0.62); font-size: 10px; }
+                    #${uniqueId} .lora-card-preset-stack-label { display: flex; align-items: center; gap: 6px; color: #dbe6eb; font-size: 10px; margin-top: 7px; padding: 6px 7px 2px; border-top: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
                     #${uniqueId} .lora-card-preset-stack-checkbox { margin: 0; }
-                    #${uniqueId} .lora-card-preset-checklist { display: none; max-height: 96px; overflow-y: auto; margin-bottom: 4px; border: 1px solid #555; border-radius: 4px; background: #222; }
-                    #${uniqueId} .lora-card-preset-checklist.visible { display: block; }
-                    #${uniqueId} .lora-card-preset-checklist label { display: flex; align-items: center; gap: 4px; color: #ccc; font-size: 10px; padding: 2px 4px; cursor: pointer; }
-                    #${uniqueId} .lora-card-preset-checklist label:hover { background: #333; }
-                    #${uniqueId} .lora-card-preset-checklist input { margin: 0; }
                     
                     /* Misc */
                     #${uniqueId} .locallora-container.gallery-collapsed .locallora-gallery { display: none; }
                 </style>
                 <div id="${uniqueId}" style="height: 100%;">
                     <div class="locallora-container">
-                        <div class="locallora-selected-list"></div>
                         <div class="locallora-controls">
-                            <div class="locallora-controls-row">
-                                <button class="toggle-all-btn">Toggle All</button>
-                                <input type="text" class="search-input" placeholder="Filter by Name..." style="flex-grow: 1;">
+                            <div class="locallora-controls-row locallora-primary-controls">
+                                <button class="lora-active-stack-btn" title="Show selected LoRAs">Active <span class="lora-active-stack-count">0</span></button>
+                                <select class="folder-filter-select" style="max-width: 180px;">
+                                    <option value="">All Folders</option>
+                                </select>
                                 <button class="save-preset-btn" title="Save current stack as preset">Save Preset</button>
                                 <div class="locallora-preset-container">
                                     <button class="load-preset-btn">Load Preset v</button>
                                     <div class="preset-dropdown"></div>
                                 </div>
+                            </div>
+                            <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
+                                <button class="toggle-all-btn">Toggle All</button>
+                                <input type="text" class="search-input" placeholder="Filter by Name..." style="flex-grow: 1;">
                                 <button class="clear-all-btn" title="Clear all selected LoRAs">Clear All</button>
+                                <button class="toggle-gallery-btn" title="Toggle Gallery">Hide Gallery</button>
                             </div>
                             
                             <div class="locallora-metadata-editor">
@@ -242,7 +254,7 @@ const UnifiedLoraGalleryNode = {
                                 </div>
                             </div>
 
-                            <div class="locallora-controls-row">
+                            <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
                                 <button class="tag-filter-mode-btn" title="Click to switch filter mode">OR</button>
                                 <div class="tag-filter-input-wrapper">
                                     <input type="text" class="tag-filter-input" placeholder="Filter by Tag...">
@@ -255,13 +267,9 @@ const UnifiedLoraGalleryNode = {
                                     </div>
                                     <div class="locallora-multiselect-tag-dropdown"></div>
                                 </div>
-                                <select class="folder-filter-select" style="max-width: 150px;">
-                                    <option value="">All Folders</option>
-                                </select>
-                                <button class="view-mode-btn" title="Switch between thumbnail gallery and compact list">Gallery</button>
-                                <button class="toggle-gallery-btn" title="Toggle Gallery" style="margin-left: auto; flex-shrink: 0;">Hide Gallery</button>
                             </div>
                         </div>
+                        <div class="locallora-selected-list"></div>
                         <div class="locallora-gallery"><p>Loading LoRAs...</p></div>
                     </div>
                 </div>
@@ -289,10 +297,11 @@ const UnifiedLoraGalleryNode = {
             const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".locallora-multiselect-tag-dropdown");
             const tagFilterModeBtn = widgetContainer.querySelector(".tag-filter-mode-btn");
             const toggleGalleryBtn = widgetContainer.querySelector(".toggle-gallery-btn");
+            const activeStackBtn = widgetContainer.querySelector(".lora-active-stack-btn");
+            const activeStackCount = widgetContainer.querySelector(".lora-active-stack-count");
             const selectedCountEl = widgetContainer.querySelector(".selected-count");
             const clearTagFilterBtn = widgetContainer.querySelector(".clear-tag-filter-btn");
             const folderFilterSelect = widgetContainer.querySelector(".folder-filter-select");
-            const viewModeBtn = widgetContainer.querySelector(".view-mode-btn");
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
@@ -316,19 +325,8 @@ const UnifiedLoraGalleryNode = {
             };
 
             const setViewMode = (viewMode, shouldRender = true, shouldPersist = true) => {
-                currentViewMode = viewMode === "compact" ? "compact" : "gallery";
-                galleryEl.classList.toggle("compact-view", currentViewMode === "compact");
-                mainContainer.classList.toggle("compact-mode", currentViewMode === "compact");
-                selectedListEl.style.display = currentViewMode === "compact" ? "none" : "";
-                if (currentViewMode === "compact") {
-                    this.expandedWidth = this.size[0];
-                    this.size[0] = Math.min(this.size[0], COMPACT_NODE_WIDTH);
-                } else if (this.expandedWidth) {
-                    this.size[0] = Math.max(this.size[0], this.expandedWidth);
-                }
-                viewModeBtn.textContent = currentViewMode === "compact" ? "Compact" : "Gallery";
-                viewModeBtn.classList.toggle("compact", currentViewMode === "compact");
-                viewModeBtn.title = currentViewMode === "compact" ? "Switch to thumbnail gallery view" : "Switch to compact list view";
+                currentViewMode = "gallery";
+                selectedListEl.style.display = "";
                 if (shouldRender) renderCurrentView(false);
                 if (shouldPersist) saveViewModeState();
             };
@@ -349,6 +347,28 @@ const UnifiedLoraGalleryNode = {
                 loadPresetBtn.title = presetName ? `Current Preset: ${presetName}` : "Load a saved preset";
             };
 
+            const closeActiveStack = () => {
+                mainContainer.classList.remove("active-stack-open");
+                activeStackBtn.classList.remove("open");
+            };
+
+            const clearAllLoras = () => {
+                this.loraData = [];
+                closeActiveStack();
+                if (mainContainer.classList.contains("gallery-collapsed")) {
+                    setTimeout(() => {
+                        const controlsEl = widgetContainer.querySelector(".locallora-controls");
+                        if (!controlsEl) return;
+                        this.size[1] = controlsEl.offsetHeight + HEADER_HEIGHT;
+                        this.setDirtyCanvas(true, true);
+                    }, 0);
+                }
+                fetchAndRender(false);
+                renderSelectedList();
+                updateSelection();
+                updatePresetButtonText(null);
+            };
+
             galleryEl.addEventListener('scroll', () => {
                 if (this.isLoading || this.currentPage >= this.totalPages) return;
                 const { scrollTop, scrollHeight, clientHeight } = galleryEl;
@@ -366,7 +386,7 @@ const UnifiedLoraGalleryNode = {
 
             const syncSelectedCardStyles = () => {
                 const selectedLoras = new Set(this.loraData.map(item => item.lora));
-                galleryEl.querySelectorAll(".locallora-lora-card, .locallora-lora-row").forEach(card => {
+                galleryEl.querySelectorAll(".locallora-lora-card").forEach(card => {
                     card.classList.toggle("selected-flow", selectedLoras.has(card.dataset.loraName));
                 });
             };
@@ -473,56 +493,117 @@ const UnifiedLoraGalleryNode = {
                 });
             };
 
+            const resolveLoraInfo = (loraName) => this.availableLoras.find(lora => lora.name === loraName) || {
+                name: loraName,
+                tags: [],
+                trigger_words: "",
+                trigger_presets: {},
+                download_url: "",
+                preview_url: "",
+                preview_type: "none"
+            };
+
+            const buildSelectedPreviewHtml = (lora) => {
+                const emptyLoraImage = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                const previewUrl = lora.preview_url || emptyLoraImage;
+                if (lora.preview_type === "video" && lora.preview_url) {
+                    return `<video muted loop playsinline src="${escapeHtml(previewUrl)}"></video>`;
+                }
+                return `<img src="${escapeHtml(previewUrl)}" loading="lazy">`;
+            };
+
             const renderSelectedList = () => {
                 selectedListEl.innerHTML = "";
+                selectedListEl.dataset.count = String(this.loraData.length);
+                activeStackCount.textContent = String(this.loraData.length);
+                activeStackBtn.classList.toggle("has-active", this.loraData.length > 0);
+                activeStackBtn.disabled = this.loraData.length === 0;
+                activeStackBtn.title = this.loraData.length ? "Show selected LoRAs" : "No selected LoRAs";
+                if (!this.loraData.length) {
+                    closeActiveStack();
+                    return;
+                }
+                const clearActiveBtn = document.createElement("button");
+                clearActiveBtn.className = "lora-active-clear-btn";
+                clearActiveBtn.type = "button";
+                clearActiveBtn.textContent = "Clear All";
+                clearActiveBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    clearAllLoras();
+                });
+                selectedListEl.appendChild(clearActiveBtn);
                 this.loraData.forEach((item, index) => {
+                    const lora = resolveLoraInfo(item.lora);
                     const el = document.createElement("div");
                     el.className = "locallora-lora-item";
                     el.dataset.index = index;
-                    
-                    const toggle = document.createElement("input");
-                    toggle.type = "checkbox";
-                    toggle.checked = item.on;
-                    toggle.addEventListener("change", (e) => { this.loraData[index].on = e.target.checked; updateSelection(); });
-                    
-                    const nameLabel = document.createElement("span");
-                    nameLabel.className = "lora-name";
-                    nameLabel.textContent = item.lora;
-                    nameLabel.title = `${item.lora}\nDrag to change LoRA load order`;
-                    
-                    const strengthModelLabel = document.createElement("span");
-                    strengthModelLabel.className = "lora-label";
-                    strengthModelLabel.textContent = "Model";
-                    
-                    const strengthModelInput = document.createElement("input");
-                    strengthModelInput.type = "number";
-                    strengthModelInput.value = item.strength;
-                    strengthModelInput.min = -10.0; strengthModelInput.max = 10.0; strengthModelInput.step = 0.05;
-                    strengthModelInput.addEventListener("change", (e) => { this.loraData[index].strength = parseFloat(e.target.value); updateSelection(); });
-                    
-                    el.appendChild(toggle);
-                    el.appendChild(nameLabel);
-                    el.appendChild(strengthModelLabel);
-                    el.appendChild(strengthModelInput);
+                    el.dataset.loraName = item.lora;
+                    el.classList.toggle("disabled", !item.on);
+                    el.title = `${item.lora}\nDrag to change LoRA load order`;
 
-                    if (!this.isModelOnly) {
-                        const strengthClipLabel = document.createElement("span");
-                        strengthClipLabel.className = "lora-label";
-                        strengthClipLabel.textContent = "CLIP";
-                        const strengthClipInput = document.createElement("input");
-                        strengthClipInput.type = "number";
-                        strengthClipInput.value = item.strength_clip;
-                        strengthClipInput.draggable = false;
-                        strengthClipInput.min = -2.0; strengthClipInput.max = 2.0; strengthClipInput.step = 0.05;
-                        strengthClipInput.addEventListener("change", (e) => { this.loraData[index].strength_clip = parseFloat(e.target.value); updateSelection(); });
-                        el.appendChild(strengthClipLabel);
-                        el.appendChild(strengthClipInput);
+                    const clipStrengthHtml = this.isModelOnly ? "" : `
+                        <label class="lora-strength-chip" title="CLIP strength">
+                            <span>C</span>
+                            <input class="selected-strength-clip" type="number" value="${escapeHtml(String(item.strength_clip ?? item.strength ?? 1.0))}" min="-2.0" max="2.0" step="0.05">
+                        </label>`;
+
+                    el.innerHTML = `
+                        <div class="lora-active-drag-handle" title="Drag to reorder" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                        <div class="locallora-selected-thumb">${buildSelectedPreviewHtml(lora)}</div>
+                        <div class="locallora-selected-main">
+                            <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
+                            <div class="locallora-selected-controls">
+                                <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
+                                <label class="lora-strength-chip" title="Model strength">
+                                    <span>M</span>
+                                    <input class="selected-strength-model" type="number" value="${escapeHtml(String(item.strength ?? 1.0))}" min="-10.0" max="10.0" step="0.05">
+                                </label>
+                                ${clipStrengthHtml}
+                                <button type="button" class="remove-lora-btn" title="Remove LoRA">x</button>
+                            </div>
+                            <div class="locallora-selected-preset">${buildPresetControlsHTML(lora)}</div>
+                        </div>
+                    `;
+
+                    setupPresetControls(el, lora);
+
+                    const previewImage = el.querySelector(".locallora-selected-thumb img");
+                    if (previewImage) {
+                        previewImage.onerror = (e) => {
+                            e.target.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                        };
+                    }
+                    const previewVideo = el.querySelector(".locallora-selected-thumb video");
+                    if (previewVideo) {
+                        el.addEventListener("mouseenter", () => previewVideo.play().catch(() => {}));
+                        el.addEventListener("mouseleave", () => { previewVideo.pause(); previewVideo.currentTime = 0; });
                     }
 
-                    const removeBtn = document.createElement("button");
-                    removeBtn.className = "remove-lora-btn";
-                    removeBtn.textContent = "x";
-                    removeBtn.title = "Remove LoRA";
+                    const toggleBtn = el.querySelector(".lora-selected-toggle-pill");
+                    toggleBtn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        this.loraData[index].on = !this.loraData[index].on;
+                        renderSelectedList();
+                        updateSelection();
+                    });
+
+                    const strengthModelInput = el.querySelector(".selected-strength-model");
+                    strengthModelInput.addEventListener("change", (e) => {
+                        this.loraData[index].strength = parseFloat(e.target.value) || 1.0;
+                        updateSelection();
+                    });
+
+                    const strengthClipInput = el.querySelector(".selected-strength-clip");
+                    if (strengthClipInput) {
+                        strengthClipInput.addEventListener("change", (e) => {
+                            this.loraData[index].strength_clip = parseFloat(e.target.value) || this.loraData[index].strength || 1.0;
+                            updateSelection();
+                        });
+                    }
+
+                    const removeBtn = el.querySelector(".remove-lora-btn");
                     removeBtn.addEventListener("click", (e) => {
                         e.stopPropagation();
                         const loraNameToRemove = item.lora;
@@ -540,7 +621,7 @@ const UnifiedLoraGalleryNode = {
                         if (mainContainer.classList.contains("gallery-collapsed")) {
                             setTimeout(() => {
                                 const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                                const contentHeight = selectedListEl.scrollHeight + controlsEl.offsetHeight;
+                                const contentHeight = controlsEl.offsetHeight;
                                 this.size[1] = contentHeight + HEADER_HEIGHT;
                                 this.setDirtyCanvas(true, true);
                             }, 0);
@@ -548,9 +629,8 @@ const UnifiedLoraGalleryNode = {
                         fetchAndRender(false);
                         updatePresetButtonText(null);
                     });
-                    el.appendChild(removeBtn);
 
-                    bindMouseReorderHandle(el, nameLabel, ".locallora-lora-item", selectedListEl, (fromIndex, targetIndex, insertAfter) => {
+                    bindMouseReorderHandle(el, el.querySelector(".lora-active-drag-handle"), ".locallora-lora-item", selectedListEl, (fromIndex, targetIndex, insertAfter) => {
                         if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
                             repaintLoraOrder();
                             updateSelection();
@@ -587,11 +667,10 @@ const UnifiedLoraGalleryNode = {
             
             const syncWithCivitai = async (loraName, card) => {
                 const syncBtn = card.querySelector('.sync-civitai-btn');
-                const isRow = card.classList.contains("locallora-lora-row");
-                const defaultText = isRow ? 'S' : '☁️';
-                const errorText = isRow ? 'ERR' : '❌';
+                const defaultText = 'S';
+                const errorText = 'ERR';
 
-                syncBtn.textContent = '🔄';
+                syncBtn.textContent = '...';
                 syncBtn.classList.add('loading');
             
                 try {
@@ -639,13 +718,11 @@ const UnifiedLoraGalleryNode = {
                             const linkBtn = document.createElement('a');
                             linkBtn.href = download_url;
                             linkBtn.target = '_blank';
-                            linkBtn.className = card.classList.contains("locallora-lora-row") ? 'row-action-btn lora-card-link-btn' : 'card-btn lora-card-link-btn';
+                            linkBtn.className = 'card-btn lora-card-link-btn';
                             linkBtn.title = 'Open download page';
-                            linkBtn.innerHTML = isRow ? 'L' : '🔗';
+                            linkBtn.innerHTML = 'L';
                             linkBtn.addEventListener('click', e => e.stopPropagation());
-                            const compactActions = card.querySelector('.compact-actions');
-                            if (compactActions) compactActions.prepend(linkBtn);
-                            else card.prepend(linkBtn);
+                            card.prepend(linkBtn);
                         }
                         
                         renderCardTags(card);
@@ -673,20 +750,46 @@ const UnifiedLoraGalleryNode = {
                 const presetStackCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
                 const presetChecklist = element.querySelector('.lora-card-preset-checklist');
                 const presetChecks = Array.from(element.querySelectorAll('.lora-card-preset-check'));
+                const picker = element.querySelector('.lora-trigger-preset-picker');
+                const pickerButton = element.querySelector('.lora-trigger-preset-button');
+                const pickerLabel = element.querySelector('.lora-trigger-preset-label');
+                const pickerCount = element.querySelector('.lora-trigger-preset-count');
+                const pickerPopover = element.querySelector('.lora-trigger-preset-popover');
+                const presetOptions = Array.from(element.querySelectorAll('.lora-trigger-preset-option'));
+                const presetSearch = element.querySelector('.lora-trigger-preset-search');
                 const existingItem = this.loraData.find(item => item.lora === lora.name);
                 const existingPresetNames = existingItem && Array.isArray(existingItem.selected_presets)
                     ? existingItem.selected_presets
                     : (existingItem && existingItem.selected_preset ? [existingItem.selected_preset] : []);
                 const useStackedTriggerPresets = Boolean(existingItem?.stack_trigger_presets || existingPresetNames.length > 1);
 
-                const syncPresetSelectMode = () => {
+                const getSelectedPresetNames = () => {
+                    if (presetStackCheckbox.checked) {
+                        return presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+                    }
+                    return presetSelect.value ? [presetSelect.value] : [];
+                };
+
+                const syncPresetPickerUi = () => {
                     const stacking = presetStackCheckbox.checked;
-                    presetSelect.style.display = stacking ? "none" : "";
-                    presetChecklist.classList.toggle("visible", stacking);
+                    picker?.classList.toggle("stacking", stacking);
+                    presetChecklist.classList.toggle("visible", false);
+                    const selectedPresetNames = getSelectedPresetNames();
+                    const selectedLabel = stacking
+                        ? (selectedPresetNames.length ? `${selectedPresetNames.length} presets` : "Stack presets")
+                        : (presetSelect.value || "Default Triggers");
+                    if (pickerLabel) pickerLabel.textContent = selectedLabel;
+                    if (pickerCount) pickerCount.textContent = stacking && selectedPresetNames.length ? selectedPresetNames.length : "";
+                    presetOptions.forEach(option => {
+                        const presetName = option.dataset.presetName || "";
+                        const isSelected = stacking
+                            ? selectedPresetNames.includes(presetName)
+                            : presetName === presetSelect.value;
+                        option.classList.toggle("selected", isSelected);
+                    });
                 };
 
                 presetStackCheckbox.checked = useStackedTriggerPresets;
-                syncPresetSelectMode();
                 if (useStackedTriggerPresets) {
                     presetChecks.forEach(checkbox => {
                         checkbox.checked = existingPresetNames.includes(checkbox.value);
@@ -694,22 +797,24 @@ const UnifiedLoraGalleryNode = {
                 } else if (existingPresetNames.length > 0) {
                     presetSelect.value = existingPresetNames[0];
                 }
+                syncPresetPickerUi();
 
                 const applyPresetSelection = () => {
                     const item = this.loraData.find(item => item.lora === lora.name);
-                    if (!item) return;
-
-                    if (presetStackCheckbox.checked) {
-                        const selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
-                        item.stack_trigger_presets = true;
-                        item.selected_presets = selectedPresets;
-                        item.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
-                    } else {
-                        item.selected_preset = presetSelect.value;
-                        delete item.selected_presets;
-                        delete item.stack_trigger_presets;
+                    if (item) {
+                        if (presetStackCheckbox.checked) {
+                            const selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+                            item.stack_trigger_presets = true;
+                            item.selected_presets = selectedPresets;
+                            item.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
+                        } else {
+                            item.selected_preset = presetSelect.value;
+                            delete item.selected_presets;
+                            delete item.stack_trigger_presets;
+                        }
+                        updateSelection();
                     }
-                    updateSelection();
+                    syncPresetPickerUi();
                 };
 
                 presetSelect.addEventListener('click', (e) => e.stopPropagation());
@@ -726,21 +831,58 @@ const UnifiedLoraGalleryNode = {
                             checkbox.checked = checkbox.value === presetSelect.value;
                         });
                     }
-                    syncPresetSelectMode();
                     if (!presetStackCheckbox.checked) {
                         const firstSelected = presetChecks.find(checkbox => checkbox.checked);
                         presetSelect.value = firstSelected ? firstSelected.value : "";
                     }
                     applyPresetSelection();
                 });
+
+                pickerButton?.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const shouldOpen = !picker?.classList.contains("open");
+                    widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
+                        openPicker.classList.remove("open");
+                        openPicker.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                    });
+                    picker?.classList.toggle("open", shouldOpen);
+                    element.closest(".locallora-lora-card")?.classList.toggle("preset-open", shouldOpen);
+                    if (shouldOpen) presetSearch?.focus();
+                });
+
+                pickerPopover?.addEventListener("click", (e) => e.stopPropagation());
+
+                presetOptions.forEach(option => {
+                    option.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        const presetName = option.dataset.presetName || "";
+                        if (presetStackCheckbox.checked) {
+                            if (!presetName) {
+                                presetChecks.forEach(checkbox => checkbox.checked = false);
+                            } else {
+                                const matchingCheck = presetChecks.find(checkbox => checkbox.value === presetName);
+                                if (matchingCheck) matchingCheck.checked = !matchingCheck.checked;
+                            }
+                        } else {
+                            presetSelect.value = presetName;
+                            picker?.classList.remove("open");
+                            element.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                        }
+                        applyPresetSelection();
+                    });
+                });
+
+                presetSearch?.addEventListener("input", () => {
+                    const query = presetSearch.value.trim().toLowerCase();
+                    presetOptions.forEach(option => {
+                        const optionText = option.textContent.toLowerCase();
+                        option.hidden = query && !optionText.includes(query);
+                    });
+                });
             };
 
             const getNewLoraEntryFromElement = (element, loraName) => {
                 const newEntry = { on: true, lora: loraName, strength: 1.0, strength_clip: 1.0 };
-                const modelStrengthInput = element.querySelector('.compact-strength-model');
-                const clipStrengthInput = element.querySelector('.compact-strength-clip');
-                if (modelStrengthInput) newEntry.strength = parseFloat(modelStrengthInput.value) || 1.0;
-                if (clipStrengthInput) newEntry.strength_clip = parseFloat(clipStrengthInput.value) || newEntry.strength;
 
                 const pSelect = element.querySelector('.lora-card-preset-select');
                 const stackPresetCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
@@ -768,13 +910,9 @@ const UnifiedLoraGalleryNode = {
                     isSelectedNow = true;
                 }
                 element.classList.toggle("selected-flow", isSelectedNow);
-                const selectedToggle = element.querySelector(".compact-selected-toggle");
-                if (selectedToggle) selectedToggle.checked = isSelectedNow;
                 promoteSelectedLorasInAvailableList();
                 renderSelectedList();
-                if (currentViewMode === "gallery") {
-                    renderGallery(false);
-                }
+                renderGallery(false);
                 updateSelection();
                 updatePresetButtonText(null);
             };
@@ -796,7 +934,7 @@ const UnifiedLoraGalleryNode = {
                             this.selectedCardsForEditing.clear();
                             element.classList.remove("selected-edit");
                         } else {
-                            document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit, #${uniqueId} .locallora-lora-row.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
+                            document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
                             this.selectedCardsForEditing.clear();
 
                             this.selectedCardsForEditing.add(element);
@@ -835,12 +973,12 @@ const UnifiedLoraGalleryNode = {
                         mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
                     }
                     
-                    const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">🔗</a>` : '';
+                    const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">L</a>` : '';
 
                     const presetDropdownHTML = buildPresetControlsHTML(lora);
 
                     card.innerHTML = `
-                        <div class="card-btn sync-civitai-btn" title="Sync with Civitai">☁️</div>
+                        <div class="card-btn sync-civitai-btn" title="Sync with Civitai">S</div>
                         ${linkBtnHTML}
                         <div class="locallora-media-container">${mediaHTML}</div>
                         <div class="locallora-lora-card-info">
@@ -849,7 +987,7 @@ const UnifiedLoraGalleryNode = {
                             ${presetDropdownHTML}
                             <div class="lora-card-tags"></div>
                         </div>
-                        <div class="card-btn edit-tags-btn">✏️</div>
+                        <div class="card-btn edit-tags-btn">E</div>
                     `;
 
                     setupPresetControls(card, lora);
@@ -887,189 +1025,8 @@ const UnifiedLoraGalleryNode = {
                 });
             };
 
-            const fetchCompactChooserLoras = async () => {
-                const data = await loraApi.getLoras(
-                    tagFilterInput.value,
-                    tagFilterModeBtn.textContent,
-                    folderFilterSelect.value,
-                    1,
-                    this.loraData.map(item => item.lora),
-                    100000
-                );
-                const nameFilter = searchInput.value.toLowerCase();
-                return (data.loras || []).filter(lora => lora.name.toLowerCase().includes(nameFilter));
-            };
-
-            const showCompactLoraChooser = async (event) => {
-                try {
-                    const loras = await fetchCompactChooserLoras();
-                    const selectedNames = new Set(this.loraData.map(item => item.lora));
-                    const menuItems = loras
-                        .filter(lora => !selectedNames.has(lora.name))
-                        .map(lora => lora.name);
-                    if (!menuItems.length) return;
-
-                    new LiteGraph.ContextMenu(menuItems, {
-                        event,
-                        title: "Choose a lora",
-                        className: "dark",
-                        callback: (value) => {
-                            if (typeof value !== "string") return;
-                            const lora = loras.find(item => item.name === value);
-                            if (lora && !this.availableLoras.some(item => item.name === lora.name)) {
-                                this.availableLoras.unshift(lora);
-                            }
-                            this.loraData.push({ on: true, lora: value, strength: 1.0, strength_clip: 1.0 });
-                            promoteSelectedLorasInAvailableList();
-                            renderSelectedList();
-                            renderCompact();
-                            updateSelection();
-                            updatePresetButtonText(null);
-                        }
-                    });
-                } catch (e) {
-                    console.error("LocalLoraGallery: Failed to open compact LoRA chooser", e);
-                }
-            };
-
-            const renderCompact = (append = false) => {
-                if (append) return;
-                galleryEl.innerHTML = "";
-
-                const header = document.createElement("div");
-                header.className = "compact-header-row";
-                header.innerHTML = buildCompactHeaderHtml(this.isModelOnly);
-                header.querySelector(".compact-toggle-all").addEventListener("click", () => {
-                    const allOn = this.loraData.length > 0 && this.loraData.every(item => item.on);
-                    this.loraData.forEach(item => item.on = !allOn);
-                    renderSelectedList();
-                    renderCompact();
-                    updateSelection();
-                });
-                galleryEl.appendChild(header);
-
-                const resolveLoraInfo = (loraName) => this.availableLoras.find(lora => lora.name === loraName) || {
-                    name: loraName,
-                    tags: [],
-                    trigger_words: "",
-                    trigger_presets: {},
-                    download_url: "",
-                    preview_url: "",
-                    preview_type: "none"
-                };
-
-                const stepStrength = (input, delta) => {
-                    const step = parseFloat(input.step || "0.05");
-                    const nextValue = (parseFloat(input.value) || 0) + (delta * step);
-                    input.value = Number(nextValue.toFixed(3));
-                    input.dispatchEvent(new Event("change"));
-                };
-
-                this.loraData.forEach((item, index) => {
-                    const lora = resolveLoraInfo(item.lora);
-                    const row = document.createElement("div");
-                    row.className = `locallora-lora-row${this.isModelOnly ? " model-only" : ""}`;
-                    row.classList.toggle("disabled", !item.on);
-                    row.dataset.loraName = item.lora;
-                    row.dataset.tags = (lora.tags || []).join(',');
-                    row.dataset.triggerWords = lora.trigger_words || "";
-                    row.dataset.downloadUrl = lora.download_url || "";
-                    row.title = `${item.lora}\nDrag the name to change LoRA load order`;
-                    row.dataset.index = index;
-
-                    row.innerHTML = buildCompactRowHtml({ item, lora, isModelOnly: this.isModelOnly });
-
-                    setupPresetControls(row, lora);
-                    galleryEl.appendChild(row);
-                    if (this.selectedCardsForEditing.has(row)) row.classList.add("selected-edit");
-                    renderCardTags(row);
-
-                    row.querySelector(".compact-selected-toggle").addEventListener("change", (e) => {
-                        item.on = e.target.checked;
-                        row.classList.toggle("disabled", !item.on);
-                        renderSelectedList();
-                        updateSelection();
-                    });
-
-                    const modelStrengthInput = row.querySelector(".compact-strength-model");
-                    modelStrengthInput.addEventListener("change", (e) => {
-                        item.strength = parseFloat(e.target.value);
-                        renderSelectedList();
-                        updateSelection();
-                    });
-                    modelStrengthInput.parentElement.querySelector(".compact-strength-dec").addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        stepStrength(modelStrengthInput, -1);
-                    });
-                    modelStrengthInput.parentElement.querySelector(".compact-strength-inc").addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        stepStrength(modelStrengthInput, 1);
-                    });
-
-                    const clipStrengthInput = row.querySelector(".compact-strength-clip");
-                    if (clipStrengthInput) {
-                        clipStrengthInput.addEventListener("change", (e) => {
-                            item.strength_clip = parseFloat(e.target.value);
-                            renderSelectedList();
-                            updateSelection();
-                        });
-                        clipStrengthInput.parentElement.querySelector(".compact-strength-dec").addEventListener("click", (e) => {
-                            e.stopPropagation();
-                            stepStrength(clipStrengthInput, -1);
-                        });
-                        clipStrengthInput.parentElement.querySelector(".compact-strength-inc").addEventListener("click", (e) => {
-                            e.stopPropagation();
-                            stepStrength(clipStrengthInput, 1);
-                        });
-                    }
-
-                    row.querySelectorAll("input, select, button, a").forEach(control => {
-                        control.addEventListener("click", e => e.stopPropagation());
-                    });
-                    bindMouseReorderHandle(row, row.querySelector(".compact-lora-name"), ".locallora-lora-row", galleryEl, (fromIndex, targetIndex, insertAfter) => {
-                        if (moveSelectedLora(this.loraData, fromIndex, targetIndex, insertAfter)) {
-                            repaintLoraOrder();
-                            updateSelection();
-                            updatePresetButtonText(null);
-                        }
-                    });
-                    row.querySelector(".lora-card-link-btn")?.addEventListener("click", e => e.stopPropagation());
-                    row.querySelector(".sync-civitai-btn").addEventListener("click", e => {
-                        e.stopPropagation();
-                        syncWithCivitai(item.lora, row);
-                    });
-                    row.querySelector(".compact-remove-btn").addEventListener("click", e => {
-                        e.stopPropagation();
-                        this.loraData.splice(index, 1);
-                        renderSelectedList();
-                        renderCompact();
-                        updateSelection();
-                        updatePresetButtonText(null);
-                    });
-                    bindMetadataEditButton(row, row.querySelector(".edit-tags-btn"));
-                });
-
-                const addBtn = document.createElement("button");
-                addBtn.className = "compact-add-lora-btn";
-                addBtn.textContent = "+ Add Lora";
-                addBtn.addEventListener("click", (event) => {
-                    event.stopPropagation();
-                    showCompactLoraChooser(event);
-                });
-                galleryEl.appendChild(addBtn);
-
-                setTimeout(() => {
-                    if (currentViewMode !== "compact" || mainContainer.classList.contains("gallery-collapsed")) return;
-                    const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                    const contentHeight = (controlsEl?.offsetHeight || 0) + galleryEl.scrollHeight;
-                    this.size[1] = contentHeight + HEADER_HEIGHT;
-                    this.setDirtyCanvas(true, true);
-                }, 0);
-            };
-
             const renderCurrentView = (append = false) => {
-                if (currentViewMode === "compact") renderCompact(append);
-                else renderGallery(append);
+                renderGallery(append);
             };
 
             let loraFetchSequence = 0;
@@ -1180,7 +1137,7 @@ const UnifiedLoraGalleryNode = {
                         setTimeout(() => {
                             const HEADER_HEIGHT = 90;
                             const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                            const requiredTopHeight = selectedListEl.scrollHeight + controlsEl.offsetHeight;
+                            const requiredTopHeight = controlsEl.offsetHeight;
 
                             if (mainContainer.classList.contains("gallery-collapsed")) {
                                 this.size[1] = requiredTopHeight + HEADER_HEIGHT;
@@ -1197,7 +1154,7 @@ const UnifiedLoraGalleryNode = {
                         }, 0);
 
                         updateSelection();
-                        fetchAndRender(false);
+                        fetchAndRender(false).then(() => renderSelectedList());
                         presetDropdown.style.display = 'none';
 
                         updatePresetButtonText(name);
@@ -1320,6 +1277,7 @@ const UnifiedLoraGalleryNode = {
                                 loraInDataSource.trigger_presets = newPresets;
                                 renderPresetsList();
                                 renderCurrentView();
+                                renderSelectedList();
                             };
                             
                             row.appendChild(nameSpan);
@@ -1377,6 +1335,7 @@ const UnifiedLoraGalleryNode = {
                 } catch(e) { 
                     console.error("LocalLoraGallery: Failed to get initial UI state.", e); 
                 }
+                initialState.is_collapsed = false;
 
                 persistSelectionData();
 
@@ -1413,7 +1372,7 @@ const UnifiedLoraGalleryNode = {
                     setTimeout(() => {
                         const controlsEl = widgetContainer.querySelector(".locallora-controls");
                         if (!controlsEl) return;
-                        const contentHeight = selectedListEl.scrollHeight + controlsEl.offsetHeight;
+                        const contentHeight = controlsEl.offsetHeight;
                         this.size[1] = contentHeight + HEADER_HEIGHT;
                         mainContainer.classList.add("gallery-collapsed");
                         toggleGalleryBtn.textContent = "Show Gallery";
@@ -1432,7 +1391,7 @@ const UnifiedLoraGalleryNode = {
                 document.addEventListener("keydown", (e) => {
                     if (e.key === "Escape") {
                         if (this.selectedCardsForEditing.size > 0) {
-                            document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit, #${uniqueId} .locallora-lora-row.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
+                            document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
                             this.selectedCardsForEditing.clear();
                             renderMetadataEditor();
                         }
@@ -1460,6 +1419,7 @@ const UnifiedLoraGalleryNode = {
                     addTriggerPresetBtn.textContent = "Add";
                     renderMetadataEditor();
                     renderCurrentView();
+                    renderSelectedList();
                 });
 
                 urlEditorInput.addEventListener("keydown", async (e) => {
@@ -1481,14 +1441,12 @@ const UnifiedLoraGalleryNode = {
                         if (newUrl) {
                             if (!linkBtn) {
                                 linkBtn = document.createElement('a');
-                                linkBtn.className = selectedCard.classList.contains("locallora-lora-row") ? 'row-action-btn lora-card-link-btn' : 'card-btn lora-card-link-btn';
+                                linkBtn.className = 'card-btn lora-card-link-btn';
                                 linkBtn.title = 'Open download page';
-                                linkBtn.innerHTML = selectedCard.classList.contains("locallora-lora-row") ? 'L' : '🔗';
+                                linkBtn.innerHTML = 'L';
                                 linkBtn.target = '_blank';
                                 linkBtn.addEventListener("click", (e) => e.stopPropagation());
-                                const compactActions = selectedCard.querySelector('.compact-actions');
-                                if (compactActions) compactActions.prepend(linkBtn);
-                                else selectedCard.prepend(linkBtn);
+                                selectedCard.prepend(linkBtn);
                             }
                             linkBtn.href = newUrl;
                         } else if (linkBtn) {
@@ -1560,22 +1518,7 @@ const UnifiedLoraGalleryNode = {
                     saveStateAndFetch();
                 });
 
-                widgetContainer.querySelector(".clear-all-btn").addEventListener("click", () => {
-                    this.loraData = [];
-                    if (mainContainer.classList.contains("gallery-collapsed")) {
-                        setTimeout(() => {
-                            const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                            if (!controlsEl) return;
-                            const contentHeight = selectedListEl.scrollHeight + controlsEl.offsetHeight;
-                            this.size[1] = contentHeight + HEADER_HEIGHT;
-                            this.setDirtyCanvas(true, true);
-                        }, 0);
-                    }
-                    fetchAndRender(false);
-                    renderSelectedList();
-                    updateSelection();
-                    updatePresetButtonText(null);
-                });
+                widgetContainer.querySelector(".clear-all-btn").addEventListener("click", clearAllLoras);
                 
                 folderFilterSelect.addEventListener("change", saveStateAndFetch);
                 tagFilterModeBtn.addEventListener("click", () => {
@@ -1602,8 +1545,12 @@ const UnifiedLoraGalleryNode = {
                     presetDropdown.style.display = presetDropdown.style.display === 'block' ? 'none' : 'block';
                 });
 
-                viewModeBtn.addEventListener("click", () => {
-                    setViewMode(currentViewMode === "compact" ? "gallery" : "compact");
+                activeStackBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    if (!this.loraData.length) return;
+                    const shouldOpen = !mainContainer.classList.contains("active-stack-open");
+                    mainContainer.classList.toggle("active-stack-open", shouldOpen);
+                    activeStackBtn.classList.toggle("open", shouldOpen);
                 });
 
                 toggleGalleryBtn.addEventListener("click", () => {
@@ -1612,7 +1559,7 @@ const UnifiedLoraGalleryNode = {
                     if (isCollapsing) {
                         this.expandedHeight = this.size[1];
                         const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                        const contentHeight = selectedListEl.scrollHeight + controlsEl.offsetHeight;
+                        const contentHeight = controlsEl.offsetHeight;
                         this.size[1] = contentHeight + HEADER_HEIGHT;
                         mainContainer.classList.add("gallery-collapsed");
                         toggleGalleryBtn.textContent = "Show Gallery";
@@ -1652,18 +1599,26 @@ const UnifiedLoraGalleryNode = {
                     if (presetDropdown && !loadPresetBtn.contains(e.target) && !presetDropdown.contains(e.target)) {
                        presetDropdown.style.display = 'none';
                     }
+                    if (!e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId} .locallora-selected-list`)) {
+                        closeActiveStack();
+                    }
+                    if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
+                        widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
+                            openPicker.classList.remove("open");
+                            openPicker.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                        });
+                    }
                 });
             };
 
             this.onResize = function(size) {
                 const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                const dynamicMinHeight = selectedListEl.scrollHeight + (controlsEl?.offsetHeight || 0) + HEADER_HEIGHT;
+                const dynamicMinHeight = (controlsEl?.offsetHeight || 0) + HEADER_HEIGHT;
                 if (!mainContainer.classList.contains("gallery-collapsed")) {
                     this.expandedHeight = size[1];
                 }
                 if (size[1] < dynamicMinHeight) size[1] = dynamicMinHeight;
-                const minWidth = currentViewMode === "compact" ? COMPACT_NODE_WIDTH : MIN_NODE_WIDTH;
-                if (size[0] < minWidth) size[0] = minWidth;
+                if (size[0] < MIN_NODE_WIDTH) size[0] = MIN_NODE_WIDTH;
             };
 
             bindEventListeners();

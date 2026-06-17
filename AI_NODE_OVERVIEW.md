@@ -115,6 +115,9 @@ Use product names from `LORA_UI_TERMINOLOGY.md` when discussing LoRA UI work.
 - LoRA state widgets: `js/lora/stateWidgets.js`
 - LoRA render helpers: `js/lora/renderers.js`
 
+The LoRA frontend is gallery-first. The old compact LoRA list mode is retired; saved
+`view_mode` UI state is kept for compatibility and normalized back to gallery mode.
+
 ## Shared Frontend Map
 
 - Shared DOM utilities: `js/shared/dom.js`
