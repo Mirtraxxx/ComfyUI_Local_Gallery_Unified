@@ -829,7 +829,7 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-lora-item {
                         position: relative;
                         display: grid;
-                        grid-template-columns: 12px 64px minmax(0, 1fr);
+                        grid-template-columns: 64px minmax(0, 1fr);
                         align-items: center;
                         gap: 12px;
                         width: 100%;
@@ -845,7 +845,7 @@ export function getLoraStyles(uniqueId) {
                         backdrop-filter: blur(12px) saturate(1.16);
                         -webkit-backdrop-filter: blur(12px) saturate(1.16);
                         color: #e7ecef;
-                        cursor: pointer;
+                        cursor: grab;
                         box-shadow:
                             inset 0 0 0 1px rgba(255,255,255,0.08),
                             0 10px 24px rgba(0,0,0,0.22),
@@ -915,6 +915,10 @@ export function getLoraStyles(uniqueId) {
                         box-shadow:
                             0 8px 18px rgba(0,0,0,0.34),
                             0 0 24px rgba(255, 145, 40, 0.24);
+                    }
+
+                    #${uniqueId} .locallora-selected-thumb:active {
+                        cursor: grabbing;
                     }
                     
                     #${uniqueId} .locallora-selected-thumb img,
@@ -1053,7 +1057,7 @@ export function getLoraStyles(uniqueId) {
                     
                     /* --- Compact Mode for Active Sidebar --- */
                     #${uniqueId} .locallora-container.active-mode-compact .locallora-lora-item {
-                        grid-template-columns: 12px minmax(0, 1fr);
+                        grid-template-columns: minmax(0, 1fr);
                         min-height: 64px;
                         padding: 6px 12px 6px 8px;
                     }

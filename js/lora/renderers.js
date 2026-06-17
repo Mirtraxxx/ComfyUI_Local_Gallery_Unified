@@ -85,9 +85,6 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
 
     if (isCompact) {
         return `
-            <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-            </span>
             <div class="locallora-selected-main">
                 <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
                 <div class="locallora-selected-controls">
@@ -104,16 +101,13 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
         `;
     } else {
         const previewHtml = `
-            <div class="locallora-selected-thumb remove-lora-btn" title="Click image to remove LoRA">
+            <div class="locallora-selected-thumb remove-lora-btn" title="Click to remove LoRA. Drag to reorder.">
                 ${buildSelectedPreviewHtml(lora)}
             </div>
         `;
         const cleanName = escapeHtml(item.lora.split(/[\\/]/).pop());
         return `
             ${previewHtml}
-            <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-            </span>
             <div class="locallora-selected-preset">${presetControlsHtml}</div>
             <div class="locallora-active-overlay-capsule">
                 <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>

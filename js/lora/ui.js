@@ -1173,8 +1173,7 @@ const UnifiedLoraGalleryNode = {
                         }, { passive: false });
                     }
 
-                    const removeBtn = el.querySelector(".remove-lora-btn");
-                    removeBtn.addEventListener("click", (e) => {
+                    const removeActiveLora = (e) => {
                         e.stopPropagation();
                         const loraNameToRemove = item.lora;
                         const removeIndex = this.loraData.findIndex(entry => entry.lora === loraNameToRemove);
@@ -1197,6 +1196,14 @@ const UnifiedLoraGalleryNode = {
                         }
                         fetchAndRender(false);
                         updatePresetButtonText(null);
+                    };
+
+                    el.querySelectorAll(".remove-lora-btn").forEach(removeTarget => {
+                        removeTarget.addEventListener("pointerdown", (e) => {
+                            if (removeTarget.classList.contains("locallora-selected-thumb")) return;
+                            e.stopPropagation();
+                        });
+                        removeTarget.addEventListener("click", removeActiveLora);
                     });
 
                     const dragHandle = el.querySelector(".locallora-active-drag-handle") || el;
