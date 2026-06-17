@@ -1,8 +1,9 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
-import { collapseWidget } from "../shared/widgets.js";
 import { moveSelectedLora } from "./helpers.js";
+import { buildCompactHeaderHtml, buildCompactRowHtml, buildLoraPresetControlsHtml } from "./renderers.js";
+import { setupLoraStateWidgets } from "./stateWidgets.js";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -47,24 +48,7 @@ const UnifiedLoraGalleryNode = {
         nodeType.prototype.onNodeCreated = function () {
             const result = onNodeCreated?.apply(this, arguments);
 
-            if (!this.properties || !this.properties.lora_gallery_unique_id) {
-                if (!this.properties) { this.properties = {}; }
-                this.properties.lora_gallery_unique_id = "lora-gallery-" + Math.random().toString(36).substring(2, 11);
-            }
-
-            const galleryIdWidget = this.addWidget(
-                "text",
-                "lora_gallery_unique_id_widget",
-                this.properties.lora_gallery_unique_id,
-                () => {},
-                {}
-            );
-
-            galleryIdWidget.serializeValue = () => {
-                return this.properties.lora_gallery_unique_id;
-            };
-
-            collapseWidget(galleryIdWidget);
+            setupLoraStateWidgets({ nodeInstance: this });
             
             const HEADER_HEIGHT = 90;
             const MIN_NODE_WIDTH = 600;
@@ -75,19 +59,6 @@ const UnifiedLoraGalleryNode = {
             this.availableLoras = [];
             this.isModelOnly = nodeData.name.includes("ModelOnly");
             this.selectedCardsForEditing = new Set();
-
-            const node_instance = this;
-            const selectionWidget = this.addWidget(
-                "text",
-                "lora_selection_data",
-                this.properties.lora_selection_data || "[]",
-                () => {},
-                { multiline: true }
-            );
-            selectionWidget.serializeValue = () => {
-                return node_instance.properties["lora_selection_data"] || "[]";
-            };
-            collapseWidget(selectionWidget);
 
             const widgetContainer = document.createElement("div");
             widgetContainer.className = "locallora-container-wrapper";
@@ -693,29 +664,7 @@ const UnifiedLoraGalleryNode = {
                 }
             };
 
-            const buildPresetControlsHTML = (lora, compact = false) => {
-                if (!lora.trigger_presets || Object.keys(lora.trigger_presets).length === 0) return '';
-
-                let presetDropdownHTML = `<select class="lora-card-preset-select" style="width: 100%; max-width: 100%; background: #222; color: #ccc; border: 1px solid #555; border-radius: 4px; font-size: 10px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis;">
-                    <option value="">Default Triggers</option>`;
-                for (const presetName of Object.keys(lora.trigger_presets)) {
-                    presetDropdownHTML += `<option value="${presetName}">${presetName}</option>`;
-                }
-                presetDropdownHTML += `</select>
-                    <div class="lora-card-preset-checklist">`;
-                for (const presetName of Object.keys(lora.trigger_presets)) {
-                    presetDropdownHTML += `<label>
-                        <input type="checkbox" class="lora-card-preset-check" value="${presetName}">
-                        ${presetName}
-                    </label>`;
-                }
-                presetDropdownHTML += `</div>
-                    <label class="lora-card-preset-stack-label" title="Allow multiple trigger presets to be appended to this LoRA's prompt output">
-                        <input type="checkbox" class="lora-card-preset-stack-checkbox">
-                        ${compact ? "Stack" : "Stack trigger presets"}
-                    </label>`;
-                return presetDropdownHTML;
-            };
+            const buildPresetControlsHTML = buildLoraPresetControlsHtml;
 
             const setupPresetControls = (element, lora) => {
                 const presetSelect = element.querySelector('.lora-card-preset-select');
@@ -989,12 +938,7 @@ const UnifiedLoraGalleryNode = {
 
                 const header = document.createElement("div");
                 header.className = "compact-header-row";
-                header.innerHTML = `
-                    <span class="compact-toggle-all">Toggle All</span>
-                    <span class="compact-header-actions">
-                        <span>${this.isModelOnly ? "Strength" : "Model / CLIP"}</span>
-                    </span>
-                `;
+                header.innerHTML = buildCompactHeaderHtml(this.isModelOnly);
                 header.querySelector(".compact-toggle-all").addEventListener("click", () => {
                     const allOn = this.loraData.length > 0 && this.loraData.every(item => item.on);
                     this.loraData.forEach(item => item.on = !allOn);
@@ -1033,38 +977,7 @@ const UnifiedLoraGalleryNode = {
                     row.title = `${item.lora}\nDrag the name to change LoRA load order`;
                     row.dataset.index = index;
 
-                    const modelStrength = item.strength ?? 1.0;
-                    const clipStrength = item.strength_clip ?? item.strength ?? 1.0;
-                    const presetControlsHTML = buildPresetControlsHTML(lora, true);
-                    const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="row-action-btn lora-card-link-btn" title="Open download page">L</a>` : '';
-                    const modelStrengthHTML = `
-                        <div class="compact-strength compact-strength-stepper">
-                            <button class="compact-strength-dec" title="Decrease model strength">&lt;</button>
-                            <input class="compact-strength-model" type="number" value="${modelStrength}" min="-10.0" max="10.0" step="0.05">
-                            <button class="compact-strength-inc" title="Increase model strength">&gt;</button>
-                        </div>`;
-                    const clipStrengthHTML = this.isModelOnly ? "" : `
-                        <div class="compact-strength compact-strength-stepper">
-                            <button class="compact-strength-dec" title="Decrease CLIP strength">&lt;</button>
-                            <input class="compact-strength-clip" type="number" value="${clipStrength}" min="-2.0" max="2.0" step="0.05">
-                            <button class="compact-strength-inc" title="Increase CLIP strength">&gt;</button>
-                        </div>`;
-
-                    row.innerHTML = `
-                        <input class="compact-selected-toggle" type="checkbox" title="Enable LoRA" ${item.on ? "checked" : ""}>
-                        <div class="compact-lora-name" title="${item.lora}">${item.lora}</div>
-                        ${modelStrengthHTML}
-                        ${this.isModelOnly ? "" : clipStrengthHTML}
-                        <div class="compact-preset-area">${presetControlsHTML}</div>
-                        <div class="lora-card-triggers compact-trigger-preview" title="${lora.trigger_words || ""}">${lora.trigger_words || 'No triggers'}</div>
-                        <div class="compact-actions">
-                            ${linkBtnHTML}
-                            <button class="row-action-btn sync-civitai-btn" title="Sync with Civitai">S</button>
-                            <button class="row-action-btn edit-tags-btn" title="Edit metadata">E</button>
-                            <button class="row-action-btn compact-remove-btn" title="Remove LoRA">x</button>
-                        </div>
-                        <div class="lora-card-tags" style="display:none;"></div>
-                    `;
+                    row.innerHTML = buildCompactRowHtml({ item, lora, isModelOnly: this.isModelOnly });
 
                     setupPresetControls(row, lora);
                     galleryEl.appendChild(row);

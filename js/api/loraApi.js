@@ -1,17 +1,54 @@
 import { api } from "../../../scripts/api.js";
 
+async function readJsonResponse(response) {
+    try {
+        return await response.json();
+    } catch (error) {
+        if (response.ok) {
+            return {};
+        }
+        return {
+            status: "error",
+            message: response.statusText || `HTTP error ${response.status}`,
+        };
+    }
+}
+
+function getErrorMessage(data, response) {
+    return data?.message || data?.error || response.statusText || `HTTP error ${response.status}`;
+}
+
+async function fetchJson(url, options) {
+    const response = await api.fetchApi(url, options);
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+        throw new Error(getErrorMessage(data, response));
+    }
+    return data;
+}
+
+function appendQueryParam(params, name, value) {
+    if (value !== undefined && value !== null && value !== "") {
+        params.append(name, String(value));
+    }
+}
+
 export async function getLoras(filterTag = "", mode = "OR", folder = "", page = 1, selectedLoras = [], perPage = 50) {
-    let url = `/localgalleryunified/lora/get_loras?filter_tag=${encodeURIComponent(filterTag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&per_page=${perPage}`;
+    const params = new URLSearchParams();
+    appendQueryParam(params, "filter_tag", filterTag);
+    appendQueryParam(params, "mode", mode);
+    appendQueryParam(params, "folder", folder);
+    appendQueryParam(params, "page", page);
+    appendQueryParam(params, "per_page", perPage);
     selectedLoras.forEach((lora) => {
-        url += `&selected_loras=${encodeURIComponent(lora)}`;
+        appendQueryParam(params, "selected_loras", lora);
     });
-    const response = await api.fetchApi(url);
-    return await response.json();
+    return await fetchJson(`/localgalleryunified/lora/get_loras?${params.toString()}`);
 }
 
 export async function updateMetadata(loraName, data) {
     const body = { lora_name: loraName, ...data };
-    await api.fetchApi("/localgalleryunified/lora/update_metadata", {
+    return await fetchJson("/localgalleryunified/lora/update_metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -19,7 +56,7 @@ export async function updateMetadata(loraName, data) {
 }
 
 export async function setUiState(nodeId, galleryId, state) {
-    await api.fetchApi("/localgalleryunified/lora/set_ui_state", {
+    return await fetchJson("/localgalleryunified/lora/set_ui_state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -31,47 +68,40 @@ export async function setUiState(nodeId, galleryId, state) {
 }
 
 export async function syncCivitai(loraName) {
-    const response = await api.fetchApi("/localgalleryunified/lora/sync_civitai", {
+    return await fetchJson("/localgalleryunified/lora/sync_civitai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lora_name: loraName }),
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
 }
 
 export async function getAllTags() {
-    const response = await api.fetchApi("/localgalleryunified/lora/get_all_tags");
-    return await response.json();
+    return await fetchJson("/localgalleryunified/lora/get_all_tags");
 }
 
 export async function getPresets() {
-    const response = await api.fetchApi("/localgalleryunified/lora/get_presets");
-    return await response.json();
+    return await fetchJson("/localgalleryunified/lora/get_presets");
 }
 
 export async function deletePreset(name) {
-    const response = await api.fetchApi("/localgalleryunified/lora/delete_preset", {
+    return await fetchJson("/localgalleryunified/lora/delete_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
     });
-    return await response.json();
 }
 
 export async function getUiState(nodeId, galleryId) {
-    const response = await api.fetchApi(`/localgalleryunified/lora/get_ui_state?node_id=${nodeId}&gallery_id=${galleryId}`);
-    return await response.json();
+    const params = new URLSearchParams();
+    appendQueryParam(params, "node_id", nodeId);
+    appendQueryParam(params, "gallery_id", galleryId);
+    return await fetchJson(`/localgalleryunified/lora/get_ui_state?${params.toString()}`);
 }
 
 export async function savePreset(name, data) {
-    const response = await api.fetchApi("/localgalleryunified/lora/save_preset", {
+    return await fetchJson("/localgalleryunified/lora/save_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, data }),
     });
-    return await response.json();
 }

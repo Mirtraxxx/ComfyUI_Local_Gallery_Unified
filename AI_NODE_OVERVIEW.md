@@ -108,8 +108,12 @@ Important naming trap:
 
 ## LoRA Frontend Map
 
+Use product names from `LORA_UI_TERMINOLOGY.md` when discussing LoRA UI work.
+
 - Main LoRA UI: `js/lora/ui.js`
 - LoRA helpers: `js/lora/helpers.js`
+- LoRA state widgets: `js/lora/stateWidgets.js`
+- LoRA render helpers: `js/lora/renderers.js`
 
 ## Shared Frontend Map
 
@@ -185,6 +189,8 @@ node --check js\Local_Gallery_Unified.js
 node --check js\prompt\ui.js
 node --check js\prompt\styles.js
 node --check js\lora\ui.js
+node --check js\lora\stateWidgets.js
+node --check js\lora\renderers.js
 node --check js\api\promptApi.js
 node --check js\api\loraApi.js
 ```
