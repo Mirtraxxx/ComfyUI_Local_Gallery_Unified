@@ -628,8 +628,11 @@ export function getLoraStyles(uniqueId) {
                         flex-direction: column;
                         position: relative;
                         overflow: hidden;
-                        min-height: 174px;
                         box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+                    }
+
+                    #${uniqueId} .locallora-container.cards-mode-thumbnails .locallora-lora-card {
+                        height: var(--lora-card-thumb-size);
                     }
                     
                     #${uniqueId} .locallora-lora-card.preset-open {
@@ -657,11 +660,22 @@ export function getLoraStyles(uniqueId) {
                         align-items: center;
                         justify-content: center;
                     }
+                    #${uniqueId} .locallora-container.cards-mode-thumbnails .locallora-media-container {
+                        position: absolute;
+                        top: -1px;
+                        left: -1px;
+                        right: -1px;
+                        bottom: -1px;
+                        width: auto;
+                        height: auto;
+                        z-index: 1;
+                    }
                     
                     #${uniqueId} .locallora-media-container img, 
                     #${uniqueId} .locallora-media-container video {
                         width: 100%;
                         height: 100%;
+                        display: block;
                         object-fit: cover;
                     }
                     
@@ -1471,12 +1485,14 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-thumb {
                         position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
+                        top: -1px;
+                        left: -1px;
+                        right: -1px;
+                        bottom: -1px;
+                        width: auto;
+                        height: auto;
                         border: none;
-                        border-radius: 11px;
+                        border-radius: 0;
                         box-shadow: none;
                         z-index: 1;
                         cursor: pointer;
