@@ -51,3 +51,88 @@ export function buildLoraPresetControlsHtml(lora) {
     </div>
 </div>`;
 }
+
+export function buildSelectedPreviewHtml(lora) {
+    const emptyLoraImage = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    const previewUrl = lora.preview_url || emptyLoraImage;
+    if (lora.preview_type === "video" && lora.preview_url) {
+        return `<video muted loop playsinline src="${escapeHtml(previewUrl)}"></video>`;
+    }
+    return `<img src="${escapeHtml(previewUrl)}" loading="lazy">`;
+}
+
+export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isCompact) {
+    const previewHtml = isCompact ? "" : `
+        <div class="locallora-selected-thumb">
+            ${buildSelectedPreviewHtml(lora)}
+        </div>
+    `;
+    
+    const formatWeight = (weight) => {
+        const rounded = Math.round(weight * 100) / 100;
+        const tenth = Math.round(rounded * 10) / 10;
+        if (Math.abs(rounded - tenth) < 1e-9) {
+            return tenth.toFixed(1);
+        } else {
+            return rounded.toFixed(2);
+        }
+    };
+    
+    const formattedModelWeight = formatWeight(Number(item.strength ?? 1.0));
+    
+    const clipStrengthHtml = isModelOnly ? "" : `
+        <div class="lora-strength-chip" title="CLIP strength (Scroll to adjust)">
+            <span>C</span>
+            <span class="managed-weight-val selected-strength-clip" tabindex="0" title="Scroll to adjust CLIP strength">${formatWeight(Number(item.strength_clip ?? item.strength ?? 1.0))}</span>
+        </div>
+    `;
+    
+    return `
+        <span class="locallora-active-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+        </span>
+        ${previewHtml}
+        <div class="locallora-selected-main">
+            <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
+            <div class="locallora-selected-controls">
+                <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
+                <div class="lora-strength-chip" title="Model strength (Scroll to adjust)">
+                    <span>M</span>
+                    <span class="managed-weight-val selected-strength-model" tabindex="0" title="Scroll to adjust Model strength">${formattedModelWeight}</span>
+                </div>
+                ${clipStrengthHtml}
+                <button type="button" class="remove-lora-btn" title="Remove LoRA">x</button>
+            </div>
+            <div class="locallora-selected-preset">${buildLoraPresetControlsHtml(lora)}</div>
+        </div>
+    `;
+}
+
+export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, svgs = {}) {
+    let mediaHTML = '';
+    const empty_lora_image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    const previewUrl = lora.preview_url;
+
+    if (lora.preview_type === 'video' && previewUrl) {
+        mediaHTML = `<video muted loop playsinline src="${previewUrl}"></video>`;
+    } else {
+        mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
+    }
+    
+    const linkBtnHTML = lora.download_url ? `<a href="${escapeHtml(lora.download_url)}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page" aria-label="Open download page">${svgs.link || ""}</a>` : '';
+
+    const presetDropdownHTML = buildLoraPresetControlsHtml(lora);
+
+    return `
+        <button type="button" class="card-btn sync-civitai-btn" title="Sync with Civitai" aria-label="Sync with Civitai">${svgs.sync || ""}</button>
+        ${linkBtnHTML}
+        <div class="locallora-media-container">${mediaHTML}</div>
+        <div class="locallora-lora-card-info">
+            <p>${escapeHtml(lora.name)}</p>
+            <div class="lora-card-triggers" title="${escapeHtml(lora.trigger_words)}">${escapeHtml(lora.trigger_words || 'No triggers')}</div>
+            ${presetDropdownHTML}
+            <div class="lora-card-tags"></div>
+        </div>
+        <button type="button" class="card-btn edit-tags-btn" title="Edit LoRA metadata" aria-label="Edit LoRA metadata">${svgs.edit || ""}</button>
+    `;
+}
