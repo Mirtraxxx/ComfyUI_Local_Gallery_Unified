@@ -347,7 +347,7 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-folder-overflow {
                         position: relative;
                         width: 100%;
-                        background: #1f1f1f;
+                        background: #141416;
                         margin-top: -1px;
                         border-bottom: 1px solid transparent;
                         border-top: none;
@@ -372,7 +372,7 @@ export function getLoraStyles(uniqueId) {
                         transform: translateY(0);
                         max-height: 250px;
                         padding: 14px 10px;
-                        border-bottom-color: #2d2d2d;
+                        border-bottom-color: #333;
                         overflow-y: auto;
                     }
                     
@@ -411,17 +411,23 @@ export function getLoraStyles(uniqueId) {
                         width: 60px;
                         height: 16px;
                         padding: 0;
-                        background: #1f1f1f;
-                        border: 1px solid #2d2d2d;
+                        background: #141416;
+                        border: 1px solid #333;
                         border-top: none;
                         border-radius: 0 0 6px 6px;
                         cursor: pointer;
+                        opacity: 1;
                         color: #aaa;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
                         pointer-events: auto;
                         transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
                     }
-                    
+                    #${uniqueId} .lora-folder-pull-tab svg {
+                        width: 10px;
+                        height: 10px;
+                        stroke: currentColor;
+                        transition: transform 0.16s ease, color 0.16s ease;
+                    }
                     #${uniqueId} .lora-folder-pull-tab::before {
                         content: '';
                         position: absolute;
@@ -429,37 +435,23 @@ export function getLoraStyles(uniqueId) {
                         left: -1px;
                         right: -1px;
                         height: 1px;
-                        background: #1f1f1f;
+                        background: #141416;
                         z-index: 4203;
                         transition: background-color 0.16s ease;
                     }
-                    
-                    #${uniqueId} .lora-folder-pull-tab:hover::before,
-                    #${uniqueId} .lora-folder-pull-tab.open::before {
-                        background: #1f1f1f;
+                    #${uniqueId} .lora-folder-pull-tab.open,
+                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
+                        background: #141416;
+                        border-color: #333;
+                        color: #ccc;
                     }
-                    
-                    #${uniqueId} .lora-folder-pull-tab svg {
-                        width: 10px;
-                        height: 10px;
-                        stroke: currentColor;
-                        transition: transform 0.16s ease, color 0.16s ease;
-                    }
-
-                    #${uniqueId} .lora-folder-pull-tab.open svg {
+                    #${uniqueId} .lora-folder-pull-tab.open svg,
+                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] svg {
                         transform: rotate(180deg);
                         color: #ccc;
                     }
-
                     #${uniqueId} .lora-folder-pull-tab:hover svg {
-                        color: #ff7a00;
-                    }
-                    
-                    #${uniqueId} .lora-folder-pull-tab:hover,
-                    #${uniqueId} .lora-folder-pull-tab.open {
-                        background: #1f1f1f;
-                        color: #ccc;
-                        border-color: #2d2d2d;
+                        color: #3b82f6;
                     }
                     
                     #${uniqueId} .folder-filter-select {
