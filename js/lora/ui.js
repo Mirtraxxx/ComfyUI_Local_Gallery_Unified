@@ -1,9 +1,9 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
-import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js";
+import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-active-preset-direct-20260617";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js";
+import { getLoraStyles } from "./styles.js?v=lora-active-preset-direct-20260617";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -914,7 +914,7 @@ const UnifiedLoraGalleryNode = {
                 if (!row || !handle) return;
 
                 const shouldStartReorder = (event) => {
-                    if (event.target.closest?.(".locallora-active-drag-handle")) return true;
+                    if (event.target.closest?.(".locallora-selected-thumb")) return true;
                     return !event.target.closest?.("button, input, select, textarea, a, .managed-weight-val, .lora-trigger-preset-picker");
                 };
 
@@ -925,12 +925,12 @@ const UnifiedLoraGalleryNode = {
                     y <= rect.bottom
                 );
 
-                row.addEventListener("pointerdown", (event) => {
+                handle.addEventListener("pointerdown", (event) => {
                     if (event.button !== 0) return;
                     if (!shouldStartReorder(event)) return;
 
-                    const startedFromHandle = Boolean(event.target.closest?.(".locallora-active-drag-handle"));
-                    if (startedFromHandle) {
+                    const startedFromDragSurface = Boolean(event.target.closest?.(".locallora-selected-thumb"));
+                    if (startedFromDragSurface) {
                         event.preventDefault();
                         event.stopPropagation();
                     }
@@ -1114,9 +1114,11 @@ const UnifiedLoraGalleryNode = {
                             previewImage.onerror = (e) => {
                                 e.target.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                             };
+                            previewImage.draggable = false;
                         }
                         const previewVideo = el.querySelector(".locallora-selected-thumb video");
                         if (previewVideo) {
+                            previewVideo.draggable = false;
                             el.addEventListener("mouseenter", () => previewVideo.play().catch(() => {}));
                             el.addEventListener("mouseleave", () => { previewVideo.pause(); previewVideo.currentTime = 0; });
                         }
@@ -1206,7 +1208,7 @@ const UnifiedLoraGalleryNode = {
                         removeTarget.addEventListener("click", removeActiveLora);
                     });
 
-                    const dragHandle = el.querySelector(".locallora-active-drag-handle") || el;
+                    const dragHandle = el.querySelector(".locallora-selected-thumb") || el;
                     bindMouseReorderHandle(el, dragHandle, ".locallora-lora-item", selectedListEl, (fromIdx, targetIdx) => {
                         if (fromIdx === targetIdx || fromIdx < 0 || targetIdx < 0 || fromIdx >= this.loraData.length || targetIdx >= this.loraData.length) return;
                         const items = [...this.loraData];
@@ -1339,10 +1341,13 @@ const UnifiedLoraGalleryNode = {
                 const pickerPopover = element.querySelector('.lora-trigger-preset-popover');
                 const presetOptions = Array.from(element.querySelectorAll('.lora-trigger-preset-option'));
                 const presetSearch = element.querySelector('.lora-trigger-preset-search');
-                const existingItem = this.loraData.find(item => item.lora === lora.name);
-                const existingPresetNames = existingItem && Array.isArray(existingItem.selected_presets)
-                    ? existingItem.selected_presets
-                    : (existingItem && existingItem.selected_preset ? [existingItem.selected_preset] : []);
+                const loraName = element.dataset.loraName || lora.name;
+                const getSelectionItem = () => this.loraData.find(item => item.lora === loraName) || null;
+                const getPresetNamesFromItem = (item) => item && Array.isArray(item.selected_presets)
+                    ? item.selected_presets.filter(Boolean)
+                    : (item && item.selected_preset ? [item.selected_preset] : []);
+                const existingItem = getSelectionItem();
+                const existingPresetNames = getPresetNamesFromItem(existingItem);
                 const useStackedTriggerPresets = Boolean(existingItem?.stack_trigger_presets || existingPresetNames.length > 1);
 
                 const getSelectedPresetNames = () => {
@@ -1352,11 +1357,32 @@ const UnifiedLoraGalleryNode = {
                     return presetSelect.value ? [presetSelect.value] : [];
                 };
 
-                const syncPresetPickerUi = () => {
-                    const stacking = presetStackCheckbox.checked;
+                const syncPresetPickerUi = (selectedNamesOverride = null, stackingOverride = null) => {
+                    let selectedPresetNames = selectedNamesOverride;
+                    let stacking = stackingOverride;
+                    if (!selectedPresetNames || stacking === null) {
+                        const currentItem = getSelectionItem();
+                        if (currentItem) {
+                            selectedPresetNames = getPresetNamesFromItem(currentItem);
+                            stacking = Boolean(currentItem.stack_trigger_presets || selectedPresetNames.length > 1);
+                        } else {
+                            selectedPresetNames = getSelectedPresetNames();
+                            stacking = presetStackCheckbox.checked;
+                        }
+                    }
+                    presetStackCheckbox.checked = stacking;
+                    if (stacking) {
+                        presetChecks.forEach(checkbox => {
+                            checkbox.checked = selectedPresetNames.includes(checkbox.value);
+                        });
+                    } else {
+                        presetSelect.value = selectedPresetNames[0] || "";
+                        presetChecks.forEach(checkbox => {
+                            checkbox.checked = false;
+                        });
+                    }
                     picker?.classList.toggle("stacking", stacking);
                     presetChecklist.classList.toggle("visible", false);
-                    const selectedPresetNames = getSelectedPresetNames();
                     const selectedLabel = stacking
                         ? (selectedPresetNames.length ? `${selectedPresetNames.length} presets` : "Stack presets")
                         : (presetSelect.value || "Default Triggers");
@@ -1381,30 +1407,33 @@ const UnifiedLoraGalleryNode = {
                 }
                 syncPresetPickerUi();
 
-                const applyPresetSelection = () => {
-                    const item = this.loraData.find(item => item.lora === lora.name);
+                const applyPresetSelection = ({ selectedPresetsOverride = null, stackingOverride = null } = {}) => {
+                    const item = getSelectionItem();
+                    const stacking = stackingOverride ?? presetStackCheckbox.checked;
+                    const selectedPresets = selectedPresetsOverride ?? (stacking
+                        ? presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value)
+                        : (presetSelect.value ? [presetSelect.value] : []));
                     if (item) {
-                        if (presetStackCheckbox.checked) {
-                            const selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+                        if (stacking) {
                             item.stack_trigger_presets = true;
                             item.selected_presets = selectedPresets;
                             item.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
                         } else {
-                            item.selected_preset = presetSelect.value;
+                            item.selected_preset = selectedPresets[0] || "";
                             delete item.selected_presets;
                             delete item.stack_trigger_presets;
                         }
                         updateSelection();
                     }
-                    syncPresetPickerUi();
+                    syncPresetPickerUi(selectedPresets, stacking);
                 };
 
                 presetSelect.addEventListener('click', (e) => e.stopPropagation());
                 presetSelect.addEventListener('mousedown', (e) => e.stopPropagation());
-                presetSelect.addEventListener('change', applyPresetSelection);
+                presetSelect.addEventListener('change', () => applyPresetSelection());
                 presetChecklist.addEventListener('click', (e) => e.stopPropagation());
                 presetChecks.forEach(checkbox => {
-                    checkbox.addEventListener('change', applyPresetSelection);
+                    checkbox.addEventListener('change', () => applyPresetSelection());
                 });
                 presetStackCheckbox.addEventListener('click', (e) => e.stopPropagation());
                 presetStackCheckbox.addEventListener('change', () => {
@@ -1425,33 +1454,36 @@ const UnifiedLoraGalleryNode = {
                     const shouldOpen = !picker?.classList.contains("open");
                     widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
                         openPicker.classList.remove("open");
-                        openPicker.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                        openPicker.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
                     });
                     picker?.classList.toggle("open", shouldOpen);
-                    element.closest(".locallora-lora-card")?.classList.toggle("preset-open", shouldOpen);
+                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.toggle("preset-open", shouldOpen);
                     if (shouldOpen) presetSearch?.focus();
                 });
 
-                pickerPopover?.addEventListener("click", (e) => e.stopPropagation());
-
-                presetOptions.forEach(option => {
-                    option.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        const presetName = option.dataset.presetName || "";
-                        if (presetStackCheckbox.checked) {
-                            if (!presetName) {
-                                presetChecks.forEach(checkbox => checkbox.checked = false);
-                            } else {
-                                const matchingCheck = presetChecks.find(checkbox => checkbox.value === presetName);
-                                if (matchingCheck) matchingCheck.checked = !matchingCheck.checked;
-                            }
+                pickerPopover?.addEventListener("click", (e) => {
+                    const option = e.target.closest?.(".lora-trigger-preset-option");
+                    e.stopPropagation();
+                    if (!option || !pickerPopover.contains(option)) return;
+                    e.preventDefault();
+                    const presetName = option.dataset.presetName || "";
+                    let selectedPresets = [];
+                    const stacking = presetStackCheckbox.checked;
+                    if (presetStackCheckbox.checked) {
+                        if (!presetName) {
+                            presetChecks.forEach(checkbox => checkbox.checked = false);
                         } else {
-                            presetSelect.value = presetName;
-                            picker?.classList.remove("open");
-                            element.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                            const matchingCheck = presetChecks.find(checkbox => checkbox.value === presetName);
+                            if (matchingCheck) matchingCheck.checked = !matchingCheck.checked;
                         }
-                        applyPresetSelection();
-                    });
+                        selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+                    } else {
+                        presetSelect.value = presetName;
+                        selectedPresets = presetName ? [presetName] : [];
+                        picker?.classList.remove("open");
+                        element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
+                    }
+                    applyPresetSelection({ selectedPresetsOverride: selectedPresets, stackingOverride: stacking });
                 });
 
                 presetSearch?.addEventListener("input", () => {
@@ -2360,7 +2392,7 @@ const UnifiedLoraGalleryNode = {
                     if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
                         widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
                             openPicker.classList.remove("open");
-                            openPicker.closest(".locallora-lora-card")?.classList.remove("preset-open");
+                            openPicker.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
                         });
                     }
                 });

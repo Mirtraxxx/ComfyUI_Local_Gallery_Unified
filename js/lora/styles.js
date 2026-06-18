@@ -635,7 +635,8 @@ export function getLoraStyles(uniqueId) {
                         height: var(--lora-card-thumb-size);
                     }
                     
-                    #${uniqueId} .locallora-lora-card.preset-open {
+                    #${uniqueId} .locallora-lora-card.preset-open,
+                    #${uniqueId} .locallora-lora-item.preset-open {
                         overflow: visible;
                         z-index: 60;
                     }
@@ -868,6 +869,11 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-lora-item.disabled {
                         opacity: 0.58;
                         filter: grayscale(30%);
+                    }
+
+                    #${uniqueId} .locallora-lora-item.disabled.preset-open {
+                        opacity: 1;
+                        filter: none;
                     }
 
                     #${uniqueId} .locallora-active-drag-handle {
@@ -1502,8 +1508,12 @@ export function getLoraStyles(uniqueId) {
                         border-radius: 0;
                         box-shadow: none;
                         z-index: 1;
-                        cursor: pointer;
+                        cursor: grab;
                         overflow: hidden;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item.dragging .locallora-selected-thumb {
+                        cursor: grabbing;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-thumb img,
@@ -1513,30 +1523,55 @@ export function getLoraStyles(uniqueId) {
                         object-fit: cover;
                     }
 
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-drag-handle {
-                        position: absolute;
-                        top: 8px;
-                        left: 8px;
-                        z-index: 10;
-                        background: rgba(18, 22, 28, 0.66);
-                        border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 6px;
-                        padding: 4px;
-                        height: auto;
-                        width: auto;
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                    }
-
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset {
                         position: absolute;
                         top: 8px;
                         right: 8px;
-                        z-index: 10;
+                        z-index: 70;
                         width: auto;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item.preset-open {
+                        overflow: visible;
+                        z-index: 90;
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-picker {
                         width: auto;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-popover {
+                        top: calc(100% + 6px);
+                        right: 0;
+                        bottom: auto;
+                        left: auto;
+                        width: 178px;
+                        max-height: 190px;
+                        padding: 6px;
+                        z-index: 120;
+                        background: #12161d;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        box-shadow: 0 18px 40px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(255,255,255,0.06);
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-options {
+                        max-height: 128px;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-option {
+                        grid-template-columns: minmax(0, 1fr);
+                        gap: 0;
+                        padding: 7px 8px;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-trigger-preset-option-preview {
+                        display: none;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .lora-card-preset-stack-label {
+                        margin-top: 5px;
+                        padding: 6px 7px 1px;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule {

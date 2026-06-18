@@ -1,7 +1,7 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
-import { registerLoraGalleryUi } from "./lora/ui.js?v=lora-active-thumb-drag-remove-20260617";
+import { registerLoraGalleryUi } from "./lora/ui.js?v=lora-active-preset-direct-20260617";
 import { registerPromptGalleryUi } from "./prompt/ui.js?v=prompt-category-swap-reorder-20260617";
 
 app.registerExtension({
