@@ -1,12 +1,27 @@
 # Prompt UI Terminology
 
-Updated: 2026-06-11
+Updated: 2026-06-18
 
 This file defines the product terms for the prompt side of `ComfyUI_Local_Gallery_Unified`.
 Use these names when discussing features, bugs, or refactors so the UI intent stays clear.
 For current backend/routes/data architecture, read `AI_NODE_OVERVIEW.md`.
 
 ## Product Areas
+
+### Library Workspace
+
+The workspace shell for prompt-side management pages.
+
+This is the Library/Cards area, not the same thing as the Prompt Builder despite the old
+`library` code term. It provides the Overview / Cards / Presets / Import TXT navigation and hosts
+management-oriented views.
+
+Current code mapping:
+
+- Workspace shell/controller: `createPromptWorkspaceController()` in `js/prompt/workspace.js`
+- Workspace entry points: `showBrowseWorkspace()`, `showPresetsWorkspace()`,
+  `showImportWorkspace()`, and related wrappers in `js/prompt/ui.js`
+- Cards page inside the workspace: Card Manager, implemented in `js/prompt/browse.js`
 
 ### Prompt Builder
 
@@ -20,7 +35,7 @@ Current code mapping:
 
 - Top category pills: `renderPinnedCategoryStrip()` in `js/prompt/ui.js`
 - Opening a category: `openCategoryFromMenu()` in `js/prompt/ui.js`
-- Prompt Builder card drawer: `renderLibraryDrawer()` in `js/prompt/library.js`
+- Prompt Builder card drawer: `renderPromptBuilderDrawer()` in `js/prompt/library.js`
 - Prompt Builder card container: `#<uniqueId>-library-drawer` / `#<uniqueId>-library-chips`
 - The active category is tracked as `activeLibraryTab` in `js/prompt/ui.js`
 
@@ -41,7 +56,7 @@ prompt-building workflow.
 Current code mapping:
 
 - Workspace entry: `showBrowseWorkspace()` in `js/prompt/ui.js`
-- Modal/workspace renderer: `showBrowseModal()` in `js/prompt/browse.js`
+- Modal/workspace renderer: `showCardManagerModal()` in `js/prompt/browse.js`
 - Card Manager grid container: `#browse-gallery-grid`
 - Card Manager card class: `.localprompt-gallery-item`
 
@@ -70,7 +85,8 @@ Current code mapping:
 
 - State: `node_instance.metaTags`
 - Hidden widget: `prompt_meta_tags`
-- UI renderer: `renderMetaTags()` in `js/prompt/ui.js`
+- UI/controller owner: `createMetaTagsController()` in `js/prompt/metaTags.js`
+- Integration layer: `js/prompt/ui.js`
 - Toolbar button: `#<uniqueId>-meta-tags-btn`
 
 ## Naming Guidance
@@ -78,6 +94,7 @@ Current code mapping:
 Preferred product names:
 
 - `Prompt Builder`: category-based card picker used during normal prompt building
+- `Library Workspace`: management shell for Cards, Presets, Import TXT, and related prompt tools
 - `Card Manager`: browse/manage workspace for stored cards and categories
 - `Card`: a stored visual prompt entry, often with thumbnail plus a prompt string or prompt bundle
 - `Active Stack`: selected cards that form the output prompt
@@ -91,23 +108,30 @@ The right side is what the code should say when it is safe to rename normal JS s
 | Current code term | Intended product/code term | Notes |
 | --- | --- | --- |
 | `library` when referring to category card picking | `promptBuilder` | This is the main confusing one. In product language, this is not the Card Manager. |
-| `libraryDrawer` | `promptBuilderDrawer` | Current renderer is `renderLibraryDrawer()` in `js/prompt/library.js`. |
+| `libraryDrawer` | `promptBuilderDrawer` | Current canonical renderer is `renderPromptBuilderDrawer()` in `js/prompt/library.js`; `renderLibraryDrawer()` is an alias. |
 | `libraryTab` for category pills | `builderCategory` or `promptBuilderCategory` | Category pills in the top row open Prompt Builder card views. |
 | `activeLibraryTab` | `activeBuilderCategory` | Tracks which Prompt Builder category/view is open. |
 | `library-chips` / `localprompt-chip` concepts | `builderCards` / `cardChips` | DOM ids/classes can stay unchanged initially. |
-| `browse` when referring to the Cards workspace | `cardManager` | Current renderer is `showBrowseModal()` in `js/prompt/browse.js`. |
+| `browse` when referring to the Cards workspace | `cardManager` | Current renderer is `showCardManagerModal()` in `js/prompt/browse.js`; `showBrowseModal()` is an alias. |
 | `browse-gallery-grid` | `cardManagerGrid` | Keep DOM id unchanged unless doing a larger selector refactor. |
 | `prompt` when referring to stored visual entry | `card` | Prefer `card` for the stored thumbnail + prompt bundle concept. |
 | `promptData` | `activeStack` or `activeCards` | Persisted widget/key should stay `prompt_selection_data`. |
 | `metaTags` | `hiddenPrompts` | Persisted widget/key should stay `prompt_meta_tags`. |
-| `gallery.js/renderGallery` | legacy/old gallery renderer | Verify if it is visible before editing. It is not the Prompt Builder shown after clicking category pills. |
+| `gallery.js/renderGallery` | older prompt gallery renderer | Still wired through `js/prompt/ui.js`; it is not the Prompt Builder shown after clicking category pills or the Card Manager grid. |
 
 Legacy/code names still present:
 
 - `library`, `libraryDrawer`, `libraryTab`: usually means Prompt Builder category UI
 - `browse`: usually means Card Manager
 - `prompt`: often means a stored card or a selected active prompt, depending on context
-- `gallery.js/renderGallery`: older/default gallery path; verify whether it is currently visible before editing
+- `gallery.js/renderGallery`: older/default gallery path still imported by `js/prompt/ui.js`; verify the exact visible surface before editing
+
+State/widget ownership:
+
+- `prompt_selection_data`, `prompt_meta_tags`, `prompt_gallery_unique_id_widget`, and
+  `active_sidebar_width` are set up in `js/prompt/stateWidgets.js`.
+- `js/prompt/ui.js` coordinates those widgets with the visible modules, but it is not the
+  primary owner for every product area.
 
 ## Safe Rename Scope
 
@@ -173,7 +197,7 @@ The requested manual reorder feature belongs in the Prompt Builder, not Card Man
 
 Target path:
 
-- `renderLibraryDrawer()` in `js/prompt/library.js`
+- `renderPromptBuilderDrawer()` in `js/prompt/library.js`; `renderLibraryDrawer()` remains as an alias
 - Cards/chips inside `#<uniqueId>-library-chips`
 - Scope should match the active builder category or favorites/pinned view
 

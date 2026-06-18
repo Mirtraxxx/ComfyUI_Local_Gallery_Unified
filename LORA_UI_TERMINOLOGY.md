@@ -1,6 +1,6 @@
 # LoRA UI Terminology
 
-Updated: 2026-06-17
+Updated: 2026-06-18
 
 This file defines product terms for the LoRA side of `ComfyUI_Local_Gallery_Unified`.
 Use these names when discussing LoRA work so future refactors do not inherit the old
@@ -18,12 +18,16 @@ Current code mapping:
 
 - Main UI coordinator: `js/lora/ui.js`
 - Gallery grid/cards: `.locallora-gallery` / `.locallora-lora-card`
-- Active drawer cards: `.locallora-selected-list` / `.locallora-lora-item`
+- Active drawer cards: `.locallora-lora-item` (inside `.locallora-active-chips` / `#...-active-chips` in the sidebar)
 - API wrapper: `js/api/loraApi.js`
+- Pure card/list HTML helpers: `js/lora/renderers.js`
+- Hidden widget setup: `js/lora/stateWidgets.js`
+- Stylesheet: `js/lora/styles.js`
 
 The LoRA Browser currently owns filtering, paging, preview cards, active drawer cards,
-metadata-edit entry points, trigger preset controls, and selection changes. Future cleanup
-should split these implementation details without changing user-visible behavior.
+metadata-edit entry points, trigger preset controls, selection changes, folder pin/order/color
+management, display controls, stack preset actions, Civitai sync, and collapse/resize behavior.
+Future cleanup should split these implementation details without changing user-visible behavior.
 
 ### LoRA Stack
 
@@ -33,13 +37,18 @@ Current code mapping:
 
 - Serialized workflow widget/key: `lora_selection_data`
 - Frontend runtime state: `node_instance.loraData`
-- Selected list container: `.locallora-selected-list`
+- Selected list container: `.locallora-active-chips` (id: `#...-active-chips`)
 - Active drawer item: `.locallora-lora-item`
-- Reorder helper: `moveSelectedLora()` in `js/lora/helpers.js`
+- Reorder: inline pointer-based drag in `js/lora/ui.js` (bindMouseReorderHandle)
 
 Do not change the saved `lora_selection_data` array shape casually. Existing workflows
 depend on fields such as `on`, `lora`, `strength`, `strength_clip`, `selected_preset`,
 `selected_presets`, and `stack_trigger_presets`.
+
+The frontend runtime objects can be richer than the serialized stack. Browser entries may carry
+`preview_url`, `preview_type`, `tags`, `trigger_words`, `trigger_presets`, and `download_url`, but
+selection persistence intentionally strips preview/metadata fields before writing
+`lora_selection_data`.
 
 ### LoRA Filters
 
@@ -50,8 +59,11 @@ Current code mapping:
 - Tag filter: `filter_tag`
 - Filter mode: `filter_mode`
 - Folder filter: `filter_folder`
-- View mode: `view_mode` remains as a compatibility UI-state key, but the retired compact
-  mode is normalized back to gallery mode.
+- View mode: `view_mode` is kept only in loaded UI state for old workflow compatibility.
+  The active implementation uses `active_display_mode` and `cards_display_mode`.
+  (The old `setViewMode`/`currentViewMode` maintenance code has been removed.)
+- Current display choices: `cards_display_mode` for browser cards and `active_display_mode`
+  for the selected LoRA Stack.
 - Transient UI state routes: `/localgalleryunified/lora/get_ui_state` and
   `/localgalleryunified/lora/set_ui_state`
 
@@ -68,10 +80,14 @@ Current code mapping:
 - Backend route: `/localgalleryunified/lora/update_metadata`
 - Current metadata fields: `hash`, `tags`, `trigger_words`, `trigger_presets`,
   and `download_url`
+- Runtime/card preview fields: `preview_url` and `preview_type`
 - Preview route: `/localgalleryunified/lora/preview`
 
 Be careful with metadata migrations. Some read paths currently normalize or migrate
 metadata keys as they browse the LoRA folder.
+
+Backend sync can use Civitai metadata and preview data, while the frontend may use those preview
+fields without saving them into the selected stack payload.
 
 ### LoRA Presets
 
@@ -99,10 +115,10 @@ Preferred product names:
 Leave these alone unless doing a dedicated compatibility pass:
 
 - Persisted widget/key names such as `lora_selection_data`.
-- UI state keys such as `filter_tag`, `filter_mode`, `filter_folder`, `view_mode`,
-  and `is_collapsed`.
+- UI state keys such as `filter_tag`, `filter_mode`, `filter_folder`, `is_collapsed`,
+  and (legacy only) `view_mode`.
 - DOM classes such as `.locallora-gallery`, `.locallora-lora-card`,
-  `.locallora-selected-list`, and `.locallora-lora-item`.
+  `.locallora-lora-item`, and `.locallora-active-chips`.
 - API routes and backend JSON fields.
 - Runtime files under `data/lora_gallery/`.
 
@@ -113,7 +129,7 @@ Safe first-pass cleanup:
 - Extract state/widget setup out of `js/lora/ui.js`.
 - Extract pure HTML/render helpers for cards, active drawer cards, trigger preset controls,
   and metadata editor sections.
-- Keep reorder math in `js/lora/helpers.js`.
+- Reorder logic lives in `js/lora/ui.js` (bindMouseReorderHandle). `js/lora/helpers.js` was removed (contained only unused moveSelectedLora).
 - Keep route calls under `/localgalleryunified/lora/*`.
 
 Higher-risk cleanup:

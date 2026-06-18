@@ -3,8 +3,17 @@
 Before editing this repo, read these docs first:
 
 1. `PROMPT_UI_TERMINOLOGY.md`
-2. `AI_NODE_OVERVIEW.md`
-3. `REFACTOR_REMAINING.md` when planning cleanup or refactors
+2. `LORA_UI_TERMINOLOGY.md`
+3. `AI_NODE_OVERVIEW.md`
+4. `REFACTOR_REMAINING.md` when planning cleanup or refactors
+
+## AI Orientation
+
+- This package exposes one primary ComfyUI node, `LocalGalleryPromptLora`, with Prompt and LoRA tabs inside the same node.
+- Prompt work and LoRA work use different product terms. Read the matching terminology doc before changing either UI.
+- Unified frontend code should stay on `/localgalleryunified/prompt/*` and `/localgalleryunified/lora/*`; old standalone route families are compatibility context only.
+- `data/prompt_gallery/` and `data/lora_gallery/` are runtime user data. Back them up before migrations, merges, or destructive cleanup.
+- `js/prompt/ui.js` and `js/lora/ui.js` are coordinators with many nested callbacks. Prefer finding the smaller owner module before editing behavior.
 
 ## Prompt UI Naming
 

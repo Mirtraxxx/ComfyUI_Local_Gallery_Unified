@@ -11,7 +11,11 @@ export function getLoraStyles(uniqueId) {
                         --lora-card-thumb-size: 168px;
                         --lora-card-min-width: 132px;
                         --lora-active-thumb-size: 96px;
-                        --lora-active-card-size: 125px;
+                        --lora-active-card-width: 115px;
+                        --lora-active-card-height: 144px;
+                        --lora-active-large-card-width: 136px;
+                        --lora-active-large-card-height: 187px;
+                        --lora-active-grid-gap: 10px;
                         display: flex;
                         flex-direction: column;
                         height: 100%;
@@ -127,6 +131,7 @@ export function getLoraStyles(uniqueId) {
                         flex: 1 1 auto;
                         min-height: 0;
                         overflow-y: auto;
+                        overflow-x: hidden;
                         padding: 12px;
                         scrollbar-width: thin;
                     }
@@ -147,6 +152,10 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-active-splitter.dragging {
                         background-color: rgba(255, 122, 0, 0.42);
                         width: 6px;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-splitter {
+                        display: none;
                     }
                     
                     /* --- Controls / Toolbar Header --- */
@@ -961,12 +970,18 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-selected-name {
                         min-width: 0;
                         overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
                         font-size: 12px;
                         font-weight: 700;
                         color: #f5fbff;
                         text-shadow: 0 1px 8px rgba(0,0,0,0.32);
+                    }
+
+                    #${uniqueId} .locallora-selected-name span {
+                        display: block;
+                        min-width: 0;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
                     }
                     
                     #${uniqueId} .locallora-selected-controls {
@@ -1025,7 +1040,7 @@ export function getLoraStyles(uniqueId) {
                         color: #ffffff;
                     }
                     
-                    #${uniqueId} .lora-strength-chip span {
+                    #${uniqueId} .lora-strength-chip .lora-strength-label {
                         color: #ff7a00;
                         font-size: 9px;
                         font-weight: 800;
@@ -1033,7 +1048,13 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-strength-chip .managed-weight-val {
+                        color: #e4e8eb;
                         outline: none;
+                    }
+
+                    #${uniqueId} .lora-strength-chip.label-hidden {
+                        min-width: 32px;
+                        justify-content: center;
                     }
 
                     #${uniqueId} .locallora-lora-item button.remove-lora-btn {
@@ -1482,8 +1503,8 @@ export function getLoraStyles(uniqueId) {
                     /* --- Thumbnails-centric Active Stack Grid Styles --- */
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-chips {
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-                        gap: 12px;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        gap: var(--lora-active-grid-gap);
                         width: 100%;
                         box-sizing: border-box;
                     }
@@ -1499,7 +1520,7 @@ export function getLoraStyles(uniqueId) {
                         align-items: center;
                         justify-content: flex-end;
                         width: 100%;
-                        height: 180px;
+                        height: var(--lora-active-card-height);
                         padding: 0;
                         box-sizing: border-box;
                         border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1560,41 +1581,41 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn {
                         position: absolute;
-                        top: 8px;
-                        left: 8px;
+                        top: 6px;
+                        left: 6px;
                         z-index: 70;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 32px;
-                        height: 32px;
+                        width: 20px;
+                        height: 20px;
                         padding: 0;
-                        border-radius: 8px;
-                        border: 1px solid rgba(255, 255, 255, 0.08);
-                        background: rgba(18, 22, 28, 0.78);
+                        border-radius: 6px;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        background: rgba(255, 255, 255, 0.08);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
-                        color: #fff;
+                        color: #111820;
                         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
                         cursor: pointer;
                         transition: background-color 0.2s, border-color 0.2s, color 0.2s;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn:hover {
-                        background: rgba(255, 122, 0, 0.28);
-                        border-color: rgba(255, 122, 0, 0.6);
-                        color: #ff9128;
+                        background: rgba(255, 255, 255, 0.18);
+                        border-color: rgba(255, 255, 255, 0.3);
+                        color: #111820;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn svg {
-                        width: 16px;
-                        height: 16px;
+                        width: 12px;
+                        height: 12px;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset {
                         position: absolute;
-                        top: 8px;
-                        right: 8px;
+                        top: 6px;
+                        right: 6px;
                         z-index: 70;
                         width: auto;
                     }
@@ -1612,12 +1633,12 @@ export function getLoraStyles(uniqueId) {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 32px;
-                        height: 32px;
+                        width: 20px;
+                        height: 20px;
                         padding: 0;
-                        border-radius: 8px;
-                        border: 1px solid rgba(255, 255, 255, 0.08);
-                        background: rgba(18, 22, 28, 0.78);
+                        border-radius: 6px;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        background: rgba(255, 255, 255, 0.08);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         color: #fff;
@@ -1627,15 +1648,15 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button:hover {
-                        background: rgba(255, 122, 0, 0.28);
-                        border-color: rgba(255, 122, 0, 0.6);
-                        color: #ff9128;
+                        background: rgba(255, 255, 255, 0.18);
+                        border-color: rgba(255, 255, 255, 0.3);
+                        color: #fff;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
                         display: block;
-                        width: 16px;
-                        height: 16px;
+                        width: 12px;
+                        height: 12px;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-trigger-preset-label,
@@ -1702,40 +1723,50 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule {
                         position: absolute;
-                        bottom: 38px;
-                        left: 6px;
-                        right: 6px;
+                        bottom: 32px;
+                        left: 50%;
+                        right: auto;
+                        transform: translateX(-50%);
+                        width: max-content;
+                        max-width: calc(100% - 12px);
                         z-index: 5;
                         display: flex;
                         flex-direction: row;
                         align-items: center;
                         justify-content: center;
-                        gap: 4px;
-                        height: 32px;
-                        padding: 0 6px;
-                        background: rgba(18, 22, 28, 0.78);
+                        gap: 6px;
+                        height: auto;
+                        padding: 4px 6px;
+                        background: rgba(18, 22, 28, 0.75);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 8px;
+                        border-radius: 12px;
                         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
                         box-sizing: border-box;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule .lora-selected-toggle-pill {
                         height: 20px;
-                        min-width: 34px;
-                        padding: 0 4px;
-                        font-size: 8px;
+                        min-width: 32px;
+                        padding: 0 8px;
+                        border-radius: 20px;
+                        border: 1px solid transparent;
+                        font-size: 9px;
                         line-height: 18px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule .lora-strength-chip {
                         height: 20px;
-                        padding: 0 4px;
-                        font-size: 9px;
-                        border-radius: 4px;
-                        gap: 3px;
+                        min-width: 28px;
+                        padding: 0 6px;
+                        font-size: 10px;
+                        border-radius: 20px;
+                        gap: 0;
+                        background: rgba(20, 20, 20, 0.65);
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0,0,0,0.15);
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-strength-chips-row {
@@ -1746,29 +1777,37 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-name {
                         position: absolute;
-                        bottom: 8px;
-                        left: 8px;
-                        right: 8px;
-                        height: 24px;
+                        bottom: 6px;
+                        left: 50%;
+                        right: auto;
+                        transform: translateX(-50%);
+                        width: max-content;
+                        max-width: calc(100% - 12px);
+                        height: 20px;
                         z-index: 4;
                         background: rgba(18, 22, 28, 0.78);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 6px;
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+                        border-radius: 8px;
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.2);
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 10px;
+                        font-size: 9px;
                         padding: 0 8px;
                         box-sizing: border-box;
                         color: #e4e8eb;
                         pointer-events: none;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
+                        text-align: left;
                         overflow: hidden;
                         font-weight: normal;
+                        line-height: 1.2;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-name span {
+                        max-width: 100%;
+                        text-align: left;
                     }
 
                     /* --- Hover Zoom & Cursor Hiding for weight adjustment --- */
@@ -1910,35 +1949,41 @@ export function getLoraStyles(uniqueId) {
                         opacity: 0.45;
                     }
 
-                    /* --- Large Mode Active Sidebar and Comfortable Cards --- */
-                    #${uniqueId} .locallora-active-sidebar.large-mode {
-                        width: min(clamp(640px, var(--locallora-active-sidebar-width, 740px), 820px), calc(100% - 24px)) !important;
-                        min-width: min(640px, calc(100% - 24px)) !important;
-                        max-width: min(920px, calc(100% - 24px)) !important;
+                    /* --- Fixed three-column Active Sidebar sizing --- */
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar {
+                        width: min(calc(var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
+                        min-width: min(calc(var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
+                        max-width: min(calc(var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode {
+                        width: min(calc(var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
+                        min-width: min(calc(var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
+                        max-width: min(calc(var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-large-card-width) + var(--lora-active-grid-gap) + var(--lora-active-grid-gap) + 24px), calc(100% - 24px)) !important;
                     }
                     
-                    #${uniqueId} .locallora-active-sidebar.large-mode .locallora-active-sidebar-content {
-                        max-height: 504px; /* 2 visible rows of 234px cards + 1 gap of 12px + 12px padding */
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-sidebar-content {
+                        max-height: calc(var(--lora-active-large-card-height) + var(--lora-active-large-card-height) + var(--lora-active-grid-gap) + 24px);
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-chips {
-                        grid-template-columns: repeat(4, minmax(170px, 1fr)) !important;
+                        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-lora-item {
-                        height: 234px !important; /* 30% taller than 180px */
+                        height: var(--lora-active-large-card-height) !important;
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .lora-active-preview-btn {
-                        width: 36px !important;
-                        height: 36px !important;
+                        width: 29px !important;
+                        height: 29px !important;
                         top: 10px !important;
                         left: 10px !important;
-                        border-radius: 10px !important;
+                        border-radius: 8px !important;
                     }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .lora-active-preview-btn svg {
-                        width: 18px !important;
-                        height: 18px !important;
+                        width: 14px !important;
+                        height: 14px !important;
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
@@ -1946,13 +1991,13 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button {
-                        width: 36px !important;
-                        height: 36px !important;
-                        border-radius: 10px !important;
+                        width: 29px !important;
+                        height: 29px !important;
+                        border-radius: 8px !important;
                     }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
-                        width: 18px !important;
-                        height: 18px !important;
+                        width: 14px !important;
+                        height: 14px !important;
                     }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button .lora-trigger-preset-count {
                         top: -5px !important;
@@ -1964,35 +2009,42 @@ export function getLoraStyles(uniqueId) {
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule {
                         bottom: 44px !important;
-                        left: 10px !important;
-                        right: 10px !important;
-                        height: 36px !important;
-                        padding: 0 10px !important;
-                        border-radius: 10px !important;
-                        gap: 8px !important;
+                        left: 50% !important;
+                        right: auto !important;
+                        transform: translateX(-50%) !important;
+                        width: max-content !important;
+                        max-width: calc(100% - 20px) !important;
+                        height: auto !important;
+                        padding: 4px 6px !important;
+                        border-radius: 12px !important;
+                        gap: 6px !important;
                     }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule .lora-selected-toggle-pill {
-                        height: 24px !important;
-                        min-width: 44px !important;
-                        font-size: 10px !important;
-                        line-height: 22px !important;
+                        height: 19px !important;
+                        min-width: 35px !important;
+                        font-size: 8px !important;
+                        line-height: 17px !important;
                     }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule .lora-strength-chip {
-                        height: 24px !important;
-                        font-size: 11px !important;
-                        padding: 0 8px !important;
+                        height: 19px !important;
+                        font-size: 9px !important;
+                        padding: 0 6px !important;
                         border-radius: 5px !important;
                     }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-name {
                         bottom: 10px !important;
-                        left: 10px !important;
-                        right: 10px !important;
+                        left: 50% !important;
+                        right: auto !important;
+                        transform: translateX(-50%) !important;
+                        width: max-content !important;
+                        max-width: calc(100% - 20px) !important;
                         height: 28px !important;
                         border-radius: 8px !important;
                         font-size: 11px !important;
                         padding: 0 10px !important;
                     }
+
                 </style>
     `;
 }

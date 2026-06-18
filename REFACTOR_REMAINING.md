@@ -1,6 +1,6 @@
 # Remaining Work
 
-Updated: 2026-06-15
+Updated: 2026-06-18
 
 This file is the current practical work queue. Older baseline audits and migration plans were removed because they described pre-standalone architecture and stale legacy-route assumptions.
 
@@ -14,19 +14,21 @@ The project is now in a usable modular shape:
 - Prompt frontend code has been split into focused modules.
 - Prompt UI preferences have a backend schema plus frontend normalization helpers.
 - Prompt Builder, Card Manager, Active Stack, and Hidden Prompts are documented in `PROMPT_UI_TERMINOLOGY.md`.
+- LoRA Browser, LoRA Stack, LoRA Filters, LoRA Metadata, and LoRA Presets are documented in `LORA_UI_TERMINOLOGY.md`.
 
 Approximate current frontend sizes:
 
 | File | Lines | Notes |
 | --- | ---: | --- |
-| `js/prompt/styles.js` | 3607 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
-| `js/prompt/ui.js` | 2906 | Prompt coordinator; still important but no longer carries every prompt feature. |
-| `js/lora/ui.js` | 1774 | Largest remaining JS behavior module and best cleanup target. |
-| `js/prompt/library.js` | 668 | Prompt Builder card drawer. |
-| `js/prompt/settings.js` | 597 | Settings UI. |
-| `js/prompt/dialogs.js` | 628 | Prompt dialogs. |
-| `js/prompt/browse.js` | 433 | Card Manager. |
-| `js/prompt/preferences.js` | 106 | Frontend preference helpers. |
+| `js/prompt/styles.js` | 3835 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
+| `js/prompt/ui.js` | 3325 | Prompt coordinator; still important but no longer carries every prompt feature. |
+| `js/lora/ui.js` | 2582 | Largest remaining JS behavior module and best cleanup target. |
+| `js/lora/styles.js` | 1998 | LoRA CSS-only file; large enough to deserve careful surface checks. |
+| `js/prompt/library.js` | 757 | Prompt Builder card drawer. |
+| `js/prompt/dialogs.js` | 627 | Prompt dialogs. |
+| `js/prompt/settings.js` | 618 | Settings UI. |
+| `js/prompt/browse.js` | 432 | Card Manager. |
+| `js/prompt/preferences.js` | 107 | Frontend preference helpers. |
 
 ## Best Next Refactor Target
 
@@ -43,7 +45,7 @@ Good extraction candidates:
 - Metadata editor helpers.
 - Civitai sync UI status handling.
 
-Keep reorder math in `js/lora/helpers.js`.
+Reorder logic lives inside `js/lora/ui.js` (the old `moveSelectedLora` in helpers.js was dead and removed).
 
 ## Prompt-Side Guidance
 
