@@ -35,6 +35,7 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
         </button>`)
         .join("");
     const showSearch = presetNames.length > 6;
+    const tagSvg = `<svg class="lora-preset-tag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>`;
 
     return `<div class="lora-trigger-preset-picker${isStacking ? " stacking" : ""}">
     <select class="lora-card-preset-select" aria-hidden="true" tabindex="-1">
@@ -44,7 +45,8 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
     <div class="lora-card-preset-checklist">
         ${checklistHtml}
     </div>
-    <button type="button" class="lora-trigger-preset-button" title="Choose trigger preset">
+    <button type="button" class="lora-trigger-preset-button" title="Choose trigger preset" aria-label="Choose trigger preset">
+        ${tagSvg}
         <span class="lora-trigger-preset-label">${escapeHtml(selectedLabel)}</span>
         <span class="lora-trigger-preset-count">${isStacking && selectedPresetNames.length ? selectedPresetNames.length : ""}</span>
         <span class="lora-trigger-preset-arrow">v</span>
@@ -96,11 +98,12 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
     `;
 
     const presetControlsHtml = buildLoraPresetControlsHtml(lora, item);
+    const cleanName = escapeHtml(item.lora.split(/[\\/]/).pop().replace(/\.safetensors$/i, ""));
 
     if (isCompact) {
         return `
             <div class="locallora-selected-main">
-                <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${escapeHtml(item.lora)}</div>
+                <div class="locallora-selected-name" title="${escapeHtml(item.lora)}">${cleanName}</div>
                 <div class="locallora-selected-controls">
                     <button type="button" class="lora-selected-toggle-pill ${item.on ? "on" : "off"}">${item.on ? "ON" : "OFF"}</button>
                     <div class="lora-strength-chip" title="Model strength (Scroll to adjust)">
@@ -114,12 +117,13 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
             </div>
         `;
     } else {
+        const eyeSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
         const previewHtml = `
             <div class="locallora-selected-thumb" title="Drag to reorder.">
                 ${buildSelectedPreviewHtml(lora)}
             </div>
+            <button type="button" class="lora-active-preview-btn" title="Open preview / details" aria-label="Open preview and details">${eyeSvg}</button>
         `;
-        const cleanName = escapeHtml(item.lora.split(/[\\/]/).pop());
         return `
             ${previewHtml}
             <div class="locallora-selected-preset">${presetControlsHtml}</div>
