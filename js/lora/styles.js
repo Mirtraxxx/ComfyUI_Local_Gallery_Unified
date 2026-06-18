@@ -162,11 +162,11 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-controls {
                         display: flex;
                         flex-direction: column;
-                        padding: 6px 8px;
+                        padding: 8px 10px;
                         gap: 6px;
                         flex-shrink: 0;
-                        background: #1f1f1f;
-                        border-bottom: 1px solid #2d2d2d;
+                        background: #141416;
+                        border-bottom: 1px solid #333;
                         position: relative;
                         overflow: visible;
                         transition: border-bottom-color 0.2s ease;
@@ -201,11 +201,15 @@ export function getLoraStyles(uniqueId) {
                         justify-content: center;
                         box-sizing: border-box;
                         flex: 0 0 auto;
-                        border: 1px solid rgba(255, 122, 0, 0.22);
+                        border: 1px solid rgba(210, 235, 255, 0.22);
                         border-radius: 8px;
-                        background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015)), #1c1c1f;
+                        background:
+                            linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015)),
+                            #181c20;
                         color: #e8ecef;
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(255,255,255,0.06);
+                        box-shadow:
+                            0 2px 5px rgba(0,0,0,0.32),
+                            inset 0 0 0 1px rgba(255,255,255,0.06);
                         cursor: pointer;
                         opacity: 0.96;
                         transition: opacity 0.14s ease, border-color 0.14s ease, background 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
@@ -213,9 +217,13 @@ export function getLoraStyles(uniqueId) {
                     
                     #${uniqueId} .lora-active-stack-btn:hover,
                     #${uniqueId} .lora-active-stack-btn.open {
-                        border-color: rgba(255, 145, 40, 0.52);
-                        background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)), #2b2521;
-                        box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.09);
+                        border-color: rgba(178, 233, 255, 0.52);
+                        background:
+                            linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+                            #252b32;
+                        box-shadow:
+                            0 3px 8px rgba(0,0,0,0.4),
+                            inset 0 0 0 1px rgba(255,255,255,0.09);
                         color: #fff;
                         opacity: 1;
                     }
@@ -320,9 +328,8 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-folder-pill.active {
                         color: #fff;
                         background: #2d2d30;
-                        border-color: rgba(255,255,255,0.12);
-                        border-left-color: var(--folder-color, #ff7a00);
-                        box-shadow: 0 0 8px var(--folder-glow, rgba(255,122,0,0.22));
+                        border-color: rgba(255, 255, 255, 0.12);
+                        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
                     }
                     
                     #${uniqueId} .lora-folder-overflow-wrapper {
