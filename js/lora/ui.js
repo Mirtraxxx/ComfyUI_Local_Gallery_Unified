@@ -1,9 +1,9 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
-import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-active-preset-direct-20260617";
+import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-active-edit-toggle-20260618";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-active-preset-direct-20260617";
+import { getLoraStyles } from "./styles.js?v=lora-active-edit-toggle-20260618";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -914,6 +914,31 @@ const UnifiedLoraGalleryNode = {
                     requestAnimationFrame(() => syncSelectedCardStyles(true));
                 });
             };
+
+            const findGalleryCardByLoraName = (loraName) => (
+                Array.from(galleryEl.querySelectorAll(".locallora-lora-card"))
+                    .find(card => card.dataset.loraName === loraName) || null
+            );
+
+            const getLoraMetadataByName = (loraName) => (
+                this.availableLoras.find(lora => lora.name === loraName)
+                || this.loraData.find(item => item.lora === loraName)
+                || null
+            );
+
+            const updateCachedLoraMetadata = (loraName, updates) => {
+                const availableItem = this.availableLoras.find(lora => lora.name === loraName);
+                if (availableItem) Object.assign(availableItem, updates);
+                const selectedItem = this.loraData.find(item => item.lora === loraName);
+                if (selectedItem) Object.assign(selectedItem, updates);
+            };
+
+            const clearMetadataEditing = () => {
+                document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
+                this.selectedCardsForEditing.clear();
+                this.activeEditingLoraName = null;
+                renderMetadataEditor();
+            };
             
             let draggedIndex = -1;
             let cleanupMouseReorder = null;
@@ -1142,7 +1167,13 @@ const UnifiedLoraGalleryNode = {
                             activePreviewBtn.addEventListener("click", (e) => {
                                 e.stopPropagation();
                                 const loraName = item.lora;
-                                const card = galleryEl.querySelector(`.locallora-lora-card[data-lora-name="${loraName}"]`);
+                                const isEditingThisLora = this.activeEditingLoraName === loraName
+                                    || (this.selectedCardsForEditing.size === 1 && Array.from(this.selectedCardsForEditing)[0]?.dataset.loraName === loraName);
+                                if (isEditingThisLora && metadataEditor.classList.contains("visible")) {
+                                    clearMetadataEditing();
+                                    return;
+                                }
+                                const card = findGalleryCardByLoraName(loraName);
                                 if (card) {
                                     this.activeEditingLoraName = null;
                                     document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
@@ -1867,10 +1898,10 @@ const UnifiedLoraGalleryNode = {
 
             const getEditingLorasData = () => {
                 if (this.activeEditingLoraName) {
-                    const loraData = this.availableLoras.find(l => l.name === this.activeEditingLoraName);
+                    const loraData = getLoraMetadataByName(this.activeEditingLoraName);
                     if (loraData) {
                         return [{
-                            name: loraData.name,
+                            name: loraData.name || loraData.lora,
                             tags: loraData.tags || [],
                             trigger_words: loraData.trigger_words || "",
                             download_url: loraData.download_url || "",
@@ -1919,10 +1950,9 @@ const UnifiedLoraGalleryNode = {
                             
                             await UnifiedLoraGalleryNode.updateMetadata(loraName, { tags: newTags });
 
-                            const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
-                            if (loraInDataSource) loraInDataSource.tags = newTags;
+                            updateCachedLoraMetadata(loraName, { tags: newTags });
 
-                            const card = galleryEl.querySelector(`.locallora-lora-card[data-lora-name="${loraName}"]`);
+                            const card = findGalleryCardByLoraName(loraName);
                             if (card) {
                                 card.dataset.tags = newTags.join(',');
                                 renderCardTags(card);
@@ -1947,7 +1977,7 @@ const UnifiedLoraGalleryNode = {
                     const renderPresetsList = () => {
                         triggerPresetList.innerHTML = "";
                         const loraName = singleLora.name;
-                        const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
+                        const loraInDataSource = getLoraMetadataByName(loraName);
                         if (!loraInDataSource) return;
                         const presets = loraInDataSource.trigger_presets || {};
                         for (const [pName, pVal] of Object.entries(presets)) {
@@ -1999,7 +2029,7 @@ const UnifiedLoraGalleryNode = {
                                 const newPresets = { ...loraInDataSource.trigger_presets };
                                 delete newPresets[pName];
                                 await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
-                                loraInDataSource.trigger_presets = newPresets;
+                                updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
                                 renderPresetsList();
                                 renderCurrentView();
                                 renderSelectedList();
@@ -2152,20 +2182,20 @@ const UnifiedLoraGalleryNode = {
 
                 addTriggerPresetBtn.addEventListener("click", async (e) => {
                     e.preventDefault();
-                    if (this.selectedCardsForEditing.size !== 1) return;
+                    const editingLoras = getEditingLorasData();
+                    if (editingLoras.length !== 1) return;
                     const name = triggerPresetNameInput.value.trim();
                     const val = triggerPresetValueInput.value.trim();
                     if (!name || !val) return;
                     
-                    const selectedCard = Array.from(this.selectedCardsForEditing)[0];
-                    const loraName = selectedCard.dataset.loraName;
-                    const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
+                    const loraName = editingLoras[0].name;
+                    const loraInDataSource = getLoraMetadataByName(loraName);
                     if (!loraInDataSource) return;
                     
                     const newPresets = { ...(loraInDataSource.trigger_presets || {}) };
                     newPresets[name] = val;
                     await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
-                    loraInDataSource.trigger_presets = newPresets;
+                    updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
                     triggerPresetNameInput.value = "";
                     triggerPresetValueInput.value = "";
                     addTriggerPresetBtn.textContent = "Add";
@@ -2186,10 +2216,9 @@ const UnifiedLoraGalleryNode = {
 
                         await UnifiedLoraGalleryNode.updateMetadata(loraName, { download_url: newUrl });
 
-                        const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
-                        if (loraInDataSource) loraInDataSource.download_url = newUrl;
+                        updateCachedLoraMetadata(loraName, { download_url: newUrl });
 
-                        const card = galleryEl.querySelector(`.locallora-lora-card[data-lora-name="${loraName}"]`);
+                        const card = findGalleryCardByLoraName(loraName);
                         if (card) {
                             card.dataset.downloadUrl = newUrl;
                             let linkBtn = card.querySelector('.lora-card-link-btn');
@@ -2228,10 +2257,9 @@ const UnifiedLoraGalleryNode = {
 
                         await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_words: newTriggers });
 
-                        const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
-                        if (loraInDataSource) loraInDataSource.trigger_words = newTriggers;
+                        updateCachedLoraMetadata(loraName, { trigger_words: newTriggers });
 
-                        const card = galleryEl.querySelector(`.locallora-lora-card[data-lora-name="${loraName}"]`);
+                        const card = findGalleryCardByLoraName(loraName);
                         if (card) {
                             card.dataset.triggerWords = newTriggers;
                             const triggerDisplayEl = card.querySelector('.lora-card-triggers');
@@ -2260,11 +2288,10 @@ const UnifiedLoraGalleryNode = {
                                 if (!tags.includes(newTag)) {
                                     tags.push(newTag);
                                     await UnifiedLoraGalleryNode.updateMetadata(loraName, { tags: tags });
-                                    
-                                    const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
-                                    if (loraInDataSource) loraInDataSource.tags = [...tags];
-                                    
-                                    const card = galleryEl.querySelector(`.locallora-lora-card[data-lora-name="${loraName}"]`);
+
+                                    updateCachedLoraMetadata(loraName, { tags: [...tags] });
+
+                                    const card = findGalleryCardByLoraName(loraName);
                                     if (card) {
                                         card.dataset.tags = tags.join(',');
                                         renderCardTags(card);
