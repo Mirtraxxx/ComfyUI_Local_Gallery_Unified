@@ -10,6 +10,14 @@ export function setupUnifiedGalleryTabs(nodeType) {
 
         const tabContainer = document.createElement("div");
         tabContainer.className = "unified-gallery-tabs-wrapper";
+        // Ensure canvas selection uses correct node rect for menu positioning even when clicking tabs.
+        tabContainer.addEventListener('mousedown', () => {
+            setTimeout(() => {
+                if (app && app.canvas && typeof app.canvas.selectNode === 'function') {
+                    app.canvas.selectNode(node);
+                }
+            }, 0);
+        });
         tabContainer.innerHTML = `
             <style>
                 .unified-gallery-tabs-wrapper { width: 100%; padding: 4px 6px 2px; box-sizing: border-box; }

@@ -65,6 +65,16 @@ const UnifiedLoraGalleryNode = {
             widgetContainer.className = "locallora-container-wrapper";
             this.addDOMWidget("lora_gallery", "div", widgetContainer, {});
 
+            // Fix for node title menu icons appearing in wrong position (left) when clicking custom content.
+            // Force canvas selection logic on mousedown so menu uses correct node title rect instead of widget rect.
+            widgetContainer.addEventListener('mousedown', () => {
+                setTimeout(() => {
+                    if (app && app.canvas && typeof app.canvas.selectNode === 'function') {
+                        app.canvas.selectNode(this);
+                    }
+                }, 0);
+            });
+
             const uniqueId = `locallora-gallery-${this.id}`;
             widgetContainer.innerHTML = `
                 ${getLoraStyles(uniqueId)}
