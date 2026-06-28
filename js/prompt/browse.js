@@ -55,9 +55,13 @@ function populateCategorySelect(categorySelect, categories, selectedCategory = "
 
 function updateCategoryActionButtons(overlay, categoryValue) {
     const renameCategoryBtn = overlay.querySelector("#browse-rename-category");
+    const exportCategoryBtn = overlay.querySelector("#browse-export-category");
     const deleteCategoryBtn = overlay.querySelector("#browse-delete-category");
     if (renameCategoryBtn) {
         renameCategoryBtn.style.display = categoryValue ? "block" : "none";
+    }
+    if (exportCategoryBtn) {
+        exportCategoryBtn.style.display = categoryValue ? "block" : "none";
     }
     if (deleteCategoryBtn) {
         deleteCategoryBtn.style.display = categoryValue ? "block" : "none";
@@ -95,6 +99,7 @@ export async function showCardManagerModal({
     attachInfoPopup,
     showContextMenu,
     renameCategoryWithPrompt,
+    onExportCategory = null,
     getCategoryRoleColor,
     getSortMode = () => "manual",
     setSortMode = null,
@@ -131,6 +136,7 @@ export async function showCardManagerModal({
                     </select>
                     <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn">Manage</button>
                     <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category">Rename</button>
+                    <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt">Export TXT</button>
                     <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="background: #5a3030; display: none;" title="Delete entire category">Delete</button>
                 </div>
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
@@ -379,6 +385,17 @@ export async function showCardManagerModal({
 
     prevBtn.addEventListener("click", () => loadBrowseGallery(currentPage - 1));
     nextBtn.addEventListener("click", () => loadBrowseGallery(currentPage + 1));
+
+    root.querySelector("#browse-export-category")?.addEventListener("click", async () => {
+        const categoryToExport = categorySelect.value;
+        if (!categoryToExport) {
+            alert("Please select a category to export.");
+            return;
+        }
+        if (typeof onExportCategory === "function") {
+            await onExportCategory(categoryToExport);
+        }
+    });
 
     root.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
         await renameCategoryWithPrompt(categorySelect.value, async (newCategory) => {

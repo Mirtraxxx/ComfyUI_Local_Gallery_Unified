@@ -267,8 +267,6 @@ export async function renderPromptBuilderDrawer({
             .filter(Boolean)
         : [];
     const previousScrollTop = shouldKeepScroll ? container.scrollTop : 0;
-    container.dataset.renderedTab = tabName;
-    container.dataset.renderedSortMode = sortMode;
 
     if (tabName === "pinned") {
         container.ondragover = (event) => {
@@ -323,6 +321,8 @@ export async function renderPromptBuilderDrawer({
         nextContent.appendChild(emptyState);
         if (!isRenderCurrent()) return;
         container.replaceChildren(nextContent);
+        container.dataset.renderedTab = tabName;
+        container.dataset.renderedSortMode = sortMode;
         if (shouldRestoreScroll) {
             requestAnimationFrame(() => {
                 container.scrollTop = previousScrollTop;
@@ -612,6 +612,8 @@ export async function renderPromptBuilderDrawer({
 
     if (!isRenderCurrent()) return;
     container.replaceChildren(nextContent);
+    container.dataset.renderedTab = tabName;
+    container.dataset.renderedSortMode = sortMode;
 
     if (canPointerReorderManualCards || selectedIdStrings.size > 0) {
         const updateSelectedPointerTarget = event => {

@@ -11,6 +11,7 @@ export function createPromptWorkspaceController({
     showBrowseWorkspace,
     showPresetsWorkspace,
     showImportWorkspace,
+    showExportWorkspace,
 }) {
     let workspaceMode = "gallery";
 
@@ -60,6 +61,7 @@ export function createPromptWorkspaceController({
             { key: "cards", label: "Cards" },
             { key: "presets", label: "Presets" },
             { key: "import", label: "Import TXT" },
+            { key: "export", label: "Export TXT" },
         ];
 
         return `
@@ -89,6 +91,7 @@ export function createPromptWorkspaceController({
             if (page === "cards") showBrowseWorkspace();
             if (page === "presets") showPresetsWorkspace();
             if (page === "import") showImportWorkspace();
+            if (page === "export") showExportWorkspace();
         });
 
         return host.querySelector(`#${uniqueId}-library-workspace-content`);
@@ -124,6 +127,11 @@ export function createPromptWorkspaceController({
                                 <strong>Import TXT</strong>
                                 <span>Create a new category from a wildcard-style text file.</span>
                             </button>
+                            <button class="localprompt-library-choice" data-workspace-target="export_txt" style="--library-accent: #4f93ff;">
+                                <span class="localprompt-library-choice-icon">E</span>
+                                <strong>Export TXT</strong>
+                                <span>Export a category to a ComfyUI wildcard .txt file.</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -132,6 +140,7 @@ export function createPromptWorkspaceController({
         content.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace());
         content.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace());
         content.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace());
+        content.querySelector('[data-workspace-target="export_txt"]')?.addEventListener("click", () => showExportWorkspace());
     }
 
     return {

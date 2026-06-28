@@ -28,7 +28,21 @@ function createWeightButton(className, label) {
     return button;
 }
 
-function createCategoryRow(category, weightMap, onChange) {
+function createExportButton(onExport) {
+    const button = document.createElement("button");
+    button.className = "wc-export-btn";
+    button.type = "button";
+    button.title = "Export category to wildcard .txt";
+    button.textContent = "Export";
+    button.style.cssText = "padding: 2px 6px; font-size: 10px; background: #2f4f2f; border: 1px solid #4a7c4a; color: #ddd; border-radius: 3px; cursor: pointer;";
+    button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onExport();
+    });
+    return button;
+}
+
+function createCategoryRow(category, weightMap, onChange, onExport) {
     const isChecked = Object.prototype.hasOwnProperty.call(weightMap, category);
     const weight = isChecked ? weightMap[category] : 1.0;
 
@@ -58,6 +72,9 @@ function createCategoryRow(category, weightMap, onChange) {
 
     weightControls.append(minus, weightLabel, plus);
     row.append(checkbox, label, weightControls);
+    if (typeof onExport === "function") {
+        row.appendChild(createExportButton(() => onExport(category)));
+    }
 
     checkbox.addEventListener("change", () => {
         weightControls.style.display = checkbox.checked ? "flex" : "none";
@@ -98,6 +115,7 @@ export async function showWildcardsModal({
     categoriesWidget,
     getCurrentWildcardMode,
     saveWildcardState,
+    onExportCategory = null,
 }) {
     const overlay = document.createElement("div");
     overlay.className = "localprompt-modal-overlay";
@@ -137,6 +155,6 @@ export async function showWildcardsModal({
 
     categoryList.innerHTML = "";
     categories.forEach(category => {
-        categoryList.appendChild(createCategoryRow(category, weightMap, updateCategoriesWidget));
+        categoryList.appendChild(createCategoryRow(category, weightMap, updateCategoriesWidget, onExportCategory));
     });
 }

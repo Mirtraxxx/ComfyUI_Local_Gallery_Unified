@@ -338,6 +338,176 @@ export function showUploadThumbnailDialog({
     });
 }
 
+function sanitizeWildcardFilename(value) {
+    return String(value || "")
+        .trim()
+        .replace(/[<>:"|?*\\]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^\.+|\.+$/g, "");
+}
+
+function downloadTextFile(content, filename) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+}
+
+function updateWildcardTokenPreview(dialog, filenameValue) {
+    const preview = dialog.querySelector("#export-wildcard-token");
+    if (!preview) return;
+    const relPath = sanitizeWildcardFilename(filenameValue);
+    preview.textContent = relPath ? `__${relPath}__` : "__filename__";
+}
+
+export async function showExportDialog({
+    galleryNode,
+    initialCategory = "",
+    workspaceContainer = null,
+    onClose = null,
+    librarySubnavHtml = "",
+}) {
+    const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+        workspaceContainer,
+        onClose,
+        width: 450,
+    });
+
+    dialog.innerHTML = `
+         <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
+             <div class="localprompt-workspace-title">
+                 <h3>Export TXT</h3>
+                 ${isWorkspace ? "<p>Export a category to a ComfyUI wildcard .txt file.</p>" : ""}
+             </div>
+             ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
+         </div>
+         ${isWorkspace ? librarySubnavHtml : ""}
+         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
+             <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 12px;">
+                 <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
+                     Export one category as a wildcard-style .txt file with one prompt per line.
+                 </p>
+                 <div style="margin-bottom: 12px;">
+                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category</label>
+                     <select id="export-category-select" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;"></select>
+                 </div>
+                 <div style="margin-bottom: 12px;">
+                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Wildcard Filename</label>
+                     <input type="text" id="export-filename-input" placeholder="e.g. MyCategory or Folder/MyCategory" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
+                     <div style="font-size: 10px; color: #888; margin-top: 4px;">Saved as <code>.txt</code>. Subfolders are supported.</div>
+                 </div>
+                 <div style="margin-bottom: 12px;">
+                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Destination</label>
+                     <select id="export-destination-select" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
+                         <option value="comfy">Save to ComfyUI wildcards folder</option>
+                         <option value="download">Download .txt file</option>
+                     </select>
+                 </div>
+                 <div style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">
+                     Wildcard token: <code id="export-wildcard-token">__filename__</code>
+                 </div>
+             </div>
+             <div id="export-status" style="
+                 margin: 12px 0;
+                 padding: 8px;
+                 background: #151515;
+                 border: 1px solid #444;
+                 border-radius: 4px;
+                 min-height: 40px;
+                 font-size: 11px;
+                 color: #aaa;
+                 white-space: pre-wrap;
+                 display: none;
+             "></div>
+         </div>
+         <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
+             <button id="export-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
+             <button id="export-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Export</button>
+         </div>
+     `;
+
+    const categorySelect = dialog.querySelector("#export-category-select");
+    const filenameInput = dialog.querySelector("#export-filename-input");
+    const destinationSelect = dialog.querySelector("#export-destination-select");
+    const cancelBtn = dialog.querySelector("#export-cancel-btn");
+    const saveBtn = dialog.querySelector("#export-save-btn");
+    const statusDiv = dialog.querySelector("#export-status");
+
+    const categories = await galleryNode.getCategories();
+    if (Array.isArray(categories)) {
+        categories.forEach(category => {
+            const option = document.createElement("option");
+            option.value = category;
+            option.textContent = category;
+            categorySelect.appendChild(option);
+        });
+    }
+
+    if (initialCategory && categories?.includes(initialCategory)) {
+        categorySelect.value = initialCategory;
+        filenameInput.value = sanitizeWildcardFilename(initialCategory);
+    }
+
+    const syncFilenameFromCategory = () => {
+        if (!filenameInput.value.trim() && categorySelect.value) {
+            filenameInput.value = sanitizeWildcardFilename(categorySelect.value);
+        }
+        updateWildcardTokenPreview(dialog, filenameInput.value || categorySelect.value);
+    };
+
+    categorySelect.addEventListener("change", syncFilenameFromCategory);
+    filenameInput.addEventListener("input", () => updateWildcardTokenPreview(dialog, filenameInput.value));
+    syncFilenameFromCategory();
+
+    const updateStatus = (message, isError = false) => {
+        statusDiv.style.display = "block";
+        statusDiv.textContent = message;
+        statusDiv.style.color = isError ? "#ff6b6b" : "#aaa";
+    };
+
+    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
+    cancelBtn.addEventListener("click", close);
+
+    saveBtn.addEventListener("click", async () => {
+        const category = categorySelect.value.trim();
+        const filename = filenameInput.value.trim() || sanitizeWildcardFilename(category);
+        const destination = destinationSelect.value;
+
+        if (!category) {
+            updateStatus("Please select a category.", true);
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = "0.5";
+
+        try {
+            updateStatus("Exporting wildcard file...");
+            const result = await galleryNode.exportWildcardCategory(category, filename, destination);
+            if (result.status !== "ok") {
+                throw new Error(result.message || "Export failed");
+            }
+
+            if (destination === "download" && result.content) {
+                downloadTextFile(result.content, result.filename || `${sanitizeWildcardFilename(category)}.txt`);
+            }
+
+            const tokenLine = result.wildcard_token ? `\nWildcard token: ${result.wildcard_token}` : "";
+            const pathLine = result.save_path ? `\nSaved to: ${result.save_path}` : "";
+            updateStatus((result.message || `Exported ${result.line_count || 0} lines.`) + tokenLine + pathLine);
+        } catch (error) {
+            updateStatus("Error: " + error.message, true);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = "1";
+        }
+    });
+}
+
 export async function showImportDialog({
     galleryNode,
     loadCategories,

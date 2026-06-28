@@ -227,6 +227,41 @@ def _sort_prompt_ids_for_wildcards(metadata, prompt_ids):
         )
     )
 
+def get_comfy_wildcards_dir():
+    return os.path.join(folder_paths.base_path, "wildcards")
+
+def _sanitize_wildcard_relpath(filename):
+    normalized = str(filename or "").strip().replace("\\", "/")
+    if not normalized:
+        return None
+    parts = []
+    for part in normalized.split("/"):
+        part = part.strip()
+        if not part or part in (".", ".."):
+            return None
+        parts.append(part)
+    return "/".join(parts)
+
+def get_prompt_ids_for_wildcard_export(metadata, prefs, category):
+    indexes = get_metadata_indexes()
+    prompt_ids = list(indexes.get("category_ids", {}).get(category, []))
+    if not prompt_ids:
+        return []
+    if _prompt_has_order(metadata, prompt_ids):
+        return _sort_prompt_ids_for_wildcards(metadata, prompt_ids)
+    manual_order_scope = get_prompt_manual_order_scope(category)
+    prompt_manual_orders = prefs.get("prompt_manual_orders", {})
+    manual_order = prompt_manual_orders.get(manual_order_scope, []) if isinstance(prompt_manual_orders, dict) else []
+    return sort_prompt_ids_for_display(metadata, prompt_ids, "manual", manual_order)
+
+def build_wildcard_export_lines(metadata, prefs, category):
+    lines = []
+    for prompt_id in get_prompt_ids_for_wildcard_export(metadata, prefs, category):
+        prompt_text = str(metadata.get(prompt_id, {}).get("prompt_text", "")).strip()
+        if prompt_text:
+            lines.append(prompt_text)
+    return lines
+
 def _prompt_created_at_value(prompt_id, data):
     for key in ("created_at", "date_added", "createdAt"):
         value = data.get(key)
@@ -1581,6 +1616,80 @@ async def import_wildcard_file_endpoint(request):
         
     except Exception as e:
         print(f"Error importing wildcard file: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/export_wildcard_category")
+async def export_wildcard_category_endpoint(request):
+    try:
+        data = await request.json()
+        category = str(data.get("category", "")).strip()
+        filename = data.get("filename", "")
+        destination = str(data.get("destination", "comfy") or "comfy").strip().lower()
+
+        if not category:
+            return web.json_response({"status": "error", "message": "Category required"}, status=400)
+
+        metadata = load_metadata()
+        indexes = get_metadata_indexes()
+        if category not in indexes.get("category_ids", {}):
+            return web.json_response({"status": "error", "message": f"Category '{category}' not found"}, status=404)
+
+        prefs = load_ui_prefs()
+        lines = build_wildcard_export_lines(metadata, prefs, category)
+        if not lines:
+            return web.json_response({"status": "error", "message": f"Category '{category}' has no exportable prompts"}, status=400)
+
+        rel_path = _sanitize_wildcard_relpath(filename or category)
+        if not rel_path:
+            return web.json_response({"status": "error", "message": "Invalid wildcard filename"}, status=400)
+
+        content = "\n".join(lines) + "\n"
+        wildcard_token = f"__{rel_path}__"
+
+        if destination == "download":
+            return web.json_response({
+                "status": "ok",
+                "category": category,
+                "filename": f"{rel_path}.txt",
+                "wildcard_token": wildcard_token,
+                "line_count": len(lines),
+                "content": content,
+            })
+
+        wildcards_dir = get_comfy_wildcards_dir()
+        os.makedirs(wildcards_dir, exist_ok=True)
+        save_path = os.path.join(wildcards_dir, f"{rel_path.replace('/', os.sep)}.txt")
+        save_dir = os.path.dirname(save_path)
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+
+        temp_save_path = f"{save_path}.{int(time.time() * 1000)}.tmp"
+        try:
+            with open(temp_save_path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            backup_json_file(save_path)
+            os.replace(temp_save_path, save_path)
+        except Exception:
+            try:
+                if os.path.exists(temp_save_path):
+                    os.remove(temp_save_path)
+            except Exception:
+                pass
+            raise
+
+        return web.json_response({
+            "status": "ok",
+            "message": f"Exported {len(lines)} lines to {save_path}",
+            "category": category,
+            "filename": f"{rel_path}.txt",
+            "save_path": save_path,
+            "wildcard_token": wildcard_token,
+            "line_count": len(lines),
+        })
+    except Exception as e:
+        print(f"Error exporting wildcard category: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.post("/localgalleryunified/prompt/get_or_create_prompts")

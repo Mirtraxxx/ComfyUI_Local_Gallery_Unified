@@ -140,6 +140,15 @@ export async function importWildcardFile(filename, category) {
     return await response.json();
 }
 
+export async function exportWildcardCategory(category, filename = "", destination = "comfy") {
+    const response = await api.fetchApi("/localgalleryunified/prompt/export_wildcard_category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, filename, destination }),
+    });
+    return await response.json();
+}
+
 export async function deleteCategory(category) {
     const response = await api.fetchApi("/localgalleryunified/prompt/delete_category", {
         method: "POST",

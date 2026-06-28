@@ -32,6 +32,7 @@ import {
     showEditPromptDialog as openEditPromptDialog,
     showFromLastOutputDialog as openFromLastOutputDialog,
     showImportDialog as openImportDialog,
+    showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
 } from "./dialogs.js?v=workspace-toggle-cleanup-20260607";
 import {
@@ -60,7 +61,7 @@ import {
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=prompt-builder-swap-reorder-20260617";
+} from "./library.js?v=prompt-sort-refresh-20260621";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js";
@@ -222,6 +223,15 @@ const UnifiedPromptGalleryNode = {
             return await promptApi.importWildcardFile(filename, category);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to import wildcard file", e);
+            return { status: "error", message: e.toString() };
+        }
+    },
+
+    async exportWildcardCategory(category, filename = "", destination = "comfy") {
+        try {
+            return await promptApi.exportWildcardCategory(category, filename, destination);
+        } catch (e) {
+            console.error("LocalPromptGallery: Failed to export wildcard category", e);
             return { status: "error", message: e.toString() };
         }
     },
@@ -492,6 +502,7 @@ const UnifiedPromptGalleryNode = {
                 showBrowseWorkspace: (onClose) => showBrowseWorkspace(onClose),
                 showPresetsWorkspace: (onClose) => showPresetsWorkspace(onClose),
                 showImportWorkspace: (onClose) => showImportWorkspace(onClose),
+                showExportWorkspace: (onClose) => showExportWorkspace(onClose),
             });
             const {
                 getWorkspaceMode,
@@ -1724,12 +1735,13 @@ const UnifiedPromptGalleryNode = {
                     if (scope.trim()) return `category:${scope.trim()}`;
                 }
 
-                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
-                const selectedCategory = categorySelect?.value || "";
-                if (selectedCategory) return `category:${selectedCategory}`;
                 if (activeLibraryTab === "pinned") return "favorites";
                 if (activeLibraryTab === "most_used") return "most_used";
                 if (activeLibraryTab) return `category:${activeLibraryTab}`;
+
+                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+                const selectedCategory = categorySelect?.value || "";
+                if (selectedCategory) return `category:${selectedCategory}`;
                 if (node_instance.showFavoritesOnly) return "favorites";
                 return "all";
             }
@@ -1755,7 +1767,7 @@ const UnifiedPromptGalleryNode = {
             function syncPromptSortControls() {
                 const mainSortSelect = widgetContainer.querySelector(`#${uniqueId}-main-sort-select`);
                 if (mainSortSelect) {
-                    mainSortSelect.value = getPromptSortMode();
+                    mainSortSelect.value = getPromptSortMode(activeLibraryTab);
                 }
                 widgetContainer.querySelectorAll(".localprompt-browse-sort-select").forEach(select => {
                     const browseRoot = select.closest(".localprompt-browse-page");
@@ -1788,14 +1800,13 @@ const UnifiedPromptGalleryNode = {
             function bindMainSortSelect() {
                 const select = widgetContainer.querySelector(`#${uniqueId}-main-sort-select`);
                 if (!select) return;
-                select.value = getPromptSortMode();
+                select.value = getPromptSortMode(activeLibraryTab);
                 if (select.dataset.sortBound === "1") return;
                 const handleSortChange = async (event) => {
                     event.stopPropagation();
                     await setPromptSortMode(event.target.value);
                 };
                 select.addEventListener("change", handleSortChange);
-                select.addEventListener("input", handleSortChange);
                 select.dataset.sortBound = "1";
             }
 
@@ -1811,15 +1822,11 @@ const UnifiedPromptGalleryNode = {
                     node_instance.uiPrefs.prompt_sort_mode = sortMode;
                 }
                 syncPromptSortControls();
-                const drawerContainer = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
-                const renderedDrawerTab = drawerContainer?.dataset?.renderedTab;
-                const drawerTabToRefresh = activeLibraryTab || renderedDrawerTab;
                 const refreshTasks = [];
-                if (options.reload !== false) {
+                if (activeLibraryTab) {
+                    refreshTasks.push(renderLibraryDrawer(activeLibraryTab));
+                } else if (options.reload !== false && document.getElementById(`${uniqueId}-gallery`)) {
                     refreshTasks.push(loadPromptsForGallery(1));
-                }
-                if (drawerTabToRefresh) {
-                    refreshTasks.push(renderLibraryDrawer(drawerTabToRefresh));
                 }
                 await Promise.all(refreshTasks);
                 saveUiPrefs().catch(error => {
@@ -2728,6 +2735,24 @@ const UnifiedPromptGalleryNode = {
                 });
             }
 
+            async function showExportDialog(initialCategory = "") {
+                await openExportDialog({
+                    galleryNode: UnifiedPromptGalleryNode,
+                    initialCategory,
+                });
+            }
+
+            async function showExportWorkspace(onClose = returnToGallery) {
+                const host = renderLibraryShell("export");
+                if (!host) return;
+                await openExportDialog({
+                    galleryNode: UnifiedPromptGalleryNode,
+                    workspaceContainer: host,
+                    onClose,
+                    librarySubnavHtml: getLibrarySubnavHtml("export"),
+                });
+            }
+
             async function showPresetsWorkspace(onClose = returnToGallery) {
                 const host = renderLibraryShell("presets");
                 if (!host) return;
@@ -2767,6 +2792,7 @@ const UnifiedPromptGalleryNode = {
                     attachInfoPopup,
                     showContextMenu,
                     renameCategoryWithPrompt,
+                    onExportCategory: showExportDialog,
                     getCategoryRoleColor,
                     getSortMode: scope => getPromptSortMode(scope),
                     setSortMode: setPromptSortMode,
@@ -2959,6 +2985,7 @@ const UnifiedPromptGalleryNode = {
                         categoriesWidget,
                         getCurrentWildcardMode: () => currentWildcardMode,
                         saveWildcardState,
+                        onExportCategory: showExportDialog,
                     });
                 });
 
@@ -3056,6 +3083,8 @@ const UnifiedPromptGalleryNode = {
                             clearLibraryNavActiveState();
                             drawer.classList.remove("active");
                         } else {
+                            const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
+                            if (categorySelect) categorySelect.value = "";
                             activeLibraryTab = "pinned";
                             clearLibraryNavActiveState();
                             favBtn.classList.add("active");
@@ -3210,6 +3239,7 @@ const UnifiedPromptGalleryNode = {
                         attachInfoPopup,
                         showContextMenu,
                         renameCategoryWithPrompt,
+                        onExportCategory: showExportDialog,
                         getCategoryRoleColor,
                         getSortMode: scope => getPromptSortMode(scope),
                         setSortMode: setPromptSortMode,
