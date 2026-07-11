@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js";
+import { getPromptStyles } from "./styles.js?v=wildcard-auto-attach-category-fix-20260711";
 import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX } from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {
@@ -162,6 +162,10 @@ export function getPromptTemplate(uniqueId) {
                                         <option value="shuffle">Shuffle order</option>
                                         <option value="fresh">Fresh every run</option>
                                     </select>
+                                </label>
+                                <label class="localprompt-wildcard-auto-attach" title="Use the final generated image as the selected wildcard card thumbnail">
+                                    <input id="${uniqueId}-wildcard-auto-attach" type="checkbox">
+                                    <span>Auto-attach image</span>
                                 </label>
                                 <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks" aria-label="Shuffle wildcard picks">
                                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -12,11 +12,14 @@ function readWildcardCategoryData(value) {
 }
 
 function buildWeightMap(savedData) {
-    const weightMap = {};
+    const categoryMap = {};
     savedData.forEach(item => {
-        weightMap[item.category] = Number.isFinite(Number(item.weight)) ? Number(item.weight) : 1.0;
+        categoryMap[item.category] = {
+            weight: Number.isFinite(Number(item.weight)) ? Number(item.weight) : 1.0,
+            autoAttach: item.auto_attach !== false,
+        };
     });
-    return weightMap;
+    return categoryMap;
 }
 
 function createWeightButton(className, label) {
@@ -42,9 +45,11 @@ function createExportButton(onExport) {
     return button;
 }
 
-function createCategoryRow(category, weightMap, onChange, onExport) {
-    const isChecked = Object.prototype.hasOwnProperty.call(weightMap, category);
-    const weight = isChecked ? weightMap[category] : 1.0;
+function createCategoryRow(category, categoryMap, onChange, onExport) {
+    const savedCategory = categoryMap[category];
+    const isChecked = Boolean(savedCategory);
+    const weight = isChecked ? savedCategory.weight : 1.0;
+    const autoAttach = isChecked ? savedCategory.autoAttach : true;
 
     const row = document.createElement("div");
     row.style.cssText = "display: flex; align-items: center; gap: 6px; padding: 4px 0;";
@@ -54,6 +59,19 @@ function createCategoryRow(category, weightMap, onChange, onExport) {
     checkbox.type = "checkbox";
     checkbox.checked = isChecked;
     checkbox.style.cursor = "pointer";
+
+    const autoAttachLabel = document.createElement("label");
+    autoAttachLabel.title = "Update this category's selected card with the generated image";
+    autoAttachLabel.style.cssText = "display: inline-flex; align-items: center; gap: 3px; color: #aaa; font-size: 10px; white-space: nowrap; cursor: pointer;";
+    const autoAttachCheckbox = document.createElement("input");
+    autoAttachCheckbox.type = "checkbox";
+    autoAttachCheckbox.className = "wc-auto-attach";
+    autoAttachCheckbox.checked = autoAttach;
+    autoAttachCheckbox.disabled = !isChecked;
+    autoAttachCheckbox.style.cssText = "margin: 0; accent-color: #55a66b; cursor: pointer;";
+    const autoAttachText = document.createElement("span");
+    autoAttachText.textContent = "Update";
+    autoAttachLabel.append(autoAttachCheckbox, autoAttachText);
 
     const label = document.createElement("span");
     label.textContent = category;
@@ -71,15 +89,18 @@ function createCategoryRow(category, weightMap, onChange, onExport) {
     const plus = createWeightButton("wc-plus", "+");
 
     weightControls.append(minus, weightLabel, plus);
-    row.append(checkbox, label, weightControls);
+    row.append(checkbox, label, autoAttachLabel, weightControls);
     if (typeof onExport === "function") {
         row.appendChild(createExportButton(() => onExport(category)));
     }
 
     checkbox.addEventListener("change", () => {
         weightControls.style.display = checkbox.checked ? "flex" : "none";
+        autoAttachCheckbox.disabled = !checkbox.checked;
         onChange();
     });
+
+    autoAttachCheckbox.addEventListener("change", onChange);
 
     minus.addEventListener("click", () => {
         let nextWeight = parseFloat(weightLabel.textContent);
@@ -104,7 +125,11 @@ function collectSelectedCategories(categoryList) {
         const checkbox = row.querySelector('input[type="checkbox"]');
         if (checkbox?.checked) {
             const weight = parseFloat(row.querySelector(".wc-weight")?.textContent) || 1.0;
-            selected.push({ category: row.dataset.category, weight });
+            selected.push({
+                category: row.dataset.category,
+                weight,
+                auto_attach: row.querySelector(".wc-auto-attach")?.checked !== false,
+            });
         }
     });
     return selected;
@@ -126,6 +151,7 @@ export async function showWildcardsModal({
                 <button class="localprompt-modal-close">x</button>
             </div>
             <div class="localprompt-modal-content">
+                <div style="margin-bottom: 8px; color: #aaa; font-size: 11px;">Select wildcard categories and choose which selected categories update their cards with the generated image.</div>
                 <div id="wc-categories-section">
                     <div id="wc-category-list" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; padding: 8px;"></div>
                 </div>

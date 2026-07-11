@@ -94,7 +94,8 @@ async function resolvePresetSelection(galleryNode, presetName, presetData) {
             presetName,
             presetSelection,
             presetData.wildcard_mode || "off",
-            presetData.wildcard_categories || []
+            presetData.wildcard_categories || [],
+            presetData.wildcard_auto_attach_thumbnail || "off"
         ).catch(error => console.warn("LocalPromptGallery: Failed to save repaired preset", error));
     }
 
@@ -207,6 +208,8 @@ export async function showPresetsModal({
     setCurrentWildcardMode,
     saveSelectionData,
     saveWildcardState,
+    getWildcardAutoAttachThumbnail,
+    saveWildcardAutoAttachState,
     updateWildcardControlsUI,
     renderPrompts,
     getActiveLibraryTab,
@@ -277,6 +280,7 @@ export async function showPresetsModal({
         setCurrentWildcardMode(nextWildcardMode);
         const presetCategoriesValue = stringifyJsonOr(presetData.wildcard_categories || []);
         saveWildcardState(nextWildcardMode, presetCategoriesValue);
+        saveWildcardAutoAttachState(presetData.wildcard_auto_attach_thumbnail === "on");
         updateWildcardControlsUI();
 
         if (categoriesWidget) {
@@ -323,8 +327,9 @@ export async function showPresetsModal({
         const selection = nodeInstance.promptData || [];
         const wildcardMode = getCurrentWildcardMode() || "off";
         const wildcardCategories = parseJsonOr(categoriesWidget?.value || "[]", []);
+        const wildcardAutoAttachThumbnail = getWildcardAutoAttachThumbnail?.() ? "on" : "off";
 
-        const result = await galleryNode.savePreset(name, selection, wildcardMode, wildcardCategories);
+        const result = await galleryNode.savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail);
         if (result.status === "ok") {
             presetNameInput.value = "";
             await renderPresetsList();

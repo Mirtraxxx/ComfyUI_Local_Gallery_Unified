@@ -193,7 +193,7 @@ export async function getPresets() {
     return data.presets || [];
 }
 
-export async function savePreset(name, selection, wildcardMode, wildcardCategories) {
+export async function savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail = "off") {
     const response = await api.fetchApi("/localgalleryunified/prompt/save_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,6 +202,7 @@ export async function savePreset(name, selection, wildcardMode, wildcardCategori
             selection,
             wildcard_mode: wildcardMode,
             wildcard_categories: wildcardCategories,
+            wildcard_auto_attach_thumbnail: wildcardAutoAttachThumbnail,
         }),
     });
     return await response.json();

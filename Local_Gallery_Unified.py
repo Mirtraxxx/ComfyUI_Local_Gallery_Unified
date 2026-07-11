@@ -40,6 +40,7 @@ class LocalGalleryPromptLora:
                 "wildcard_mode": "STRING",
                 "wildcard_rng_mode": "STRING",
                 "wildcard_shuffle_nonce": "STRING",
+                "wildcard_auto_attach_thumbnail": "STRING",
                 "active_tab": "STRING",
             },
         }
@@ -108,6 +109,7 @@ class LocalGalleryPromptLora:
         wildcard_mode="off",
         wildcard_rng_mode="seed_stable",
         wildcard_shuffle_nonce="0",
+        wildcard_auto_attach_thumbnail="off",
         active_tab="prompt",
         **kwargs,
     ):
@@ -123,6 +125,7 @@ class LocalGalleryPromptLora:
                 "wildcard_mode": wildcard_mode,
                 "wildcard_rng_mode": wildcard_rng_mode,
                 "wildcard_shuffle_nonce": wildcard_shuffle_nonce,
+                "wildcard_auto_attach_thumbnail": wildcard_auto_attach_thumbnail,
                 "fresh_wildcard_nonce": time.time() if uses_wildcards and wildcard_rng_mode == "fresh" else "",
                 "seed": seed if uses_wildcards else "",
             },
@@ -170,6 +173,7 @@ class LocalGalleryPromptLora:
         wildcard_mode="off",
         wildcard_rng_mode="seed_stable",
         wildcard_shuffle_nonce="0",
+        wildcard_auto_attach_thumbnail="off",
         active_tab="prompt",
         **kwargs,
     ):
@@ -189,12 +193,16 @@ class LocalGalleryPromptLora:
             wildcard_mode=wildcard_mode or "off",
             wildcard_rng_mode=wildcard_rng_mode or "seed_stable",
             wildcard_shuffle_nonce=wildcard_shuffle_nonce or "0",
+            wildcard_auto_attach_thumbnail=wildcard_auto_attach_thumbnail or "off",
         )
         if isinstance(prompt_result, dict):
             result_values = prompt_result.get("result") or ("",)
             combined_prompt = result_values[0] if result_values else ""
+            prompt_ui = prompt_result.get("ui") or {}
+            wildcard_prompt_ids = prompt_ui.get("wildcard_prompt_ids") or []
         else:
             combined_prompt = prompt_result[0] if prompt_result else ""
+            wildcard_prompt_ids = []
 
         meta_prompt_parts = self._get_enabled_meta_prompt_parts(prompt_meta_tags or "[]")
         if meta_prompt_parts:
@@ -202,7 +210,10 @@ class LocalGalleryPromptLora:
             combined_prompt = ", ".join(combined_parts)
 
         return {
-            "ui": {"text": [combined_prompt]},
+            "ui": {
+                "text": [combined_prompt],
+                "wildcard_prompt_ids": list(dict.fromkeys(wildcard_prompt_ids)),
+            },
             "result": (model_out, clip_out, lora_trigger_words, combined_prompt),
         }
 

@@ -130,6 +130,20 @@ export function setupPromptPostDomStateWidgets({ nodeInstance }) {
     };
     hideWidget(wildcardShuffleNonceWidget);
 
+    let wildcardAutoAttachThumbnailWidget = nodeInstance.widgets?.find(w => w.name === 'wildcard_auto_attach_thumbnail');
+    if (!wildcardAutoAttachThumbnailWidget) {
+        wildcardAutoAttachThumbnailWidget = nodeInstance.addWidget("text", "wildcard_auto_attach_thumbnail", "off", () => { }, {});
+    }
+    if (typeof nodeInstance.properties.wildcard_auto_attach_thumbnail === 'string') {
+        wildcardAutoAttachThumbnailWidget.value = nodeInstance.properties.wildcard_auto_attach_thumbnail;
+    } else if (typeof wildcardAutoAttachThumbnailWidget.value === 'string') {
+        nodeInstance.properties.wildcard_auto_attach_thumbnail = wildcardAutoAttachThumbnailWidget.value;
+    }
+    wildcardAutoAttachThumbnailWidget.serializeValue = () => {
+        return nodeInstance.properties["wildcard_auto_attach_thumbnail"] || "off";
+    };
+    hideWidget(wildcardAutoAttachThumbnailWidget);
+
     // Wildcard Categories
     let categoriesWidget = nodeInstance.widgets?.find(w => w.name === 'wildcard_categories');
     if (!categoriesWidget) {
@@ -173,6 +187,7 @@ export function setupPromptPostDomStateWidgets({ nodeInstance }) {
         wildcardWidget,
         wildcardRngModeWidget,
         wildcardShuffleNonceWidget,
+        wildcardAutoAttachThumbnailWidget,
         categoriesWidget,
         seedWidget,
         controlWidget,

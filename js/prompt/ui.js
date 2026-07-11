@@ -1,4 +1,4 @@
-import * as promptApi from "../api/promptApi.js?v=sort-20260606";
+import * as promptApi from "../api/promptApi.js?v=wildcard-auto-attach-category-fix-20260711";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -62,11 +62,11 @@ import {
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
 } from "./library.js?v=prompt-sort-refresh-20260621";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=workspace-close-safe-20260608";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
-import { showWildcardsModal } from "./wildcards.js";
-import { getPromptTemplate } from "./template.js";
-import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js";
+import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
+import { getPromptTemplate } from "./template.js?v=wildcard-auto-attach-category-fix-20260711";
+import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js";
 import {
@@ -88,6 +88,9 @@ const UnifiedPromptGalleryNode = {
     currentPage: 1,
     totalPages: 1,
     lastOutput: null, // Stores { filename, subfolder, type } of last generation
+    instances: new Set(),
+    pendingWildcardAutoAttach: new Map(),
+    recentOutputsByPromptId: new Map(),
     FAVORITE_COLORS,
     CATEGORY_ROLE_PALETTE,
     THUMBNAIL_SIZE_MIN,
@@ -291,9 +294,9 @@ const UnifiedPromptGalleryNode = {
         }
     },
 
-    async savePreset(name, selection, wildcardMode, wildcardCategories) {
+    async savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail = "off") {
         try {
-            return await promptApi.savePreset(name, selection, wildcardMode, wildcardCategories);
+            return await promptApi.savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to save preset", e);
             return { status: "error", message: e.toString() };
@@ -350,6 +353,7 @@ const UnifiedPromptGalleryNode = {
         nodeType.prototype.onNodeCreated = function () {
             const result = onNodeCreated?.apply(this, arguments);
             const node_instance = this;
+            UnifiedPromptGalleryNode.instances.add(node_instance);
 
             const preDomWidgets = setupPromptPreDomStateWidgets({ nodeInstance: this });
             const {
@@ -411,6 +415,7 @@ const UnifiedPromptGalleryNode = {
                 wildcardWidget,
                 wildcardRngModeWidget,
                 wildcardShuffleNonceWidget,
+                wildcardAutoAttachThumbnailWidget,
                 categoriesWidget,
                 seedWidget,
                 controlWidget,
@@ -661,6 +666,7 @@ const UnifiedPromptGalleryNode = {
             // Clean up on node removal
             const originalOnRemoved = this.onRemoved;
             this.onRemoved = function () {
+                UnifiedPromptGalleryNode.instances.delete(this);
                 const preview = document.getElementById(`${uniqueId}-hover-preview`);
                 if (preview) preview.remove();
                 if (toolbarOutsideClickHandler) {
@@ -1102,8 +1108,21 @@ const UnifiedPromptGalleryNode = {
                 if (app.graph) app.graph.change();
             }
 
+            function saveWildcardAutoAttachState(enabled) {
+                const value = enabled ? "on" : "off";
+                node_instance.properties["wildcard_auto_attach_thumbnail"] = value;
+                if (wildcardAutoAttachThumbnailWidget) {
+                    wildcardAutoAttachThumbnailWidget.value = value;
+                }
+                node_instance.setDirtyCanvas?.(true, true);
+                if (app.graph) app.graph.change();
+            }
+
             saveWildcardState();
             saveWildcardRngState();
+            saveWildcardAutoAttachState(
+                String(node_instance.properties?.wildcard_auto_attach_thumbnail || wildcardAutoAttachThumbnailWidget?.value || "off").toLowerCase() === "on"
+            );
 
             function syncSelectedSectionVisibility() {
                 const selectedSection = widgetContainer.querySelector(`#${uniqueId}-selected-section`);
@@ -2190,6 +2209,7 @@ const UnifiedPromptGalleryNode = {
                 const wildcardControls = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
                 const wildcardRngSelect = widgetContainer.querySelector(`#${uniqueId}-wildcard-rng-select`);
                 const wildcardShuffleBtn = widgetContainer.querySelector(`#${uniqueId}-wildcard-shuffle-btn`);
+                const wildcardAutoAttachCheckbox = widgetContainer.querySelector(`#${uniqueId}-wildcard-auto-attach`);
                 const isOn = currentWildcardMode === 'on';
                 if (wildcardToggleBtn) {
                     wildcardToggleBtn.classList.toggle('active', isOn);
@@ -2206,6 +2226,13 @@ const UnifiedPromptGalleryNode = {
                 }
                 if (wildcardShuffleBtn) {
                     wildcardShuffleBtn.style.display = isOn && rngMode === "shuffle" ? "inline-flex" : "none";
+                }
+                if (wildcardAutoAttachCheckbox) {
+                    wildcardAutoAttachCheckbox.checked = String(
+                        node_instance.properties?.wildcard_auto_attach_thumbnail
+                        || wildcardAutoAttachThumbnailWidget?.value
+                        || "off"
+                    ).toLowerCase() === "on";
                 }
                 updateConfigBarVisibility();
             }
@@ -2333,6 +2360,8 @@ const UnifiedPromptGalleryNode = {
                 if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
                 renderPrompts();
             }
+
+            node_instance.__localGalleryRefresh = refreshAllSections;
 
             async function ensurePromptExistsForEdit(prompt) {
                 const originalId = prompt?.id ?? prompt?.prompt_id;
@@ -2762,11 +2791,17 @@ const UnifiedPromptGalleryNode = {
                     galleryNode: UnifiedPromptGalleryNode,
                     categoriesWidget,
                     getCurrentWildcardMode: () => currentWildcardMode,
+                    getWildcardAutoAttachThumbnail: () => String(
+                        node_instance.properties?.wildcard_auto_attach_thumbnail
+                        || wildcardAutoAttachThumbnailWidget?.value
+                        || "off"
+                    ).toLowerCase() === "on",
                     setCurrentWildcardMode: mode => {
                         currentWildcardMode = mode;
                     },
                     saveSelectionData,
                     saveWildcardState,
+                    saveWildcardAutoAttachState,
                     updateWildcardControlsUI,
                     renderPrompts,
                     getActiveLibraryTab: () => activeLibraryTab,
@@ -2963,6 +2998,7 @@ const UnifiedPromptGalleryNode = {
 
                 const wildcardRngSelect = widgetContainer.querySelector(`#${uniqueId}-wildcard-rng-select`);
                 const wildcardShuffleBtn = widgetContainer.querySelector(`#${uniqueId}-wildcard-shuffle-btn`);
+                const wildcardAutoAttachCheckbox = widgetContainer.querySelector(`#${uniqueId}-wildcard-auto-attach`);
                 if (wildcardRngSelect) {
                     wildcardRngSelect.value = normalizeWildcardRngMode(wildcardRngModeWidget?.value || node_instance.properties?.wildcard_rng_mode);
                     wildcardRngSelect.addEventListener('change', (event) => {
@@ -2974,6 +3010,12 @@ const UnifiedPromptGalleryNode = {
                     wildcardShuffleBtn.addEventListener('click', () => {
                         const currentNonce = Number.parseInt(wildcardShuffleNonceWidget?.value || node_instance.properties?.wildcard_shuffle_nonce || "0", 10) || 0;
                         saveWildcardRngState("shuffle", String(currentNonce + 1));
+                        updateWildcardControlsUI();
+                    });
+                }
+                if (wildcardAutoAttachCheckbox) {
+                    wildcardAutoAttachCheckbox.addEventListener('change', (event) => {
+                        saveWildcardAutoAttachState(event.target.checked);
                         updateWildcardControlsUI();
                     });
                 }
@@ -3209,11 +3251,17 @@ const UnifiedPromptGalleryNode = {
                         galleryNode: UnifiedPromptGalleryNode,
                         categoriesWidget,
                         getCurrentWildcardMode: () => currentWildcardMode,
+                        getWildcardAutoAttachThumbnail: () => String(
+                            node_instance.properties?.wildcard_auto_attach_thumbnail
+                            || wildcardAutoAttachThumbnailWidget?.value
+                            || "off"
+                        ).toLowerCase() === "on",
                         setCurrentWildcardMode: mode => {
                             currentWildcardMode = mode;
                         },
                         saveSelectionData,
                         saveWildcardState,
+                        saveWildcardAutoAttachState,
                         updateWildcardControlsUI,
                         renderPrompts,
                         getActiveLibraryTab: () => activeLibraryTab,
@@ -3328,28 +3376,101 @@ app.registerExtension({
     async setup() {
         // Global execution listener to track outputs from ANY node
         api.addEventListener("executed", (event) => {
-            const output = event.detail?.output;
-            if (!output) return;
-            
-            // Check for images
+            const detail = event.detail || {};
+            const output = detail.output || {};
+            const promptId = detail.prompt_id == null ? "" : String(detail.prompt_id);
+            const wildcardPromptIds = Array.isArray(output.wildcard_prompt_ids)
+                ? [...new Set(output.wildcard_prompt_ids.map(id => String(id || "")).filter(Boolean))]
+                : [];
+
+            // The gallery node runs before image-saving nodes. Keep its wildcard
+            // picks keyed by prompt_id until the matching execution completes.
+            if (promptId && wildcardPromptIds.length > 0) {
+                UnifiedPromptGalleryNode.pendingWildcardAutoAttach.set(promptId, {
+                    promptIds: wildcardPromptIds,
+                    lastOutput: UnifiedPromptGalleryNode.recentOutputsByPromptId.get(promptId) || null,
+                });
+            }
+
+            let lastOutput = null;
+            let isImageOutput = false;
             if (output.images && output.images.length > 0) {
                 const last = output.images[output.images.length - 1];
-                UnifiedPromptGalleryNode.lastOutput = {
+                isImageOutput = true;
+                lastOutput = {
+                    filename: last.filename,
+                    subfolder: last.subfolder || '',
+                    type: last.type || 'output'
+                };
+            } else if (output.gifs && output.gifs.length > 0) {
+                const last = output.gifs[output.gifs.length - 1];
+                lastOutput = {
                     filename: last.filename,
                     subfolder: last.subfolder || '',
                     type: last.type || 'output'
                 };
             }
-            // Check for gifs (videos)
-            else if (output.gifs && output.gifs.length > 0) {
-                const last = output.gifs[output.gifs.length - 1];
-                UnifiedPromptGalleryNode.lastOutput = {
-                    filename: last.filename,
-                    subfolder: last.subfolder || '',
-                    type: last.type || 'output'
-                };
+
+            if (lastOutput?.filename) {
+                UnifiedPromptGalleryNode.lastOutput = lastOutput;
+                if (promptId && isImageOutput) {
+                    UnifiedPromptGalleryNode.recentOutputsByPromptId.set(promptId, lastOutput);
+                    const pending = UnifiedPromptGalleryNode.pendingWildcardAutoAttach.get(promptId);
+                    if (pending) pending.lastOutput = lastOutput;
+                }
             }
         });
+
+        api.addEventListener("execution_success", async ({ detail }) => {
+            const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
+            if (!promptId) return;
+
+            const pending = UnifiedPromptGalleryNode.pendingWildcardAutoAttach.get(promptId);
+            const lastOutput = pending?.lastOutput || UnifiedPromptGalleryNode.recentOutputsByPromptId.get(promptId);
+            UnifiedPromptGalleryNode.pendingWildcardAutoAttach.delete(promptId);
+            UnifiedPromptGalleryNode.recentOutputsByPromptId.delete(promptId);
+
+            if (!pending?.promptIds?.length || !lastOutput?.filename) return;
+
+            let attachedCount = 0;
+            for (const promptIdToUpdate of pending.promptIds) {
+                try {
+                    const result = await UnifiedPromptGalleryNode.assignThumbnail(promptIdToUpdate, lastOutput);
+                    if (result?.status === "ok") {
+                        attachedCount += 1;
+                    } else {
+                        console.warn(
+                            `LocalPromptGallery: Could not auto-attach output to wildcard card ${promptIdToUpdate}`,
+                            result?.message || "unknown error"
+                        );
+                    }
+                } catch (error) {
+                    console.warn(
+                        `LocalPromptGallery: Could not auto-attach output to wildcard card ${promptIdToUpdate}`,
+                        error
+                    );
+                }
+            }
+
+            if (attachedCount > 0) {
+                await Promise.all([...UnifiedPromptGalleryNode.instances].map(async instance => {
+                    try {
+                        await instance.__localGalleryRefresh?.();
+                    } catch (error) {
+                        console.warn("LocalPromptGallery: Failed to refresh after auto-attaching thumbnail", error);
+                    }
+                }));
+            }
+        });
+
+        const clearWildcardExecutionState = ({ detail }) => {
+            const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
+            if (!promptId) return;
+            UnifiedPromptGalleryNode.pendingWildcardAutoAttach.delete(promptId);
+            UnifiedPromptGalleryNode.recentOutputsByPromptId.delete(promptId);
+        };
+        api.addEventListener("execution_error", clearWildcardExecutionState);
+        api.addEventListener("execution_interrupted", clearWildcardExecutionState);
     },
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "LocalGalleryPromptLora") {

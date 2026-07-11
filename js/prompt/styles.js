@@ -2928,6 +2928,19 @@ export function getPromptStyles(uniqueId) {
                         background: #11171d;
                         color: #e8ecef;
                     }
+                    .localprompt-wildcard-auto-attach {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 5px;
+                        color: #aeb6bd;
+                        font-size: 11px;
+                        white-space: nowrap;
+                        cursor: pointer;
+                    }
+                    .localprompt-wildcard-auto-attach input {
+                        margin: 0;
+                        accent-color: #55a66b;
+                    }
                     .localprompt-wildcard-shuffle-btn {
                         width: 28px;
                         height: 26px;

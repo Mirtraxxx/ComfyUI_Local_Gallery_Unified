@@ -1456,7 +1456,8 @@ async def save_preset_endpoint(request):
         presets[name] = {
             "selection": data.get("selection", []),
             "wildcard_mode": data.get("wildcard_mode", "off"),
-            "wildcard_categories": data.get("wildcard_categories", [])
+            "wildcard_categories": data.get("wildcard_categories", []),
+            "wildcard_auto_attach_thumbnail": data.get("wildcard_auto_attach_thumbnail", "off"),
         }
         save_presets(presets)
         
@@ -1487,7 +1488,8 @@ async def load_preset_endpoint(request):
                 "name": name,
                 "selection": preset.get("selection", []),
                 "wildcard_mode": preset.get("wildcard_mode", "off"),
-                "wildcard_categories": preset.get("wildcard_categories", [])
+                "wildcard_categories": preset.get("wildcard_categories", []),
+                "wildcard_auto_attach_thumbnail": preset.get("wildcard_auto_attach_thumbnail", "off"),
             }
         })
     except Exception as e:
@@ -1790,6 +1792,7 @@ class LocalPromptGallery:
                 "wildcard_mode": "STRING",
                 "wildcard_rng_mode": "STRING",
                 "wildcard_shuffle_nonce": "STRING",
+                "wildcard_auto_attach_thumbnail": "STRING",
             }
         }
         
@@ -1807,6 +1810,7 @@ class LocalPromptGallery:
         wildcard_mode="off",
         wildcard_rng_mode="seed_stable",
         wildcard_shuffle_nonce="0",
+        wildcard_auto_attach_thumbnail="off",
         **kwargs,
     ):
         uses_wildcards = (wildcard_mode or "off") != "off" and cls._has_wildcard_categories(wildcard_categories)
@@ -1819,6 +1823,7 @@ class LocalPromptGallery:
                 "wildcard_mode": wildcard_mode,
                 "wildcard_rng_mode": wildcard_rng_mode,
                 "wildcard_shuffle_nonce": wildcard_shuffle_nonce,
+                "wildcard_auto_attach_thumbnail": wildcard_auto_attach_thumbnail,
                 "fresh_wildcard_nonce": time.time() if uses_wildcards and wildcard_rng_mode == "fresh" else "",
             },
             sort_keys=True,
@@ -1829,6 +1834,9 @@ class LocalPromptGallery:
         wildcard_mode = kwargs.get("wildcard_mode", "off")
         wildcard_rng_mode = str(kwargs.get("wildcard_rng_mode", "seed_stable") or "seed_stable")
         wildcard_shuffle_nonce = str(kwargs.get("wildcard_shuffle_nonce", "0") or "0")
+        wildcard_auto_attach_thumbnail = str(
+            kwargs.get("wildcard_auto_attach_thumbnail", "off") or "off"
+        ).lower() in ("on", "true", "1", "yes")
         seed = kwargs.get("seed", 0)
         try:
             seed_int = int(seed)
@@ -1847,6 +1855,7 @@ class LocalPromptGallery:
         wildcard_cycle_state = prefs.get("wildcard_cycle_state", {})
         wildcard_cycle_state_changed = False
         used_prompt_ids = []  # Track which prompts were used for usage counting
+        wildcard_prompt_ids = []  # IDs selected by wildcard mode for optional thumbnail attachment
 
         # Start with manual selections (always processed)
         combined_parts = []
@@ -1906,6 +1915,9 @@ class LocalPromptGallery:
                     continue
 
                 category_prompt_ids = indexes.get("wildcard_category_ids", {}).get(category, [])
+                auto_attach_category = cat_info.get("auto_attach", True)
+                if isinstance(auto_attach_category, str):
+                    auto_attach_category = auto_attach_category.lower() not in ("off", "false", "0", "no")
 
                 if category_prompt_ids:
                     state = wildcard_cycle_state.get(category, {})
@@ -1971,6 +1983,9 @@ class LocalPromptGallery:
                     selected_prompt_id = ordered_prompt_ids[current_index]
                     selected_prompt = metadata.get(selected_prompt_id, {})
 
+                    if wildcard_auto_attach_thumbnail and auto_attach_category:
+                        wildcard_prompt_ids.append(selected_prompt_id)
+
                     used_prompt_ids.append(selected_prompt_id)  # Track usage
                     prompt_text = selected_prompt.get('prompt_text', '')
                     if prompt_text:
@@ -1995,7 +2010,13 @@ class LocalPromptGallery:
             prefs["wildcard_cycle_state"] = wildcard_cycle_state
             save_ui_prefs(prefs)
         
-        return {"ui": {"text": [combined_prompt]}, "result": (combined_prompt,)}
+        return {
+            "ui": {
+                "text": [combined_prompt],
+                "wildcard_prompt_ids": list(dict.fromkeys(wildcard_prompt_ids)),
+            },
+            "result": (combined_prompt,),
+        }
 
 NODE_CLASS_MAPPINGS = {
     "LocalPromptGallery": LocalPromptGallery
