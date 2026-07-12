@@ -27,7 +27,7 @@ export function showPromptActionContextMenu({
         border: 1px solid #555;
         border-radius: 6px;
         padding: 4px 0;
-        z-index: 25001;
+        z-index: 110000;
         box-shadow: 0 4px 12px rgba(0,0,0,0.6);
         min-width: 150px;
     `;
@@ -109,7 +109,7 @@ export function showPromptContextMenu({
         border: 1px solid #555;
         border-radius: 4px;
         padding: 4px 0;
-        z-index: 10000;
+        z-index: 110000;
         min-width: 150px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     `;

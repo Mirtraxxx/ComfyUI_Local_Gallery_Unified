@@ -6,10 +6,10 @@ import { escapeHtml } from "../shared/dom.js";
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
 
-function closeOnOverlayClick(overlay) {
+function closeOnOverlayClick(overlay, closeHandler = () => overlay.remove()) {
     overlay.addEventListener("click", (event) => {
         if (event.target === overlay) {
-            overlay.remove();
+            closeHandler();
         }
     });
 }
@@ -40,12 +40,14 @@ function createBrowseSurface({ workspaceContainer, onClose }) {
     };
 }
 
-function populateCategorySelect(categorySelect, categories, selectedCategory = "") {
-    categorySelect.innerHTML = '<option value="">All Categories</option>';
+function populateCategorySelect(categorySelect, categories, counts = {}, totalCount = null, selectedCategory = "") {
+    const allLabel = Number.isFinite(totalCount) ? `All Categories (${totalCount})` : "All Categories";
+    categorySelect.innerHTML = `<option value="">${allLabel}</option>`;
     categories.forEach(category => {
         const option = document.createElement("option");
         option.value = category;
-        option.textContent = category;
+        const count = Number.isFinite(Number(counts?.[category])) ? Number(counts[category]) : null;
+        option.textContent = count === null ? category : `${category} (${count})`;
         categorySelect.appendChild(option);
     });
     if (selectedCategory && categories.includes(selectedCategory)) {
@@ -66,6 +68,115 @@ function updateCategoryActionButtons(overlay, categoryValue) {
     if (deleteCategoryBtn) {
         deleteCategoryBtn.style.display = categoryValue ? "block" : "none";
     }
+}
+
+function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, currentCategory = "" }) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "localprompt-modal-overlay localprompt-bulk-move-overlay";
+        overlay.innerHTML = `
+            <div class="localprompt-modal localprompt-bulk-move-dialog" role="dialog" aria-modal="true" aria-labelledby="bulk-move-title">
+                <div class="localprompt-modal-header">
+                    <div>
+                        <h3 id="bulk-move-title">Move ${selectedCount} card${selectedCount === 1 ? "" : "s"}</h3>
+                        <p class="localprompt-bulk-move-subtitle">Choose a destination category for the selected cards.</p>
+                    </div>
+                    <button type="button" class="localprompt-modal-close" data-bulk-move-cancel title="Cancel">×</button>
+                </div>
+                <div class="localprompt-modal-content localprompt-bulk-move-content">
+                    <label class="localprompt-field-label" for="bulk-move-category">Destination category</label>
+                    <select id="bulk-move-category" class="localprompt-browse-select"></select>
+                    <div class="localprompt-bulk-move-new-row" hidden>
+                        <label class="localprompt-field-label" for="bulk-move-new-category">New category name</label>
+                        <input id="bulk-move-new-category" class="localprompt-browse-input" type="text" maxlength="80" placeholder="e.g. Lighting">
+                    </div>
+                    <p class="localprompt-bulk-move-preview" id="bulk-move-preview"></p>
+                </div>
+                <div class="localprompt-modal-footer">
+                    <button type="button" class="localprompt-btn" data-bulk-move-cancel>Cancel</button>
+                    <button type="button" class="localprompt-btn primary" data-bulk-move-confirm>Move cards</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const dialog = overlay.querySelector(".localprompt-bulk-move-dialog");
+        const categorySelect = overlay.querySelector("#bulk-move-category");
+        const newCategoryRow = overlay.querySelector(".localprompt-bulk-move-new-row");
+        const newCategoryInput = overlay.querySelector("#bulk-move-new-category");
+        const preview = overlay.querySelector("#bulk-move-preview");
+        const confirmButton = overlay.querySelector("[data-bulk-move-confirm]");
+
+        const chooseOption = document.createElement("option");
+        chooseOption.value = "__choose_category__";
+        chooseOption.textContent = "Select a category…";
+        chooseOption.disabled = true;
+        chooseOption.selected = true;
+        categorySelect.appendChild(chooseOption);
+        const uncategorizedOption = document.createElement("option");
+        uncategorizedOption.value = "";
+        uncategorizedOption.textContent = "Uncategorized";
+        categorySelect.appendChild(uncategorizedOption);
+        categories.forEach((category) => {
+            const option = document.createElement("option");
+            option.value = category;
+            const count = Number.isFinite(Number(counts?.[category])) ? ` (${counts[category]})` : "";
+            option.textContent = `${category}${count}`;
+            categorySelect.appendChild(option);
+        });
+        const newOption = document.createElement("option");
+        newOption.value = "__new_category__";
+        newOption.textContent = "+ New category…";
+        categorySelect.appendChild(newOption);
+        if (currentCategory && categories.includes(currentCategory)) {
+            categorySelect.value = currentCategory;
+        }
+
+        function getTargetCategory() {
+            if (categorySelect.value === "__new_category__") return newCategoryInput.value.trim();
+            if (categorySelect.value === "__choose_category__") return null;
+            return categorySelect.value;
+        }
+
+        function updateDialogState() {
+            const isNew = categorySelect.value === "__new_category__";
+            newCategoryRow.hidden = !isNew;
+            const target = getTargetCategory();
+            confirmButton.disabled = target === null || (isNew && !target);
+            preview.textContent = target === null
+                ? "Choose a destination category to continue."
+                : target
+                ? `${selectedCount} card${selectedCount === 1 ? "" : "s"} will move to “${target}”.`
+                : "Selected cards will be moved to Uncategorized.";
+        }
+
+        function finish(value) {
+            overlay.remove();
+            document.removeEventListener("keydown", onKeydown);
+            resolve(value);
+        }
+
+        function onKeydown(event) {
+            if (event.key === "Escape") finish(null);
+        }
+
+        categorySelect.addEventListener("change", updateDialogState);
+        newCategoryInput.addEventListener("input", updateDialogState);
+        overlay.addEventListener("click", (event) => {
+            if (event.target === overlay) finish(null);
+        });
+        overlay.querySelectorAll("[data-bulk-move-cancel]").forEach((button) => {
+            button.addEventListener("click", () => finish(null));
+        });
+        confirmButton.addEventListener("click", () => {
+            const target = getTargetCategory();
+            if (categorySelect.value === "__new_category__" && !target) return;
+            finish(target);
+        });
+        document.addEventListener("keydown", onKeydown);
+        updateDialogState();
+        (dialog.querySelector("#bulk-move-category") || newCategoryInput).focus();
+    });
 }
 
 function buildPromptCardHtml(prompt, hasPreview) {
@@ -110,7 +221,7 @@ export async function showCardManagerModal({
     let browseManageMode = false;
     const bulkSelectedPromptIds = new Set();
     const surface = createBrowseSurface({ workspaceContainer, onClose });
-    const { root, close, isWorkspace } = surface;
+    const { root, close: closeSurface, isWorkspace } = surface;
     const contrastMode = (nodeInstance?.uiPrefs?.card_contrast_mode || "off").replace(/_/g, "-");
     root.classList.add(`contrast-${contrastMode}`);
     root.innerHTML = `
@@ -135,6 +246,7 @@ export async function showCardManagerModal({
                         <option value="za">Z to A</option>
                     </select>
                     <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn">Manage</button>
+                    <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-pressed="false">Full screen</button>
                     <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category">Rename</button>
                     <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt">Export TXT</button>
                     <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="background: #5a3030; display: none;" title="Delete entire category">Delete</button>
@@ -142,8 +254,10 @@ export async function showCardManagerModal({
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
                     <button id="browse-select-visible" class="localprompt-btn">Select Visible</button>
+                    <button id="browse-move-selected" class="localprompt-btn primary">Move to…</button>
                     <button id="browse-clear-selected" class="localprompt-btn">Clear Selection</button>
                     <button id="browse-delete-selected" class="localprompt-btn localprompt-clear-btn" style="background: #6a3a3a; border-color: #8a4a4a;">Delete Selected</button>
+                    <span id="browse-bulk-status" class="localprompt-bulk-status" role="status" aria-live="polite"></span>
                 </div>
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
@@ -163,11 +277,14 @@ export async function showCardManagerModal({
     const categorySelect = root.querySelector("#browse-category");
     const sortSelect = root.querySelector("#browse-sort");
     const manageToggleBtn = root.querySelector("#browse-manage-toggle");
+    const fullscreenToggleBtn = root.querySelector("#browse-fullscreen-toggle");
     const bulkToolbar = root.querySelector("#browse-bulk-toolbar");
     const bulkSummary = root.querySelector("#browse-bulk-summary");
     const selectVisibleBtn = root.querySelector("#browse-select-visible");
+    const moveSelectedBtn = root.querySelector("#browse-move-selected");
     const clearSelectedBtn = root.querySelector("#browse-clear-selected");
     const deleteSelectedBtn = root.querySelector("#browse-delete-selected");
+    const bulkStatus = root.querySelector("#browse-bulk-status");
     const grid = root.querySelector("#browse-gallery-grid");
     const prevBtn = root.querySelector("#browse-prev");
     const nextBtn = root.querySelector("#browse-next");
@@ -180,6 +297,77 @@ export async function showCardManagerModal({
     let upwardScrollDistance = 0;
     let suppressNextCardClick = false;
     let browseLoadSequence = 0;
+    let isFullscreen = false;
+    let forwardingLibraryNavigation = false;
+    const originalParent = root.parentElement;
+
+    function updateFullscreenButton() {
+        if (!fullscreenToggleBtn) return;
+        fullscreenToggleBtn.textContent = isFullscreen ? "Exit full screen" : "Full screen";
+        fullscreenToggleBtn.title = isFullscreen
+            ? "Return Card Manager to the node workspace"
+            : "Expand Card Manager to the full ComfyUI screen";
+        fullscreenToggleBtn.setAttribute("aria-pressed", String(isFullscreen));
+    }
+
+    function setFullscreen(nextState) {
+        isFullscreen = Boolean(nextState);
+        root.classList.toggle("localprompt-card-manager-fullscreen", isFullscreen);
+        if (isFullscreen) {
+            document.body.appendChild(root);
+        } else if (originalParent?.isConnected) {
+            originalParent.appendChild(root);
+        }
+        updateFullscreenButton();
+    }
+
+    function close() {
+        document.removeEventListener("keydown", handleFullscreenKeydown);
+        if (isFullscreen) setFullscreen(false);
+        closeSurface();
+    }
+
+    function handleFullscreenKeydown(event) {
+        if (event.key === "Escape" && isFullscreen) {
+            event.preventDefault();
+            setFullscreen(false);
+        }
+    }
+
+    document.addEventListener("keydown", handleFullscreenKeydown);
+    updateFullscreenButton();
+
+    if (isWorkspace) {
+        root.addEventListener("click", (event) => {
+            const libraryPageButton = event.target.closest?.("[data-library-page]");
+            if (!libraryPageButton || !isFullscreen || forwardingLibraryNavigation) return;
+
+            // The workspace controller owns these actions through event delegation on
+            // the original host, so put the panel back before forwarding the click.
+            forwardingLibraryNavigation = true;
+            setFullscreen(false);
+            libraryPageButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            forwardingLibraryNavigation = false;
+        });
+    }
+
+    async function loadBrowseCategoryOptions(selectedCategory = "") {
+        const summary = typeof galleryNode.getCategorySummary === "function"
+            ? await galleryNode.getCategorySummary()
+            : {
+                categories: await galleryNode.getCategories(),
+                counts: {},
+                totalCount: null,
+            };
+        const categories = Array.isArray(summary?.categories) ? summary.categories : [];
+        populateCategorySelect(
+            categorySelect,
+            categories,
+            summary?.counts,
+            summary?.totalCount,
+            selectedCategory,
+        );
+    }
 
     if (isWorkspace && workspaceBody) {
         workspaceBody.addEventListener("scroll", () => {
@@ -218,6 +406,7 @@ export async function showCardManagerModal({
             root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");
         }
         if (clearSelectedBtn) clearSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
+        if (moveSelectedBtn) moveSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
         if (deleteSelectedBtn) deleteSelectedBtn.disabled = bulkSelectedPromptIds.size === 0;
     }
 
@@ -245,7 +434,7 @@ export async function showCardManagerModal({
             const item = document.createElement("div");
             item.className = `localprompt-gallery-item ${selectedIds.has(promptId) ? "selected" : ""}`;
             if (browseManageMode) item.classList.add("manage-mode");
-            if (bulkSelectedPromptIds.has(promptId)) item.classList.add("selected");
+            if (bulkSelectedPromptIds.has(promptId)) item.classList.add("bulk-selected");
             item.dataset.promptId = promptId;
             item.style.position = "relative";
 
@@ -267,10 +456,10 @@ export async function showCardManagerModal({
                 if (browseManageMode) {
                     if (bulkSelectedPromptIds.has(promptId)) {
                         bulkSelectedPromptIds.delete(promptId);
-                        item.classList.remove("selected");
+                        item.classList.remove("bulk-selected");
                     } else {
                         bulkSelectedPromptIds.add(promptId);
-                        item.classList.add("selected");
+                        item.classList.add("bulk-selected");
                     }
                     updateBrowseBulkToolbar();
                     return;
@@ -298,6 +487,7 @@ export async function showCardManagerModal({
             item.addEventListener("contextmenu", (event) => {
                 event.preventDefault();
                 showContextMenu(prompt, event.clientX, event.clientY, async () => {
+                    await loadBrowseCategoryOptions(categorySelect.value);
                     await loadBrowseGallery(currentPage);
                     refreshAllSections();
                 });
@@ -308,9 +498,14 @@ export async function showCardManagerModal({
     }
 
     closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) closeOnOverlayClick(root);
+    if (!isWorkspace) closeOnOverlayClick(root, close);
 
-    populateCategorySelect(categorySelect, await galleryNode.getCategories());
+    fullscreenToggleBtn?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setFullscreen(!isFullscreen);
+    });
+
+    await loadBrowseCategoryOptions();
     if (sortSelect) sortSelect.value = getSortMode({ category: categorySelect.value || "" });
 
     manageToggleBtn?.addEventListener("click", () => {
@@ -332,8 +527,45 @@ export async function showCardManagerModal({
 
     clearSelectedBtn?.addEventListener("click", () => {
         bulkSelectedPromptIds.clear();
+        if (bulkStatus) bulkStatus.textContent = "";
         updateBrowseBulkToolbar();
         loadBrowseGallery(currentPage);
+    });
+
+    moveSelectedBtn?.addEventListener("click", async () => {
+        if (bulkSelectedPromptIds.size === 0) return;
+        const summary = await galleryNode.getCategorySummary();
+        const targetCategory = await openBulkMoveDialog({
+            categories: summary?.categories || [],
+            counts: summary?.counts || {},
+            selectedCount: bulkSelectedPromptIds.size,
+            currentCategory: categorySelect.value,
+        });
+        if (targetCategory === null) return;
+
+        moveSelectedBtn.disabled = true;
+        const idsToMove = Array.from(bulkSelectedPromptIds);
+        const result = await galleryNode.movePromptsBulk(idsToMove, targetCategory);
+        if (!result || result.status !== "ok") {
+            if (bulkStatus) bulkStatus.textContent = result?.message || "Move failed.";
+            updateBrowseBulkToolbar();
+            return;
+        }
+
+        bulkSelectedPromptIds.clear();
+        if (bulkStatus) {
+            const movedCount = Number(result.moved_count || 0);
+            bulkStatus.textContent = movedCount
+                ? `${movedCount} card${movedCount === 1 ? "" : "s"} moved.`
+                : "Cards were already in that category.";
+        }
+        await loadCategories();
+        await loadBrowseCategoryOptions(categorySelect.value);
+        await loadBrowseGallery(1);
+        await refreshAllSections();
+        if (Array.isArray(result.missing_ids) && result.missing_ids.length && bulkStatus) {
+            bulkStatus.textContent += ` ${result.missing_ids.length} missing.`;
+        }
     });
 
     deleteSelectedBtn?.addEventListener("click", async () => {
@@ -354,6 +586,7 @@ export async function showCardManagerModal({
         saveSelectionData();
         bulkSelectedPromptIds.clear();
         await loadCategories();
+        await loadBrowseCategoryOptions(categorySelect.value);
         await loadBrowseGallery(1);
         await refreshAllSections();
         if (Array.isArray(result.missing_ids) && result.missing_ids.length) {
@@ -399,8 +632,7 @@ export async function showCardManagerModal({
 
     root.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
         await renameCategoryWithPrompt(categorySelect.value, async (newCategory) => {
-            const newCategories = await galleryNode.getCategories();
-            populateCategorySelect(categorySelect, newCategories, newCategory);
+            await loadBrowseCategoryOptions(newCategory);
             updateCategoryActionButtons(root, categorySelect.value);
             await loadBrowseGallery(1);
             refreshAllSections();
@@ -430,7 +662,7 @@ export async function showCardManagerModal({
             const result = await galleryNode.deleteCategory(categoryToDelete);
             if (result.status === "ok") {
                 alert(result.message);
-                populateCategorySelect(categorySelect, await galleryNode.getCategories());
+                await loadBrowseCategoryOptions();
                 updateCategoryActionButtons(root, "");
                 await loadBrowseGallery(1);
                 refreshAllSections();

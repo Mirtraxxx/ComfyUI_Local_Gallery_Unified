@@ -1,9 +1,20 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
+import { createEventListenerRegistry } from "../shared/events.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
-import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-active-name-span-20260618";
+import {
+    LORA_DISPLAY_LIMITS,
+    clampInteger,
+    normalizeLoraContrastMode,
+    normalizeLoraDisplayMode,
+    normalizeLoraDisplayState,
+    normalizeLoraSortMode,
+    normalizeVisiblePinnedFolderCount,
+} from "./displayState.js";
+import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-display-state-lifecycle-20260712";
+import { toSerializableLoraSelection } from "./selectionState.js";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-active-name-span-20260618";
+import { getLoraStyles } from "./styles.js?v=lora-display-state-lifecycle-20260712";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -64,6 +75,7 @@ const UnifiedLoraGalleryNode = {
             const widgetContainer = document.createElement("div");
             widgetContainer.className = "locallora-container-wrapper";
             this.addDOMWidget("lora_gallery", "div", widgetContainer, {});
+            const globalListeners = createEventListenerRegistry();
 
             // Fix for node title menu icons appearing in wrong position (left) when clicking custom content.
             // Force canvas selection logic on mousedown so menu uses correct node title rect instead of widget rect.
@@ -290,38 +302,11 @@ const UnifiedLoraGalleryNode = {
             let folderOverflowOpen = false;
             let folderDragState = null;
             let suppressFolderClickUntil = 0;
-            const getVisiblePinnedFolderCount = () => {
-                const count = parseInt(this.loraUiState?.visible_pinned_folder_count, 10);
-                return Number.isInteger(count) ? Math.max(1, Math.min(25, count)) : 8;
-            };
+            const getVisiblePinnedFolderCount = () => normalizeVisiblePinnedFolderCount(
+                this.loraUiState?.visible_pinned_folder_count,
+            );
             const LORA_FOLDER_COLORS = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8"];
-            const LORA_DISPLAY_MODES = new Set(["thumbnails", "compact"]);
-            const LORA_CONTRAST_MODES = new Set(["off", "dim_inactive", "dim_by_default"]);
-            const LORA_SORT_MODES = new Set(["az", "za", "newest", "oldest"]);
-            const LORA_CARD_THUMBNAIL_MIN = 112;
-            const LORA_CARD_THUMBNAIL_MAX = 260;
-            const LORA_ACTIVE_THUMBNAIL_MIN = 72;
-            const LORA_ACTIVE_THUMBNAIL_MAX = 156;
-
-            const clampNumber = (value, min, max, fallback) => {
-                const number = Number(value);
-                if (!Number.isFinite(number)) return fallback;
-                return Math.min(max, Math.max(min, Math.round(number)));
-            };
-
-            const normalizeChoice = (value, allowed, fallback) => allowed.has(String(value || "")) ? String(value) : fallback;
-
-            const getLoraDisplayState = () => ({
-                active_display_mode: normalizeChoice(this.loraUiState.active_display_mode, LORA_DISPLAY_MODES, "thumbnails"),
-                cards_display_mode: normalizeChoice(this.loraUiState.cards_display_mode, LORA_DISPLAY_MODES, "thumbnails"),
-                card_contrast_mode: normalizeChoice(this.loraUiState.card_contrast_mode, LORA_CONTRAST_MODES, "off"),
-                sort_mode: normalizeChoice(this.loraUiState.sort_mode, LORA_SORT_MODES, "az"),
-                active_thumbnail_size_px: clampNumber(this.loraUiState.active_thumbnail_size_px, LORA_ACTIVE_THUMBNAIL_MIN, LORA_ACTIVE_THUMBNAIL_MAX, 96),
-                thumbnail_size_px: clampNumber(this.loraUiState.thumbnail_size_px, LORA_CARD_THUMBNAIL_MIN, LORA_CARD_THUMBNAIL_MAX, 168),
-                active_sidebar_width: clampNumber(this.loraUiState.active_sidebar_width, 300, 720, 450),
-                active_card_size_mode: this.loraUiState.active_card_size_mode === "large" ? "large" : "default",
-                show_clip_weights: this.loraUiState.show_clip_weights !== false,
-            });
+            const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
 
             let loraDisplayStateSaveTimer = null;
             const persistLoraUiState = (extraState = {}) => {
@@ -414,6 +399,8 @@ const UnifiedLoraGalleryNode = {
             const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
             let startX = 0;
             let startWidth = 360;
+            let removeSidebarMouseMove = null;
+            let removeSidebarMouseUp = null;
 
             const onMouseMove = (event) => {
                 const deltaX = event.clientX - startX;
@@ -426,8 +413,10 @@ const UnifiedLoraGalleryNode = {
                 splitter.classList.remove("dragging");
                 document.body.style.cursor = "";
                 document.body.style.userSelect = "";
-                document.removeEventListener("mousemove", onMouseMove);
-                document.removeEventListener("mouseup", onMouseUp);
+                removeSidebarMouseMove?.();
+                removeSidebarMouseUp?.();
+                removeSidebarMouseMove = null;
+                removeSidebarMouseUp = null;
                 persistLoraUiState();
             };
 
@@ -441,8 +430,10 @@ const UnifiedLoraGalleryNode = {
                     splitter.classList.add("dragging");
                     document.body.style.cursor = "ew-resize";
                     document.body.style.userSelect = "none";
-                    document.addEventListener("mousemove", onMouseMove);
-                    document.addEventListener("mouseup", onMouseUp);
+                    removeSidebarMouseMove?.();
+                    removeSidebarMouseUp?.();
+                    removeSidebarMouseMove = globalListeners.listen(document, "mousemove", onMouseMove);
+                    removeSidebarMouseUp = globalListeners.listen(document, "mouseup", onMouseUp);
                 });
             }
 
@@ -841,16 +832,7 @@ const UnifiedLoraGalleryNode = {
             renderFolderPills();
 
             const persistSelectionData = () => {
-                const serializableData = this.loraData.map(({
-                    element,
-                    preview_url,
-                    preview_type,
-                    tags,
-                    trigger_words,
-                    trigger_presets,
-                    download_url,
-                    ...rest
-                }) => rest);
+                const serializableData = toSerializableLoraSelection(this.loraData);
                 const selectionJson = writeSelectionArray(serializableData);
                 this.setProperty("lora_selection_data", selectionJson);
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
@@ -1132,6 +1114,16 @@ const UnifiedLoraGalleryNode = {
             };
 
             const renderSelectedList = () => {
+                // Active-stack preset popovers are portaled to the document while open. Restore
+                // them before replacing the selected-card DOM so no orphaned menu remains.
+                document.querySelectorAll(".lora-trigger-preset-popover-portal").forEach(popover => {
+                    if (popover.dataset.loraPortalOwner !== uniqueId) return;
+                    if (typeof popover._restoreLoraPresetPopover === "function") {
+                        popover._restoreLoraPresetPopover();
+                    } else {
+                        popover.remove();
+                    }
+                });
                 selectedListEl.innerHTML = "";
                 activeStackBtn.classList.toggle("has-active", this.loraData.length > 0);
                 activeStackBtn.classList.toggle("empty", this.loraData.length === 0);
@@ -1471,8 +1463,22 @@ const UnifiedLoraGalleryNode = {
                     const selectedLabel = stacking
                         ? (selectedPresetNames.length ? `${selectedPresetNames.length} presets` : "Stack presets")
                         : (presetSelect.value || "Default Triggers");
+                    const hasSelectedPreset = selectedPresetNames.length > 0;
                     if (pickerLabel) pickerLabel.textContent = selectedLabel;
-                    if (pickerCount) pickerCount.textContent = stacking && selectedPresetNames.length ? selectedPresetNames.length : "";
+                    if (pickerCount) pickerCount.textContent = hasSelectedPreset
+                        ? (stacking ? selectedPresetNames.length : 1)
+                        : "";
+                    picker?.classList.toggle("has-selection", hasSelectedPreset);
+                    pickerButton?.classList.toggle("has-selection", hasSelectedPreset);
+                    pickerButton?.setAttribute("aria-pressed", String(hasSelectedPreset));
+                    if (pickerButton) {
+                        pickerButton.title = hasSelectedPreset
+                            ? `Trigger preset: ${selectedLabel}`
+                            : "Choose trigger preset";
+                        pickerButton.setAttribute("aria-label", hasSelectedPreset
+                            ? `Trigger preset: ${selectedLabel}`
+                            : "Choose trigger preset");
+                    }
                     presetOptions.forEach(option => {
                         const presetName = option.dataset.presetName || "";
                         const isSelected = stacking
@@ -1534,16 +1540,59 @@ const UnifiedLoraGalleryNode = {
                     applyPresetSelection();
                 });
 
+                const isActiveStackPicker = Boolean(element.closest(".locallora-lora-item"));
+                const positionPortaledPopover = () => {
+                    if (!pickerPopover?.classList.contains("lora-trigger-preset-popover-portal")) return;
+                    const buttonRect = pickerButton.getBoundingClientRect();
+                    const popoverRect = pickerPopover.getBoundingClientRect();
+                    const margin = 8;
+                    const maxLeft = Math.max(margin, window.innerWidth - popoverRect.width - margin);
+                    const left = Math.max(margin, Math.min(buttonRect.right - popoverRect.width, maxLeft));
+                    const spaceBelow = window.innerHeight - buttonRect.bottom - margin;
+                    const top = spaceBelow >= popoverRect.height + 6
+                        ? buttonRect.bottom + 6
+                        : Math.max(margin, buttonRect.top - popoverRect.height - 6);
+                    pickerPopover.style.left = `${Math.round(left)}px`;
+                    pickerPopover.style.top = `${Math.round(top)}px`;
+                };
+                const restorePortaledPopover = () => {
+                    if (pickerPopover?.classList.contains("lora-trigger-preset-popover-portal")) {
+                        picker?.appendChild(pickerPopover);
+                        pickerPopover.classList.remove("lora-trigger-preset-popover-portal", "lora-trigger-preset-popover-portal-active", "open");
+                        pickerPopover.style.left = "";
+                        pickerPopover.style.top = "";
+                        window.removeEventListener("resize", positionPortaledPopover);
+                        widgetContainer.querySelector(".locallora-active-sidebar-content")?.removeEventListener("scroll", positionPortaledPopover);
+                    }
+                    picker?.classList.remove("open");
+                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
+                };
+                if (picker) picker._closeLoraPresetPopover = restorePortaledPopover;
+                if (pickerPopover) pickerPopover._restoreLoraPresetPopover = restorePortaledPopover;
+
                 pickerButton?.addEventListener("click", (e) => {
                     e.stopPropagation();
                     const shouldOpen = !picker?.classList.contains("open");
                     widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
+                        openPicker._closeLoraPresetPopover?.();
                         openPicker.classList.remove("open");
                         openPicker.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
                     });
-                    picker?.classList.toggle("open", shouldOpen);
-                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.toggle("preset-open", shouldOpen);
-                    if (shouldOpen) presetSearch?.focus();
+                    if (!shouldOpen) {
+                        restorePortaledPopover();
+                        return;
+                    }
+                    picker?.classList.add("open");
+                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.add("preset-open");
+                    if (isActiveStackPicker && pickerPopover) {
+                        pickerPopover.dataset.loraPortalOwner = uniqueId;
+                        pickerPopover.classList.add("lora-trigger-preset-popover-portal", "lora-trigger-preset-popover-portal-active", "open");
+                        document.body.appendChild(pickerPopover);
+                        positionPortaledPopover();
+                        window.addEventListener("resize", positionPortaledPopover);
+                        widgetContainer.querySelector(".locallora-active-sidebar-content")?.addEventListener("scroll", positionPortaledPopover);
+                    }
+                    presetSearch?.focus();
                 });
 
                 pickerPopover?.addEventListener("click", (e) => {
@@ -1565,8 +1614,7 @@ const UnifiedLoraGalleryNode = {
                     } else {
                         presetSelect.value = presetName;
                         selectedPresets = presetName ? [presetName] : [];
-                        picker?.classList.remove("open");
-                        element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
+                        restorePortaledPopover();
                     }
                     applyPresetSelection({ selectedPresetsOverride: selectedPresets, stackingOverride: stacking });
                 });
@@ -2188,7 +2236,7 @@ const UnifiedLoraGalleryNode = {
             this.expandedHeight = this.size[1];
 
             const bindEventListeners = () => {
-                document.addEventListener("keydown", (e) => {
+                globalListeners.listen(document, "keydown", (e) => {
                     if (e.key === "Escape") {
                         if (this.selectedCardsForEditing.size > 0) {
                             document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
@@ -2257,7 +2305,6 @@ const UnifiedLoraGalleryNode = {
                             }
                         }
 
-                        const originalColor = urlEditorInput.style.backgroundColor;
                         urlEditorInput.style.backgroundColor = "#2a5";
                         setTimeout(() => { urlEditorInput.style.backgroundColor = ""; }, 500);
                     }
@@ -2287,7 +2334,6 @@ const UnifiedLoraGalleryNode = {
                             }
                         }
                         
-                        const originalColor = triggerEditorInput.style.backgroundColor;
                         triggerEditorInput.style.backgroundColor = "#2a5";
                         setTimeout(() => { triggerEditorInput.style.backgroundColor = ""; }, 500);
                     }
@@ -2380,7 +2426,7 @@ const UnifiedLoraGalleryNode = {
                 });
 
                 widgetContainer.querySelector(".lora-active-display-mode")?.addEventListener("change", (event) => {
-                    this.loraUiState.active_display_mode = normalizeChoice(event.target.value, LORA_DISPLAY_MODES, "thumbnails");
+                    this.loraUiState.active_display_mode = normalizeLoraDisplayMode(event.target.value);
                     applyLoraDisplayState();
                     renderSelectedList();
                     queueLoraDisplayStateSave();
@@ -2404,7 +2450,7 @@ const UnifiedLoraGalleryNode = {
                 });
 
                 widgetContainer.querySelector(".lora-cards-display-mode")?.addEventListener("change", (event) => {
-                    this.loraUiState.cards_display_mode = normalizeChoice(event.target.value, LORA_DISPLAY_MODES, "thumbnails");
+                    this.loraUiState.cards_display_mode = normalizeLoraDisplayMode(event.target.value);
                     applyLoraDisplayState();
                     renderCurrentView(false);
                     queueLoraDisplayStateSave();
@@ -2412,14 +2458,19 @@ const UnifiedLoraGalleryNode = {
                 });
 
                 widgetContainer.querySelector(".lora-card-contrast-select")?.addEventListener("change", (event) => {
-                    this.loraUiState.card_contrast_mode = normalizeChoice(event.target.value, LORA_CONTRAST_MODES, "off");
+                    this.loraUiState.card_contrast_mode = normalizeLoraContrastMode(event.target.value);
                     applyLoraDisplayState();
                     queueLoraDisplayStateSave();
                 });
 
                 widgetContainer.querySelector(".lora-active-thumbnail-size-slider")?.addEventListener("input", (event) => {
                     if (event.target.disabled) return;
-                    this.loraUiState.active_thumbnail_size_px = clampNumber(event.target.value, LORA_ACTIVE_THUMBNAIL_MIN, LORA_ACTIVE_THUMBNAIL_MAX, 96);
+                    this.loraUiState.active_thumbnail_size_px = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.activeThumbnailMin,
+                        LORA_DISPLAY_LIMITS.activeThumbnailMax,
+                        96,
+                    );
                     applyLoraDisplayState();
                     queueLoraDisplayStateSave();
                     this.setDirtyCanvas(true, true);
@@ -2427,13 +2478,18 @@ const UnifiedLoraGalleryNode = {
 
                 widgetContainer.querySelector(".lora-thumbnail-size-slider")?.addEventListener("input", (event) => {
                     if (event.target.disabled) return;
-                    this.loraUiState.thumbnail_size_px = clampNumber(event.target.value, LORA_CARD_THUMBNAIL_MIN, LORA_CARD_THUMBNAIL_MAX, 168);
+                    this.loraUiState.thumbnail_size_px = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.cardThumbnailMin,
+                        LORA_DISPLAY_LIMITS.cardThumbnailMax,
+                        168,
+                    );
                     applyLoraDisplayState();
                     queueLoraDisplayStateSave();
                 });
 
                 widgetContainer.querySelector(".lora-sort-select")?.addEventListener("change", async (event) => {
-                    this.loraUiState.sort_mode = normalizeChoice(event.target.value, LORA_SORT_MODES, "az");
+                    this.loraUiState.sort_mode = normalizeLoraSortMode(event.target.value);
                     syncDisplayOptionControls();
                     await persistLoraUiState({ sort_mode: this.loraUiState.sort_mode });
                     await fetchAndRender(false);
@@ -2442,7 +2498,7 @@ const UnifiedLoraGalleryNode = {
                 widgetContainer.querySelector(".lora-visible-folders-slider")?.addEventListener("input", (event) => {
                     const count = parseInt(event.target.value, 10);
                     const oldCount = getVisiblePinnedFolderCount();
-                    this.loraUiState.visible_pinned_folder_count = Number.isInteger(count) ? Math.max(1, Math.min(25, count)) : 8;
+                    this.loraUiState.visible_pinned_folder_count = normalizeVisiblePinnedFolderCount(count);
                     
                     const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
                     if (foldersCountVal) foldersCountVal.textContent = this.loraUiState.visible_pinned_folder_count;
@@ -2511,7 +2567,7 @@ const UnifiedLoraGalleryNode = {
                     arrow.classList.toggle('open', !isVisible);
                 });
 
-                document.addEventListener('click', (e) => {
+                globalListeners.listen(document, 'click', (e) => {
                     if (!multiSelectTagContainer.contains(e.target)) {
                         multiSelectTagDropdown.style.display = 'none';
                         arrow.classList.remove('open');
@@ -2558,22 +2614,34 @@ const UnifiedLoraGalleryNode = {
                     closeLoraFolderContextMenu();
                 };
 
-                document.addEventListener("pointerdown", globalLoraPointerDownHandler, { capture: true });
-                document.addEventListener("keydown", globalLoraKeydownHandler);
-                window.addEventListener("resize", globalLoraResizeHandler);
-                window.addEventListener("pointermove", onLoraFolderPointerMove);
-                window.addEventListener("pointerup", onLoraFolderPointerUp);
-                window.addEventListener("pointercancel", onLoraFolderPointerCancel);
+                globalListeners.listen(document, "pointerdown", globalLoraPointerDownHandler, { capture: true });
+                globalListeners.listen(document, "keydown", globalLoraKeydownHandler);
+                globalListeners.listen(window, "resize", globalLoraResizeHandler);
+                globalListeners.listen(window, "pointermove", onLoraFolderPointerMove);
+                globalListeners.listen(window, "pointerup", onLoraFolderPointerUp);
+                globalListeners.listen(window, "pointercancel", onLoraFolderPointerCancel);
 
                 // Clean up on node removal
                 const originalOnRemoved = this.onRemoved;
                 this.onRemoved = function () {
-                    document.removeEventListener("pointerdown", globalLoraPointerDownHandler, { capture: true });
-                    document.removeEventListener("keydown", globalLoraKeydownHandler);
-                    window.removeEventListener("resize", globalLoraResizeHandler);
-                    window.removeEventListener("pointermove", onLoraFolderPointerMove);
-                    window.removeEventListener("pointerup", onLoraFolderPointerUp);
-                    window.removeEventListener("pointercancel", onLoraFolderPointerCancel);
+                    const wasResizingSidebar = splitter?.classList.contains("dragging");
+                    globalListeners.cleanup();
+                    removeSidebarMouseMove = null;
+                    removeSidebarMouseUp = null;
+                    splitter?.classList.remove("dragging");
+                    if (wasResizingSidebar) {
+                        document.body.style.cursor = "";
+                        document.body.style.userSelect = "";
+                    }
+                    if (loraDisplayStateSaveTimer) {
+                        clearTimeout(loraDisplayStateSaveTimer);
+                        loraDisplayStateSaveTimer = null;
+                    }
+                    document.querySelectorAll(".lora-trigger-preset-popover-portal").forEach(popover => {
+                        if (popover.dataset.loraPortalOwner !== uniqueId) return;
+                        popover._restoreLoraPresetPopover?.();
+                        if (popover.isConnected && !widgetContainer.contains(popover)) popover.remove();
+                    });
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

@@ -45,10 +45,10 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
     <div class="lora-card-preset-checklist">
         ${checklistHtml}
     </div>
-    <button type="button" class="lora-trigger-preset-button" title="Choose trigger preset" aria-label="Choose trigger preset">
+    <button type="button" class="lora-trigger-preset-button" title="Choose trigger preset" aria-label="Choose trigger preset" aria-pressed="${selectedPresetNames.length ? "true" : "false"}">
         ${tagSvg}
         <span class="lora-trigger-preset-label">${escapeHtml(selectedLabel)}</span>
-        <span class="lora-trigger-preset-count">${isStacking && selectedPresetNames.length ? selectedPresetNames.length : ""}</span>
+        <span class="lora-trigger-preset-count">${selectedPresetNames.length ? (isStacking ? selectedPresetNames.length : 1) : ""}</span>
         <span class="lora-trigger-preset-arrow">v</span>
     </button>
     <div class="lora-trigger-preset-popover">

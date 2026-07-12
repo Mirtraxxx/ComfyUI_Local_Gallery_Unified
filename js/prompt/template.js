@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=wildcard-auto-attach-category-fix-20260711";
+import { getPromptStyles } from "./styles.js?v=wildcard-toolbar-order-20260712";
 import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX } from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {
@@ -143,6 +143,15 @@ export function getPromptTemplate(uniqueId) {
                                 <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-wildcards-btn" title="Wildcard Categories" aria-label="Wildcard Categories">
                                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 8 4-8 4-8-4 8-4z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 18 8 4 8-4"></path></svg>
                                 </button>
+                                <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks" aria-label="Shuffle wildcard picks">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M16 3h5v5"></path>
+                                        <path d="M4 20 21 3"></path>
+                                        <path d="M21 16v5h-5"></path>
+                                        <path d="m15 15 6 6"></path>
+                                        <path d="m4 4 5 5"></path>
+                                    </svg>
+                                </button>
                                 <div class="comfyui-seed-style">
                                     <button id="${uniqueId}-seed-dec" class="seed-btn">&lt;</button>
                                     <span class="seed-label">seed</span>
@@ -167,15 +176,6 @@ export function getPromptTemplate(uniqueId) {
                                     <input id="${uniqueId}-wildcard-auto-attach" type="checkbox">
                                     <span>Auto-attach image</span>
                                 </label>
-                                <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks" aria-label="Shuffle wildcard picks">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M16 3h5v5"></path>
-                                        <path d="M4 20 21 3"></path>
-                                        <path d="M21 16v5h-5"></path>
-                                        <path d="m15 15 6 6"></path>
-                                        <path d="m4 4 5 5"></path>
-                                    </svg>
-                                </button>
                             </div>
                         </div>
                         <div class="localprompt-bottom-spacer"></div>

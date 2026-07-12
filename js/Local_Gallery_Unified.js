@@ -1,8 +1,8 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js";
-import { registerLoraGalleryUi } from "./lora/ui.js?v=lora-active-name-span-20260618";
-import { registerPromptGalleryUi } from "./prompt/ui.js?v=wildcard-auto-attach-category-fix-20260711";
+import { registerLoraGalleryUi } from "./lora/ui.js?v=lora-display-state-lifecycle-20260712";
+import { registerPromptGalleryUi } from "./prompt/ui.js?v=wildcard-toolbar-order-20260712";
 
 app.registerExtension({
     name: "LocalGalleryPromptLora.Tabs",

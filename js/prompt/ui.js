@@ -1,4 +1,4 @@
-import * as promptApi from "../api/promptApi.js?v=wildcard-auto-attach-category-fix-20260711";
+import * as promptApi from "../api/promptApi.js?v=card-manager-bulk-move-20260712";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -26,7 +26,7 @@ import {
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=default-gallery-pointer-reorder-20260608";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-fullscreen-20260711";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -34,11 +34,11 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=workspace-toggle-cleanup-20260607";
+} from "./dialogs.js?v=card-manager-fullscreen-20260711";
 import {
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
-} from "./contextMenus.js";
+} from "./contextMenus.js?v=card-manager-fullscreen-20260711";
 import {
     attachInfoPopup as attachPromptInfoPopup,
     hideHoverPreview as hidePromptHoverPreview,
@@ -65,7 +65,7 @@ import {
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
-import { getPromptTemplate } from "./template.js?v=wildcard-auto-attach-category-fix-20260711";
+import { getPromptTemplate } from "./template.js?v=wildcard-toolbar-order-20260712";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js";
@@ -140,6 +140,15 @@ const UnifiedPromptGalleryNode = {
         }
     },
 
+    async getCategorySummary() {
+        try {
+            return await promptApi.getCategorySummary();
+        } catch (error) {
+            console.error("LocalPromptGallery: Error fetching category summary:", error);
+            return { categories: [], counts: {}, totalCount: null };
+        }
+    },
+
     async updateMetadata(prompt_id, data) {
         try {
             return await promptApi.updateMetadata(prompt_id, data);
@@ -181,6 +190,15 @@ const UnifiedPromptGalleryNode = {
             return await promptApi.deletePromptsBulk(prompt_ids);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to bulk delete prompts", e);
+            return { status: "error", message: e.toString() };
+        }
+    },
+
+    async movePromptsBulk(prompt_ids, category = "") {
+        try {
+            return await promptApi.movePromptsBulk(prompt_ids, category);
+        } catch (e) {
+            console.error("LocalPromptGallery: Failed to bulk move prompts", e);
             return { status: "error", message: e.toString() };
         }
     },
@@ -399,14 +417,13 @@ const UnifiedPromptGalleryNode = {
             widgetContainer.className = "localprompt-container-wrapper";
             this.addDOMWidget("prompt_gallery", "div", widgetContainer, {});
 
-            // Fix for node title menu icons appearing in wrong position (left) when clicking custom content.
-            // Force canvas selection logic on mousedown so menu uses correct node title rect instead of widget rect.
-            widgetContainer.addEventListener('mousedown', () => {
-                setTimeout(() => {
-                    if (app && app.canvas && typeof app.canvas.selectNode === 'function') {
-                        app.canvas.selectNode(this);
-                    }
-                }, 0);
+            // Keep interactions inside the custom UI from bubbling into the ComfyUI canvas.
+            // The node can still be selected from its title/header, while buttons, sliders,
+            // category pills, and drag gestures remain owned by this interface.
+            ['pointerdown', 'mousedown', 'click'].forEach(eventName => {
+                widgetContainer.addEventListener(eventName, event => {
+                    event.stopPropagation();
+                });
             });
 
             // --- HIDDEN DATA WIDGETS (added AFTER DOM widget to not affect its position) ---

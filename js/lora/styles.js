@@ -1370,6 +1370,18 @@ export function getLoraStyles(uniqueId) {
                         border-color: rgba(255, 145, 40, 0.62);
                         background: rgba(26, 23, 20, 0.86);
                     }
+
+                    #${uniqueId} .lora-trigger-preset-picker.has-selection .lora-trigger-preset-button,
+                    #${uniqueId} .lora-trigger-preset-picker.stacking .lora-trigger-preset-button {
+                        border-color: rgba(16, 199, 145, 0.72);
+                        background: rgba(16, 92, 74, 0.48);
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-picker.has-selection .lora-trigger-preset-button:hover,
+                    #${uniqueId} .lora-trigger-preset-picker.stacking .lora-trigger-preset-button:hover {
+                        border-color: rgba(67, 231, 182, 0.92);
+                        background: rgba(16, 112, 88, 0.64);
+                    }
                     
                     #${uniqueId} .lora-trigger-preset-label {
                         min-width: 0;
@@ -1492,6 +1504,146 @@ export function getLoraStyles(uniqueId) {
                     
                     #${uniqueId} .lora-card-preset-stack-checkbox {
                         margin: 0;
+                    }
+
+                    #${uniqueId} .lora-card-preset-stack-label:has(.lora-card-preset-stack-checkbox:checked) {
+                        color: #95e8ca;
+                        background: rgba(16, 199, 145, 0.12);
+                        border-radius: 6px;
+                    }
+
+                    /* Active-stack menus are portaled to the viewport so a narrow node/sidebar
+                       cannot clip them or force them off the left edge. */
+                    .lora-trigger-preset-popover-portal {
+                        position: fixed;
+                        display: none;
+                        z-index: 50000;
+                        width: min(260px, 76vw);
+                        max-height: 240px;
+                        overflow: hidden;
+                        box-sizing: border-box;
+                        padding: 8px;
+                        border: 1px solid rgba(255, 122, 0, 0.28);
+                        border-radius: 12px;
+                        background: radial-gradient(circle at 8% 8%, rgba(255, 146, 40, 0.10), transparent 40%), linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.025) 45%, rgba(255,255,255,0.05)), rgba(16, 20, 26, 0.94);
+                        box-shadow: 0 16px 42px rgba(0,0,0,0.46), inset 0 0 0 1px rgba(255,255,255,0.05);
+                    }
+
+                    .lora-trigger-preset-popover-portal.open {
+                        display: block;
+                    }
+
+                    .lora-trigger-preset-popover-portal-active {
+                        width: 178px;
+                        max-height: 190px;
+                        padding: 6px;
+                        background: rgba(18, 22, 28, 0.92);
+                        backdrop-filter: blur(14px) saturate(1.2);
+                        -webkit-backdrop-filter: blur(14px) saturate(1.2);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-radius: 10px;
+                        box-shadow: 0 18px 40px rgba(0,0,0,0.72);
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-search {
+                        width: 100%;
+                        box-sizing: border-box;
+                        margin-bottom: 6px;
+                        background: #1d2229;
+                        border: 1px solid rgba(255,255,255,0.14);
+                        border-radius: 7px;
+                        color: #eaf1f5;
+                        font-size: 11px;
+                        padding: 5px 7px;
+                        outline: none;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-options {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        max-height: 172px;
+                        overflow-y: auto;
+                    }
+
+                    .lora-trigger-preset-popover-portal-active .lora-trigger-preset-options {
+                        max-height: 128px;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option {
+                        width: 100%;
+                        min-width: 0;
+                        display: grid;
+                        grid-template-columns: minmax(72px, 0.65fr) minmax(0, 1fr);
+                        gap: 8px;
+                        align-items: center;
+                        padding: 6px 7px;
+                        border: 1px solid transparent;
+                        border-radius: 7px;
+                        background: transparent;
+                        color: #dce6eb;
+                        text-align: left;
+                        cursor: pointer;
+                    }
+
+                    .lora-trigger-preset-popover-portal-active .lora-trigger-preset-option {
+                        grid-template-columns: minmax(0, 1fr);
+                        gap: 0;
+                        padding: 7px 8px;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option:hover {
+                        background: rgba(255,255,255,0.07);
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option.selected {
+                        background: rgba(16, 199, 145, 0.18);
+                        border-color: rgba(67, 231, 182, 0.42);
+                        color: #fff;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option-name,
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option-preview {
+                        min-width: 0;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option-name {
+                        font-size: 11px;
+                        font-weight: 750;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option-preview {
+                        color: rgba(226, 238, 245, 0.62);
+                        font-size: 10px;
+                    }
+
+                    .lora-trigger-preset-popover-portal-active .lora-trigger-preset-option-preview {
+                        display: none;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-card-preset-stack-label {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        color: #dbe6eb;
+                        font-size: 10px;
+                        margin-top: 7px;
+                        padding: 6px 7px 2px;
+                        border-top: 1px solid rgba(255,255,255,0.1);
+                        cursor: pointer;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-card-preset-stack-checkbox {
+                        margin: 0;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-card-preset-stack-label:has(.lora-card-preset-stack-checkbox:checked) {
+                        color: #95e8ca;
+                        background: rgba(16, 199, 145, 0.12);
+                        border-radius: 6px;
                     }
                     
                     /* --- Collapsible States --- */
@@ -1650,6 +1802,12 @@ export function getLoraStyles(uniqueId) {
                         background: rgba(255, 255, 255, 0.18);
                         border-color: rgba(255, 255, 255, 0.3);
                         color: #fff;
+                    }
+
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-picker.has-selection .lora-trigger-preset-button,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-picker.stacking .lora-trigger-preset-button {
+                        background: rgba(16, 92, 74, 0.72);
+                        border-color: rgba(67, 231, 182, 0.78);
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {

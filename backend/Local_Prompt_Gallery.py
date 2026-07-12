@@ -859,10 +859,25 @@ async def get_prompts_by_ids_endpoint(request):
 async def get_categories_endpoint(request):
     try:
         indexes = get_metadata_indexes()
-        return web.json_response({'categories': indexes.get("categories", [])})
+        category_ids = indexes.get("category_ids", {})
+        category_counts = {
+            category: len(prompt_ids)
+            for category, prompt_ids in category_ids.items()
+        }
+        return web.json_response({
+            'categories': indexes.get("categories", []),
+            'category_counts': category_counts,
+            'total_count': len(indexes.get("all_name_ids", [])),
+        })
     except Exception as e:
         print(f"Error getting categories: {e}")
-        return web.json_response({'status': 'error', 'message': str(e), 'categories': []}, status=500)
+        return web.json_response({
+            'status': 'error',
+            'message': str(e),
+            'categories': [],
+            'category_counts': {},
+            'total_count': 0,
+        }, status=500)
 
 @server.PromptServer.instance.routes.post("/localgalleryunified/prompt/update_metadata")
 async def update_metadata_endpoint(request):
@@ -890,6 +905,64 @@ async def update_metadata_endpoint(request):
     
     except Exception as e:
         print(f"Error updating metadata: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/move_prompts_bulk")
+async def move_prompts_bulk_endpoint(request):
+    """Move a set of cards to one category with a single metadata write."""
+    try:
+        data = await request.json()
+        prompt_ids = data.get('prompt_ids', [])
+        if not isinstance(prompt_ids, list) or not prompt_ids:
+            return web.json_response({
+                "status": "error",
+                "message": "prompt_ids must be a non-empty list",
+            }, status=400)
+        if 'category' not in data or not isinstance(data.get('category'), str):
+            return web.json_response({
+                "status": "error",
+                "message": "category must be a string",
+            }, status=400)
+
+        category = data.get('category', '').strip()
+        # Empty category is the supported Uncategorized destination.
+        normalized_ids = []
+        seen_ids = set()
+        for prompt_id in prompt_ids:
+            prompt_id = str(prompt_id).strip()
+            if prompt_id and prompt_id not in seen_ids:
+                normalized_ids.append(prompt_id)
+                seen_ids.add(prompt_id)
+        if not normalized_ids:
+            return web.json_response({
+                "status": "error",
+                "message": "prompt_ids must contain at least one valid id",
+            }, status=400)
+
+        with _json_file_lock:
+            metadata = copy.deepcopy(load_metadata())
+            missing_ids = [prompt_id for prompt_id in normalized_ids if prompt_id not in metadata]
+            updated_ids = []
+            for prompt_id in normalized_ids:
+                prompt_data = metadata.get(prompt_id)
+                if not prompt_data:
+                    continue
+                if prompt_data.get('category', '') != category:
+                    prompt_data['category'] = category
+                    updated_ids.append(prompt_id)
+            if updated_ids:
+                save_metadata(metadata)
+
+        return web.json_response({
+            "status": "ok",
+            "category": category,
+            "updated_ids": updated_ids,
+            "moved_count": len(updated_ids),
+            "missing_ids": missing_ids,
+        })
+    except Exception as e:
+        print(f"Error moving prompts in bulk: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 

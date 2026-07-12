@@ -35,6 +35,18 @@ export async function getCategories() {
     return data.categories || [];
 }
 
+export async function getCategorySummary() {
+    const response = await api.fetchApi("/localgalleryunified/prompt/get_categories");
+    const data = await response.json();
+    return {
+        categories: Array.isArray(data.categories) ? data.categories : [],
+        counts: data.category_counts && typeof data.category_counts === "object"
+            ? data.category_counts
+            : {},
+        totalCount: Number.isFinite(data.total_count) ? data.total_count : null,
+    };
+}
+
 export async function updateMetadata(promptId, data) {
     const body = { prompt_id: promptId, ...data };
     const response = await api.fetchApi("/localgalleryunified/prompt/update_metadata", {
@@ -88,6 +100,19 @@ export async function deletePromptsBulk(promptIds) {
         body: JSON.stringify({ prompt_ids: promptIds }),
     });
     return await response.json();
+}
+
+export async function movePromptsBulk(promptIds, category = "") {
+    const response = await api.fetchApi("/localgalleryunified/prompt/move_prompts_bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt_ids: promptIds, category }),
+    });
+    const result = await response.json();
+    if (!response.ok || result?.status === "error") {
+        throw new Error(result?.message || "Failed to move prompts");
+    }
+    return result;
 }
 
 export async function uploadThumbnail(promptId, file) {
