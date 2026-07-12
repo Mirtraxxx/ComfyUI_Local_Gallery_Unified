@@ -14,6 +14,17 @@ export function createPromptWorkspaceController({
     showExportWorkspace,
 }) {
     let workspaceMode = "gallery";
+    let disposed = false;
+    let libraryShellHost = null;
+    let libraryShellClickHandler = null;
+
+    function detachLibraryShellHandler() {
+        if (libraryShellHost && libraryShellClickHandler) {
+            libraryShellHost.removeEventListener("click", libraryShellClickHandler);
+        }
+        libraryShellHost = null;
+        libraryShellClickHandler = null;
+    }
 
     function getWorkspaceMode() {
         return workspaceMode;
@@ -24,12 +35,14 @@ export function createPromptWorkspaceController({
     }
 
     function setWorkspaceMode(mode = "gallery") {
+        if (disposed) return null;
         workspaceMode = mode;
         closeToolbarPanels();
         const host = getWorkspaceHost();
         const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
         if (!host) return null;
 
+        if (mode === "gallery") detachLibraryShellHandler();
         host.innerHTML = "";
         host.classList.toggle("active", mode !== "gallery");
         if (mode !== "gallery") {
@@ -74,6 +87,7 @@ export function createPromptWorkspaceController({
     }
 
     function renderLibraryShell(activePage = "overview") {
+        if (disposed) return null;
         const host = setWorkspaceMode(`library_${activePage}`);
         if (!host) return null;
 
@@ -83,7 +97,8 @@ export function createPromptWorkspaceController({
             </div>
         `;
 
-        host.addEventListener("click", event => {
+        detachLibraryShellHandler();
+        const onLibraryShellClick = event => {
             const button = event.target.closest?.("[data-library-page]");
             if (!button || !host.contains(button)) return;
             const page = button.dataset.libraryPage;
@@ -92,12 +107,16 @@ export function createPromptWorkspaceController({
             if (page === "presets") showPresetsWorkspace();
             if (page === "import") showImportWorkspace();
             if (page === "export") showExportWorkspace();
-        });
+        };
+        host.addEventListener("click", onLibraryShellClick);
+        libraryShellHost = host;
+        libraryShellClickHandler = onLibraryShellClick;
 
         return host.querySelector(`#${uniqueId}-library-workspace-content`);
     }
 
     function renderLibraryWorkspace() {
+        if (disposed) return;
         const content = renderLibraryShell("overview");
         if (!content) return;
         content.innerHTML = `
@@ -152,5 +171,10 @@ export function createPromptWorkspaceController({
         getLibrarySubnavHtml,
         renderLibraryShell,
         renderLibraryWorkspace,
+        dispose() {
+            disposed = true;
+            detachLibraryShellHandler();
+            workspaceMode = "gallery";
+        },
     };
 }

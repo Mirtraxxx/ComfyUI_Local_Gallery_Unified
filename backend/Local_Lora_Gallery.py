@@ -13,6 +13,11 @@ import copy
 import shutil
 import tempfile
 import time
+
+try:
+    from .value_utils import bounded_int, finite_float, parse_json_list
+except ImportError:
+    from value_utils import bounded_int, finite_float, parse_json_list
 from urllib.parse import urlparse
 
 NunchakuFluxLoraLoader = None
@@ -375,14 +380,37 @@ async def sync_civitai_metadata(request):
                     if download_response.status != 200:
                         print(f"Local Lora Gallery: Warning - Failed to download preview from {final_url}. Proceeding without preview.")
                     else:
-                        with open(save_path, 'wb') as f:
-                            while True:
-                                chunk = await download_response.content.read(8192)
-                                if not chunk: break
-                                f.write(chunk)
+                        temp_preview_path = None
+                        try:
+                            with tempfile.NamedTemporaryFile('wb', dir=lora_dir, delete=False) as f:
+                                temp_preview_path = f.name
+                                while True:
+                                    chunk = await download_response.content.read(8192)
+                                    if not chunk:
+                                        break
+                                    f.write(chunk)
+                                f.flush()
+                                os.fsync(f.fileno())
+                            os.replace(temp_preview_path, save_path)
+                            temp_preview_path = None
+                        finally:
+                            if temp_preview_path and os.path.exists(temp_preview_path):
+                                os.remove(temp_preview_path)
                         print(f"Local Lora Gallery: Successfully downloaded preview to '{save_path}'")
 
             trained_words = civitai_version_data.get('trainedWords', [])
+            # Network and download operations above may take long enough for a user to
+            # edit metadata concurrently. Reload before saving so sync only merges its
+            # own fields instead of overwriting the newer file with a stale snapshot.
+            metadata = load_metadata()
+            lora_meta, _ = get_metadata_for_lora(
+                metadata,
+                lora_name,
+                lora_full_path,
+                ensure_hash=False,
+                create_missing=True,
+            )
+            lora_meta['hash'] = model_hash
             if trained_words:
                 lora_meta['trigger_words'] = ", ".join(trained_words)
             
@@ -457,8 +485,8 @@ async def get_loras_endpoint(request):
         if sort_mode not in ('az', 'za', 'newest', 'oldest'):
             sort_mode = 'az'
         
-        page = int(request.query.get('page', 1))
-        per_page = int(request.query.get('per_page', 50))
+        page = bounded_int(request.query.get('page', 1), 1, 1, 1_000_000)
+        per_page = bounded_int(request.query.get('per_page', 50), 50, 1, 200)
 
         lora_files = folder_paths.get_filename_list("loras")
         lora_roots = folder_paths.get_folder_paths("loras")
@@ -722,18 +750,11 @@ class BaseLoraGallery:
 
     @staticmethod
     def _parse_selection_data(selection_data):
-        try:
-            lora_configs = json.loads(selection_data)
-            return lora_configs if isinstance(lora_configs, list) else []
-        except Exception:
-            return []
+        return parse_json_list(selection_data)
 
     @staticmethod
     def _float_config_value(config, key, fallback):
-        try:
-            return float(config.get(key, fallback))
-        except (TypeError, ValueError):
-            return fallback
+        return finite_float(config.get(key, fallback), fallback)
 
     @classmethod
     def MODEL_CHANGED(cls, selection_data, **kwargs):
@@ -838,10 +859,7 @@ class LocalLoraGallery(BaseLoraGallery):
     CATEGORY = "📜Asset Gallery/Loras"
 
     def load_loras(self, model, clip, unique_id, selection_data="[]", **kwargs):
-        try:
-            lora_configs = json.loads(selection_data)
-        except:
-            lora_configs = []
+        lora_configs = self._parse_selection_data(selection_data)
 
         all_metadata = load_metadata()
         trigger_words_list = []
@@ -863,6 +881,8 @@ class LocalLoraGallery(BaseLoraGallery):
             print("LocalLoraGallery: Using standard LoraLoader.")
 
         for config in lora_configs:
+            if not isinstance(config, dict):
+                continue
             if not config.get('on', True) or not config.get('lora'):
                 continue
 
@@ -878,8 +898,8 @@ class LocalLoraGallery(BaseLoraGallery):
                 trigger_words_list.append(triggers)
 
             try:
-                strength_model = float(config.get('strength', 1.0))
-                strength_clip = float(config.get('strength_clip', strength_model))
+                strength_model = self._float_config_value(config, 'strength', 1.0)
+                strength_clip = self._float_config_value(config, 'strength_clip', strength_model)
 
                 if strength_model == 0 and strength_clip == 0:
                     continue
@@ -916,10 +936,7 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
     CATEGORY = "📜Asset Gallery/Loras"
 
     def load_loras(self, model, unique_id, selection_data="[]", **kwargs):
-        try:
-            lora_configs = json.loads(selection_data)
-        except:
-            lora_configs = []
+        lora_configs = self._parse_selection_data(selection_data)
 
         all_metadata = load_metadata()
         trigger_words_list = []
@@ -941,6 +958,8 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
             print("LocalLoraGalleryModelOnly: Using standard LoraLoaderModelOnly.")
 
         for config in lora_configs:
+            if not isinstance(config, dict):
+                continue
             if not config.get('on', True) or not config.get('lora'):
                 continue
 
@@ -956,7 +975,7 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
                 trigger_words_list.append(triggers)
 
             try:
-                strength_model = float(config.get('strength', 1.0))
+                strength_model = self._float_config_value(config, 'strength', 1.0)
                 if strength_model == 0:
                     continue
 

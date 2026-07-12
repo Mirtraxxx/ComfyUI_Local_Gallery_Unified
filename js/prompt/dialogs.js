@@ -690,7 +690,7 @@ export async function showFromLastOutputDialog({
             <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-details" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
                 <div class="localprompt-from-output-preview-wrap" style="width: 104px;">
                     <div class="localprompt-from-output-preview" style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
-                        <img src="${previewUrl}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        <img src="${escapeHtml(previewUrl)}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                     </div>
                 </div>
                 <div class="localprompt-from-output-fields" style="min-width: 0;">

@@ -15,7 +15,6 @@ import {
     getCategoryRoleColor as resolveCategoryRoleColor,
     getLibraryTabsFromPrefs,
     getNearestPaletteColor,
-    getThumbnailVariables,
     hexToRgba,
     isShowTextNode,
     normalizePromptIdList,
@@ -26,15 +25,6 @@ import {
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-fullscreen-20260711";
-import {
-    showAddPromptDialog as openAddPromptDialog,
-    showEditPromptDialog as openEditPromptDialog,
-    showFromLastOutputDialog as openFromLastOutputDialog,
-    showImportDialog as openImportDialog,
-    showExportDialog as openExportDialog,
-    showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=card-manager-fullscreen-20260711";
 import {
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
@@ -43,42 +33,36 @@ import {
     attachInfoPopup as attachPromptInfoPopup,
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
-} from "./previews.js?v=preview-popover-20260606";
+} from "./previews.js?v=repository-review-20260712";
 import {
-    applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
-    renderActiveSidebar as renderPromptActiveSidebar,
 } from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
-import {
-    loadCategories as loadPromptGalleryCategories,
-    promptMatchesCurrentGallery as promptMatchesPromptGallery,
-    renderGallery as renderPromptGallery,
-} from "./gallery.js?v=default-gallery-pointer-reorder-20260608";
+import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
+import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
+import { createBottomToolbarController } from "./bottomToolbarController.js?v=prompt-bottom-toolbar-20260712";
+import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=prompt-display-preferences-20260712";
+import { createActiveStackController } from "./activeStackController.js?v=prompt-active-stack-20260712";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=prompt-sort-refresh-20260621";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=wildcard-auto-attach-category-fix-20260711";
+} from "./library.js?v=repository-review-20260712";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
 import { getPromptTemplate } from "./template.js?v=wildcard-toolbar-order-20260712";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=workspace-actions-20260712";
 import {
     DEFAULT_PROMPT_UI_PREFS,
-    getActiveDisplayMode as resolveActiveDisplayMode,
-    getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
-    getCardsDisplayMode as resolveCardsDisplayMode,
-    getThumbnailSizePx as resolveThumbnailSizePx,
     mergeUiPrefs,
-    normalizeDisplayMode,
 } from "./preferences.js?v=prefs-schema-20260611";
 import { escapeHtml } from "../shared/dom.js";
+import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 
 export function registerPromptGalleryUi(app, api) {
@@ -370,6 +354,7 @@ const UnifiedPromptGalleryNode = {
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             const result = onNodeCreated?.apply(this, arguments);
+            const globalListeners = createEventListenerRegistry();
             const node_instance = this;
             UnifiedPromptGalleryNode.instances.add(node_instance);
 
@@ -470,9 +455,11 @@ const UnifiedPromptGalleryNode = {
             let activeLibraryTab = null;
             let categoryOverflowOpen = false;
             let currentWildcardMode = wildcardWidget?.value || 'off';
+            let disposed = false;
             let libraryDrawerRenderToken = 0;
             let queuedLibraryDrawerTimer = null;
-            let activeSidebarRenderToken = 0;
+            let setupTimer = null;
+            const libraryGalleryGuardButtons = new WeakSet();
             let cachedCategories = null;
             let cachedCategoriesPromise = null;
 
@@ -483,6 +470,7 @@ const UnifiedPromptGalleryNode = {
                 }
                 queuedLibraryDrawerTimer = setTimeout(() => {
                     queuedLibraryDrawerTimer = null;
+                    if (disposed) return;
                     renderLibraryDrawer(tabName);
                 }, delay);
             }
@@ -673,16 +661,20 @@ const UnifiedPromptGalleryNode = {
                 clearCategoryDragTargets();
             };
 
-            document.addEventListener("pointerdown", globalPointerDownHandler, { capture: true });
-            document.addEventListener("keydown", globalKeydownHandler);
-            window.addEventListener("resize", globalResizeHandler);
-            window.addEventListener("pointermove", onCategoryPointerMove);
-            window.addEventListener("pointerup", onCategoryPointerUp);
-            window.addEventListener("pointercancel", onCategoryPointerCancel);
+            globalListeners.listen(document, "pointerdown", globalPointerDownHandler, { capture: true });
+            globalListeners.listen(document, "keydown", globalKeydownHandler);
+            globalListeners.listen(window, "resize", globalResizeHandler);
+            globalListeners.listen(window, "pointermove", onCategoryPointerMove);
+            globalListeners.listen(window, "pointerup", onCategoryPointerUp);
+            globalListeners.listen(window, "pointercancel", onCategoryPointerCancel);
 
             // Clean up on node removal
             const originalOnRemoved = this.onRemoved;
             this.onRemoved = function () {
+                disposed = true;
+                galleryController?.dispose?.();
+                libraryDrawerRenderToken += 1;
+                activeStackController?.dispose?.();
                 UnifiedPromptGalleryNode.instances.delete(this);
                 const preview = document.getElementById(`${uniqueId}-hover-preview`);
                 if (preview) preview.remove();
@@ -694,12 +686,19 @@ const UnifiedPromptGalleryNode = {
                     clearTimeout(queuedLibraryDrawerTimer);
                     queuedLibraryDrawerTimer = null;
                 }
-                document.removeEventListener("pointerdown", globalPointerDownHandler, { capture: true });
-                document.removeEventListener("keydown", globalKeydownHandler);
-                window.removeEventListener("resize", globalResizeHandler);
-                window.removeEventListener("pointermove", onCategoryPointerMove);
-                window.removeEventListener("pointerup", onCategoryPointerUp);
-                window.removeEventListener("pointercancel", onCategoryPointerCancel);
+                if (setupTimer) {
+                    clearTimeout(setupTimer);
+                    setupTimer = null;
+                }
+                displayPreferencesController?.dispose?.();
+                bottomToolbarController?.dispose?.();
+                widgetContainer.querySelector(`#${uniqueId}-library-chips`)?.__localpromptBuilderManualOrderCleanup?.();
+                widgetContainer.querySelector(`#${uniqueId}-gallery`)?.__localpromptManualOrderCleanup?.();
+                widgetContainer.querySelector(`#${uniqueId}-active-sidebar-content`)?.__localpromptActiveSidebarDragCleanup?.();
+                workspaceController.dispose?.();
+                categoryStripController?.dispose?.();
+                metaTagsController.dispose?.();
+                globalListeners.cleanup();
                 closeCategoryContextMenu();
                 if (originalOnRemoved) originalOnRemoved.call(this);
             };
@@ -747,8 +746,7 @@ const UnifiedPromptGalleryNode = {
                     if (isActiveSidebarOpen()) {
                         clearActiveSidebarOpenTimer();
                         clearActiveSidebarCloseTimer();
-                        activeSidebarHoverOpen = false;
-                        applyActiveSidebarPreference();
+                        setActiveSidebarHoverOpen(false);
                     }
                     closeDisplayOptionsPopover();
                     const willOpen = !panel.classList.contains("open");
@@ -817,241 +815,18 @@ const UnifiedPromptGalleryNode = {
                 }
             }
 
+            let categoryStripController = null;
             async function openCategoryFromMenu(category) {
-                if (getWorkspaceMode() !== "gallery") {
-                    setWorkspaceMode("gallery");
-                }
-                const drawer = widgetContainer.querySelector(`#${uniqueId}-library-drawer`);
-                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
-                if (activeLibraryTab === category) {
-                    if (categorySelect) categorySelect.value = "";
-                    activeLibraryTab = null;
-                    clearLibraryNavActiveState();
-                    drawer?.classList.remove("active");
-                    syncPromptSortControls();
-                    syncSelectedSectionVisibility();
-                    await renderPinnedCategoryStrip();
-                    await renderCategoryDropdownOptions();
-                    closeToolbarPanels();
-                    return;
-                }
-                if (categorySelect) categorySelect.value = category || "";
-                activeLibraryTab = category;
-                clearLibraryNavActiveState();
-                drawer?.classList.add("active");
-                await renderLibraryDrawer(category);
-                syncPromptSortControls();
-                syncSelectedSectionVisibility();
-                await renderPinnedCategoryStrip();
-                await renderCategoryDropdownOptions();
-                closeToolbarPanels();
+                return categoryStripController?.openCategoryFromMenu?.(category);
             }
-
             async function renderPinnedCategoryStrip() {
-                const strip = widgetContainer.querySelector(`#${uniqueId}-pinned-category-strip`);
-                const moreGroup = widgetContainer.querySelector(`#${uniqueId}-more-category-group`);
-                if (!strip) return;
-
-                const allCategories = await getCachedCategories();
-                const pinnedCategories = await ensurePinnedCategoriesInitialized(allCategories);
-                const visiblePinnedCategories = pinnedCategories.slice(0, getVisiblePinnedCategoryCount());
-                strip.innerHTML = "";
-
-                visiblePinnedCategories.forEach(category => {
-                    const pill = document.createElement("button");
-                    pill.type = "button";
-                    pill.className = `localprompt-pinned-category-pill${activeLibraryTab === category ? " active" : ""}`;
-                    pill.textContent = category;
-                    pill.title = category;
-                    pill.dataset.category = category;
-                    pill.dataset.pinned = "true";
-                    applyLibraryTabRoleStyling(pill, category, activeLibraryTab === category);
-                    
-                    pill.addEventListener("click", (e) => {
-                        if (Date.now() < suppressCategoryClickUntil) {
-                            e.stopImmediatePropagation();
-                            return;
-                        }
-                        openCategoryFromMenu(category);
-                    });
-
-                    // Context Menu
-                    pill.addEventListener("contextmenu", (event) => {
-                        event.preventDefault();
-                        showCategoryPillContextMenu(event, category, true);
-                    });
-
-                    // Pointer Long Press & Drag setup
-                    let longPressTimer = null;
-                    let startX = 0;
-                    let startY = 0;
-
-                    pill.addEventListener("pointerdown", (event) => {
-                        if (event.button !== 0) return;
-                        if (event.target.closest("button:not(.localprompt-pinned-category-pill), input, select, textarea")) return;
-                        
-                        startX = event.clientX;
-                        startY = event.clientY;
-                        if (longPressTimer) clearTimeout(longPressTimer);
-                        
-                        longPressTimer = setTimeout(() => {
-                            suppressCategoryClickUntil = Date.now() + 250;
-                            showCategoryPillContextMenu(event, category, true);
-                        }, 500);
-
-                        categoryDragState = {
-                            pill,
-                            category,
-                            isPinned: true,
-                            startX: event.clientX,
-                            startY: event.clientY,
-                            active: false,
-                            pointerId: event.pointerId,
-                        };
-                        pill.setPointerCapture?.(event.pointerId);
-                    });
-
-                    pill.addEventListener("pointermove", (event) => {
-                        if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    pill.addEventListener("pointerup", (event) => {
-                        if (longPressTimer) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    pill.addEventListener("pointercancel", () => {
-                        if (longPressTimer) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    strip.appendChild(pill);
-                });
-
-                moreGroup?.classList.remove("hidden");
-
-                await renderCategoryOverflowCategories();
+                return categoryStripController?.renderPinnedCategoryStrip?.();
             }
-
             async function renderCategoryOverflowCategories() {
-                const overflowContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
-                const chipsContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow-chips`);
-                const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
-                if (!overflowContainer || !chipsContainer) return;
-
-                const categories = await getCachedCategories();
-                const active = activeLibraryTab;
-                const pinnedCategories = await ensurePinnedCategoriesInitialized(categories);
-                const visiblePinned = new Set(pinnedCategories.slice(0, getVisiblePinnedCategoryCount()));
-                const hiddenCategories = getCategoriesInCurrentOrder(categories).filter(category => !visiblePinned.has(category));
-
-                chipsContainer.innerHTML = "";
-
-                if (!hiddenCategories.length) {
-                    categoryOverflowOpen = false;
-                    if (pullTab) {
-                        pullTab.style.display = "none";
-                        pullTab.setAttribute("aria-expanded", "false");
-                    }
-                    overflowContainer.classList.remove("open");
-                    return;
-                }
-
-                if (pullTab) {
-                    pullTab.style.display = "flex";
-                    pullTab.setAttribute("aria-expanded", String(categoryOverflowOpen));
-                }
-                overflowContainer.classList.toggle("open", categoryOverflowOpen);
-
-                hiddenCategories.forEach(category => {
-                    const option = document.createElement("button");
-                    const isPinned = pinnedCategories.includes(category);
-                    option.className = `localprompt-pinned-category-pill${active === category ? " active" : ""}`;
-                    option.type = "button";
-                    option.textContent = category;
-                    option.title = category;
-                    option.dataset.category = category;
-                    option.dataset.pinned = String(isPinned);
-                    applyLibraryTabRoleStyling(option, category, active === category);
-                    
-                    option.addEventListener("click", (e) => {
-                        if (Date.now() < suppressCategoryClickUntil) {
-                            e.stopImmediatePropagation();
-                            return;
-                        }
-                        openCategoryFromMenu(category);
-                    });
-
-                    // Context Menu
-                    option.addEventListener("contextmenu", (event) => {
-                        event.preventDefault();
-                        showCategoryPillContextMenu(event, category, isPinned);
-                    });
-
-                    // Pointer Long Press & Drag setup
-                    let longPressTimer = null;
-                    let startX = 0;
-                    let startY = 0;
-
-                    option.addEventListener("pointerdown", (event) => {
-                        if (event.button !== 0) return;
-                        if (event.target.closest("button:not(.localprompt-pinned-category-pill), input, select, textarea")) return;
-                        
-                        startX = event.clientX;
-                        startY = event.clientY;
-                        if (longPressTimer) clearTimeout(longPressTimer);
-                        
-                        longPressTimer = setTimeout(() => {
-                            suppressCategoryClickUntil = Date.now() + 250;
-                            showCategoryPillContextMenu(event, category, isPinned);
-                        }, 500);
-
-                        categoryDragState = {
-                            pill: option,
-                            category,
-                            isPinned,
-                            startX: event.clientX,
-                            startY: event.clientY,
-                            active: false,
-                            pointerId: event.pointerId,
-                        };
-                        option.setPointerCapture?.(event.pointerId);
-                    });
-
-                    option.addEventListener("pointermove", (event) => {
-                        if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    option.addEventListener("pointerup", (event) => {
-                        if (longPressTimer) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    option.addEventListener("pointercancel", () => {
-                        if (longPressTimer) {
-                            clearTimeout(longPressTimer);
-                            longPressTimer = null;
-                        }
-                    });
-
-                    chipsContainer.appendChild(option);
-                });
+                return categoryStripController?.renderCategoryOverflowCategories?.();
             }
-
             async function renderCategoryDropdownOptions() {
-                return renderCategoryOverflowCategories();
+                return categoryStripController?.renderCategoryDropdownOptions?.();
             }
 
             function saveNodeProperties() {
@@ -1094,7 +869,7 @@ const UnifiedPromptGalleryNode = {
                 }
 
                 statusEls.forEach(statusEl => {
-                    statusEl.innerHTML = `${prefix}${label} `;
+                    statusEl.textContent = `${prefix}${label} `;
                     statusEl.title = titleText;
                 });
             }
@@ -1197,203 +972,20 @@ const UnifiedPromptGalleryNode = {
                 return true;
             }
 
-            function getThumbnailSizePx() {
-                return resolveThumbnailSizePx(node_instance.uiPrefs);
-            }
+            let displayPreferencesController = null;
+            function getThumbnailSizePx() { return displayPreferencesController?.getThumbnailSizePx?.(); }
+            function getActiveThumbnailSizePx() { return displayPreferencesController?.getActiveThumbnailSizePx?.(); }
+            function getActiveDisplayMode() { return displayPreferencesController?.getActiveDisplayMode?.(); }
+            function getCardsDisplayMode() { return displayPreferencesController?.getCardsDisplayMode?.(); }
+            function syncThumbnailSizeSliders() { return displayPreferencesController?.syncThumbnailSizeSliders?.(); }
+            function syncDisplayOptionAvailability() { return displayPreferencesController?.syncDisplayOptionAvailability?.(); }
 
-            function getActiveThumbnailSizePx() {
-                return resolveActiveThumbnailSizePx(node_instance.uiPrefs);
-            }
-
-            function getActiveDisplayMode() {
-                return resolveActiveDisplayMode(node_instance.uiPrefs);
-            }
-
-            function getCardsDisplayMode() {
-                return resolveCardsDisplayMode(node_instance.uiPrefs);
-            }
-
-            function applyThumbnailVariables(target, sizePx) {
-                const variables = getThumbnailVariables(sizePx);
-                target.style.setProperty('--localprompt-thumb-height', `${variables.height}px`);
-                target.style.setProperty('--localprompt-thumb-width', `${variables.width}px`);
-                target.style.setProperty('--localprompt-thumb-label-size', `${variables.label}px`);
-            }
-
-            function syncThumbnailSizeSliders() {
-                const cardSlider = widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`);
-                const activeSlider = widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`);
-                const cardModeSelect = widgetContainer.querySelector(`#${uniqueId}-cards-display-mode`);
-                const activeModeSelect = widgetContainer.querySelector(`#${uniqueId}-active-display-mode`);
-                if (cardSlider) cardSlider.value = String(getThumbnailSizePx());
-                if (activeSlider) activeSlider.value = String(getActiveThumbnailSizePx());
-                if (cardModeSelect) cardModeSelect.value = getCardsDisplayMode();
-                if (activeModeSelect) activeModeSelect.value = getActiveDisplayMode();
-                const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
-                if (contrastSelect) contrastSelect.value = node_instance.uiPrefs.card_contrast_mode || "off";
-                syncDisplayOptionAvailability();
-            }
-
-            function syncDisplayOptionAvailability() {
-                const sections = [
-                    {
-                        mode: getActiveDisplayMode(),
-                        slider: widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`),
-                        control: widgetContainer.querySelector(`#${uniqueId}-active-size-control`),
-                    },
-                    {
-                        mode: getCardsDisplayMode(),
-                        slider: widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`),
-                        control: widgetContainer.querySelector(`#${uniqueId}-cards-size-control`),
-                    },
-                ];
-                sections.forEach(({ mode, slider, control }) => {
-                    const enabled = mode === "thumbnails";
-                    if (slider) slider.disabled = !enabled;
-                    if (control) {
-                        control.classList.toggle("disabled", !enabled);
-                        control.title = enabled ? "Thumbnail size" : "Only available in Thumbnails mode";
-                    }
-                });
-            }
-
-            function applyThumbnailSizePreference(sizePx = getThumbnailSizePx()) {
-                node_instance.uiPrefs.thumbnail_size_px = sizePx;
-                applyThumbnailVariables(widgetContainer, sizePx);
-                syncThumbnailSizeSliders();
-            }
-
-            function applyActiveThumbnailSizePreference(sizePx = getActiveThumbnailSizePx()) {
-                node_instance.uiPrefs.active_thumbnail_size_px = sizePx;
-                const activeSidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
-                if (activeSidebar) {
-                    applyThumbnailVariables(activeSidebar, sizePx);
-                }
-                syncThumbnailSizeSliders();
-            }
-
-            function applyActiveBorderThemePreference() {
-                const theme = node_instance.uiPrefs.active_border_theme || "default";
-                const themeClasses = [
-                    "zip-theme-default",
-                    "zip-theme-cyberpunk",
-                    "zip-theme-sunset",
-                    "zip-theme-aurora",
-                    "zip-theme-ice",
-                    "zip-theme-fire-ice",
-                    "zip-theme-golden-mint",
-                    "zip-theme-rainbow-sync",
-                    "zip-theme-rainbow-split",
-                    "zip-theme-custom"
-                ];
-                themeClasses.forEach(cls => {
-                    widgetContainer.classList.remove(cls);
-                });
-                
-                widgetContainer.classList.add(`zip-theme-${theme}`);
-                
-                if (theme === "custom") {
-                    const color1 = node_instance.uiPrefs.active_border_custom_1 || "#ff0000";
-                    const color2 = node_instance.uiPrefs.active_border_custom_2 || "#0000ff";
-                    widgetContainer.style.setProperty('--localprompt-zip-color-1', color1);
-                    widgetContainer.style.setProperty('--localprompt-zip-color-2', color2);
-                } else {
-                    widgetContainer.style.removeProperty('--localprompt-zip-color-1');
-                    widgetContainer.style.removeProperty('--localprompt-zip-color-2');
-                }
-            }
-
-            function applyCardContrastModePreference() {
-                const mode = node_instance.uiPrefs.card_contrast_mode || "off";
-                const contrastClasses = [
-                    "contrast-off",
-                    "contrast-dim-inactive",
-                    "contrast-dim-by-default"
-                ];
-                contrastClasses.forEach(cls => {
-                    widgetContainer.classList.remove(cls);
-                });
-                widgetContainer.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
-
-                // Also apply to any active browse modal or workspace panel
-                const activeModals = document.querySelectorAll(".localprompt-modal-overlay, .localprompt-workspace-panel");
-                activeModals.forEach(modal => {
-                    contrastClasses.forEach(cls => modal.classList.remove(cls));
-                    modal.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
-                });
-            }
-
-            let thumbnailSizeSaveTimer = null;
-            function queueThumbnailSizeSave() {
-                if (thumbnailSizeSaveTimer) {
-                    clearTimeout(thumbnailSizeSaveTimer);
-                }
-                thumbnailSizeSaveTimer = setTimeout(() => {
-                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs).catch(e => {
-                        console.warn("LocalPromptGallery: Failed to save thumbnail size", e);
-                    });
-                }, 250);
-            }
-
-            function setupThumbnailSizeSliders() {
-                const cardSlider = widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`);
-                const activeSlider = widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`);
-                const cardModeSelect = widgetContainer.querySelector(`#${uniqueId}-cards-display-mode`);
-                const activeModeSelect = widgetContainer.querySelector(`#${uniqueId}-active-display-mode`);
-                if (cardSlider) {
-                    cardSlider.value = String(getThumbnailSizePx());
-                    cardSlider.addEventListener('input', () => {
-                        if (cardSlider.disabled) return;
-                        applyThumbnailSizePreference(Number(cardSlider.value));
-                        queueThumbnailSizeSave();
-                    });
-                }
-                if (activeSlider) {
-                    activeSlider.value = String(getActiveThumbnailSizePx());
-                    activeSlider.addEventListener('input', () => {
-                        if (activeSlider.disabled) return;
-                        applyActiveThumbnailSizePreference(Number(activeSlider.value));
-                        queueThumbnailSizeSave();
-                    });
-                }
-                if (cardModeSelect) {
-                    cardModeSelect.value = getCardsDisplayMode();
-                    cardModeSelect.addEventListener('change', async () => {
-                        node_instance.uiPrefs.cards_display_mode = normalizeDisplayMode(cardModeSelect.value, "thumbnails");
-                        node_instance.uiPrefs.display_mode = node_instance.uiPrefs.cards_display_mode;
-                        syncThumbnailSizeSliders();
-                        if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
-                        renderGallery();
-                        saveUiPrefs().catch(error => {
-                            console.warn("LocalPromptGallery: Failed to save cards display mode", error);
-                        });
-                    });
-                }
-                if (activeModeSelect) {
-                    activeModeSelect.value = getActiveDisplayMode();
-                    activeModeSelect.addEventListener('change', async () => {
-                        node_instance.uiPrefs.active_display_mode = normalizeDisplayMode(activeModeSelect.value, "compact");
-                        syncThumbnailSizeSliders();
-                        await renderActiveSidebar();
-                        saveUiPrefs().catch(error => {
-                            console.warn("LocalPromptGallery: Failed to save active display mode", error);
-                        });
-                    });
-                }
-                const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
-                if (contrastSelect) {
-                    contrastSelect.value = node_instance.uiPrefs.card_contrast_mode || "off";
-                    contrastSelect.addEventListener('change', () => {
-                        node_instance.uiPrefs.card_contrast_mode = contrastSelect.value;
-                        applyCardContrastModePreference();
-                        saveUiPrefs().catch(error => {
-                            console.warn("LocalPromptGallery: Failed to save card contrast mode", error);
-                        });
-                    });
-                }
-                bindMainSortSelect();
-                syncDisplayOptionAvailability();
-            }
+            function applyThumbnailSizePreference(sizePx) { return displayPreferencesController?.applyThumbnailSizePreference?.(sizePx); }
+            function applyActiveThumbnailSizePreference(sizePx) { return displayPreferencesController?.applyActiveThumbnailSizePreference?.(sizePx); }
+            function applyActiveBorderThemePreference() { return displayPreferencesController?.applyActiveBorderThemePreference?.(); }
+            function applyCardContrastModePreference() { return displayPreferencesController?.applyCardContrastModePreference?.(); }
+            function queueThumbnailSizeSave() { return displayPreferencesController?.queueThumbnailSizeSave?.(); }
+            function setupThumbnailSizeSliders() { return displayPreferencesController?.setupThumbnailSizeSliders?.(); }
 
             function getActiveSidebarWidth() {
                 return getPromptActiveSidebarWidth({ nodeInstance: node_instance });
@@ -1515,109 +1107,80 @@ const UnifiedPromptGalleryNode = {
                     .forEach(button => button.classList.remove('active'));
             }
 
-            let activeSidebarHoverOpen = false;
-            let activeSidebarOpenTimer = null;
-            let activeSidebarCloseTimer = null;
+            categoryStripController = createPromptCategoryStripController({
+                widgetContainer,
+                uniqueId,
+                getCachedCategories,
+                ensurePinnedCategoriesInitialized,
+                getVisiblePinnedCategoryCount,
+                getCategoriesInCurrentOrder,
+                getActiveLibraryTab: () => activeLibraryTab,
+                setActiveLibraryTab: value => { activeLibraryTab = value; },
+                getCategoryOverflowOpen: () => categoryOverflowOpen,
+                setCategoryOverflowOpen: value => { categoryOverflowOpen = !!value; },
+                getSuppressCategoryClickUntil: () => suppressCategoryClickUntil,
+                setSuppressCategoryClickUntil: value => { suppressCategoryClickUntil = value; },
+                setCategoryDragState: value => { categoryDragState = value; },
+                applyLibraryTabRoleStyling,
+                showCategoryPillContextMenu,
+                setWorkspaceMode,
+                getWorkspaceMode,
+                renderLibraryDrawer,
+                clearLibraryNavActiveState,
+                syncPromptSortControls,
+                syncSelectedSectionVisibility,
+                closeToolbarPanels,
+            });
 
-            function isActiveSidebarOpen() {
-                return activeSidebarHoverOpen;
-            }
-
-            function applyActiveSidebarPreference() {
-                applyPromptActiveSidebarPreference({
-                    widgetContainer,
-                    uniqueId,
-                    nodeInstance: node_instance,
-                    activeSidebarWidthWidget,
-                });
-                const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
-                const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
-                const isOpen = isActiveSidebarOpen();
-                const isPinned = false;
-                widgetContainer.classList.toggle("active-sidebar-expanded", isOpen);
-                sidebar?.classList.toggle("active", isOpen);
-                if (toggleBtn) {
-                    toggleBtn.classList.toggle("active", isOpen);
-                    toggleBtn.classList.toggle("pinned", isPinned);
-                    toggleBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
-                }
-            }
-
-            async function toggleActiveSidebarPeek() {
-                clearActiveSidebarOpenTimer();
-                clearActiveSidebarCloseTimer();
-                node_instance.uiPrefs.active_sidebar_open = false;
-                activeSidebarHoverOpen = !activeSidebarHoverOpen;
-                applyActiveSidebarPreference();
-                saveUiPrefs().catch(error => {
-                    console.warn("LocalPromptGallery: Failed to save active sidebar state", error);
-                });
-                if (activeSidebarHoverOpen) {
-                    await renderActiveSidebar();
-                }
-            }
-
-            function closeActiveSidebarForWorkspaceMode() {
-                if (!isActiveSidebarOpen()) return;
-                clearActiveSidebarOpenTimer();
-                activeSidebarHoverOpen = false;
-                node_instance.uiPrefs.active_sidebar_open = false;
-                applyActiveSidebarPreference();
-                saveUiPrefs().catch(error => {
-                    console.warn("LocalPromptGallery: Failed to save active sidebar state", error);
-                });
-            }
-
-            async function setActiveSidebarHoverOpen(nextOpen) {
-                activeSidebarHoverOpen = !!nextOpen && node_instance.promptData.length > 0;
-                applyActiveSidebarPreference();
-                if (activeSidebarHoverOpen) {
-                    await renderActiveSidebar();
-                }
-            }
-
-            function clearActiveSidebarCloseTimer() {
-                if (!activeSidebarCloseTimer) return;
-                clearTimeout(activeSidebarCloseTimer);
-                activeSidebarCloseTimer = null;
-            }
-
-            function clearActiveSidebarOpenTimer() {
-                if (!activeSidebarOpenTimer) return;
-                clearTimeout(activeSidebarOpenTimer);
-                activeSidebarOpenTimer = null;
-            }
-
-            function isActiveSidebarHoverBehaviorEnabled() {
-                return node_instance.uiPrefs?.active_sidebar_hover_open !== false;
-            }
-
-            function scheduleActiveSidebarHoverOpen() {
-                if (!isActiveSidebarHoverBehaviorEnabled()) return;
-                clearActiveSidebarOpenTimer();
-                clearActiveSidebarCloseTimer();
-                if (node_instance.promptData.length === 0) return;
-                activeSidebarOpenTimer = setTimeout(() => {
-                    setActiveSidebarHoverOpen(true).catch(error => {
-                        console.error('LocalPromptGallery: Failed to hover-open active sidebar', error);
-                    });
-                }, 150);
-            }
-
-            function scheduleActiveSidebarHoverClose() {
-                if (!isActiveSidebarHoverBehaviorEnabled()) return;
-                clearActiveSidebarOpenTimer();
-                clearActiveSidebarCloseTimer();
-                activeSidebarCloseTimer = setTimeout(() => {
-                    activeSidebarHoverOpen = false;
-                    applyActiveSidebarPreference();
-                }, 450);
-            }
+            let activeStackController = null;
+            function isActiveSidebarOpen() { return activeStackController?.isOpen?.() ?? false; }
+            function applyActiveSidebarPreference() { return activeStackController?.applyPreference?.(); }
+            async function toggleActiveSidebarPeek() { return activeStackController?.togglePeek?.(); }
+            function closeActiveSidebarForWorkspaceMode() { return activeStackController?.closeForWorkspaceMode?.(); }
+            async function setActiveSidebarHoverOpen(nextOpen) { return activeStackController?.setHoverOpen?.(nextOpen); }
+            function clearActiveSidebarCloseTimer() { return activeStackController?.clearCloseTimer?.(); }
+            function clearActiveSidebarOpenTimer() { return activeStackController?.clearOpenTimer?.(); }
+            function scheduleActiveSidebarHoverOpen() { return activeStackController?.scheduleHoverOpen?.(); }
+            function scheduleActiveSidebarHoverClose() { return activeStackController?.scheduleHoverClose?.(); }
 
             async function saveUiPrefs() {
                 node_instance.uiPrefs.library_tabs = getLibraryTabs();
                 await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
             }
+
+            activeStackController = createActiveStackController({
+                widgetContainer,
+                uniqueId,
+                nodeInstance: node_instance,
+                activeSidebarWidthWidget,
+                saveUiPrefs,
+                disposed: () => disposed,
+                hideHoverPreview,
+                getActivePromptModels,
+                getSelectedPromptEntry,
+                applyCategoryRoleStyling,
+                bindPinnedManagedControls,
+                saveSelectionData,
+                renderPrompts,
+                getActiveLibraryTab: () => activeLibraryTab,
+                renderLibraryDrawer: queueLibraryDrawerRender,
+                addPromptToSelection,
+                attachInfoPopup,
+                attachContextMenu,
+                getDisplayMode: getActiveDisplayMode,
+            });
+
+            displayPreferencesController = createDisplayPreferencesController({
+                widgetContainer,
+                uniqueId,
+                nodeInstance: node_instance,
+                activeLibraryTab: () => activeLibraryTab,
+                renderLibraryDrawer,
+                renderGallery,
+                renderActiveSidebar,
+                saveUiPrefs,
+                bindMainSortSelect,
+            });
 
             function closeCategoryContextMenu() {
                 if (activeCategoryContextMenu) {
@@ -2100,10 +1663,9 @@ const UnifiedPromptGalleryNode = {
                     tab.title = count === 0 ? "Active Prompts (empty)" : `${count} active prompt${count === 1 ? "" : "s"}`;
                     tab.setAttribute("aria-label", tab.title);
                 }
-                if (count === 0 && activeSidebarHoverOpen) {
+                if (count === 0 && isActiveSidebarOpen()) {
                     clearActiveSidebarOpenTimer();
-                    activeSidebarHoverOpen = false;
-                    applyActiveSidebarPreference();
+                    setActiveSidebarHoverOpen(false);
                 }
             }
 
@@ -2143,82 +1705,25 @@ const UnifiedPromptGalleryNode = {
                 syncAutoHideToolbarState();
             }
 
-            let bottomToolbarHovered = false;
-            let bottomToolbarInteracting = false;
-            let bottomToolbarHideTimer = null;
-
             function isAutoHideToolbarsEnabled() {
                 return node_instance.uiPrefs?.auto_hide_toolbars === true;
             }
-
-            function toolbarHasFocusedElement(toolbar) {
-                if (!toolbar || !document.activeElement || !toolbar.contains(document.activeElement)) {
-                    return false;
-                }
-                return !!document.activeElement.closest("input, select, textarea, [contenteditable='true']");
-            }
-
-            function hasOpenBottomToolbarPanel() {
-                const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
-                const wildcardControlsEl = widgetContainer.querySelector(`#${uniqueId}-wildcard-controls`);
-                return !!(
-                    (sizeControls && sizeControls.style.display !== 'none')
-                    || (wildcardControlsEl && wildcardControlsEl.style.display !== 'none')
-                );
-            }
-
+            let bottomToolbarController = null;
             function syncAutoHideToolbarState() {
-                const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
-                const enabled = isAutoHideToolbarsEnabled();
-                widgetContainer.classList.toggle("auto-hide-toolbars", enabled);
-
-                if (!enabled) {
-                    bottomBar?.classList.remove("toolbar-revealed", "toolbar-pinned");
-                    return;
-                }
-
-                if (bottomBar) {
-                    const pinned = hasOpenBottomToolbarPanel() || toolbarHasFocusedElement(bottomBar) || bottomToolbarInteracting;
-                    bottomBar.classList.toggle("toolbar-pinned", pinned);
-                    bottomBar.classList.toggle("toolbar-revealed", pinned || bottomToolbarHovered);
-                }
+                return bottomToolbarController?.sync?.();
             }
-
             function scheduleToolbarHide() {
-                if (bottomToolbarHideTimer) clearTimeout(bottomToolbarHideTimer);
-                bottomToolbarHideTimer = setTimeout(() => {
-                    bottomToolbarHovered = false;
-                    syncAutoHideToolbarState();
-                }, 750);
+                return bottomToolbarController?.scheduleHide?.();
             }
-
             function setupAutoHideToolbarBehavior() {
-                const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
-                const bindToolbar = (toolbar) => {
-                    if (!toolbar) return;
-                    toolbar.addEventListener("mouseenter", () => {
-                        bottomToolbarHovered = true;
-                        if (bottomToolbarHideTimer) clearTimeout(bottomToolbarHideTimer);
-                        syncAutoHideToolbarState();
+                if (!bottomToolbarController) {
+                    bottomToolbarController = createBottomToolbarController({
+                        widgetContainer,
+                        uniqueId,
+                        isAutoHideEnabled: isAutoHideToolbarsEnabled,
                     });
-                    toolbar.addEventListener("mouseleave", scheduleToolbarHide);
-                    toolbar.addEventListener("focusin", syncAutoHideToolbarState);
-                    toolbar.addEventListener("focusout", () => setTimeout(syncAutoHideToolbarState, 0));
-                    toolbar.addEventListener("pointerdown", () => {
-                        bottomToolbarInteracting = true;
-                        syncAutoHideToolbarState();
-                        const releaseInteraction = () => {
-                            bottomToolbarInteracting = false;
-                            syncAutoHideToolbarState();
-                            window.removeEventListener("pointerup", releaseInteraction);
-                            window.removeEventListener("pointercancel", releaseInteraction);
-                        };
-                        window.addEventListener("pointerup", releaseInteraction);
-                        window.addEventListener("pointercancel", releaseInteraction);
-                    });
-                };
-                bindToolbar(bottomBar);
-                syncAutoHideToolbarState();
+                }
+                bottomToolbarController.setup();
             }
 
             function updateWildcardControlsUI() {
@@ -2254,31 +1759,11 @@ const UnifiedPromptGalleryNode = {
                 updateConfigBarVisibility();
             }
             async function renderActiveSidebar() {
-                const renderToken = ++activeSidebarRenderToken;
-                await renderPromptActiveSidebar({
-                    widgetContainer,
-                    uniqueId,
-                    nodeInstance: node_instance,
-                    applyActiveSidebarPreference,
-                    isActiveSidebarOpen,
-                    hideHoverPreview,
-                    getActivePromptModels,
-                    getSelectedPromptEntry,
-                    applyCategoryRoleStyling,
-                    bindPinnedManagedControls,
-                    saveSelectionData,
-                    renderPrompts,
-                    getActiveLibraryTab: () => activeLibraryTab,
-                    renderLibraryDrawer: queueLibraryDrawerRender,
-                    addPromptToSelection,
-                    attachInfoPopup,
-                    attachContextMenu,
-                    getDisplayMode: getActiveDisplayMode,
-                    isRenderCurrent: () => renderToken === activeSidebarRenderToken,
-                });
+                return activeStackController?.render?.();
             }
 
             async function renderLibraryBar() {
+                if (disposed) return;
                 await renderPromptBuilderBar({
                     widgetContainer,
                     uniqueId,
@@ -2299,6 +1784,7 @@ const UnifiedPromptGalleryNode = {
                     rerenderLibraryBar: renderLibraryBar,
                     uiPrefs: node_instance.uiPrefs,
                 });
+                if (disposed) return;
                 const favBtn = widgetContainer.querySelector(`#${uniqueId}-fav-toggle-btn`);
                 if (favBtn) {
                     favBtn.classList.toggle("active", activeLibraryTab === "pinned");
@@ -2306,6 +1792,8 @@ const UnifiedPromptGalleryNode = {
                 widgetContainer
                     .querySelectorAll(`#${uniqueId}-library-tabs .localprompt-library-tab, #${uniqueId}-utility-tabs .localprompt-library-tab, #${uniqueId}-fav-toggle-btn`)
                     .forEach(button => {
+                        if (libraryGalleryGuardButtons.has(button)) return;
+                        libraryGalleryGuardButtons.add(button);
                         button.addEventListener("click", () => {
                             if (getWorkspaceMode() !== "gallery") {
                                 setWorkspaceMode("gallery");
@@ -2317,6 +1805,7 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function renderLibraryDrawer(tabName) {
+                if (disposed) return;
                 const renderToken = ++libraryDrawerRenderToken;
                 await renderPromptBuilderDrawer({
                     widgetContainer,
@@ -2560,110 +2049,17 @@ const UnifiedPromptGalleryNode = {
                 hidePromptHoverPreview({ uniqueId });
             }
 
-            function renderGallery() {
-                renderPromptGallery({
-                    uniqueId,
-                    nodeInstance: node_instance,
-                    galleryNode: UnifiedPromptGalleryNode,
-                    syncPinnedOrderForFavorite,
-                    loadPromptsForGallery,
-                    attachInfoPopup,
-                    showPromptContextMenu,
-                    saveSelectionData,
-                    renderPrompts,
-                    preservePromptOrder: false,
-                    sortMode: getPromptSortMode(),
-                    manualOrderScope: getPromptSortScope(),
-                    setSortMode: setPromptSortMode,
-                    persistManualOrder: async (scope, nextOrder) => {
-                        await setPromptSortMode("manual", { scope: { key: scope }, reload: false });
-                        await persistPromptManualOrder(scope, nextOrder);
-                        applyPromptManualOrderLocally(scope);
-                        renderGallery();
-                    },
-                });
-            }
-
-            async function loadCategories() {
-                invalidateCategoryCache();
-                const categoryAwareGalleryNode = {
-                    ...UnifiedPromptGalleryNode,
-                    getCategories: () => getCachedCategories({ force: true }),
-                };
-                await loadPromptGalleryCategories({
-                    widgetContainer,
-                    uniqueId,
-                    galleryNode: categoryAwareGalleryNode,
-                });
-                await renderCategoryDropdownOptions();
-            }
-
+            let galleryController = null;
+            function renderGallery() { return galleryController?.renderGallery?.(); }
+            async function loadCategories() { return galleryController?.loadCategories?.(); }
             async function loadPromptsForGallery(page = 1) {
-                const filterInput = widgetContainer.querySelector(`#${uniqueId}-filter-input`);
-                const modeSelect = widgetContainer.querySelector(`#${uniqueId}-filter-mode`);
-                const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
-
-                const filterName = filterInput ? filterInput.value : "";
-                const mode = modeSelect ? modeSelect.value : "OR";
-                const category = categorySelect ? categorySelect.value : "";
-
-                const selectedPromptIds = node_instance.promptData.map(p => p.prompt_id);
-                const querySelectedIds = node_instance.uiPrefs?.promote_selected_prompts === false ? [] : selectedPromptIds;
-                const data = await UnifiedPromptGalleryNode.getPrompts(filterName, mode, page, querySelectedIds, category, node_instance.showFavoritesOnly, 10, getPromptSortMode());
-
-                const prompts = data.prompts || [];
-                if (node_instance.uiPrefs?.promote_selected_prompts === false) {
-                    node_instance.availablePrompts = prompts;
-                } else {
-                    const selectedPrompts = selectedPromptIds.length ? await getActivePromptModels() : [];
-                    const selectedPromptIdSet = new Set(selectedPromptIds.map(id => String(id)));
-                    const visibleSelectedPrompts = selectedPrompts.filter(prompt => promptMatchesCurrentGallery(prompt));
-                    const visibleSelectedIdSet = new Set(visibleSelectedPrompts.map(prompt => String(prompt.id)));
-                    node_instance.availablePrompts = [
-                        ...visibleSelectedPrompts,
-                        ...prompts.filter(prompt => !visibleSelectedIdSet.has(String(prompt.id))),
-                    ].filter((prompt, index, allPrompts) => {
-                        const promptId = String(prompt.id);
-                        return selectedPromptIdSet.has(promptId) || allPrompts.findIndex(item => String(item.id) === promptId) === index;
-                    });
-                }
-                renderGallery();
-                renderPrompts();
-
-                const pageInfo = widgetContainer.querySelector(`#${uniqueId}-page-info`);
-                const prevBtn = widgetContainer.querySelector(`#${uniqueId}-prev-btn`);
-                const nextBtn = widgetContainer.querySelector(`#${uniqueId}-next-btn`);
-
-                if (pageInfo) pageInfo.textContent = `Page ${data.current_page} of ${data.total_pages}`;
-                if (prevBtn) prevBtn.disabled = data.current_page <= 1;
-                if (nextBtn) nextBtn.disabled = data.current_page >= data.total_pages;
+                return galleryController?.loadPromptsForGallery?.(page);
             }
-
             function promptMatchesCurrentGallery(prompt) {
-                return promptMatchesPromptGallery({
-                    prompt,
-                    widgetContainer,
-                    uniqueId,
-                    nodeInstance: node_instance,
-                });
+                return galleryController?.promptMatchesCurrentGallery?.(prompt) ?? false;
             }
-
             function insertPromptIntoCurrentGallery(prompt) {
-                if (!prompt || !promptMatchesCurrentGallery(prompt)) {
-                    return false;
-                }
-
-                if (!Array.isArray(node_instance.availablePrompts)) {
-                    node_instance.availablePrompts = [];
-                }
-                const existingIndex = node_instance.availablePrompts.findIndex(item => String(item.id) === String(prompt.id));
-                if (existingIndex >= 0) {
-                    node_instance.availablePrompts.splice(existingIndex, 1);
-                }
-                node_instance.availablePrompts.unshift(prompt);
-                renderGallery();
-                renderPrompts();
-                return true;
+                return galleryController?.insertPromptIntoCurrentGallery?.(prompt) ?? false;
             }
 
             async function renameCategoryWithPrompt(oldCategory, onSuccess) {
@@ -2712,170 +2108,90 @@ const UnifiedPromptGalleryNode = {
                 });
             }
 
-            async function showEditPromptDialog(prompt, onRefresh = null) {
-                await openEditPromptDialog({
-                    prompt,
-                    galleryNode: UnifiedPromptGalleryNode,
-                    updateLocalPromptAfterMetadataSave,
-                    loadCategories,
-                    loadPromptsForGallery,
-                    refreshAllSections,
-                    onRefresh,
-                });
-            }
+            galleryController = createPromptGalleryController({
+                widgetContainer,
+                uniqueId,
+                nodeInstance: node_instance,
+                galleryNode: UnifiedPromptGalleryNode,
+                getCategories: options => getCachedCategories(options),
+                invalidateCategoryCache,
+                renderCategoryDropdownOptions,
+                syncPinnedOrderForFavorite,
+                attachInfoPopup,
+                showPromptContextMenu,
+                saveSelectionData,
+                renderPrompts,
+                getPromptSortMode,
+                setPromptSortMode,
+                getPromptSortScope,
+                persistPromptManualOrder,
+                applyPromptManualOrderLocally,
+                getActivePromptModels,
+                disposed: () => disposed,
+            });
 
+            const workspaceActions = createPromptWorkspaceActions({
+                app,
+                nodeInstance: node_instance,
+                galleryNode: UnifiedPromptGalleryNode,
+                uniqueId,
+                categoriesWidget,
+                wildcardAutoAttachThumbnailWidget,
+                getCurrentWildcardMode: () => currentWildcardMode,
+                setCurrentWildcardMode: mode => { currentWildcardMode = mode; },
+                getWildcardAutoAttachThumbnail: () => String(
+                    node_instance.properties?.wildcard_auto_attach_thumbnail
+                    || wildcardAutoAttachThumbnailWidget?.value
+                    || "off"
+                ).toLowerCase() === "on",
+                saveSelectionData,
+                saveWildcardState,
+                saveWildcardAutoAttachState,
+                updateWildcardControlsUI,
+                renderPrompts,
+                getActiveLibraryTab: () => activeLibraryTab,
+                renderLibraryDrawer,
+                loadCategories,
+                loadPromptsForGallery,
+                getPromptSourceNode,
+                insertPromptIntoCurrentGallery,
+                updateLocalPromptAfterMetadataSave,
+                refreshAllSections,
+                addPromptToSelection,
+                syncPinnedOrderForFavorite,
+                attachInfoPopup,
+                showContextMenu,
+                renameCategoryWithPrompt,
+                getCategoryRoleColor,
+                getPromptSortMode,
+                setPromptSortMode,
+                getPromptManualOrder,
+                persistPromptManualOrder,
+                setWorkspaceMode,
+                returnToGallery,
+                renderLibraryShell,
+                getLibrarySubnavHtml,
+            });
+            const {
+                showEditPromptDialog,
+                showFromLastOutputDialog,
+                showFromLastOutputWorkspace,
+                showAddPromptDialog,
+                showImportDialog,
+                showImportWorkspace,
+                showExportDialog,
+                showExportWorkspace,
+                showPresetsWorkspace,
+                showPresetsModal,
+                showBrowseWorkspace,
+                showCardManagerModal,
+                showUploadThumbnailDialog,
+                deletePromptWithConfirm,
+            } = workspaceActions;
 
-            async function showFromLastOutputDialog() {
-                await openFromLastOutputDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    nodeInstance: node_instance,
-                    getPromptSourceNode,
-                    insertPromptIntoCurrentGallery,
-                    loadPromptsForGallery,
-                });
-            }
-
-            async function showFromLastOutputWorkspace() {
-                const host = setWorkspaceMode("from_last_output");
-                await openFromLastOutputDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    nodeInstance: node_instance,
-                    getPromptSourceNode,
-                    insertPromptIntoCurrentGallery,
-                    loadPromptsForGallery,
-                    workspaceContainer: host,
-                    onClose: returnToGallery,
-                });
-                if (host && !host.hasChildNodes()) {
-                    returnToGallery();
-                }
-            }
-
-            async function showAddPromptDialog() {
-                await openAddPromptDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    nodeInstance: node_instance,
-                    loadCategories,
-                    loadPromptsForGallery,
-                });
-            }
-
-            async function showImportDialog() {
-                await openImportDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    loadCategories,
-                    loadPromptsForGallery,
-                });
-            }
-
-            async function showImportWorkspace(onClose = returnToGallery) {
-                const host = renderLibraryShell("import");
-                if (!host) return;
-                await openImportDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    loadCategories,
-                    loadPromptsForGallery,
-                    workspaceContainer: host,
-                    onClose,
-                    librarySubnavHtml: getLibrarySubnavHtml("import"),
-                });
-            }
-
-            async function showExportDialog(initialCategory = "") {
-                await openExportDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    initialCategory,
-                });
-            }
-
-            async function showExportWorkspace(onClose = returnToGallery) {
-                const host = renderLibraryShell("export");
-                if (!host) return;
-                await openExportDialog({
-                    galleryNode: UnifiedPromptGalleryNode,
-                    workspaceContainer: host,
-                    onClose,
-                    librarySubnavHtml: getLibrarySubnavHtml("export"),
-                });
-            }
-
-            async function showPresetsWorkspace(onClose = returnToGallery) {
-                const host = renderLibraryShell("presets");
-                if (!host) return;
-                await openPresetsModal({
-                    app,
-                    nodeInstance: node_instance,
-                    galleryNode: UnifiedPromptGalleryNode,
-                    categoriesWidget,
-                    getCurrentWildcardMode: () => currentWildcardMode,
-                    getWildcardAutoAttachThumbnail: () => String(
-                        node_instance.properties?.wildcard_auto_attach_thumbnail
-                        || wildcardAutoAttachThumbnailWidget?.value
-                        || "off"
-                    ).toLowerCase() === "on",
-                    setCurrentWildcardMode: mode => {
-                        currentWildcardMode = mode;
-                    },
-                    saveSelectionData,
-                    saveWildcardState,
-                    saveWildcardAutoAttachState,
-                    updateWildcardControlsUI,
-                    renderPrompts,
-                    getActiveLibraryTab: () => activeLibraryTab,
-                    renderLibraryDrawer,
-                    workspaceContainer: host,
-                    onClose,
-                    librarySubnavHtml: getLibrarySubnavHtml("presets"),
-                });
-            }
-
-            async function showBrowseWorkspace(onClose = returnToGallery) {
-                const host = renderLibraryShell("cards");
-                if (!host) return;
-                await openCardManager({
-                    app,
-                    nodeInstance: node_instance,
-                    galleryNode: UnifiedPromptGalleryNode,
-                    saveSelectionData,
-                    loadCategories,
-                    refreshAllSections,
-                    addPromptToSelection,
-                    syncPinnedOrderForFavorite,
-                    attachInfoPopup,
-                    showContextMenu,
-                    renameCategoryWithPrompt,
-                    onExportCategory: showExportDialog,
-                    getCategoryRoleColor,
-                    getSortMode: scope => getPromptSortMode(scope),
-                    setSortMode: setPromptSortMode,
-                    getManualOrder: scope => getPromptManualOrder(scope),
-                    persistManualOrder: persistPromptManualOrder,
-                    workspaceContainer: host,
-                    onClose,
-                    librarySubnavHtml: getLibrarySubnavHtml("cards"),
-                });
-            }
-
-            function showUploadThumbnailDialog(prompt, onRefresh = null) {
-                openUploadThumbnailDialog({
-                    prompt,
-                    galleryNode: UnifiedPromptGalleryNode,
-                    loadPromptsForGallery,
-                    onRefresh,
-                });
-            }
-
-            async function deletePromptWithConfirm(prompt) {
-                if (!confirm(`Are you sure you want to delete "${prompt.name}"?`)) {
-                    return;
-                }
-
-                await UnifiedPromptGalleryNode.deletePrompt(prompt.id);
-                await loadCategories();
-                await loadPromptsForGallery(UnifiedPromptGalleryNode.currentPage);
-            }
-
-            setTimeout(() => {
+            setupTimer = setTimeout(() => {
+                setupTimer = null;
+                if (disposed) return;
                 const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
 
                 const prevBtn = widgetContainer.querySelector(`#${uniqueId}-prev-btn`);
@@ -3205,8 +2521,7 @@ const UnifiedPromptGalleryNode = {
                     if (isActiveSidebarOpen()) {
                         clearActiveSidebarOpenTimer();
                         clearActiveSidebarCloseTimer();
-                        activeSidebarHoverOpen = false;
-                        applyActiveSidebarPreference();
+                        setActiveSidebarHoverOpen(false);
                     }
                     closeToolbarPanels();
                     const sizeControls = widgetContainer.querySelector(`#${uniqueId}-size-controls`);
@@ -3249,8 +2564,7 @@ const UnifiedPromptGalleryNode = {
                     if (!clickedInsideSidebar && !clickedInsideToggle) {
                         clearActiveSidebarOpenTimer();
                         clearActiveSidebarCloseTimer();
-                        activeSidebarHoverOpen = false;
-                        applyActiveSidebarPreference();
+                        setActiveSidebarHoverOpen(false);
                     }
                 });
 
@@ -3260,58 +2574,9 @@ const UnifiedPromptGalleryNode = {
                     }
                 });
 
-                // Presets Modal
-                async function showPresetsModal() {
-                    await openPresetsModal({
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        categoriesWidget,
-                        getCurrentWildcardMode: () => currentWildcardMode,
-                        getWildcardAutoAttachThumbnail: () => String(
-                            node_instance.properties?.wildcard_auto_attach_thumbnail
-                            || wildcardAutoAttachThumbnailWidget?.value
-                            || "off"
-                        ).toLowerCase() === "on",
-                        setCurrentWildcardMode: mode => {
-                            currentWildcardMode = mode;
-                        },
-                        saveSelectionData,
-                        saveWildcardState,
-                        saveWildcardAutoAttachState,
-                        updateWildcardControlsUI,
-                        renderPrompts,
-                        getActiveLibraryTab: () => activeLibraryTab,
-                        renderLibraryDrawer,
-                    });
-                }
-
                 // Seed input and inc/dec listeners are already bound in the main seed controls block above.
 
                 // Control after generate dropdown listener is already bound in the main seed controls block above.
-
-                // Card Manager modal function
-                async function showCardManagerModal() {
-                    await openCardManager({
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        saveSelectionData,
-                        loadCategories,
-                        refreshAllSections,
-                        addPromptToSelection,
-                        syncPinnedOrderForFavorite,
-                        attachInfoPopup,
-                        showContextMenu,
-                        renameCategoryWithPrompt,
-                        onExportCategory: showExportDialog,
-                        getCategoryRoleColor,
-                        getSortMode: scope => getPromptSortMode(scope),
-                        setSortMode: setPromptSortMode,
-                        getManualOrder: scope => getPromptManualOrder(scope),
-                        persistManualOrder: persistPromptManualOrder,
-                    });
-                }
 
                 // Settings Modal function
                 async function showSettingsModal() {

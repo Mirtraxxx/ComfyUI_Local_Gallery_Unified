@@ -1,6 +1,6 @@
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
-import { createEventListenerRegistry } from "../shared/events.js";
+import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import {
     LORA_DISPLAY_LIMITS,
@@ -10,11 +10,17 @@ import {
     normalizeLoraDisplayState,
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
-} from "./displayState.js";
-import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=lora-display-state-lifecycle-20260712";
-import { toSerializableLoraSelection } from "./selectionState.js";
+} from "./displayState.js?v=lora-refactor-20260712";
+import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
+import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
+import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
+import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712";
+import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
+import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
+import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
 import { getLoraStyles } from "./styles.js?v=lora-display-state-lifecycle-20260712";
+import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
 export function registerLoraGalleryUi(app) {
 const UnifiedLoraGalleryNode = {
@@ -32,7 +38,7 @@ const UnifiedLoraGalleryNode = {
             return data;
         } catch (error) {
             console.error("LocalLoraGallery: Error fetching LoRAs:", error);
-            return { loras: [], folders: [], total_pages: 1, current_page: 1 };
+            throw error;
         } finally {
             this.isLoading = false;
         }
@@ -68,7 +74,7 @@ const UnifiedLoraGalleryNode = {
             this.loraData = [];
             this.availableLoras = [];
             this.isModelOnly = nodeData.name.includes("ModelOnly");
-            this.selectedCardsForEditing = new Set();
+            this.selectedLoraNamesForEditing = new Set();
             this.activeEditingLoraName = null;
             this.loraUiState = {};
 
@@ -299,13 +305,9 @@ const UnifiedLoraGalleryNode = {
                 const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
                 return (controlsEl?.offsetHeight || 0) + (bottomBarEl?.offsetHeight || 0);
             };
-            let folderOverflowOpen = false;
-            let folderDragState = null;
-            let suppressFolderClickUntil = 0;
             const getVisiblePinnedFolderCount = () => normalizeVisiblePinnedFolderCount(
                 this.loraUiState?.visible_pinned_folder_count,
             );
-            const LORA_FOLDER_COLORS = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8"];
             const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
 
             let loraDisplayStateSaveTimer = null;
@@ -453,384 +455,28 @@ const UnifiedLoraGalleryNode = {
                 await fetchAndRender(false);
             };
 
-            const getFolderLabel = (folder) => {
-                if (!folder) return "All Folders";
-                return folder === "." ? "Root" : String(folder).replaceAll('\\', '/');
-            };
-
-            const getFolderColor = (folder, index) => {
-                if (this.loraUiState.folder_colors && this.loraUiState.folder_colors[folder]) {
-                    return this.loraUiState.folder_colors[folder];
-                }
-                if (!folder) return "#8fb6d9";
-                let hash = 0;
-                String(folder).split("").forEach(char => {
-                    hash = ((hash << 5) - hash) + char.charCodeAt(0);
-                    hash |= 0;
-                });
-                return LORA_FOLDER_COLORS[Math.abs(hash || index) % LORA_FOLDER_COLORS.length];
-            };
-
-            const buildFolderButton = (folder, index, isOverflow = false) => {
-                const label = getFolderLabel(folder);
-                const isActive = folderFilterSelect.value === folder;
-                const button = document.createElement("button");
-                button.type = "button";
-                button.className = `lora-folder-pill${isActive ? " active" : ""}`;
-                button.textContent = label;
-                button.title = label;
-                button.dataset.folder = folder;
-                const isPinned = (this.loraUiState.pinned_folders || []).includes(folder);
-                button.dataset.pinned = String(isPinned);
-                const color = getFolderColor(folder, index);
-                button.style.setProperty("--folder-color", color);
-                button.style.setProperty("--folder-glow", `${color}55`);
-                button.addEventListener("click", (e) => {
-                    if (Date.now() < suppressFolderClickUntil) {
-                        e.stopImmediatePropagation();
-                        return;
-                    }
-                    folderFilterSelect.value = folder;
-                    folderOverflowOpen = false;
-                    renderFolderPills();
-                    saveStateAndFetch();
-                });
-
-                // Context Menu
-                button.addEventListener("contextmenu", (event) => {
-                    event.preventDefault();
-                    showLoraFolderContextMenu(event, folder, isPinned);
-                });
-
-                // Pointer Long Press & Drag setup
-                let longPressTimer = null;
-                let startX = 0;
-                let startY = 0;
-
-                button.addEventListener("pointerdown", (event) => {
-                    if (event.button !== 0) return;
-                    if (event.target.closest("button:not(.lora-folder-pill), input, select, textarea")) return;
-                    
-                    startX = event.clientX;
-                    startY = event.clientY;
-                    if (longPressTimer) clearTimeout(longPressTimer);
-                    
-                    longPressTimer = setTimeout(() => {
-                        suppressFolderClickUntil = Date.now() + 250;
-                        showLoraFolderContextMenu(event, folder, isPinned);
-                    }, 500);
-
-                    folderDragState = {
-                        pill: button,
-                        folder,
-                        isPinned,
-                        startX: event.clientX,
-                        startY: event.clientY,
-                        active: false,
-                        pointerId: event.pointerId,
-                    };
-                    button.setPointerCapture?.(event.pointerId);
-                });
-
-                button.addEventListener("pointermove", (event) => {
-                    if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                });
-
-                button.addEventListener("pointerup", (event) => {
-                    if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                });
-
-                button.addEventListener("pointercancel", () => {
-                    if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                });
-
-                if (isOverflow) button.dataset.overflow = "true";
-                return button;
-            };
-
-            const getFolderOptions = () => Array.from(folderFilterSelect.options).map(option => option.value);
-
-            const getFoldersInCurrentOrder = (discoveredFolders) => {
-                const folderSet = new Set(discoveredFolders);
-                const ordered = (this.loraUiState.folder_order || []).filter(f => folderSet.has(f));
-                const orderedSet = new Set(ordered);
-                return [...ordered, ...discoveredFolders.filter(f => !orderedSet.has(f))];
-            };
-
-            const renderFolderPills = () => {
-                if (!folderStrip || !folderOverflow || !folderOverflowChips) return;
-                const discovered = getFolderOptions();
-                const pinned = this.loraUiState.pinned_folders || [];
-                const maxVisible = getVisiblePinnedFolderCount();
-                
-                const visiblePinned = pinned.slice(0, maxVisible);
-                const visiblePinnedSet = new Set(visiblePinned);
-                
-                const orderedAll = getFoldersInCurrentOrder(discovered);
-                const overflowFolders = orderedAll.filter(f => !visiblePinnedSet.has(f));
-
-                folderStrip.innerHTML = "";
-                visiblePinned.forEach((folder, index) => {
-                    folderStrip.appendChild(buildFolderButton(folder, index));
-                });
-
-                folderOverflowChips.innerHTML = "";
-                overflowFolders.forEach((folder, index) => {
-                    folderOverflowChips.appendChild(buildFolderButton(folder, index + visiblePinned.length, true));
-                });
-
-                const hasOverflow = overflowFolders.length > 0;
-                folderOverflow.classList.toggle("open", hasOverflow && folderOverflowOpen);
-                if (folderPullTab) {
-                    folderPullTab.style.display = hasOverflow ? "flex" : "none";
-                    folderPullTab.classList.toggle("open", hasOverflow && folderOverflowOpen);
-                    folderPullTab.setAttribute("aria-expanded", String(hasOverflow && folderOverflowOpen));
-                }
-            };
-
-            let activeLoraFolderContextMenu = null;
-            const closeLoraFolderContextMenu = () => {
-                if (activeLoraFolderContextMenu) {
-                    activeLoraFolderContextMenu.remove();
-                    activeLoraFolderContextMenu = null;
-                }
-            };
-
-            function showLoraFolderContextMenu(e, folder, isCurrentlyPinned) {
-                closeLoraFolderContextMenu();
-                
-                const menu = document.createElement("div");
-                menu.className = "lora-folder-ctx-menu";
-                
-                const presetColors = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899", "#94a3b8"];
-                const activeColor = this.loraUiState.folder_colors?.[folder] || "";
-                
-                let colorsHtml = presetColors.map(color => `
-                    <button class="color-dot${activeColor === color ? ' active' : ''}" style="background-color: ${color};" data-color="${color}"></button>
-                `).join("");
-                
-                menu.innerHTML = `
-                    <div class="menu-item pin-toggle-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                        <span>${isCurrentlyPinned ? "Unpin Folder" : "Pin Folder"}</span>
-                    </div>
-                    <div class="menu-divider"></div>
-                    <div class="menu-header">Folder Color</div>
-                    <div class="color-presets-grid">
-                        ${colorsHtml}
-                    </div>
-                    <div class="color-picker-row">
-                        <label class="custom-color-picker-label">
-                            <input type="color" class="custom-color-input" value="${activeColor || "#f97316"}">
-                            <span>Custom Color...</span>
-                        </label>
-                        <button class="reset-color-btn" style="${activeColor ? "" : "display: none;"}">Reset</button>
-                    </div>
-                `;
-                
-                menu.style.position = "fixed";
-                menu.style.left = `${e.clientX}px`;
-                menu.style.top = `${e.clientY}px`;
-                document.body.appendChild(menu);
-                activeLoraFolderContextMenu = menu;
-                
-                const rect = menu.getBoundingClientRect();
-                if (e.clientX + rect.width > window.innerWidth) {
-                    menu.style.left = `${window.innerWidth - rect.width - 8}px`;
-                }
-                if (e.clientY + rect.height > window.innerHeight) {
-                    menu.style.top = `${window.innerHeight - rect.height - 8}px`;
-                }
-                
-                menu.querySelector(".pin-toggle-btn").addEventListener("click", async () => {
-                    const discovered = getFolderOptions();
-                    let pinned = [...(this.loraUiState.pinned_folders || [])];
-                    if (isCurrentlyPinned) {
-                        pinned = pinned.filter(f => f !== folder);
-                    } else {
-                        pinned = [...pinned, folder];
-                    }
-                    this.loraUiState.pinned_folders = pinned;
-                    await saveStateAndFetch();
-                    renderFolderPills();
-                    closeLoraFolderContextMenu();
-                });
-                
-                menu.querySelectorAll(".color-dot").forEach(dot => {
-                    dot.addEventListener("click", async () => {
-                        const color = dot.dataset.color;
-                        if (!this.loraUiState.folder_colors) {
-                            this.loraUiState.folder_colors = {};
-                        }
-                        this.loraUiState.folder_colors[folder] = color;
-                        await saveStateAndFetch();
-                        renderFolderPills();
-                        closeLoraFolderContextMenu();
-                    });
-                });
-                
-                const customPicker = menu.querySelector(".custom-color-input");
-                customPicker.addEventListener("input", (event) => {
-                    menu.querySelector(".reset-color-btn").style.display = "";
-                });
-                customPicker.addEventListener("change", async (event) => {
-                    const color = event.target.value;
-                    if (!this.loraUiState.folder_colors) {
-                        this.loraUiState.folder_colors = {};
-                    }
-                    this.loraUiState.folder_colors[folder] = color;
-                    await saveStateAndFetch();
-                    renderFolderPills();
-                    closeLoraFolderContextMenu();
-                });
-                
-                menu.querySelector(".reset-color-btn").addEventListener("click", async () => {
-                    if (this.loraUiState.folder_colors) {
-                        delete this.loraUiState.folder_colors[folder];
-                        await saveStateAndFetch();
-                        renderFolderPills();
-                    }
-                    closeLoraFolderContextMenu();
-                });
-            }
-
-            let lastLoraFolderDragTarget = null;
-            function getLoraFolderPillAtPoint(x, y) {
-                const el = document.elementFromPoint(x, y);
-                return el?.closest(".lora-folder-pill");
-            }
-            function setLoraFolderDragTarget(element) {
-                if (lastLoraFolderDragTarget === element) return;
-                clearLoraFolderDragTargets();
-                if (element) {
-                    element.classList.add("drag-over");
-                    lastLoraFolderDragTarget = element;
-                }
-            }
-            function clearLoraFolderDragTargets() {
-                widgetContainer.querySelectorAll(".lora-folder-pill.drag-over").forEach(el => {
-                    el.classList.remove("drag-over");
-                });
-                lastLoraFolderDragTarget = null;
-            }
-
-            const onLoraFolderPointerMove = async (event) => {
-                if (!folderDragState) return;
-                const distance = Math.hypot(event.clientX - folderDragState.startX, event.clientY - folderDragState.startY);
-                if (!folderDragState.active && distance < 8) return;
-
-                if (!folderDragState.active) {
-                    folderDragState.active = true;
-                    folderDragState.pill.classList.add("pinned-dragging");
-                    suppressFolderClickUntil = Date.now() + 200;
-                }
-
-                event.preventDefault();
-                event.stopPropagation();
-                
-                const targetPill = getLoraFolderPillAtPoint(event.clientX, event.clientY);
-                if (targetPill && targetPill !== folderDragState.pill) {
-                    setLoraFolderDragTarget(targetPill);
-                } else {
-                    setLoraFolderDragTarget(null);
-                }
-            };
-
-            const onLoraFolderPointerUp = async (event) => {
-                if (!folderDragState) return;
-                const dragState = folderDragState;
-                folderDragState = null;
-
-                dragState.pill.classList.remove("pinned-dragging");
-                dragState.pill.releasePointerCapture?.(dragState.pointerId);
-
-                if (!dragState.active) return;
-                event.preventDefault();
-                event.stopPropagation();
-                suppressFolderClickUntil = Date.now() + 250;
-
-                const targetPill = getLoraFolderPillAtPoint(event.clientX, event.clientY) || lastLoraFolderDragTarget;
-                clearLoraFolderDragTargets();
-
-                if (!targetPill || targetPill === dragState.pill) {
-                    return;
-                }
-
-                const targetFolder = targetPill.dataset.folder;
-                const draggedFolder = dragState.folder;
-                if (targetFolder === undefined || draggedFolder === undefined) return;
-
-                // Determine if target is pinned or unpinned
-                const isTargetPinned = targetPill.dataset.pinned === "true" || targetPill.closest(".lora-folder-strip") !== null;
-                const discovered = getFolderOptions();
-                
-                let pinned = [...(this.loraUiState.pinned_folders || [])];
-                const swapItems = (items, first, second) => {
-                    const firstIndex = items.indexOf(first);
-                    const secondIndex = items.indexOf(second);
-                    if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex) return false;
-                    [items[firstIndex], items[secondIndex]] = [items[secondIndex], items[firstIndex]];
-                    return true;
-                };
-
-                if (isTargetPinned) {
-                    // Pinned zone drop
-                    if (!swapItems(pinned, draggedFolder, targetFolder)) {
-                        pinned = pinned.filter(f => f !== draggedFolder);
-                        const targetIndex = pinned.indexOf(targetFolder);
-                        if (targetIndex >= 0) {
-                            pinned.splice(targetIndex, 0, draggedFolder);
-                        } else {
-                            pinned.push(draggedFolder);
-                        }
-                    }
-                    if (!pinned.includes(draggedFolder)) {
-                        pinned.push(draggedFolder);
-                    }
-                    this.loraUiState.pinned_folders = pinned;
-                    await saveStateAndFetch();
-                } else {
-                    // Unpinned zone drop
-                    pinned = pinned.filter(f => f !== draggedFolder);
-                    const currentFolders = getFoldersInCurrentOrder(discovered);
-                    const unpinnedOrder = currentFolders.filter(f => !pinned.includes(f));
-                    if (!swapItems(unpinnedOrder, draggedFolder, targetFolder)) {
-                        const nextUnpinned = unpinnedOrder.filter(f => f !== draggedFolder);
-                        const targetIndex = nextUnpinned.indexOf(targetFolder);
-                        if (targetIndex >= 0) {
-                            nextUnpinned.splice(targetIndex, 0, draggedFolder);
-                        } else {
-                            nextUnpinned.push(draggedFolder);
-                        }
-                        this.loraUiState.folder_order = nextUnpinned;
-                    } else {
-                        this.loraUiState.folder_order = unpinnedOrder;
-                    }
-                    this.loraUiState.pinned_folders = pinned;
-                    await saveStateAndFetch();
-                }
-                renderFolderPills();
-            };
-
-            const onLoraFolderPointerCancel = () => {
-                if (folderDragState) {
-                    folderDragState.pill.classList.remove("pinned-dragging");
-                    folderDragState.pill.releasePointerCapture?.(folderDragState.pointerId);
-                    folderDragState = null;
-                }
-                clearLoraFolderDragTargets();
-            };
+            const folderController = createLoraFolderController({
+                nodeInstance: this,
+                widgetContainer,
+                folderFilterSelect,
+                folderStrip,
+                folderOverflow,
+                folderOverflowChips,
+                folderPullTab,
+                getVisiblePinnedFolderCount,
+                saveStateAndFetch,
+            });
+            const {
+                getFolderOptions,
+                getFoldersInCurrentOrder,
+                renderFolderPills,
+                closeLoraFolderContextMenu,
+                isContextMenuTarget,
+                onLoraFolderPointerMove,
+                onLoraFolderPointerUp,
+                onLoraFolderPointerCancel,
+            } = folderController;
             renderFolderPills();
-
             const persistSelectionData = () => {
                 const serializableData = toSerializableLoraSelection(this.loraData);
                 const selectionJson = writeSelectionArray(serializableData);
@@ -931,7 +577,7 @@ const UnifiedLoraGalleryNode = {
 
             const clearMetadataEditing = () => {
                 document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                this.selectedCardsForEditing.clear();
+                this.selectedLoraNamesForEditing.clear();
                 this.activeEditingLoraName = null;
                 renderMetadataEditor();
             };
@@ -1154,7 +800,12 @@ const UnifiedLoraGalleryNode = {
 
                     el.innerHTML = buildSelectedLoraItemHtml(item, index, lora, this.isModelOnly, isCompact, displayState.show_clip_weights);
 
-                    setupPresetControls(el, lora);
+                    setupLoraPresetControls(el, lora, {
+                        nodeInstance: this,
+                        widgetContainer,
+                        uniqueId,
+                        updateSelection,
+                    });
 
                     if (!isCompact) {
                         const previewImage = el.querySelector(".locallora-selected-thumb img");
@@ -1177,7 +828,7 @@ const UnifiedLoraGalleryNode = {
                                 e.stopPropagation();
                                 const loraName = item.lora;
                                 const isEditingThisLora = this.activeEditingLoraName === loraName
-                                    || (this.selectedCardsForEditing.size === 1 && Array.from(this.selectedCardsForEditing)[0]?.dataset.loraName === loraName);
+                                    || (this.selectedLoraNamesForEditing.size === 1 && this.selectedLoraNamesForEditing.has(loraName));
                                 if (isEditingThisLora && metadataEditor.classList.contains("visible")) {
                                     clearMetadataEditing();
                                     return;
@@ -1186,12 +837,12 @@ const UnifiedLoraGalleryNode = {
                                 if (card) {
                                     this.activeEditingLoraName = null;
                                     document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                                    this.selectedCardsForEditing.clear();
-                                    this.selectedCardsForEditing.add(card);
+                                    this.selectedLoraNamesForEditing.clear();
+                                    this.selectedLoraNamesForEditing.add(loraName);
                                     card.classList.add("selected-edit");
                                 } else {
                                     document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                                    this.selectedCardsForEditing.clear();
+                                    this.selectedLoraNamesForEditing.clear();
                                     this.activeEditingLoraName = loraName;
                                 }
                                 renderMetadataEditor();
@@ -1207,31 +858,20 @@ const UnifiedLoraGalleryNode = {
                         updateSelection();
                     });
 
-                    const formatWeight = (weight) => {
-                        const rounded = Math.round(weight * 100) / 100;
-                        const tenth = Math.round(rounded * 10) / 10;
-                        if (Math.abs(rounded - tenth) < 1e-9) {
-                            return tenth.toFixed(1);
-                        } else {
-                            return rounded.toFixed(2);
-                        }
-                    };
-
-                    const stepStrength = (val, direction, min = -10.0, max = 10.0) => {
-                        const current = Number(val) || 1.0;
-                        const next = Math.round((current + (direction * 0.05)) * 100) / 100;
-                        return Math.max(min, Math.min(max, next));
-                    };
-
                     const strengthModelVal = el.querySelector(".selected-strength-model");
                     if (strengthModelVal) {
                         strengthModelVal.addEventListener("wheel", (e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             const direction = e.deltaY < 0 ? 1 : -1;
-                            const nextVal = stepStrength(this.loraData[index].strength ?? 1.0, direction, -10.0, 10.0);
+                            const nextVal = stepLoraWeight(
+                                this.loraData[index].strength ?? 1.0,
+                                direction,
+                                LORA_WEIGHT_LIMITS.modelMin,
+                                LORA_WEIGHT_LIMITS.modelMax,
+                            );
                             this.loraData[index].strength = nextVal;
-                            strengthModelVal.textContent = formatWeight(nextVal);
+                            strengthModelVal.textContent = formatLoraWeight(nextVal);
                             updateSelection();
                         }, { passive: false });
                     }
@@ -1243,9 +883,14 @@ const UnifiedLoraGalleryNode = {
                             e.stopPropagation();
                             const direction = e.deltaY < 0 ? 1 : -1;
                             const currentVal = this.loraData[index].strength_clip ?? this.loraData[index].strength ?? 1.0;
-                            const nextVal = stepStrength(currentVal, direction, -2.0, 2.0);
+                            const nextVal = stepLoraWeight(
+                                currentVal,
+                                direction,
+                                LORA_WEIGHT_LIMITS.clipMin,
+                                LORA_WEIGHT_LIMITS.clipMax,
+                            );
                             this.loraData[index].strength_clip = nextVal;
-                            strengthClipVal.textContent = formatWeight(nextVal);
+                            strengthClipVal.textContent = formatLoraWeight(nextVal);
                             updateSelection();
                         }, { passive: false });
                     }
@@ -1318,350 +963,14 @@ const UnifiedLoraGalleryNode = {
                 alert: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>',
             };
             
-            const syncWithCivitai = async (loraName, card) => {
-                const syncBtn = card.querySelector('.sync-civitai-btn');
-
-                syncBtn.innerHTML = loraIconSvg.sync;
-                syncBtn.title = "Syncing with Civitai";
-                syncBtn.classList.remove('error');
-                syncBtn.classList.add('loading');
-            
-                try {
-                    const result = await loraApi.syncCivitai(loraName);
-            
-                    if (result.status === 'ok' && result.metadata) {
-                        const { preview_url, preview_type, trigger_words, download_url, tags } = result.metadata;
-                        
-                        const loraInDataSource = this.availableLoras.find(l => l.name === loraName);
-                        if (loraInDataSource) {
-                            loraInDataSource.preview_url = preview_url || '';
-                            loraInDataSource.preview_type = preview_type || 'none';
-                            loraInDataSource.trigger_words = trigger_words || '';
-                            loraInDataSource.download_url = download_url || '';
-                            loraInDataSource.tags = tags || [];
-                        }
-                        
-                        const mediaContainer = card.querySelector('.locallora-media-container');
-                        if (mediaContainer) {
-                            if (preview_type === 'video' && preview_url) {
-                                mediaContainer.innerHTML = `<video muted loop playsinline src="${escapeHtml(preview_url)}"></video>`;
-                                const video = mediaContainer.querySelector('video');
-                                card.addEventListener('mouseenter', () => video.play().catch(e => {}));
-                                card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
-                            } else if (preview_type === 'image' && preview_url) {
-                                mediaContainer.innerHTML = `<img src="${escapeHtml(preview_url)}">`;
-                            } else {
-                                const empty_lora_image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                                mediaContainer.innerHTML = `<img src="${empty_lora_image}">`;
-                            }
-                        }
-
-                        const triggerEl = card.querySelector('.lora-card-triggers');
-                        if(triggerEl) {
-                           triggerEl.textContent = trigger_words || 'No triggers';
-                           triggerEl.title = trigger_words || '';
-                        }
-                        card.dataset.triggerWords = trigger_words || '';
-                        card.dataset.downloadUrl = download_url || '';
-                        card.dataset.tags = (tags || []).join(',');
-                        
-                        const oldLinkBtn = card.querySelector('.lora-card-link-btn');
-                        if(oldLinkBtn) oldLinkBtn.remove();
-                        if(download_url){
-                            const linkBtn = document.createElement('a');
-                            linkBtn.href = download_url;
-                            linkBtn.target = '_blank';
-                            linkBtn.className = 'card-btn lora-card-link-btn';
-                            linkBtn.title = 'Open download page';
-                            linkBtn.setAttribute('aria-label', 'Open download page');
-                            linkBtn.innerHTML = loraIconSvg.link;
-                            linkBtn.addEventListener('click', e => e.stopPropagation());
-                            card.prepend(linkBtn);
-                        }
-                        
-                        renderCardTags(card);
-                        await loadAllTags();
-                    } else {
-                       throw new Error(result.message || 'Sync failed');
-                    }
-            
-                } catch (error) {
-                    console.error("LocalLoraGallery: Failed to sync with Civitai:", error);
-                    syncBtn.innerHTML = loraIconSvg.alert;
-                    syncBtn.title = "Civitai sync failed";
-                    syncBtn.classList.add('error');
-                    setTimeout(() => {
-                        syncBtn.innerHTML = loraIconSvg.sync;
-                        syncBtn.title = "Sync with Civitai";
-                        syncBtn.classList.remove('error');
-                    }, 2000);
-                } finally {
-                    syncBtn.classList.remove('loading');
-                    if (!syncBtn.classList.contains('error')) {
-                        syncBtn.innerHTML = loraIconSvg.sync;
-                        syncBtn.title = "Sync with Civitai";
-                    }
-                }
-            };
-
-            const setupPresetControls = (element, lora) => {
-                const presetSelect = element.querySelector('.lora-card-preset-select');
-                if (!presetSelect) return;
-
-                const presetStackCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
-                const presetChecklist = element.querySelector('.lora-card-preset-checklist');
-                const presetChecks = Array.from(element.querySelectorAll('.lora-card-preset-check'));
-                const picker = element.querySelector('.lora-trigger-preset-picker');
-                const pickerButton = element.querySelector('.lora-trigger-preset-button');
-                const pickerLabel = element.querySelector('.lora-trigger-preset-label');
-                const pickerCount = element.querySelector('.lora-trigger-preset-count');
-                const pickerPopover = element.querySelector('.lora-trigger-preset-popover');
-                const presetOptions = Array.from(element.querySelectorAll('.lora-trigger-preset-option'));
-                const presetSearch = element.querySelector('.lora-trigger-preset-search');
-                const loraName = element.dataset.loraName || lora.name;
-                const getSelectionItem = () => this.loraData.find(item => item.lora === loraName) || null;
-                const getPresetNamesFromItem = (item) => item && Array.isArray(item.selected_presets)
-                    ? item.selected_presets.filter(Boolean)
-                    : (item && item.selected_preset ? [item.selected_preset] : []);
-                const existingItem = getSelectionItem();
-                const existingPresetNames = getPresetNamesFromItem(existingItem);
-                const useStackedTriggerPresets = Boolean(existingItem?.stack_trigger_presets || existingPresetNames.length > 1);
-
-                const getSelectedPresetNames = () => {
-                    if (presetStackCheckbox.checked) {
-                        return presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
-                    }
-                    return presetSelect.value ? [presetSelect.value] : [];
-                };
-
-                const syncPresetPickerUi = (selectedNamesOverride = null, stackingOverride = null) => {
-                    let selectedPresetNames = selectedNamesOverride;
-                    let stacking = stackingOverride;
-                    if (!selectedPresetNames || stacking === null) {
-                        const currentItem = getSelectionItem();
-                        if (currentItem) {
-                            selectedPresetNames = getPresetNamesFromItem(currentItem);
-                            stacking = Boolean(currentItem.stack_trigger_presets || selectedPresetNames.length > 1);
-                        } else {
-                            selectedPresetNames = getSelectedPresetNames();
-                            stacking = presetStackCheckbox.checked;
-                        }
-                    }
-                    presetStackCheckbox.checked = stacking;
-                    if (stacking) {
-                        presetChecks.forEach(checkbox => {
-                            checkbox.checked = selectedPresetNames.includes(checkbox.value);
-                        });
-                    } else {
-                        presetSelect.value = selectedPresetNames[0] || "";
-                        presetChecks.forEach(checkbox => {
-                            checkbox.checked = false;
-                        });
-                    }
-                    picker?.classList.toggle("stacking", stacking);
-                    presetChecklist.classList.toggle("visible", false);
-                    const selectedLabel = stacking
-                        ? (selectedPresetNames.length ? `${selectedPresetNames.length} presets` : "Stack presets")
-                        : (presetSelect.value || "Default Triggers");
-                    const hasSelectedPreset = selectedPresetNames.length > 0;
-                    if (pickerLabel) pickerLabel.textContent = selectedLabel;
-                    if (pickerCount) pickerCount.textContent = hasSelectedPreset
-                        ? (stacking ? selectedPresetNames.length : 1)
-                        : "";
-                    picker?.classList.toggle("has-selection", hasSelectedPreset);
-                    pickerButton?.classList.toggle("has-selection", hasSelectedPreset);
-                    pickerButton?.setAttribute("aria-pressed", String(hasSelectedPreset));
-                    if (pickerButton) {
-                        pickerButton.title = hasSelectedPreset
-                            ? `Trigger preset: ${selectedLabel}`
-                            : "Choose trigger preset";
-                        pickerButton.setAttribute("aria-label", hasSelectedPreset
-                            ? `Trigger preset: ${selectedLabel}`
-                            : "Choose trigger preset");
-                    }
-                    presetOptions.forEach(option => {
-                        const presetName = option.dataset.presetName || "";
-                        const isSelected = stacking
-                            ? selectedPresetNames.includes(presetName)
-                            : presetName === presetSelect.value;
-                        option.classList.toggle("selected", isSelected);
-                    });
-                };
-
-                presetStackCheckbox.checked = useStackedTriggerPresets;
-                if (useStackedTriggerPresets) {
-                    presetChecks.forEach(checkbox => {
-                        checkbox.checked = existingPresetNames.includes(checkbox.value);
-                    });
-                } else if (existingPresetNames.length > 0) {
-                    presetSelect.value = existingPresetNames[0];
-                }
-                syncPresetPickerUi();
-
-                const applyPresetSelection = ({ selectedPresetsOverride = null, stackingOverride = null } = {}) => {
-                    const item = getSelectionItem();
-                    const stacking = stackingOverride ?? presetStackCheckbox.checked;
-                    const selectedPresets = selectedPresetsOverride ?? (stacking
-                        ? presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value)
-                        : (presetSelect.value ? [presetSelect.value] : []));
-                    if (item) {
-                        if (stacking) {
-                            item.stack_trigger_presets = true;
-                            item.selected_presets = selectedPresets;
-                            item.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
-                        } else {
-                            item.selected_preset = selectedPresets[0] || "";
-                            delete item.selected_presets;
-                            delete item.stack_trigger_presets;
-                        }
-                        updateSelection();
-                    }
-                    syncPresetPickerUi(selectedPresets, stacking);
-                };
-
-                presetSelect.addEventListener('click', (e) => e.stopPropagation());
-                presetSelect.addEventListener('mousedown', (e) => e.stopPropagation());
-                presetSelect.addEventListener('change', () => applyPresetSelection());
-                presetChecklist.addEventListener('click', (e) => e.stopPropagation());
-                presetChecks.forEach(checkbox => {
-                    checkbox.addEventListener('change', () => applyPresetSelection());
-                });
-                presetStackCheckbox.addEventListener('click', (e) => e.stopPropagation());
-                presetStackCheckbox.addEventListener('change', () => {
-                    if (presetStackCheckbox.checked && presetSelect.value) {
-                        presetChecks.forEach(checkbox => {
-                            checkbox.checked = checkbox.value === presetSelect.value;
-                        });
-                    }
-                    if (!presetStackCheckbox.checked) {
-                        const firstSelected = presetChecks.find(checkbox => checkbox.checked);
-                        presetSelect.value = firstSelected ? firstSelected.value : "";
-                    }
-                    applyPresetSelection();
-                });
-
-                const isActiveStackPicker = Boolean(element.closest(".locallora-lora-item"));
-                const positionPortaledPopover = () => {
-                    if (!pickerPopover?.classList.contains("lora-trigger-preset-popover-portal")) return;
-                    const buttonRect = pickerButton.getBoundingClientRect();
-                    const popoverRect = pickerPopover.getBoundingClientRect();
-                    const margin = 8;
-                    const maxLeft = Math.max(margin, window.innerWidth - popoverRect.width - margin);
-                    const left = Math.max(margin, Math.min(buttonRect.right - popoverRect.width, maxLeft));
-                    const spaceBelow = window.innerHeight - buttonRect.bottom - margin;
-                    const top = spaceBelow >= popoverRect.height + 6
-                        ? buttonRect.bottom + 6
-                        : Math.max(margin, buttonRect.top - popoverRect.height - 6);
-                    pickerPopover.style.left = `${Math.round(left)}px`;
-                    pickerPopover.style.top = `${Math.round(top)}px`;
-                };
-                const restorePortaledPopover = () => {
-                    if (pickerPopover?.classList.contains("lora-trigger-preset-popover-portal")) {
-                        picker?.appendChild(pickerPopover);
-                        pickerPopover.classList.remove("lora-trigger-preset-popover-portal", "lora-trigger-preset-popover-portal-active", "open");
-                        pickerPopover.style.left = "";
-                        pickerPopover.style.top = "";
-                        window.removeEventListener("resize", positionPortaledPopover);
-                        widgetContainer.querySelector(".locallora-active-sidebar-content")?.removeEventListener("scroll", positionPortaledPopover);
-                    }
-                    picker?.classList.remove("open");
-                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
-                };
-                if (picker) picker._closeLoraPresetPopover = restorePortaledPopover;
-                if (pickerPopover) pickerPopover._restoreLoraPresetPopover = restorePortaledPopover;
-
-                pickerButton?.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    const shouldOpen = !picker?.classList.contains("open");
-                    widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
-                        openPicker._closeLoraPresetPopover?.();
-                        openPicker.classList.remove("open");
-                        openPicker.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
-                    });
-                    if (!shouldOpen) {
-                        restorePortaledPopover();
-                        return;
-                    }
-                    picker?.classList.add("open");
-                    element.closest(".locallora-lora-card, .locallora-lora-item")?.classList.add("preset-open");
-                    if (isActiveStackPicker && pickerPopover) {
-                        pickerPopover.dataset.loraPortalOwner = uniqueId;
-                        pickerPopover.classList.add("lora-trigger-preset-popover-portal", "lora-trigger-preset-popover-portal-active", "open");
-                        document.body.appendChild(pickerPopover);
-                        positionPortaledPopover();
-                        window.addEventListener("resize", positionPortaledPopover);
-                        widgetContainer.querySelector(".locallora-active-sidebar-content")?.addEventListener("scroll", positionPortaledPopover);
-                    }
-                    presetSearch?.focus();
-                });
-
-                pickerPopover?.addEventListener("click", (e) => {
-                    const option = e.target.closest?.(".lora-trigger-preset-option");
-                    e.stopPropagation();
-                    if (!option || !pickerPopover.contains(option)) return;
-                    e.preventDefault();
-                    const presetName = option.dataset.presetName || "";
-                    let selectedPresets = [];
-                    const stacking = presetStackCheckbox.checked;
-                    if (presetStackCheckbox.checked) {
-                        if (!presetName) {
-                            presetChecks.forEach(checkbox => checkbox.checked = false);
-                        } else {
-                            const matchingCheck = presetChecks.find(checkbox => checkbox.value === presetName);
-                            if (matchingCheck) matchingCheck.checked = !matchingCheck.checked;
-                        }
-                        selectedPresets = presetChecks.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
-                    } else {
-                        presetSelect.value = presetName;
-                        selectedPresets = presetName ? [presetName] : [];
-                        restorePortaledPopover();
-                    }
-                    applyPresetSelection({ selectedPresetsOverride: selectedPresets, stackingOverride: stacking });
-                });
-
-                presetSearch?.addEventListener("input", () => {
-                    const query = presetSearch.value.trim().toLowerCase();
-                    presetOptions.forEach(option => {
-                        const optionText = option.textContent.toLowerCase();
-                        option.hidden = query && !optionText.includes(query);
-                    });
-                });
-            };
-
-            const getNewLoraEntryFromElement = (element, loraName) => {
-                const newEntry = { on: true, lora: loraName, strength: 1.0, strength_clip: 1.0 };
-                const lora = this.availableLoras.find(item => item.name === loraName);
-                if (lora) {
-                    newEntry.preview_url = lora.preview_url || "";
-                    newEntry.preview_type = lora.preview_type || "none";
-                    newEntry.tags = lora.tags || [];
-                    newEntry.trigger_words = lora.trigger_words || "";
-                    newEntry.trigger_presets = lora.trigger_presets || {};
-                    newEntry.download_url = lora.download_url || "";
-                } else {
-                    const previewMedia = element.querySelector(".locallora-media-container img, .locallora-media-container video");
-                    if (previewMedia?.getAttribute("src")) {
-                        newEntry.preview_url = previewMedia.getAttribute("src");
-                        newEntry.preview_type = previewMedia.tagName.toLowerCase() === "video" ? "video" : "image";
-                    }
-                }
-
-                const pSelect = element.querySelector('.lora-card-preset-select');
-                const stackPresetCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
-                if (pSelect && stackPresetCheckbox?.checked) {
-                    const selectedPresets = Array.from(element.querySelectorAll('.lora-card-preset-check:checked')).map(checkbox => checkbox.value);
-                    if (selectedPresets.length > 0) {
-                        newEntry.stack_trigger_presets = true;
-                        newEntry.selected_presets = selectedPresets;
-                        newEntry.selected_preset = selectedPresets.length === 1 ? selectedPresets[0] : "";
-                    }
-                } else if (pSelect && pSelect.value) {
-                    newEntry.selected_preset = pSelect.value;
-                }
-
-                return newEntry;
-            };
-
+            const syncWithCivitai = (loraName, card) => syncLoraWithCivitai({
+                loraName,
+                card,
+                nodeInstance: this,
+                loraIconSvg,
+                renderCardTags,
+                loadAllTags,
+            });
             const promoteSelectedLorasInCurrentPage = () => {
                 const selectedOrder = new Map(this.loraData.map((item, index) => [item.lora, index]));
                 const currentOrder = new Map(this.availableLoras.map((lora, index) => [lora.name, index]));
@@ -1681,7 +990,11 @@ const UnifiedLoraGalleryNode = {
                 if (existingIndex > -1) {
                     this.loraData.splice(existingIndex, 1);
                 } else {
-                    this.loraData.push(getNewLoraEntryFromElement(element, loraName));
+                    this.loraData.push(buildLoraSelectionEntry({
+                        element,
+                        loraName,
+                        lora: this.availableLoras.find(item => item.name === loraName),
+                    }));
                 }
 
                 element.classList.toggle("selected-flow", willSelect);
@@ -1702,23 +1015,24 @@ const UnifiedLoraGalleryNode = {
                     e.stopPropagation();
                     this.activeEditingLoraName = null;
 
+                    const loraName = element.dataset.loraName;
                     if (e.ctrlKey) {
-                        if (this.selectedCardsForEditing.has(element)) {
-                            this.selectedCardsForEditing.delete(element);
+                        if (this.selectedLoraNamesForEditing.has(loraName)) {
+                            this.selectedLoraNamesForEditing.delete(loraName);
                             element.classList.remove("selected-edit");
                         } else {
-                            this.selectedCardsForEditing.add(element);
+                            this.selectedLoraNamesForEditing.add(loraName);
                             element.classList.add("selected-edit");
                         }
                     } else {
-                        if (this.selectedCardsForEditing.has(element) && this.selectedCardsForEditing.size === 1) {
-                            this.selectedCardsForEditing.clear();
+                        if (this.selectedLoraNamesForEditing.has(loraName) && this.selectedLoraNamesForEditing.size === 1) {
+                            this.selectedLoraNamesForEditing.clear();
                             element.classList.remove("selected-edit");
                         } else {
                             document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                            this.selectedCardsForEditing.clear();
+                            this.selectedLoraNamesForEditing.clear();
 
-                            this.selectedCardsForEditing.add(element);
+                            this.selectedLoraNamesForEditing.add(loraName);
                             element.classList.add("selected-edit");
                         }
                     }
@@ -1745,9 +1059,15 @@ const UnifiedLoraGalleryNode = {
                     card.dataset.downloadUrl = lora.download_url;
                     card.title = lora.name;
 
-                    card.innerHTML = buildLoraCardHtml(lora, isSelectedLora, this.selectedCardsForEditing.has(card), getLoraDisplayState().cards_display_mode === "compact", loraIconSvg);
+                    const isSelectedForEditing = this.selectedLoraNamesForEditing.has(lora.name);
+                    card.innerHTML = buildLoraCardHtml(lora, isSelectedLora, isSelectedForEditing, getLoraDisplayState().cards_display_mode === "compact", loraIconSvg);
                     
-                    setupPresetControls(card, lora);
+                    setupLoraPresetControls(card, lora, {
+                        nodeInstance: this,
+                        widgetContainer,
+                        uniqueId,
+                        updateSelection,
+                    });
 
                     const img = card.querySelector("img");
                     if (img) {
@@ -1761,7 +1081,7 @@ const UnifiedLoraGalleryNode = {
                         syncWithCivitai(lora.name, card);
                     });
 
-                    if (this.selectedCardsForEditing.has(card)) card.classList.add("selected-edit");
+                    if (isSelectedForEditing) card.classList.add("selected-edit");
 
                     renderCardTags(card);
                     
@@ -1813,6 +1133,8 @@ const UnifiedLoraGalleryNode = {
                     }
                     hydrateSelectedLoraInfo();
                     renderCurrentView(append);
+                } catch (error) {
+                    console.error("LocalLoraGallery: Keeping the current gallery after a refresh failure:", error);
                 } finally {
                     if (fetchSequence === loraFetchSequence && pendingFetchAfterLoad !== null) {
                         const nextAppend = pendingFetchAfterLoad;
@@ -1963,179 +1285,30 @@ const UnifiedLoraGalleryNode = {
                 } catch (e) { console.error("LocalLoraGallery: Failed to load presets", e); }
             };
 
-            const getEditingLorasData = () => {
-                if (this.activeEditingLoraName) {
-                    const loraData = getLoraMetadataByName(this.activeEditingLoraName);
-                    if (loraData) {
-                        return [{
-                            name: loraData.name || loraData.lora,
-                            tags: loraData.tags || [],
-                            trigger_words: loraData.trigger_words || "",
-                            download_url: loraData.download_url || "",
-                            trigger_presets: loraData.trigger_presets || {}
-                        }];
-                    }
-                }
-                return Array.from(this.selectedCardsForEditing).map(card => {
-                    const loraName = card.dataset.loraName;
-                    const loraData = this.availableLoras.find(l => l.name === loraName) || {};
-                    return {
-                        name: loraName,
-                        tags: card.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : (loraData.tags || []),
-                        trigger_words: card.dataset.triggerWords || loraData.trigger_words || "",
-                        download_url: card.dataset.downloadUrl || loraData.download_url || "",
-                        trigger_presets: loraData.trigger_presets || {}
-                    };
-                });
-            };
-
-            const renderMetadataEditor = () => {
-                const editingLoras = getEditingLorasData();
-                selectedCountEl.textContent = editingLoras.length;
-
-                if (editingLoras.length === 0) {
-                    metadataEditor.classList.remove("visible");
-                    return;
-                }
-
-                tagEditorList.innerHTML = "";
-                const allTags = editingLoras.map(lora => lora.tags);
-                const commonTags = allTags.reduce((a, b) => a.filter(c => b.includes(c)), allTags[0] || []);
-                
-                commonTags.forEach(tag => {
-                    const tagEl = document.createElement("span");
-                    tagEl.className = "tag";
-                    tagEl.textContent = tag;
-                    const removeEl = document.createElement("span");
-                    removeEl.className = "remove-tag";
-                    removeEl.textContent = "x";
-                    removeEl.onclick = async (e) => {
-                        e.stopPropagation();
-                        const updatePromises = editingLoras.map(async (lora) => {
-                            const loraName = lora.name;
-                            const newTags = lora.tags.filter(t => t !== tag);
-                            
-                            await UnifiedLoraGalleryNode.updateMetadata(loraName, { tags: newTags });
-
-                            updateCachedLoraMetadata(loraName, { tags: newTags });
-
-                            const card = findGalleryCardByLoraName(loraName);
-                            if (card) {
-                                card.dataset.tags = newTags.join(',');
-                                renderCardTags(card);
-                            }
-                        });
-                        await Promise.all(updatePromises);
-                        await loadAllTags();
-                        renderMetadataEditor();
-                    };
-                    tagEl.appendChild(removeEl);
-                    tagEditorList.appendChild(tagEl);
-                });
-
-                if (editingLoras.length === 1) {
-                    const singleLora = editingLoras[0];
-                    triggerEditorInput.value = singleLora.trigger_words || "";
-                    triggerEditorRow.style.display = "flex";
-                    urlEditorInput.value = singleLora.download_url || "";
-                    urlEditorRow.style.display = "flex";
-                    triggerPresetEditorRow.style.display = "flex";
-                    
-                    const renderPresetsList = () => {
-                        triggerPresetList.innerHTML = "";
-                        const loraName = singleLora.name;
-                        const loraInDataSource = getLoraMetadataByName(loraName);
-                        if (!loraInDataSource) return;
-                        const presets = loraInDataSource.trigger_presets || {};
-                        for (const [pName, pVal] of Object.entries(presets)) {
-                            const row = document.createElement("div");
-                            row.style.display = "flex";
-                            row.style.gap = "4px";
-                            row.style.width = "100%";
-                            
-                            const nameSpan = document.createElement("span");
-                            nameSpan.style.width = "80px";
-                            nameSpan.style.fontSize = "10px";
-                            nameSpan.style.color = "#ccc";
-                            nameSpan.style.overflow = "hidden";
-                            nameSpan.style.textOverflow = "ellipsis";
-                            nameSpan.textContent = pName;
-                            
-                            const valSpan = document.createElement("span");
-                            valSpan.style.flexGrow = "1";
-                            valSpan.style.fontSize = "10px";
-                            valSpan.style.color = "#aaa";
-                            valSpan.style.overflow = "hidden";
-                            valSpan.style.textOverflow = "ellipsis";
-                            valSpan.textContent = pVal;
-                            
-                            const editBtn = document.createElement("button");
-                            editBtn.textContent = "Edit";
-                            editBtn.title = "Edit Preset";
-                            editBtn.style.padding = "0 4px";
-                            editBtn.style.background = "none";
-                            editBtn.style.border = "none";
-                            editBtn.style.cursor = "pointer";
-                            editBtn.onclick = (e) => {
-                                e.stopPropagation();
-                                triggerPresetNameInput.value = pName;
-                                triggerPresetValueInput.value = pVal;
-                                addTriggerPresetBtn.textContent = "Update";
-                            };
-                            
-                            const rmBtn = document.createElement("button");
-                            rmBtn.textContent = "x";
-                            rmBtn.title = "Remove Preset";
-                            rmBtn.style.padding = "0 4px";
-                            rmBtn.style.background = "none";
-                            rmBtn.style.border = "none";
-                            rmBtn.style.color = "#f55";
-                            rmBtn.style.cursor = "pointer";
-                            rmBtn.onclick = async (e) => {
-                                e.stopPropagation();
-                                const newPresets = { ...loraInDataSource.trigger_presets };
-                                delete newPresets[pName];
-                                await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
-                                updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
-                                renderPresetsList();
-                                renderCurrentView();
-                                renderSelectedList();
-                            };
-                            
-                            row.appendChild(nameSpan);
-                            row.appendChild(valSpan);
-                            row.appendChild(editBtn);
-                            row.appendChild(rmBtn);
-                            triggerPresetList.appendChild(row);
-                        }
-                    };
-                    renderPresetsList();
-                } else {
-                    triggerEditorRow.style.display = "none";
-                    urlEditorRow.style.display = "none";
-                    triggerPresetEditorRow.style.display = "none";
-                }
-
-                metadataEditor.classList.add("visible");
-            };
-            
-            const renderCardTags = (card) => {
-                const tagContainer = card.querySelector(".lora-card-tags");
-                tagContainer.innerHTML = "";
-                const tags = card.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : [];
-                tags.forEach(tag => {
-                    const tagEl = document.createElement("span");
-                    tagEl.className = "tag";
-                    tagEl.textContent = tag;
-                    tagEl.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        tagFilterInput.value = tag;
-                        fetchAndRender();
-                    });
-                    tagContainer.appendChild(tagEl);
-                });
-            };
-            
+            const { getEditingLorasData, renderMetadataEditor, renderCardTags } = createLoraMetadataController({
+                nodeInstance: this,
+                metadataEditor,
+                selectedCountEl,
+                tagEditorList,
+                triggerEditorInput,
+                triggerEditorRow,
+                urlEditorInput,
+                urlEditorRow,
+                triggerPresetEditorRow,
+                triggerPresetList,
+                triggerPresetNameInput,
+                triggerPresetValueInput,
+                addTriggerPresetBtn,
+                tagFilterInput,
+                getLoraMetadataByName,
+                updateCachedLoraMetadata,
+                findGalleryCardByLoraName,
+                updateMetadata: (...args) => UnifiedLoraGalleryNode.updateMetadata(...args),
+                loadAllTags,
+                renderCurrentView,
+                renderSelectedList,
+                fetchAndRender,
+            });
             this.initializeNode = async () => {
                 let initialState = { 
                     is_collapsed: false, 
@@ -2238,9 +1411,9 @@ const UnifiedLoraGalleryNode = {
             const bindEventListeners = () => {
                 globalListeners.listen(document, "keydown", (e) => {
                     if (e.key === "Escape") {
-                        if (this.selectedCardsForEditing.size > 0) {
+                        if (this.selectedLoraNamesForEditing.size > 0) {
                             document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                            this.selectedCardsForEditing.clear();
+                            this.selectedLoraNamesForEditing.clear();
                             renderMetadataEditor();
                         }
                     }
@@ -2379,13 +1552,13 @@ const UnifiedLoraGalleryNode = {
                 widgetContainer.querySelector(".clear-all-btn").addEventListener("click", clearAllLoras);
                 
                 folderFilterSelect.addEventListener("change", () => {
-                    folderOverflowOpen = false;
+                    folderController.overflowOpen = false;
                     renderFolderPills();
                     saveStateAndFetch();
                 });
                 folderPullTab?.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    folderOverflowOpen = !folderOverflowOpen;
+                    folderController.toggleOverflow();
                     renderFolderPills();
                 });
                 tagFilterModeBtn.addEventListener("click", () => {
@@ -2583,7 +1756,7 @@ const UnifiedLoraGalleryNode = {
                         closeActiveStack();
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-folder-nav`)) {
-                        folderOverflowOpen = false;
+                        folderController.overflowOpen = false;
                         renderFolderPills();
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
@@ -2595,19 +1768,14 @@ const UnifiedLoraGalleryNode = {
                 });
 
                 const globalLoraPointerDownHandler = (event) => {
-                    if (activeLoraFolderContextMenu && !activeLoraFolderContextMenu.contains(event.target)) {
+                    if (!isContextMenuTarget(event.target)) {
                         closeLoraFolderContextMenu();
                     }
                 };
                 const globalLoraKeydownHandler = (event) => {
                     if (event.key === "Escape") {
                         closeLoraFolderContextMenu();
-                        if (folderDragState) {
-                            folderDragState.pill.classList.remove("pinned-dragging");
-                            folderDragState.pill.releasePointerCapture?.(folderDragState.pointerId);
-                            folderDragState = null;
-                            clearLoraFolderDragTargets();
-                        }
+                        folderController.cancelDrag();
                     }
                 };
                 const globalLoraResizeHandler = () => {
@@ -2642,6 +1810,7 @@ const UnifiedLoraGalleryNode = {
                         popover._restoreLoraPresetPopover?.();
                         if (popover.isConnected && !widgetContainer.contains(popover)) popover.remove();
                     });
+                    folderController.cancelDrag();
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

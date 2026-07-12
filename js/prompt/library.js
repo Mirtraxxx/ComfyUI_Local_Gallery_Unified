@@ -3,6 +3,7 @@ import {
     createPinnedManagedControlsHtml,
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
+import { escapeHtml } from "../shared/dom.js";
 
 // Product term: Prompt Builder. Historical code names still use "library"
 // for DOM ids, CSS classes, and compatibility exports.
@@ -98,13 +99,13 @@ export async function renderPromptBuilderBar({
         const isActive = getActiveLibraryTab() === tabContent;
         tabBtn.className = `localprompt-library-tab${role === "utility" ? " localprompt-utility-tab" : ""}${isActive ? " active" : ""}`;
         if (tabContent === "most_used") {
-            tabBtn.innerHTML = "&#128293;";
+            tabBtn.textContent = "🔥";
             tabBtn.title = "Most Used";
         } else if (tabContent === "pinned") {
-            tabBtn.innerHTML = "&#11088;";
+            tabBtn.textContent = "⭐";
             tabBtn.title = "Favorites";
         } else {
-            tabBtn.innerHTML = tabContent;
+            tabBtn.textContent = tabContent;
         }
         if (!isUtilityLibraryTab(tabContent)) {
             applyLibraryTabRoleStyling(tabBtn, tabContent, isActive);
@@ -422,6 +423,8 @@ export async function renderPromptBuilderDrawer({
         let chip;
         const isGlobalPinned = prompt.favorite;
         const selectedEntry = isSelected ? getSelectedPromptEntry(prompt.id) : null;
+        const safeName = escapeHtml(prompt.name || "");
+        const safePreviewUrl = escapeHtml(prompt.preview_url || "");
 
         if (displayMode === "thumbnails" && prompt.preview_url) {
             chip = document.createElement("div");
@@ -438,16 +441,16 @@ export async function renderPromptBuilderDrawer({
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                     <div class="managed-thumb-media">
-                        <img src="${prompt.preview_url}" alt="${prompt.name}" loading="lazy" decoding="async">
+                        <img src="${safePreviewUrl}" alt="${safeName}" loading="lazy" decoding="async">
                     </div>
                     ${createPinnedManagedControlsHtml(selectedEntry)}
-                    <span class="thumb-label">${prompt.name}</span>
+                    <span class="thumb-label">${safeName}</span>
                 `;
             } else {
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
-                    <img src="${prompt.preview_url}" alt="${prompt.name}" loading="lazy" decoding="async">
-                    <span class="thumb-label">${prompt.name}</span>
+                    <img src="${safePreviewUrl}" alt="${safeName}" loading="lazy" decoding="async">
+                    <span class="thumb-label">${safeName}</span>
                 `;
             }
             chip.innerHTML = content;
@@ -468,11 +471,11 @@ export async function renderPromptBuilderDrawer({
             if (isSelected && selectedEntry) {
                 chip.classList.add("pinned-managed");
                 content += `
-                    <div class="managed-card-name" title="${prompt.name}">${prompt.name}</div>
+                    <div class="managed-card-name" title="${safeName}">${safeName}</div>
                     ${createManagedTextControlsHtml(selectedEntry)}
                 `;
             } else {
-                content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} ${prompt.name}`;
+                content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} ${safeName}`;
             }
             if (tabName === "most_used" || (prompt.usage_count > 0 && tabName !== "pinned")) {
                 content += ` <span class="usage-count">x${prompt.usage_count || 0}</span>`;

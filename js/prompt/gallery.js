@@ -3,6 +3,7 @@ import {
     createPromptActionButton,
     promotePromptsById,
 } from "./helpers.js?v=unified-icons-20260606";
+import { escapeHtml } from "../shared/dom.js";
 
 function getPromptCreatedAtValue(prompt) {
     const rawValue = prompt?.created_at || prompt?.date_added || prompt?.createdAt;
@@ -35,8 +36,10 @@ export async function loadCategories({
     widgetContainer,
     uniqueId,
     galleryNode,
+    isCurrent = () => true,
 }) {
     const categories = await galleryNode.getCategories();
+    if (!isCurrent()) return;
     const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
     if (!categorySelect) return;
 
@@ -147,15 +150,17 @@ export function renderGallery({
             noPreviewText: "No Preview",
         });
 
-        const categoryText = prompt.category ? ` [${prompt.category}]` : "";
+        const safeName = escapeHtml(prompt.name || "");
+        const categoryText = prompt.category ? ` [${escapeHtml(prompt.category)}]` : "";
+        const safePromptId = escapeHtml(prompt.id);
         const isFavorited = prompt.favorite || false;
 
         div.innerHTML = `
             ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
             ${previewHtml}
-            ${createPromptActionButton({ icon: "star", className: `localprompt-favorite-star ${isFavorited ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `data-prompt-id="${prompt.id}"`, pressed: isFavorited })}
+            ${createPromptActionButton({ icon: "star", className: `localprompt-favorite-star ${isFavorited ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `data-prompt-id="${safePromptId}"`, pressed: isFavorited })}
             <div class="localprompt-item-info">
-                <div class="localprompt-item-name">${prompt.name}${categoryText}</div>
+                <div class="localprompt-item-name">${safeName}${categoryText}</div>
             </div>
         `;
 

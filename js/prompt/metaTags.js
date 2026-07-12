@@ -23,6 +23,7 @@ export function createMetaTagsController({
     }
 
     let metaSaveStatusTimer = null;
+    let activePointerCleanup = null;
     function setMetaSaveStatus(text, statusClass = "") {
         const statusEl = widgetContainer.querySelector(`#${uniqueId}-meta-save-status`);
         if (!statusEl) return;
@@ -185,9 +186,9 @@ export function createMetaTagsController({
                     const dragState = pointerDrag;
                     pointerDrag = null;
 
-                    window.removeEventListener("pointermove", onPointerMove);
-                    window.removeEventListener("pointerup", onPointerUp);
-                    window.removeEventListener("pointercancel", onPointerCancel);
+                    const cleanup = activePointerCleanup;
+                    activePointerCleanup = null;
+                    cleanup?.();
 
                     dragState.row.classList.remove("pinned-dragging");
                     const targetRow = getMetaRowAtPoint(upEvent.clientX, upEvent.clientY)
@@ -228,11 +229,19 @@ export function createMetaTagsController({
                         pointerDrag = null;
                     }
                     clearDropTargets();
+                    const cleanup = activePointerCleanup;
+                    activePointerCleanup = null;
+                    cleanup?.();
+                };
+
+                activePointerCleanup = () => {
                     window.removeEventListener("pointermove", onPointerMove);
                     window.removeEventListener("pointerup", onPointerUp);
                     window.removeEventListener("pointercancel", onPointerCancel);
+                    pointerDrag?.row.classList.remove("pinned-dragging");
+                    pointerDrag = null;
+                    clearDropTargets();
                 };
-
                 window.addEventListener("pointermove", onPointerMove);
                 window.addEventListener("pointerup", onPointerUp);
                 window.addEventListener("pointercancel", onPointerCancel);
@@ -274,5 +283,13 @@ export function createMetaTagsController({
         renderMetaTags,
         updateMetaTagsButtonState,
         bindAddMetaTagButton,
+        dispose() {
+            activePointerCleanup?.();
+            activePointerCleanup = null;
+            if (metaSaveStatusTimer) {
+                clearTimeout(metaSaveStatusTimer);
+                metaSaveStatusTimer = null;
+            }
+        },
     };
 }

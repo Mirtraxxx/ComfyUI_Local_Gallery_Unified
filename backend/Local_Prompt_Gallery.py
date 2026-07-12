@@ -10,6 +10,12 @@ import hashlib
 import uuid
 import shutil
 import time
+from contextlib import AbstractContextManager
+
+try:
+    from .value_utils import bounded_int, finite_float, parse_json_list
+except ImportError:
+    from value_utils import bounded_int, finite_float, parse_json_list
 
 NODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(NODE_DIR, "..", "data", "prompt_gallery"))
@@ -34,34 +40,126 @@ _json_file_lock = threading.RLock()
 # Deferred usage-count saving
 _pending_usage = {}
 _usage_flush_timer = None
+_usage_flush_generation = 0
 _USAGE_FLUSH_DELAY = 30  # seconds
 
-def _flush_usage_counts():
+def _load_metadata_from_disk_locked():
+    """Read the metadata file while the process-wide JSON lock is held.
+
+    Mutation paths must not start from the in-memory cache: a deferred usage
+    flush or another request may have changed the file since the cache was
+    populated.  Keeping this small read helper separate also makes the
+    load/modify/save transaction boundary explicit.
+    """
+    global _metadata_cache, _metadata_mtime
+    metadata = load_json_file(METADATA_FILE, {}, strict=True)
+    if not isinstance(metadata, dict):
+        raise JsonDataError(f"{METADATA_FILE} must contain a JSON object")
+    _metadata_cache = metadata
+    _metadata_mtime = os.path.getmtime(METADATA_FILE) if os.path.exists(METADATA_FILE) else 0
+    return metadata
+
+
+def _apply_pending_usage_locked(metadata, pending):
+    """Apply a pending usage snapshot to metadata in-place."""
+    for prompt_id, count in pending.items():
+        prompt_data = metadata.get(prompt_id)
+        if isinstance(prompt_data, dict):
+            prompt_data['usage_count'] = prompt_data.get('usage_count', 0) + count
+
+
+def _consume_pending_usage_locked(snapshot):
+    """Remove only the usage counts represented by *snapshot*.
+
+    New executions can arrive while a transaction is saving.  Subtracting the
+    snapshot instead of clearing the whole map preserves those later counts.
+    """
+    for prompt_id, count in snapshot.items():
+        remaining = _pending_usage.get(prompt_id, 0) - count
+        if remaining > 0:
+            _pending_usage[prompt_id] = remaining
+        else:
+            _pending_usage.pop(prompt_id, None)
+
+
+class MetadataTransaction(AbstractContextManager):
+    """Serialize one prompt metadata load/modify/save operation.
+
+    The transaction owns the JSON lock for its entire lifetime and includes a
+    snapshot of deferred usage counts before yielding mutable metadata.  A
+    caller must call :meth:`commit` after making a mutation; leaving without a
+    commit performs no write.  Pending usage is consumed only after the save
+    succeeds, so a failed mutation cannot lose execution counts.
+    """
+
+    def __init__(self):
+        self.metadata = None
+        self._pending_snapshot = None
+        self._committed = False
+
+    def __enter__(self):
+        _json_file_lock.acquire()
+        try:
+            self.metadata = copy.deepcopy(_load_metadata_from_disk_locked())
+            self._pending_snapshot = dict(_pending_usage)
+            _apply_pending_usage_locked(self.metadata, self._pending_snapshot)
+            return self
+        except Exception:
+            _json_file_lock.release()
+            raise
+
+    def commit(self):
+        if self._committed:
+            return
+        save_metadata(self.metadata)
+        _consume_pending_usage_locked(self._pending_snapshot or {})
+        self._committed = True
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        _json_file_lock.release()
+        return False
+
+
+def _flush_usage_counts(generation=None):
     """Merge pending usage counts into metadata and save to disk."""
     global _pending_usage, _usage_flush_timer
-    if not _pending_usage:
-        return
     try:
         with _json_file_lock:
-            metadata = copy.deepcopy(load_metadata())
-            for pid, count in _pending_usage.items():
-                if pid in metadata:
-                    metadata[pid]['usage_count'] = metadata[pid].get('usage_count', 0) + count
+            if not _pending_usage:
+                return
+            pending_snapshot = dict(_pending_usage)
+            metadata = copy.deepcopy(_load_metadata_from_disk_locked())
+            _apply_pending_usage_locked(metadata, pending_snapshot)
             save_metadata(metadata)
-            _pending_usage = {}
+            _consume_pending_usage_locked(pending_snapshot)
     except Exception as e:
         print(f"LocalPromptGallery: failed to flush usage counts: {e}")
     finally:
-        _usage_flush_timer = None
+        with _json_file_lock:
+            if generation is None or generation == _usage_flush_generation:
+                _usage_flush_timer = None
 
 def _schedule_usage_flush():
     """Debounce: reset the timer each time so we only write once after activity stops."""
-    global _usage_flush_timer
-    if _usage_flush_timer is not None:
-        _usage_flush_timer.cancel()
-    _usage_flush_timer = threading.Timer(_USAGE_FLUSH_DELAY, _flush_usage_counts)
-    _usage_flush_timer.daemon = True
-    _usage_flush_timer.start()
+    global _usage_flush_timer, _usage_flush_generation
+    with _json_file_lock:
+        _usage_flush_generation += 1
+        generation = _usage_flush_generation
+        if _usage_flush_timer is not None:
+            _usage_flush_timer.cancel()
+        _usage_flush_timer = threading.Timer(_USAGE_FLUSH_DELAY, _flush_usage_counts, args=(generation,))
+        _usage_flush_timer.daemon = True
+        _usage_flush_timer.start()
+
+
+def _record_usage_counts(prompt_ids):
+    """Record execution usage without racing metadata transactions."""
+    if not prompt_ids:
+        return
+    with _json_file_lock:
+        for prompt_id in prompt_ids:
+            _pending_usage[prompt_id] = _pending_usage.get(prompt_id, 0) + 1
+    _schedule_usage_flush()
 
 VIDEO_EXTENSIONS = ('.mp4', '.webm', '.mov', '.avi')
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
@@ -164,29 +262,33 @@ def save_json_file(data, filepath):
 
 def load_metadata():
     global _metadata_cache, _metadata_mtime
-    try:
-        if not os.path.exists(METADATA_FILE):
-            return {}
-        current_mtime = os.path.getmtime(METADATA_FILE)
-        if _metadata_cache is None or current_mtime > _metadata_mtime:
-            _metadata_cache = load_json_file(METADATA_FILE, {}, strict=True)
-            if not isinstance(_metadata_cache, dict):
-                raise JsonDataError(f"{METADATA_FILE} must contain a JSON object")
-            _metadata_mtime = current_mtime
-        return _metadata_cache
-    except Exception as e:
-        print(f"Error in cached load_metadata: {e}")
-        raise
+    with _json_file_lock:
+        try:
+            if not os.path.exists(METADATA_FILE):
+                _metadata_cache = {}
+                _metadata_mtime = 0
+                return _metadata_cache
+            current_mtime = os.path.getmtime(METADATA_FILE)
+            if _metadata_cache is None or current_mtime > _metadata_mtime:
+                _metadata_cache = load_json_file(METADATA_FILE, {}, strict=True)
+                if not isinstance(_metadata_cache, dict):
+                    raise JsonDataError(f"{METADATA_FILE} must contain a JSON object")
+                _metadata_mtime = current_mtime
+            return _metadata_cache
+        except Exception as e:
+            print(f"Error in cached load_metadata: {e}")
+            raise
 
 def save_metadata(data):
     global _metadata_cache, _metadata_mtime, _metadata_indexes_cache, _metadata_indexes_mtime
     if not isinstance(data, dict):
         raise JsonDataError("metadata must be a JSON object")
-    save_json_file(data, METADATA_FILE)
-    _metadata_cache = data
-    _metadata_mtime = os.path.getmtime(METADATA_FILE)
-    _metadata_indexes_cache = None
-    _metadata_indexes_mtime = 0
+    with _json_file_lock:
+        save_json_file(data, METADATA_FILE)
+        _metadata_cache = data
+        _metadata_mtime = os.path.getmtime(METADATA_FILE)
+        _metadata_indexes_cache = None
+        _metadata_indexes_mtime = 0
 
 def generate_unique_prompt_id(metadata, name):
     prompt_id = hashlib.md5(name.encode()).hexdigest()[:8]
@@ -687,8 +789,8 @@ async def get_prompts_endpoint(request):
         favorites_only_raw = request.query.get('favorites_only', '0').lower()
         favorites_only = favorites_only_raw in ('1', 'true', 'yes', 'on')
 
-        page = int(request.query.get('page', 1))
-        per_page = int(request.query.get('per_page', 30))
+        page = bounded_int(request.query.get('page', 1), 1, 1, 1_000_000)
+        per_page = bounded_int(request.query.get('per_page', 30), 30, 1, 200)
 
         # Safety clamp
         if per_page < 1:
@@ -885,23 +987,22 @@ async def update_metadata_endpoint(request):
         data = await request.json()
         prompt_id = data.get('prompt_id')
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            if prompt_id not in metadata:
+                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
 
-        if prompt_id not in metadata:
-            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-        
-        if 'name' in data:
-            metadata[prompt_id]['name'] = data['name']
-        if 'prompt_text' in data:
-            metadata[prompt_id]['prompt_text'] = data['prompt_text']
-        if 'category' in data:
-            metadata[prompt_id]['category'] = data['category']
-        
-        save_metadata(metadata)
-        return web.json_response({
-            "status": "ok",
-            "prompt": prompt_response(prompt_id, metadata[prompt_id], include_usage=True)
-        })
+            if 'name' in data:
+                metadata[prompt_id]['name'] = data['name']
+            if 'prompt_text' in data:
+                metadata[prompt_id]['prompt_text'] = data['prompt_text']
+            if 'category' in data:
+                metadata[prompt_id]['category'] = data['category']
+
+            transaction.commit()
+            prompt = prompt_response(prompt_id, metadata[prompt_id], include_usage=True)
+
+        return web.json_response({"status": "ok", "prompt": prompt})
     
     except Exception as e:
         print(f"Error updating metadata: {e}")
@@ -940,8 +1041,8 @@ async def move_prompts_bulk_endpoint(request):
                 "message": "prompt_ids must contain at least one valid id",
             }, status=400)
 
-        with _json_file_lock:
-            metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
             missing_ids = [prompt_id for prompt_id in normalized_ids if prompt_id not in metadata]
             updated_ids = []
             for prompt_id in normalized_ids:
@@ -952,7 +1053,7 @@ async def move_prompts_bulk_endpoint(request):
                     prompt_data['category'] = category
                     updated_ids.append(prompt_id)
             if updated_ids:
-                save_metadata(metadata)
+                transaction.commit()
 
         return web.json_response({
             "status": "ok",
@@ -979,28 +1080,29 @@ async def rename_category_endpoint(request):
         if old_category == new_category:
             return web.json_response({"status": "ok", "message": "Category name unchanged", "renamed_count": 0})
 
-        metadata = copy.deepcopy(load_metadata())
-        renamed_count = 0
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            renamed_count = 0
 
-        for prompt_data in metadata.values():
-            if prompt_data.get('category', '') == old_category:
-                prompt_data['category'] = new_category
-                renamed_count += 1
+            for prompt_data in metadata.values():
+                if prompt_data.get('category', '') == old_category:
+                    prompt_data['category'] = new_category
+                    renamed_count += 1
 
-            if 'category_favorites' in prompt_data:
-                updated_favorites = _replace_category_refs(
-                    prompt_data.get('category_favorites', []),
-                    old_category,
-                    new_category,
-                )
-                if updated_favorites != prompt_data.get('category_favorites', []):
-                    prompt_data['category_favorites'] = updated_favorites
+                if 'category_favorites' in prompt_data:
+                    updated_favorites = _replace_category_refs(
+                        prompt_data.get('category_favorites', []),
+                        old_category,
+                        new_category,
+                    )
+                    if updated_favorites != prompt_data.get('category_favorites', []):
+                        prompt_data['category_favorites'] = updated_favorites
 
-        if renamed_count == 0:
-            return web.json_response({"status": "error", "message": f"No prompts found in category '{old_category}'"}, status=404)
+            if renamed_count == 0:
+                return web.json_response({"status": "error", "message": f"No prompts found in category '{old_category}'"}, status=404)
 
-        save_metadata(metadata)
-        _rename_category_prefs(old_category, new_category)
+            transaction.commit()
+            _rename_category_prefs(old_category, new_category)
 
         return web.json_response({
             "status": "ok",
@@ -1023,8 +1125,8 @@ async def create_prompt_endpoint(request):
         if not name:
             return web.json_response({"status": "error", "message": "Name is required"}, status=400)
         
-        with _json_file_lock:
-            metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
             prompt_id = generate_unique_prompt_id(metadata, name)
             prompt_data = {
                 'name': name,
@@ -1035,7 +1137,7 @@ async def create_prompt_endpoint(request):
                 'favorite': False
             }
             metadata[prompt_id] = prompt_data
-            save_metadata(metadata)
+            transaction.commit()
 
         return web.json_response({
             "status": "ok",
@@ -1086,8 +1188,8 @@ async def create_prompt_from_output_endpoint(request):
             'favorite': False
         }
 
-        with _json_file_lock:
-            metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
             prompt_id = generate_unique_prompt_id(metadata, name)
             target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
             temp_target_path = f"{target_path}.{int(time.time() * 1000)}.tmp"
@@ -1096,7 +1198,7 @@ async def create_prompt_from_output_endpoint(request):
                 shutil.copy2(source_path, temp_target_path)
                 os.replace(temp_target_path, target_path)
                 metadata[prompt_id] = prompt_data
-                save_metadata(metadata)
+                transaction.commit()
             except Exception:
                 for cleanup_path in (temp_target_path, target_path):
                     try:
@@ -1122,17 +1224,17 @@ async def delete_prompt_endpoint(request):
         data = await request.json()
         prompt_id = data.get('prompt_id')
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            if prompt_id in metadata:
+                thumbnail_paths = find_thumbnail_paths(prompt_id)
+                del metadata[prompt_id]
+                transaction.commit()
+                for thumb_path in thumbnail_paths:
+                    backup_and_remove_thumbnail(thumb_path)
+                return web.json_response({"status": "ok"})
 
-        if prompt_id in metadata:
-            thumbnail_paths = find_thumbnail_paths(prompt_id)
-            del metadata[prompt_id]
-            save_metadata(metadata)
-            for thumb_path in thumbnail_paths:
-                backup_and_remove_thumbnail(thumb_path)
-            return web.json_response({"status": "ok"})
-        
-        return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
     
     except Exception as e:
         print(f"Error deleting prompt: {e}")
@@ -1147,23 +1249,25 @@ async def delete_prompts_bulk_endpoint(request):
         if not isinstance(prompt_ids, list) or not prompt_ids:
             return web.json_response({"status": "error", "message": "prompt_ids must be a non-empty list"}, status=400)
 
-        metadata = copy.deepcopy(load_metadata())
-        deleted_count = 0
-        missing_ids = []
-        thumbnail_paths = []
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            deleted_count = 0
+            missing_ids = []
+            thumbnail_paths = []
 
-        for prompt_id in prompt_ids:
-            if prompt_id not in metadata:
-                missing_ids.append(prompt_id)
-                continue
+            for prompt_id in prompt_ids:
+                if prompt_id not in metadata:
+                    missing_ids.append(prompt_id)
+                    continue
 
-            thumbnail_paths.extend(find_thumbnail_paths(prompt_id))
-            del metadata[prompt_id]
-            deleted_count += 1
+                thumbnail_paths.extend(find_thumbnail_paths(prompt_id))
+                del metadata[prompt_id]
+                deleted_count += 1
 
-        save_metadata(metadata)
-        for thumb_path in thumbnail_paths:
-            backup_and_remove_thumbnail(thumb_path)
+            if deleted_count:
+                transaction.commit()
+            for thumb_path in thumbnail_paths:
+                backup_and_remove_thumbnail(thumb_path)
         return web.json_response({
             "status": "ok",
             "deleted_count": deleted_count,
@@ -1192,47 +1296,48 @@ async def upload_thumbnail_endpoint(request):
         if not prompt_id or not file_data:
             return web.json_response({"status": "error", "message": "Missing data"}, status=400)
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
 
-        if prompt_id not in metadata:
-            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-        
-        # Determine file extension
-        ext = os.path.splitext(filename)[1].lower()
-        if ext in IMAGE_EXTENSIONS:
-            preview_type = 'image'
-        elif ext in VIDEO_EXTENSIONS:
-            preview_type = 'video'
-        else:
-            return web.json_response({"status": "error", "message": "Unsupported file type"}, status=400)
-        
-        old_thumbnail_paths = find_thumbnail_paths(prompt_id)
+            if prompt_id not in metadata:
+                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
 
-        # Save new thumbnail
-        thumb_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
-        temp_thumb_path = f"{thumb_path}.{int(time.time() * 1000)}.tmp"
-        try:
-            with open(temp_thumb_path, 'wb') as f:
-                f.write(file_data)
-                f.flush()
-                os.fsync(f.fileno())
-            for old_path in old_thumbnail_paths:
-                if old_path != thumb_path:
-                    backup_and_remove_thumbnail(old_path)
-                elif os.path.exists(old_path):
-                    backup_json_file(old_path)
-            os.replace(temp_thumb_path, thumb_path)
+            # Determine file extension
+            ext = os.path.splitext(filename)[1].lower()
+            if ext in IMAGE_EXTENSIONS:
+                preview_type = 'image'
+            elif ext in VIDEO_EXTENSIONS:
+                preview_type = 'video'
+            else:
+                return web.json_response({"status": "error", "message": "Unsupported file type"}, status=400)
 
-            metadata[prompt_id]['preview_type'] = preview_type
-            metadata[prompt_id]['preview_version'] = int(time.time())
-            save_metadata(metadata)
-        except Exception:
+            old_thumbnail_paths = find_thumbnail_paths(prompt_id)
+
+            # Save new thumbnail
+            thumb_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+            temp_thumb_path = f"{thumb_path}.{int(time.time() * 1000)}.tmp"
             try:
-                if os.path.exists(temp_thumb_path):
-                    os.remove(temp_thumb_path)
+                with open(temp_thumb_path, 'wb') as f:
+                    f.write(file_data)
+                    f.flush()
+                    os.fsync(f.fileno())
+                for old_path in old_thumbnail_paths:
+                    if old_path != thumb_path:
+                        backup_and_remove_thumbnail(old_path)
+                    elif os.path.exists(old_path):
+                        backup_json_file(old_path)
+                os.replace(temp_thumb_path, thumb_path)
+
+                metadata[prompt_id]['preview_type'] = preview_type
+                metadata[prompt_id]['preview_version'] = int(time.time())
+                transaction.commit()
             except Exception:
-                pass
-            raise
+                try:
+                    if os.path.exists(temp_thumb_path):
+                        os.remove(temp_thumb_path)
+                except Exception:
+                    pass
+                raise
         
         return web.json_response({"status": "ok", "preview_type": preview_type})
     
@@ -1252,44 +1357,45 @@ async def assign_thumbnail_endpoint(request):
         if not prompt_id or not filename:
             return web.json_response({"status": "error", "message": "Missing data"}, status=400)
 
-        metadata = copy.deepcopy(load_metadata())
-        if prompt_id not in metadata:
-            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            if prompt_id not in metadata:
+                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
 
-        source_path, filename = resolve_comfy_output_path(filename, subfolder, folder_type)
+            source_path, filename = resolve_comfy_output_path(filename, subfolder, folder_type)
 
         # Determine file extension and type
-        ext = os.path.splitext(filename)[1].lower()
-        if ext in IMAGE_EXTENSIONS:
-            preview_type = 'image'
-        elif ext in VIDEO_EXTENSIONS:
-            preview_type = 'video'
-        else:
-            return web.json_response({"status": "error", "message": "Unsupported file type"}, status=400)
+            ext = os.path.splitext(filename)[1].lower()
+            if ext in IMAGE_EXTENSIONS:
+                preview_type = 'image'
+            elif ext in VIDEO_EXTENSIONS:
+                preview_type = 'video'
+            else:
+                return web.json_response({"status": "error", "message": "Unsupported file type"}, status=400)
 
         # Copy new thumbnail
-        old_thumbnail_paths = find_thumbnail_paths(prompt_id)
-        target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
-        temp_target_path = f"{target_path}.{int(time.time() * 1000)}.tmp"
-        try:
-            shutil.copy2(source_path, temp_target_path)
-            for old_path in old_thumbnail_paths:
-                if old_path != target_path:
-                    backup_and_remove_thumbnail(old_path)
-                elif os.path.exists(old_path):
-                    backup_json_file(old_path)
-            os.replace(temp_target_path, target_path)
-
-            metadata[prompt_id]['preview_type'] = preview_type
-            metadata[prompt_id]['preview_version'] = int(time.time())
-            save_metadata(metadata)
-        except Exception:
+            old_thumbnail_paths = find_thumbnail_paths(prompt_id)
+            target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+            temp_target_path = f"{target_path}.{int(time.time() * 1000)}.tmp"
             try:
-                if os.path.exists(temp_target_path):
-                    os.remove(temp_target_path)
+                shutil.copy2(source_path, temp_target_path)
+                for old_path in old_thumbnail_paths:
+                    if old_path != target_path:
+                        backup_and_remove_thumbnail(old_path)
+                    elif os.path.exists(old_path):
+                        backup_json_file(old_path)
+                os.replace(temp_target_path, target_path)
+
+                metadata[prompt_id]['preview_type'] = preview_type
+                metadata[prompt_id]['preview_version'] = int(time.time())
+                transaction.commit()
             except Exception:
-                pass
-            raise
+                try:
+                    if os.path.exists(temp_target_path):
+                        os.remove(temp_target_path)
+                except Exception:
+                    pass
+                raise
         
         return web.json_response({"status": "ok", "preview_type": preview_type})
 
@@ -1323,27 +1429,28 @@ async def delete_category_endpoint(request):
         if not category:
             return web.json_response({"status": "error", "message": "Category is required"}, status=400)
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
 
-        # Find all prompts in this category
-        prompts_to_delete = [
-            prompt_id for prompt_id, prompt_data in metadata.items()
-            if prompt_data.get('category', '') == category
-        ]
-        
-        if not prompts_to_delete:
-            return web.json_response({"status": "error", "message": "No prompts found in this category"}, status=404)
-        
-        deleted_count = 0
-        thumbnail_paths = []
-        for prompt_id in prompts_to_delete:
-            thumbnail_paths.extend(find_thumbnail_paths(prompt_id))
-            del metadata[prompt_id]
-            deleted_count += 1
+            # Find all prompts in this category
+            prompts_to_delete = [
+                prompt_id for prompt_id, prompt_data in metadata.items()
+                if prompt_data.get('category', '') == category
+            ]
 
-        save_metadata(metadata)
-        for thumb_path in thumbnail_paths:
-            backup_and_remove_thumbnail(thumb_path)
+            if not prompts_to_delete:
+                return web.json_response({"status": "error", "message": "No prompts found in this category"}, status=404)
+
+            deleted_count = 0
+            thumbnail_paths = []
+            for prompt_id in prompts_to_delete:
+                thumbnail_paths.extend(find_thumbnail_paths(prompt_id))
+                del metadata[prompt_id]
+                deleted_count += 1
+
+            transaction.commit()
+            for thumb_path in thumbnail_paths:
+                backup_and_remove_thumbnail(thumb_path)
         return web.json_response({
             "status": "ok", 
             "message": f"Deleted {deleted_count} prompts from category '{category}'"
@@ -1360,27 +1467,28 @@ async def toggle_favorite_endpoint(request):
         prompt_id = data.get('prompt_id')
         category = data.get('category')
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
 
-        if prompt_id in metadata:
-            if category:
-                cat_favs = metadata[prompt_id].get('category_favorites', [])
-                if category in cat_favs:
-                    cat_favs.remove(category)
-                    is_fav = False
+            if prompt_id in metadata:
+                if category:
+                    cat_favs = metadata[prompt_id].get('category_favorites', [])
+                    if category in cat_favs:
+                        cat_favs.remove(category)
+                        is_fav = False
+                    else:
+                        cat_favs.append(category)
+                        is_fav = True
+                    metadata[prompt_id]['category_favorites'] = cat_favs
+                    transaction.commit()
+                    return web.json_response({"status": "ok", "favorite": is_fav, "category": category})
                 else:
-                    cat_favs.append(category)
-                    is_fav = True
-                metadata[prompt_id]['category_favorites'] = cat_favs
-                save_metadata(metadata)
-                return web.json_response({"status": "ok", "favorite": is_fav, "category": category})
-            else:
-                current_favorite = metadata[prompt_id].get('favorite', False)
-                metadata[prompt_id]['favorite'] = not current_favorite
-                save_metadata(metadata)
-                return web.json_response({"status": "ok", "favorite": not current_favorite})
-        
-        return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+                    current_favorite = metadata[prompt_id].get('favorite', False)
+                    metadata[prompt_id]['favorite'] = not current_favorite
+                    transaction.commit()
+                    return web.json_response({"status": "ok", "favorite": not current_favorite})
+
+            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
     except Exception as e:
         print(f"Error toggling favorite: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1392,17 +1500,18 @@ async def set_favorite_color_endpoint(request):
         prompt_id = data.get('prompt_id')
         color = data.get('color')  # hex string like "#ff6b6b" or None to clear
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
 
-        if prompt_id in metadata:
-            if color:
-                metadata[prompt_id]['favorite_color'] = color
-            elif 'favorite_color' in metadata[prompt_id]:
-                del metadata[prompt_id]['favorite_color']
-            save_metadata(metadata)
-            return web.json_response({"status": "ok", "color": color})
-        
-        return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+            if prompt_id in metadata:
+                if color:
+                    metadata[prompt_id]['favorite_color'] = color
+                elif 'favorite_color' in metadata[prompt_id]:
+                    del metadata[prompt_id]['favorite_color']
+                transaction.commit()
+                return web.json_response({"status": "ok", "color": color})
+
+            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
     except Exception as e:
         print(f"Error setting favorite color: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1411,14 +1520,13 @@ async def set_favorite_color_endpoint(request):
 async def get_most_used_endpoint(request):
     """Get the most frequently used prompts"""
     try:
-        count = int(request.query.get('count', 10))
-        count = max(1, min(count, 50))  # Clamp between 1 and 50
+        count = bounded_int(request.query.get('count', 10), 10, 1, 50)
         
-        metadata = load_metadata()
-        indexes = get_metadata_indexes()
-        
-        # Merge any pending (not-yet-flushed) usage counts for accurate reading
-        pending_snapshot = dict(_pending_usage)
+        with _json_file_lock:
+            metadata = copy.deepcopy(load_metadata())
+            indexes = build_metadata_indexes(metadata)
+            # Merge any pending (not-yet-flushed) usage counts for accurate reading
+            pending_snapshot = dict(_pending_usage)
         
         # Get all prompts with their usage counts
         prompts_with_usage = []
@@ -1452,14 +1560,15 @@ async def reset_usage_count_endpoint(request):
         if not prompt_id:
             return web.json_response({"status": "error", "message": "prompt_id is required"}, status=400)
         
-        metadata = copy.deepcopy(load_metadata())
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
 
-        if prompt_id not in metadata:
-            return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-        
-        metadata[prompt_id]['usage_count'] = 0
-        save_metadata(metadata)
-        
+            if prompt_id not in metadata:
+                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+
+            metadata[prompt_id]['usage_count'] = 0
+            transaction.commit()
+
         return web.json_response({"status": "ok", "message": "Usage count reset"})
     except Exception as e:
         print(f"Error resetting usage count: {e}")
@@ -1650,42 +1759,43 @@ async def import_wildcard_file_endpoint(request):
         if not os.path.exists(file_path):
             return web.json_response({"status": "error", "message": "File not found"}, status=404)
             
-        metadata = copy.deepcopy(load_metadata())
-        count = 0
-        
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-        except UnicodeDecodeError:
-             with open(file_path, 'r', encoding='latin-1') as f:
-                lines = f.readlines()
-                
-        for line_index, line in enumerate(lines):
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Generate ID
-            prompt_id = str(uuid.uuid4())
-            
-            # Generate Name (first 5 words)
-            words = line.split()
-            name = " ".join(words[:5])
-            if len(words) > 5:
-                name += "..."
-                
-            metadata[prompt_id] = {
-                'name': name,
-                'prompt_text': line,
-                'category': category,
-                'created_at': time.time(),
-                'wildcard_order': line_index,
-                'preview_type': None,
-                'favorite': False
-            }
-            count += 1
-            
-        save_metadata(metadata)
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            count = 0
+
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+            except UnicodeDecodeError:
+                 with open(file_path, 'r', encoding='latin-1') as f:
+                    lines = f.readlines()
+
+            for line_index, line in enumerate(lines):
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Generate ID
+                prompt_id = str(uuid.uuid4())
+
+                # Generate Name (first 5 words)
+                words = line.split()
+                name = " ".join(words[:5])
+                if len(words) > 5:
+                    name += "..."
+
+                metadata[prompt_id] = {
+                    'name': name,
+                    'prompt_text': line,
+                    'category': category,
+                    'created_at': time.time(),
+                    'wildcard_order': line_index,
+                    'preview_type': None,
+                    'favorite': False
+                }
+                count += 1
+
+            transaction.commit()
         
         return web.json_response({"status": "ok", "message": f"Imported {count} prompts into '{category}'."})
         
@@ -1776,65 +1886,66 @@ async def get_or_create_prompts_endpoint(request):
         if not prompts or not isinstance(prompts, list):
             return web.json_response({"status": "error", "message": "List of prompts is required"}, status=400)
             
-        metadata = copy.deepcopy(load_metadata())
-        indexes = get_metadata_indexes()
-        name_to_id = dict(indexes.get("name_to_id", {}))
-                
-        results = []
-        needs_save = False
-        
-        for prompt_name in prompts:
-            prompt_name_clean = prompt_name.strip()
-            if not prompt_name_clean:
-                continue
-                
-            prompt_name_lower = prompt_name_clean.lower()
-            
-            if prompt_name_lower in name_to_id:
-                # Exists
-                prompt_id = name_to_id[prompt_name_lower]
-                prompt_data = metadata[prompt_id]
-                results.append({
-                    "id": prompt_id,
-                    "prompt_id": prompt_id,
-                    "name": prompt_data.get('name', prompt_name_clean),
-                    "prompt_text": prompt_data.get('prompt_text', prompt_name_clean),
-                    "category": prompt_data.get('category', '')
-                })
-            else:
-                # Create it
-                prompt_text = prompt_name_clean
-                prompt_id = hashlib.md5(prompt_name_clean.encode()).hexdigest()[:8]
-                
-                # Ensure unique ID
-                counter = 1
-                original_id = prompt_id
-                while prompt_id in metadata:
-                    prompt_id = f"{original_id}_{counter}"
-                    counter += 1
-                    
-                metadata[prompt_id] = {
-                    'name': prompt_name_clean,
-                    'prompt_text': prompt_text,
-                    'category': 'Combo',
-                    'created_at': time.time(),
-                    'preview_type': None,
-                    'favorite': False
-                }
-                
-                name_to_id[prompt_name_lower] = prompt_id
-                needs_save = True
-                
-                results.append({
-                    "id": prompt_id,
-                    "prompt_id": prompt_id,
-                    "name": prompt_name_clean,
-                    "prompt_text": prompt_text,
-                    "category": 'Combo'
-                })
-                
-        if needs_save:
-            save_metadata(metadata)
+        with MetadataTransaction() as transaction:
+            metadata = transaction.metadata
+            indexes = build_metadata_indexes(metadata)
+            name_to_id = dict(indexes.get("name_to_id", {}))
+
+            results = []
+            needs_save = False
+
+            for prompt_name in prompts:
+                prompt_name_clean = prompt_name.strip()
+                if not prompt_name_clean:
+                    continue
+
+                prompt_name_lower = prompt_name_clean.lower()
+
+                if prompt_name_lower in name_to_id:
+                    # Exists
+                    prompt_id = name_to_id[prompt_name_lower]
+                    prompt_data = metadata[prompt_id]
+                    results.append({
+                        "id": prompt_id,
+                        "prompt_id": prompt_id,
+                        "name": prompt_data.get('name', prompt_name_clean),
+                        "prompt_text": prompt_data.get('prompt_text', prompt_name_clean),
+                        "category": prompt_data.get('category', '')
+                    })
+                else:
+                    # Create it
+                    prompt_text = prompt_name_clean
+                    prompt_id = hashlib.md5(prompt_name_clean.encode()).hexdigest()[:8]
+
+                    # Ensure unique ID
+                    counter = 1
+                    original_id = prompt_id
+                    while prompt_id in metadata:
+                        prompt_id = f"{original_id}_{counter}"
+                        counter += 1
+
+                    metadata[prompt_id] = {
+                        'name': prompt_name_clean,
+                        'prompt_text': prompt_text,
+                        'category': 'Combo',
+                        'created_at': time.time(),
+                        'preview_type': None,
+                        'favorite': False
+                    }
+
+                    name_to_id[prompt_name_lower] = prompt_id
+                    needs_save = True
+
+                    results.append({
+                        "id": prompt_id,
+                        "prompt_id": prompt_id,
+                        "name": prompt_name_clean,
+                        "prompt_text": prompt_text,
+                        "category": 'Combo'
+                    })
+
+            if needs_save:
+                transaction.commit()
             
         return web.json_response({"status": "ok", "prompts": results})
         
@@ -1917,10 +2028,7 @@ class LocalPromptGallery:
             seed_int = 0
         selection_data_str = kwargs.get("selection_data", "[]")
 
-        try:
-            selection_data = json.loads(selection_data_str)
-        except:
-            selection_data = []
+        selection_data = parse_json_list(selection_data_str)
 
         metadata = load_metadata()
         indexes = get_metadata_indexes()
@@ -1933,6 +2041,8 @@ class LocalPromptGallery:
         # Start with manual selections (always processed)
         combined_parts = []
         for item in selection_data:
+            if not isinstance(item, dict):
+                continue
             if not item.get('on', True):
                 continue
 
@@ -1953,10 +2063,7 @@ class LocalPromptGallery:
                     print(f"LocalPromptGallery: missing prompt id {prompt_id!r}; using preset fallback text")
 
             if prompt_text:
-                try:
-                    weight = float(weight)
-                except (TypeError, ValueError):
-                    weight = 1.0
+                weight = finite_float(weight, 1.0)
                 if weight != 1.0:
                     combined_parts.append(f"({prompt_text}:{weight:.1f})")
                 else:
@@ -1971,7 +2078,7 @@ class LocalPromptGallery:
                     if all(isinstance(x, str) for x in parsed):
                         categories_data = [{"category": cat, "weight": 1.0} for cat in parsed]
                     else:
-                        categories_data = parsed
+                        categories_data = [item for item in parsed if isinstance(item, dict)]
                 else:
                     categories_data = []
             except (json.JSONDecodeError, TypeError):
@@ -1981,8 +2088,10 @@ class LocalPromptGallery:
             wildcard_prompts = []
 
             for cat_info in categories_data:
+                if not isinstance(cat_info, dict):
+                    continue
                 category = cat_info.get("category", "")
-                weight = cat_info.get("weight", 1.0)
+                weight = finite_float(cat_info.get("weight", 1.0), 1.0)
                 
                 if not category:
                     continue
@@ -2074,10 +2183,7 @@ class LocalPromptGallery:
         combined_prompt = ", ".join(combined_parts)
         
         # Defer usage count updates (avoids writing 15MB JSON on every execution)
-        if used_prompt_ids:
-            for prompt_id in used_prompt_ids:
-                _pending_usage[prompt_id] = _pending_usage.get(prompt_id, 0) + 1
-            _schedule_usage_flush()
+        _record_usage_counts(used_prompt_ids)
 
         if wildcard_cycle_state_changed:
             prefs["wildcard_cycle_state"] = wildcard_cycle_state

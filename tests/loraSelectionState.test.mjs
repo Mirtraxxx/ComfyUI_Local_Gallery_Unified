@@ -6,6 +6,9 @@ import { importModuleSource } from "./importModuleSource.mjs";
 const { toSerializableLoraSelection } = await importModuleSource(
     new URL("../js/lora/selectionState.js", import.meta.url),
 );
+const { buildLoraSelectionEntry } = await importModuleSource(
+    new URL("../js/lora/selectionEntry.js", import.meta.url),
+);
 
 test("LoRA selection persistence strips browser-only fields", () => {
     const source = [{
@@ -49,4 +52,39 @@ test("unknown compatibility fields are preserved without mutating runtime state"
     assert.deepEqual(serialized[0].future_workflow_field, { enabled: true });
     assert.deepEqual(source[0].tags, ["runtime"]);
     assert.equal("tags" in serialized[0], false);
+});
+
+test("selection entry construction keeps metadata and selected trigger presets", () => {
+    const element = {
+        querySelector: () => ({ checked: true, value: "portrait" }),
+        querySelectorAll: () => [{ value: "portrait" }, { value: "lighting" }],
+    };
+    const entry = buildLoraSelectionEntry({
+        element,
+        loraName: "characters/example.safetensors",
+        lora: {
+            preview_url: "/preview/example",
+            preview_type: "image",
+            tags: ["character"],
+            trigger_words: "example trigger",
+            trigger_presets: { portrait: "portrait trigger" },
+            download_url: "https://example.invalid/model",
+        },
+    });
+
+    assert.deepEqual(entry, {
+        on: true,
+        lora: "characters/example.safetensors",
+        strength: 1,
+        strength_clip: 1,
+        preview_url: "/preview/example",
+        preview_type: "image",
+        tags: ["character"],
+        trigger_words: "example trigger",
+        trigger_presets: { portrait: "portrait trigger" },
+        download_url: "https://example.invalid/model",
+        stack_trigger_presets: true,
+        selected_presets: ["portrait", "lighting"],
+        selected_preset: "",
+    });
 });

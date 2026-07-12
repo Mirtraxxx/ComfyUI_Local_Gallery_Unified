@@ -9,7 +9,9 @@ function getPromptPreviewMediaUrl(prompt) {
 }
 
 function closeExpandedPreview() {
-    document.querySelector(".localprompt-preview-lightbox")?.remove();
+    const overlay = document.querySelector(".localprompt-preview-lightbox");
+    overlay?._disposePromptPreview?.();
+    overlay?.remove();
 }
 
 function showExpandedPreview(prompt) {
@@ -31,16 +33,17 @@ function showExpandedPreview(prompt) {
             }
         </div>
     `;
+    const onKeydown = (event) => {
+        if (event.key === "Escape") closeExpandedPreview();
+    };
+    overlay._disposePromptPreview = () => {
+        document.removeEventListener("keydown", onKeydown);
+    };
     overlay.addEventListener("click", (event) => {
         if (event.target === overlay) closeExpandedPreview();
     });
     overlay.querySelector(".localprompt-preview-lightbox-close")?.addEventListener("click", closeExpandedPreview);
-    document.addEventListener("keydown", function onKeydown(event) {
-        if (event.key === "Escape") {
-            closeExpandedPreview();
-            document.removeEventListener("keydown", onKeydown);
-        }
-    });
+    document.addEventListener("keydown", onKeydown);
     document.body.appendChild(overlay);
 }
 

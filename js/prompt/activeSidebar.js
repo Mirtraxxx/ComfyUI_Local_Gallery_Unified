@@ -277,6 +277,9 @@ export async function renderActiveSidebar({
                 document.removeEventListener("pointerup", onPointerUp, true);
                 document.removeEventListener("pointercancel", onPointerCancel, true);
                 window.removeEventListener("blur", onPointerCancel);
+                if (container.__localpromptActiveSidebarDragCleanup === cleanup) {
+                    container.__localpromptActiveSidebarDragCleanup = null;
+                }
             };
 
             const updateTarget = moveEvent => {
@@ -322,6 +325,8 @@ export async function renderActiveSidebar({
             document.addEventListener("pointerup", onPointerUp, true);
             document.addEventListener("pointercancel", onPointerCancel, true);
             window.addEventListener("blur", onPointerCancel);
+            container.__localpromptActiveSidebarDragCleanup?.();
+            container.__localpromptActiveSidebarDragCleanup = cleanup;
         });
     };
 

@@ -1,4 +1,5 @@
-import { escapeHtml } from "../shared/dom.js";
+import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js?v=url-safety-20260712";
+import { formatLoraWeight } from "./weights.js";
 
 function getSelectedPresetNames(selectionItem) {
     if (Array.isArray(selectionItem?.selected_presets)) {
@@ -78,24 +79,14 @@ export function buildSelectedPreviewHtml(lora) {
 }
 
 export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isCompact, showClipWeights = true) {
-    const formatWeight = (weight) => {
-        const rounded = Math.round(weight * 100) / 100;
-        const tenth = Math.round(rounded * 10) / 10;
-        if (Math.abs(rounded - tenth) < 1e-9) {
-            return tenth.toFixed(1);
-        } else {
-            return rounded.toFixed(2);
-        }
-    };
-    
-    const formattedModelWeight = formatWeight(Number(item.strength ?? 1.0));
+    const formattedModelWeight = formatLoraWeight(item.strength ?? 1.0);
     const showClipStrength = !isModelOnly && showClipWeights;
     const modelLabelHtml = showClipWeights ? `<span class="lora-strength-label">M</span>` : "";
     
     const clipStrengthHtml = showClipStrength ? `
         <div class="lora-strength-chip" title="CLIP strength (Scroll to adjust)">
             <span class="lora-strength-label">C</span>
-            <span class="managed-weight-val selected-strength-clip" tabindex="0" title="Scroll to adjust CLIP strength">${formatWeight(Number(item.strength_clip ?? item.strength ?? 1.0))}</span>
+            <span class="managed-weight-val selected-strength-clip" tabindex="0" title="Scroll to adjust CLIP strength">${formatLoraWeight(item.strength_clip ?? item.strength ?? 1.0)}</span>
         </div>
     ` : "";
 
@@ -147,7 +138,7 @@ export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isComp
 export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, svgs = {}) {
     let mediaHTML = '';
     const empty_lora_image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    const previewUrl = lora.preview_url;
+    const previewUrl = escapeHtml(lora.preview_url || "");
 
     if (lora.preview_type === 'video' && previewUrl) {
         mediaHTML = `<video muted loop playsinline src="${previewUrl}"></video>`;
@@ -155,7 +146,8 @@ export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, s
         mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
     }
     
-    const linkBtnHTML = lora.download_url ? `<a href="${escapeHtml(lora.download_url)}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page" aria-label="Open download page">${svgs.link || ""}</a>` : '';
+    const safeDownloadUrl = sanitizeHttpUrl(lora.download_url);
+    const linkBtnHTML = safeDownloadUrl ? `<a href="${escapeHtml(safeDownloadUrl)}" target="_blank" rel="noopener noreferrer" class="card-btn lora-card-link-btn" title="Open download page" aria-label="Open download page">${svgs.link || ""}</a>` : '';
 
     return `
         <button type="button" class="card-btn sync-civitai-btn" title="Sync with Civitai" aria-label="Sync with Civitai">${svgs.sync || ""}</button>
