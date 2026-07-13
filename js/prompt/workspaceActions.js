@@ -1,4 +1,4 @@
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-fullscreen-20260711";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-shell-20260713";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,

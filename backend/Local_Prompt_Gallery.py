@@ -290,6 +290,15 @@ def save_metadata(data):
         _metadata_indexes_cache = None
         _metadata_indexes_mtime = 0
 
+
+def metadata_revision():
+    """Return a cheap revision token for optimistic bulk-edit checks."""
+    try:
+        stat = os.stat(METADATA_FILE)
+        return f"{stat.st_mtime_ns}:{stat.st_size}"
+    except FileNotFoundError:
+        return "missing:0"
+
 def generate_unique_prompt_id(metadata, name):
     prompt_id = hashlib.md5(name.encode()).hexdigest()[:8]
     original_id = prompt_id
@@ -781,6 +790,8 @@ async def get_prompts_endpoint(request):
         mode = request.query.get('mode', 'OR')
         category = request.query.get('category', '')
         sort_mode = request.query.get('sort', request.query.get('sort_mode', 'manual'))
+        uncategorized_only_raw = request.query.get('uncategorized_only', '0').lower()
+        uncategorized_only = uncategorized_only_raw in ('1', 'true', 'yes', 'on')
 
         # Treat UI label as no filter
         if category == 'All Categories':
@@ -810,6 +821,8 @@ async def get_prompts_endpoint(request):
             candidate_ids = list(indexes.get("favorite_ids", []))
         elif category:
             candidate_ids = list(indexes.get("category_ids", {}).get(category, []))
+        elif uncategorized_only:
+            candidate_ids = [prompt_id for prompt_id, prompt_data in metadata.items() if not prompt_data.get('category', '')]
         else:
             candidate_ids = list(metadata.keys())
 
@@ -1007,6 +1020,213 @@ async def update_metadata_endpoint(request):
     except Exception as e:
         print(f"Error updating metadata: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+def _normalize_bulk_ids(raw_ids):
+    normalized = []
+    seen = set()
+    if not isinstance(raw_ids, list):
+        return normalized
+    for raw_id in raw_ids:
+        prompt_id = str(raw_id).strip()
+        if prompt_id and prompt_id not in seen:
+            normalized.append(prompt_id)
+            seen.add(prompt_id)
+    return normalized
+
+
+def _resolve_bulk_selection(metadata, selection):
+    """Resolve explicit or query-based selections without returning card data."""
+    if not isinstance(selection, dict):
+        raise ValueError("selection must be an object")
+
+    selection_type = selection.get("type", "ids")
+    if selection_type == "ids":
+        return _normalize_bulk_ids(selection.get("ids", []))
+    if selection_type != "query":
+        raise ValueError("selection.type must be ids or query")
+
+    filter_name = str(selection.get("filter_name", "")).strip().lower()
+    category = str(selection.get("category", "")).strip()
+    favorites_only = bool(selection.get("favorites_only", False))
+    uncategorized_only = bool(selection.get("uncategorized_only", False))
+    excluded = set(_normalize_bulk_ids(selection.get("exclusions", [])))
+    resolved = []
+
+    for prompt_id, prompt_data in metadata.items():
+        if prompt_id in excluded or not isinstance(prompt_data, dict):
+            continue
+        if category and prompt_data.get("category", "") != category:
+            continue
+        if uncategorized_only and prompt_data.get("category", ""):
+            continue
+        if favorites_only and not prompt_data.get("favorite", False):
+            continue
+        if filter_name:
+            name = str(prompt_data.get("name", "")).lower()
+            prompt_text = str(prompt_data.get("prompt_text", "")).lower()
+            if filter_name not in name and filter_name not in prompt_text:
+                continue
+        resolved.append(str(prompt_id))
+    return resolved
+
+
+def _bulk_text_operation(current, operation):
+    if not isinstance(operation, dict):
+        return current
+    mode = operation.get("mode")
+    value = operation.get("value", "")
+    if mode in {"prepend", "append"}:
+        value = str(value)
+        return value + current if mode == "prepend" else current + value
+    if mode == "find_replace":
+        find = str(operation.get("find", ""))
+        if not find:
+            return current
+        replace = str(operation.get("replace", ""))
+        if operation.get("case_sensitive", False):
+            return current.replace(find, replace)
+        lowered = current.lower()
+        lowered_find = find.lower()
+        output = []
+        cursor = 0
+        while True:
+            match_index = lowered.find(lowered_find, cursor)
+            if match_index < 0:
+                output.append(current[cursor:])
+                break
+            output.append(current[cursor:match_index])
+            output.append(replace)
+            cursor = match_index + len(find)
+        return "".join(output)
+    return current
+
+
+def _apply_bulk_operations(prompt_data, operations):
+    before = copy.deepcopy(prompt_data)
+    if not isinstance(operations, dict):
+        raise ValueError("operations must be an object")
+
+    for field in ("name", "prompt_text"):
+        operation = operations.get(field)
+        if operation is not None:
+            prompt_data[field] = _bulk_text_operation(str(prompt_data.get(field, "")), operation)
+
+    category_operation = operations.get("category")
+    if isinstance(category_operation, dict) and category_operation.get("mode") == "set":
+        prompt_data["category"] = str(category_operation.get("value", "")).strip()
+
+    favorite_operation = operations.get("favorite")
+    if isinstance(favorite_operation, dict) and favorite_operation.get("mode") == "set":
+        prompt_data["favorite"] = bool(favorite_operation.get("value", False))
+
+    if operations.get("reset_usage") is True:
+        prompt_data["usage_count"] = 0
+
+    return before, prompt_data != before
+
+
+def _bulk_diff(prompt_id, before, after):
+    fields = ("name", "category", "prompt_text", "favorite", "usage_count")
+    diff = {"id": prompt_id}
+    for field in fields:
+        previous = before.get(field, False if field == "favorite" else "" if field != "usage_count" else 0)
+        current = after.get(field, False if field == "favorite" else "" if field != "usage_count" else 0)
+        if previous != current:
+            if field == "prompt_text":
+                previous = str(previous)[:240]
+                current = str(current)[:240]
+            diff[field] = {"before": previous, "after": current}
+    return diff
+
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/bulk_edit")
+async def bulk_edit_endpoint(request):
+    """Preview or atomically apply a set of metadata transformations."""
+    try:
+        data = await request.json()
+        selection = data.get("selection", {})
+        operations = data.get("operations", {})
+        is_preview = bool(data.get("preview", True))
+        sample_limit = bounded_int(data.get("sample_limit", 20), 20, 0, 100)
+        base_revision = data.get("base_revision")
+
+        if not isinstance(operations, dict) or not operations:
+            return web.json_response({"status": "error", "message": "At least one operation is required"}, status=400)
+
+        if is_preview:
+            metadata = load_metadata()
+            current_revision = metadata_revision()
+            prompt_ids = _resolve_bulk_selection(metadata, selection)
+            missing_ids = [prompt_id for prompt_id in prompt_ids if prompt_id not in metadata]
+            changed_count = 0
+            unchanged_count = 0
+            samples = []
+            for prompt_id in prompt_ids:
+                prompt_data = metadata.get(prompt_id)
+                if not isinstance(prompt_data, dict):
+                    continue
+                working = copy.deepcopy(prompt_data)
+                before, changed = _apply_bulk_operations(working, operations)
+                if changed:
+                    changed_count += 1
+                    if len(samples) < sample_limit:
+                        samples.append(_bulk_diff(prompt_id, before, working))
+                else:
+                    unchanged_count += 1
+            return web.json_response({
+                "status": "ok",
+                "preview": True,
+                "revision": current_revision,
+                "selected_count": len(prompt_ids),
+                "changed_count": changed_count,
+                "unchanged_count": unchanged_count,
+                "missing_ids": missing_ids,
+                "samples": samples,
+            })
+
+        with MetadataTransaction() as transaction:
+            current_revision = metadata_revision()
+            if base_revision and base_revision != current_revision:
+                return web.json_response({
+                    "status": "conflict",
+                    "message": "The card library changed after the preview. Refresh the preview and try again.",
+                    "revision": current_revision,
+                }, status=409)
+            metadata = transaction.metadata
+            prompt_ids = _resolve_bulk_selection(metadata, selection)
+            missing_ids = [prompt_id for prompt_id in prompt_ids if prompt_id not in metadata]
+            updated_ids = []
+            samples = []
+            for prompt_id in prompt_ids:
+                prompt_data = metadata.get(prompt_id)
+                if not isinstance(prompt_data, dict):
+                    continue
+                before, changed = _apply_bulk_operations(prompt_data, operations)
+                if changed:
+                    updated_ids.append(prompt_id)
+                    if len(samples) < sample_limit:
+                        samples.append(_bulk_diff(prompt_id, before, prompt_data))
+            if updated_ids:
+                transaction.commit()
+            result_revision = metadata_revision()
+
+        return web.json_response({
+            "status": "ok",
+            "preview": False,
+            "revision": result_revision,
+            "selected_count": len(prompt_ids),
+            "changed_count": len(updated_ids),
+            "unchanged_count": max(0, len(prompt_ids) - len(updated_ids) - len(missing_ids)),
+            "updated_ids": updated_ids,
+            "missing_ids": missing_ids,
+            "samples": samples,
+        })
+    except ValueError as error:
+        return web.json_response({"status": "error", "message": str(error)}, status=400)
+    except Exception as error:
+        print(f"Error in bulk edit: {error}")
+        return web.json_response({"status": "error", "message": str(error)}, status=500)
 
 
 @server.PromptServer.instance.routes.post("/localgalleryunified/prompt/move_prompts_bulk")
