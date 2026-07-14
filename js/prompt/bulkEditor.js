@@ -154,8 +154,8 @@ export async function showBulkEditDrawer({
 }) {
     const overlay = document.createElement("div");
     overlay.innerHTML = createOperationEditorHtml(selectedCount);
-    document.body.appendChild(overlay.firstElementChild);
     const root = overlay.firstElementChild;
+    document.body.appendChild(root);
     const categorySelect = root.querySelector("#bulk-edit-category");
     const applyButton = root.querySelector("[data-bulk-edit-apply]");
     const errorElement = root.querySelector("#bulk-edit-error");

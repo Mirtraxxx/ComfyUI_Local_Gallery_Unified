@@ -7,6 +7,13 @@ export function createBottomToolbarController({ widgetContainer, uniqueId, isAut
     const deferredSyncTimers = new Set();
     let disposed = false;
 
+    function ensureConnectedLifecycle() {
+        if (!disposed) return true;
+        if (!widgetContainer.isConnected) return false;
+        disposed = false;
+        return true;
+    }
+
     function toolbarHasFocusedElement(toolbar) {
         if (!toolbar || !document.activeElement || !toolbar.contains(document.activeElement)) return false;
         return !!document.activeElement.closest("input, select, textarea, [contenteditable='true']");
@@ -22,7 +29,7 @@ export function createBottomToolbarController({ widgetContainer, uniqueId, isAut
     }
 
     function sync() {
-        if (disposed) return;
+        if (!ensureConnectedLifecycle()) return;
         const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
         const enabled = isAutoHideEnabled();
         widgetContainer.classList.toggle("auto-hide-toolbars", enabled);
@@ -38,6 +45,7 @@ export function createBottomToolbarController({ widgetContainer, uniqueId, isAut
     }
 
     function scheduleHide() {
+        if (!ensureConnectedLifecycle()) return;
         if (hideTimer) clearTimeout(hideTimer);
         hideTimer = setTimeout(() => {
             hideTimer = null;
@@ -48,6 +56,7 @@ export function createBottomToolbarController({ widgetContainer, uniqueId, isAut
     }
 
     function setup() {
+        if (!ensureConnectedLifecycle()) return;
         const bottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
         if (!bottomBar) return;
         bottomBar.addEventListener("mouseenter", () => {
@@ -95,4 +104,3 @@ export function createBottomToolbarController({ widgetContainer, uniqueId, isAut
 
     return { setup, sync, scheduleHide, dispose };
 }
-

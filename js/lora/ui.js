@@ -20,6 +20,7 @@ import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-202
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
 import { getLoraStyles } from "./styles.js?v=lora-display-state-lifecycle-20260712";
+import { getLoraReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
 import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
 export function registerLoraGalleryUi(app) {
@@ -94,8 +95,10 @@ const UnifiedLoraGalleryNode = {
             });
 
             const uniqueId = `locallora-gallery-${this.id}`;
+            widgetContainer.id = `${uniqueId}-wrapper`;
             widgetContainer.innerHTML = `
                 ${getLoraStyles(uniqueId)}
+                ${getLoraReferenceUxStyles(uniqueId)}
                 <div id="${uniqueId}" style="height: 100%;">
                     <div class="locallora-container">
                         <div class="locallora-controls">

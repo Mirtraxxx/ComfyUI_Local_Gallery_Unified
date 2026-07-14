@@ -1,9 +1,11 @@
 import { getPromptStyles } from "./styles.js?v=wildcard-toolbar-order-20260712";
+import { getPromptReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
 import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX } from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {
     return `
                 ${getPromptStyles(uniqueId)}
+                ${getPromptReferenceUxStyles()}
                 <div class="localprompt-container" style="height: 100%;">
                     <div class="localprompt-workspace">
                         <div class="localprompt-top-row">

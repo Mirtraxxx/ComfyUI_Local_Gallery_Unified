@@ -40,7 +40,7 @@ import {
 } from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
-import { createBottomToolbarController } from "./bottomToolbarController.js?v=prompt-bottom-toolbar-20260712";
+import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=prompt-display-preferences-20260712";
 import { createActiveStackController } from "./activeStackController.js?v=prompt-active-stack-20260712";
 import {
@@ -52,11 +52,11 @@ import {
 } from "./library.js?v=repository-review-20260712";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
-import { getPromptTemplate } from "./template.js?v=wildcard-toolbar-order-20260712";
+import { getPromptTemplate } from "./template.js?v=density-transform-20260714-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { createMetaTagsController } from "./metaTags.js";
-import { createPromptWorkspaceController } from "./workspace.js";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=workspace-actions-20260712";
+import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=reference-ux-20260713-2";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -533,6 +533,46 @@ const UnifiedPromptGalleryNode = {
                 renderLibraryShell,
                 renderLibraryWorkspace,
             } = workspaceController;
+
+            async function showSettingsWorkspace() {
+                const host = setWorkspaceMode("settings");
+                if (!host) return;
+                await openSettingsModal({
+                    uniqueId,
+                    app,
+                    nodeInstance: node_instance,
+                    galleryNode: UnifiedPromptGalleryNode,
+                    getLibraryTabs,
+                    getLibraryTabLayoutMode,
+                    getThumbnailSizePx,
+                    getActiveThumbnailSizePx,
+                    isShowTextNode,
+                    saveNodeProperties,
+                    updatePromptSourceStatus,
+                    getNearestPaletteColor,
+                    getCategoryRoleColor,
+                    applyThumbnailSizePreference,
+                    applyLibraryTabLayoutPreference,
+                    applyMetaTagsButtonSidePreference,
+                    applyAutoHideToolbarPreference: syncAutoHideToolbarState,
+                    applyActiveBorderThemePreference,
+                    applyActiveSidebarPreference,
+                    applyActiveThumbnailSizePreference,
+                    renderActiveSidebar,
+                    renderGallery,
+                    renderLibraryBar,
+                    getActiveLibraryTab: () => activeLibraryTab,
+                    renderLibraryDrawer,
+                    getPinnedCategories,
+                    savePinnedCategories,
+                    workspaceContainer: host,
+                    onClose: returnToGallery,
+                });
+            }
+
+            widgetContainer.querySelector(`#${uniqueId}-settings-btn`)?.addEventListener("click", () => {
+                toggleWorkspaceMode("settings", showSettingsWorkspace);
+            });
 
             // Create hover preview outside the node container so it's not bounded
             const hoverPreview = document.createElement('div');
@@ -1734,6 +1774,7 @@ const UnifiedPromptGalleryNode = {
                 }
                 bottomToolbarController.setup();
             }
+            setupAutoHideToolbarBehavior();
 
             function updateWildcardControlsUI() {
                 const wildcardToggleBtn = widgetContainer.querySelector(`#${uniqueId}-wildcard-toggle-btn`);
@@ -2198,6 +2239,31 @@ const UnifiedPromptGalleryNode = {
                 deletePromptWithConfirm,
             } = workspaceActions;
 
+            // Bind the persistent bottom navigation as soon as the template and
+            // workspace controller exist. These controls should remain usable even
+            // if a later, optional gallery setup step fails or is still loading.
+            widgetContainer.querySelector(`#${uniqueId}-library-btn`)?.addEventListener("click", () => {
+                toggleWorkspaceMode("library_overview", renderLibraryWorkspace);
+            });
+
+            widgetContainer.querySelector(`#${uniqueId}-from-last-output-btn`)?.addEventListener("click", async () => {
+                try {
+                    await toggleWorkspaceMode("from_last_output", showFromLastOutputWorkspace);
+                } catch (e) {
+                    console.error("Error in showFromLastOutputDialog:", e);
+                    alert("Error opening dialog: " + e.message);
+                }
+            });
+
+            widgetContainer.querySelector(`#${uniqueId}-import-btn`)?.addEventListener("click", async () => {
+                try {
+                    await toggleWorkspaceMode("library_import", showImportWorkspace);
+                } catch (e) {
+                    console.error("Error showing import dialog:", e);
+                    alert(e.message);
+                }
+            });
+
             setupTimer = setTimeout(() => {
                 setupTimer = null;
                 if (disposed) return;
@@ -2480,8 +2546,6 @@ const UnifiedPromptGalleryNode = {
                     });
                 }
 
-                setupAutoHideToolbarBehavior();
-
                 toolbarOutsideClickHandler = () => {
                     closeToolbarPanels();
                     closeDisplayOptionsPopover();
@@ -2493,34 +2557,6 @@ const UnifiedPromptGalleryNode = {
                 widgetContainer.querySelector(`#${uniqueId}-manage-categories-btn`)?.addEventListener("click", async () => {
                     closeToolbarPanels();
                     await showSettingsWorkspace();
-                });
-
-                widgetContainer.querySelector(`#${uniqueId}-library-btn`)?.addEventListener('click', () => {
-                    toggleWorkspaceMode("library_overview", renderLibraryWorkspace);
-                });
-
-                widgetContainer.querySelector(`#${uniqueId}-from-last-output-btn`)?.addEventListener('click', async () => {
-                    try {
-                        await toggleWorkspaceMode("from_last_output", showFromLastOutputWorkspace);
-                    } catch (e) {
-                        console.error("Error in showFromLastOutputDialog:", e);
-                        alert("Error opening dialog: " + e.message);
-                    }
-                });
-
-                // Import button
-                widgetContainer.querySelector(`#${uniqueId}-import-btn`)?.addEventListener('click', async () => {
-                    try {
-                        await toggleWorkspaceMode("library_import", showImportWorkspace);
-                    } catch (e) {
-                        console.error("Error showing import dialog:", e);
-                        alert(e.message);
-                    }
-                });
-
-                // Settings button
-                widgetContainer.querySelector(`#${uniqueId}-settings-btn`)?.addEventListener('click', () => {
-                    toggleWorkspaceMode("settings", showSettingsWorkspace);
                 });
 
                 widgetContainer.querySelector(`#${uniqueId}-size-toggle-btn`)?.addEventListener('click', (event) => {
@@ -2586,74 +2622,6 @@ const UnifiedPromptGalleryNode = {
                 // Seed input and inc/dec listeners are already bound in the main seed controls block above.
 
                 // Control after generate dropdown listener is already bound in the main seed controls block above.
-
-                // Settings Modal function
-                async function showSettingsModal() {
-                    await openSettingsModal({
-                        uniqueId,
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        getLibraryTabs,
-                        getLibraryTabLayoutMode,
-                        getThumbnailSizePx,
-                        getActiveThumbnailSizePx,
-                        isShowTextNode,
-                        saveNodeProperties,
-                        updatePromptSourceStatus,
-                        getNearestPaletteColor,
-                        getCategoryRoleColor,
-                        applyThumbnailSizePreference,
-                        applyLibraryTabLayoutPreference,
-                        applyMetaTagsButtonSidePreference,
-                        applyAutoHideToolbarPreference: syncAutoHideToolbarState,
-                        applyActiveBorderThemePreference,
-                        applyActiveSidebarPreference,
-                        applyActiveThumbnailSizePreference,
-                        renderActiveSidebar,
-                        renderGallery,
-                        renderLibraryBar,
-                        getActiveLibraryTab: () => activeLibraryTab,
-                        renderLibraryDrawer,
-                        getPinnedCategories,
-                        savePinnedCategories,
-                    });
-                }
-
-                async function showSettingsWorkspace() {
-                    const host = setWorkspaceMode("settings");
-                    await openSettingsModal({
-                        uniqueId,
-                        app,
-                        nodeInstance: node_instance,
-                        galleryNode: UnifiedPromptGalleryNode,
-                        getLibraryTabs,
-                        getLibraryTabLayoutMode,
-                        getThumbnailSizePx,
-                        getActiveThumbnailSizePx,
-                        isShowTextNode,
-                        saveNodeProperties,
-                        updatePromptSourceStatus,
-                        getNearestPaletteColor,
-                        getCategoryRoleColor,
-                        applyThumbnailSizePreference,
-                        applyLibraryTabLayoutPreference,
-                        applyMetaTagsButtonSidePreference,
-                        applyAutoHideToolbarPreference: syncAutoHideToolbarState,
-                        applyActiveBorderThemePreference,
-                        applyActiveSidebarPreference,
-                        applyActiveThumbnailSizePreference,
-                        renderActiveSidebar,
-                        renderGallery,
-                        renderLibraryBar,
-                        getActiveLibraryTab: () => activeLibraryTab,
-                        renderLibraryDrawer,
-                        getPinnedCategories,
-                        savePinnedCategories,
-                        workspaceContainer: host,
-                        onClose: returnToGallery,
-                    });
-                }
 
             }, 100);
 

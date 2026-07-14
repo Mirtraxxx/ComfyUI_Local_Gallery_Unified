@@ -1,8 +1,8 @@
 ﻿import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { setupUnifiedGalleryTabs } from "./tabs.js";
-import { registerLoraGalleryUi } from "./lora/ui.js?v=repository-review-20260712";
-import { registerPromptGalleryUi } from "./prompt/ui.js?v=prompt-decomposition-20260712";
+import { setupUnifiedGalleryTabs } from "./tabs.js?v=density-80-20260714-3";
+import { registerLoraGalleryUi } from "./lora/ui.js?v=density-transform-20260714-1";
+import { registerPromptGalleryUi } from "./prompt/ui.js?v=density-transform-20260714-1";
 
 app.registerExtension({
     name: "LocalGalleryPromptLora.Tabs",

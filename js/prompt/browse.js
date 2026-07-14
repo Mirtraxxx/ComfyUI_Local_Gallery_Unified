@@ -2,7 +2,7 @@ import {
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
-import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-bulk-editor-20260713-fix1";
+import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-bulk-editor-20260713-fix2";
 
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
@@ -231,7 +231,7 @@ export async function showCardManagerModal({
         <div class="localprompt-modal localprompt-browse-page${isWorkspace ? " localprompt-workspace-page" : ""}">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
-                    <h3>Cards</h3>
+                    <h3><span class="localprompt-workspace-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>Cards</h3>
                     ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
                 </div>
                 ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
@@ -239,7 +239,10 @@ export async function showCardManagerModal({
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="localprompt-browse-toolbar">
-                    <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
+                    <label class="localprompt-browse-search" aria-label="Search cards">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                        <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
+                    </label>
                     <select id="browse-category" class="localprompt-browse-select"></select>
                     <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
                         <option value="manual">Manual / stored order</option>
@@ -248,11 +251,11 @@ export async function showCardManagerModal({
                         <option value="az">A to Z</option>
                         <option value="za">Z to A</option>
                     </select>
-                    <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn">Manage</button>
-                    <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-pressed="false">Full screen</button>
+                    <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"></path></svg><span>Manage</span></button>
+                    <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
                     <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category">Rename</button>
                     <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt">Export TXT</button>
-                    <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="background: #5a3030; display: none;" title="Delete entire category">Delete</button>
+                    <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-danger-btn" style="background: #5a3030; display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
                 </div>
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
@@ -312,10 +315,12 @@ export async function showCardManagerModal({
 
     function updateFullscreenButton() {
         if (!fullscreenToggleBtn) return;
-        fullscreenToggleBtn.textContent = isFullscreen ? "Exit full screen" : "Full screen";
+        const label = fullscreenToggleBtn.querySelector("span");
+        if (label) label.textContent = isFullscreen ? "Exit full screen" : "Full screen";
         fullscreenToggleBtn.title = isFullscreen
             ? "Return Card Manager to the node workspace"
             : "Expand Card Manager to the full ComfyUI screen";
+        fullscreenToggleBtn.setAttribute("aria-label", isFullscreen ? "Exit full screen" : "Full screen");
         fullscreenToggleBtn.setAttribute("aria-pressed", String(isFullscreen));
     }
 
@@ -409,7 +414,8 @@ export async function showCardManagerModal({
         }
         if (manageToggleBtn) {
             manageToggleBtn.classList.toggle("active", browseManageMode);
-            manageToggleBtn.textContent = browseManageMode ? "Done" : "Manage";
+            const manageLabel = manageToggleBtn.querySelector("span");
+            if (manageLabel) manageLabel.textContent = browseManageMode ? "Done" : "Manage";
         }
         if (browseManageMode) {
             root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");

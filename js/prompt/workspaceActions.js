@@ -1,4 +1,4 @@
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-fullscreen-20260711";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=reference-ux-20260713-2";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -6,8 +6,8 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=repository-review-20260712";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=wildcard-auto-attach-category-fix-20260711";
+} from "./dialogs.js?v=reference-ux-20260713-2";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=reference-ux-20260713-2";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
 // for state and lifecycle, while dialogs/Card Manager own their own rendering.

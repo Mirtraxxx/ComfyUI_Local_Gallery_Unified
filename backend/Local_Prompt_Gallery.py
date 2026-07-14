@@ -2342,10 +2342,10 @@ class LocalPromptGallery:
                 if prompt_text:
                     used_prompt_ids.append(prompt_id)  # Track usage
             else:
-                # Presets store a prompt name alongside the id. If an id went stale
-                # after metadata recovery, use that stored text instead of silently
-                # dropping the prompt from the generated output.
-                prompt_text = str(item.get('prompt_text') or item.get('name') or '').strip()
+                # Presets may store inline prompt text or a prompt name alongside the
+                # id. If an id went stale after metadata recovery, use that stored
+                # text instead of silently dropping the prompt from the output.
+                prompt_text = str(item.get('prompt_text') or item.get('prompt') or item.get('name') or '').strip()
                 if prompt_text:
                     print(f"LocalPromptGallery: missing prompt id {prompt_id!r}; using preset fallback text")
 

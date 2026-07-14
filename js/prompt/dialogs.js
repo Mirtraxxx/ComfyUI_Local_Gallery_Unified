@@ -380,14 +380,14 @@ export async function showExportDialog({
     dialog.innerHTML = `
          <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
              <div class="localprompt-workspace-title">
-                 <h3>Export TXT</h3>
+                 <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--export" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg></span>Export TXT</h3>
                  ${isWorkspace ? "<p>Export a category to a ComfyUI wildcard .txt file.</p>" : ""}
              </div>
              ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
          </div>
          ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-             <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 12px;">
+             <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-export-form" style="margin-bottom: 12px;">
                  <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
                      Export one category as a wildcard-style .txt file with one prompt per line.
                  </p>
@@ -407,7 +407,7 @@ export async function showExportDialog({
                          <option value="download">Download .txt file</option>
                      </select>
                  </div>
-                 <div style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">
+                 <div class="localprompt-form-note" style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">
                      Wildcard token: <code id="export-wildcard-token">__filename__</code>
                  </div>
              </div>
@@ -525,14 +525,14 @@ export async function showImportDialog({
     dialog.innerHTML = `
          <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
              <div class="localprompt-workspace-title">
-                 <h3>Import TXT</h3>
+                 <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--import" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"></path><path d="M14 2v5h5M12 11v7M9 15l3 3 3-3"></path></svg></span>Import TXT</h3>
                  ${isWorkspace ? "<p>Create a new category from a wildcard-style text file.</p>" : ""}
              </div>
              ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
          </div>
          ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-             <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 12px;">
+             <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-import-form" style="margin-bottom: 12px;">
                  <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
                      Import a wildcard-style .txt file. Each line will become one prompt card in a new category.
                  </p>
@@ -545,7 +545,7 @@ export async function showImportDialog({
                      <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;" list="import-category-datalist">
                      <datalist id="import-category-datalist"></datalist>
                  </div>
-                 <div style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">Import behavior: Create new category</div>
+                 <div class="localprompt-form-note" style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;"><span class="localprompt-section-icon" aria-hidden="true">✧</span><strong>Import behavior:</strong> Create new category</div>
              </div>
              <div id="import-status" style="
                  margin: 12px 0;
