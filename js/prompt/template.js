@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=card-manager-shell-20260713";
+import { getPromptStyles } from "./styles.js?v=wildcard-toolbar-order-20260712";
 import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX } from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {

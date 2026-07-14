@@ -1,4 +1,4 @@
-import * as promptApi from "../api/promptApi.js?v=card-manager-bulk-edit-20260713";
+import * as promptApi from "../api/promptApi.js?v=card-manager-bulk-move-20260712";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -52,11 +52,11 @@ import {
 } from "./library.js?v=repository-review-20260712";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
-import { getPromptTemplate } from "./template.js?v=card-manager-shell-20260713";
+import { getPromptTemplate } from "./template.js?v=wildcard-toolbar-order-20260712";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-shell-20260713";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=workspace-actions-20260712";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -82,10 +82,10 @@ const UnifiedPromptGalleryNode = {
     THUMBNAIL_SIZE_DEFAULT,
     THUMBNAIL_SIZE_LEGACY_PRESETS,
 
-    async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE, sortMode = "manual", uncategorizedOnly = false) {
+    async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE, sortMode = "manual") {
         this.isLoading = true;
         try {
-            const data = await promptApi.getPrompts(filter_name, mode, page, selected_prompts, filter_category, favorites_only, perPage, sortMode, uncategorizedOnly);
+            const data = await promptApi.getPrompts(filter_name, mode, page, selected_prompts, filter_category, favorites_only, perPage, sortMode);
             this.totalPages = data.total_pages || 1;
             this.currentPage = data.current_page || 1;
             return data;

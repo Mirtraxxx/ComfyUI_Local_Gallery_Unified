@@ -1,8 +1,8 @@
 import { api } from "../../../scripts/api.js";
 
-export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual", uncategorizedOnly = false) {
+export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual") {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
-    let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&uncategorized_only=${uncategorizedOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
+    let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
     selectedPrompts.forEach((prompt) => {
         url += `&selected_prompts=${encodeURIComponent(prompt)}`;
     });
@@ -115,7 +115,12 @@ export async function movePromptsBulk(promptIds, category = "") {
     return result;
 }
 
-export async function bulkEdit(selection, operations, { preview = true, baseRevision = null, sampleLimit = 20 } = {}) {
+export async function bulkEdit(selection, operations, {
+    preview = true,
+    baseRevision = null,
+    sampleLimit = 10,
+    activePromptIds = [],
+} = {}) {
     const response = await api.fetchApi("/localgalleryunified/prompt/bulk_edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,6 +130,7 @@ export async function bulkEdit(selection, operations, { preview = true, baseRevi
             preview,
             base_revision: baseRevision,
             sample_limit: sampleLimit,
+            active_prompt_ids: activePromptIds,
         }),
     });
     const result = await response.json();
