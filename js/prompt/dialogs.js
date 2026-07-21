@@ -1,72 +1,15 @@
 import { showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
 import {
+    createCenteredOverlay,
+    createDialogPanel,
+    createWorkspaceDialogSurface,
+} from "../shared/modalSurfaces.js";
+import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
     normalizePromptText,
 } from "./helpers.js";
-
-function createCenteredOverlay() {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 110000;
-    `;
-    return overlay;
-}
-
-function createDialog(width = 500) {
-    const dialog = document.createElement("div");
-    dialog.style.cssText = `
-        background: #2a2a2a;
-        border: 1px solid #555;
-        border-radius: 8px;
-        padding: 20px;
-        width: ${width}px;
-        max-width: 90%;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    `;
-    return dialog;
-}
-
-function createWorkspaceDialogSurface({ workspaceContainer, onClose, width = 500 }) {
-    if (!workspaceContainer) {
-        const overlay = createCenteredOverlay();
-        const dialog = createDialog(width);
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        return {
-            dialog,
-            close: () => overlay.remove(),
-            isWorkspace: false,
-        };
-    }
-
-    workspaceContainer.innerHTML = "";
-    const root = document.createElement("div");
-    root.className = "localprompt-workspace-panel";
-    const dialog = document.createElement("div");
-    dialog.className = "localprompt-workspace-page";
-    dialog.style.width = `${width}px`;
-    root.appendChild(dialog);
-    workspaceContainer.appendChild(root);
-    return {
-        dialog,
-        close: () => {
-            root.remove();
-            onClose?.();
-        },
-        isWorkspace: true,
-    };
-}
 
 async function populateCategoryDatalist(galleryNode, datalist) {
     if (!datalist) return;
@@ -92,7 +35,7 @@ export async function showAddPromptDialog({
 }) {
     try {
         const overlay = createCenteredOverlay();
-        const dialog = createDialog(500);
+        const dialog = createDialogPanel(500);
 
         dialog.innerHTML = `
             <h3 style="margin: 0 0 16px 0; color: #ddd;">Add New Prompt</h3>
@@ -295,7 +238,7 @@ export function showUploadThumbnailDialog({
     }
 
     const overlay = createCenteredOverlay();
-    const dialog = createDialog(400);
+    const dialog = createDialogPanel(400);
 
     dialog.innerHTML = `
         <h3 style="margin: 0 0 16px 0; color: #ddd;">Upload Thumbnail for "${escapeHtml(prompt.name)}"</h3>

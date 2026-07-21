@@ -1,4 +1,5 @@
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
+import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
 
 function readWildcardCategoryData(value) {
     let savedData = parseJsonOr(value || "[]", []);
@@ -142,8 +143,7 @@ export async function showWildcardsModal({
     saveWildcardState,
     onExportCategory = null,
 }) {
-    const overlay = document.createElement("div");
-    overlay.className = "localprompt-modal-overlay";
+    const { root: overlay, close } = createModalSurface({});
     overlay.innerHTML = `
         <div class="localprompt-modal" style="width: 450px;">
             <div class="localprompt-modal-header">
@@ -158,17 +158,11 @@ export async function showWildcardsModal({
             </div>
         </div>
     `;
-    document.body.appendChild(overlay);
-
     const closeBtn = overlay.querySelector(".localprompt-modal-close");
     const categoryList = overlay.querySelector("#wc-category-list");
 
-    closeBtn.addEventListener("click", () => overlay.remove());
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            overlay.remove();
-        }
-    });
+    closeBtn.addEventListener("click", close);
+    bindBackdropClose(overlay, close);
 
     const categories = await getCategories();
     const savedData = readWildcardCategoryData(categoriesWidget?.value);

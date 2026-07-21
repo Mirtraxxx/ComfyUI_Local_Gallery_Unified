@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { importModuleSource } from "./importModuleSource.mjs";
 
-const { bindBackdropClose, createModalSurface } = await importModuleSource(
+const { bindBackdropClose, createModalSurface, createWorkspaceDialogSurface } = await importModuleSource(
     new URL("../js/shared/modalSurfaces.js", import.meta.url),
 );
 
@@ -11,6 +11,7 @@ function createElement() {
     const listeners = new Map();
     return {
         className: "",
+        style: {},
         children: [],
         innerHTML: "",
         removed: false,
@@ -35,6 +36,21 @@ test("modal surface creates a document overlay", () => {
     assert.equal(body.children[0], surface.root);
     surface.close();
     assert.equal(surface.root.removed, true);
+});
+
+test("dialog surface composes centered and workspace variants", () => {
+    const body = createElement();
+    const documentRef = { body, createElement };
+    const centered = createWorkspaceDialogSurface({ width: 420, documentRef });
+    assert.equal(centered.isWorkspace, false);
+    assert.match(centered.dialog.style.cssText, /width: 420px/);
+    assert.equal(body.children.length, 1);
+
+    const workspace = createElement();
+    const embedded = createWorkspaceDialogSurface({ workspaceContainer: workspace, width: 520, documentRef });
+    assert.equal(embedded.isWorkspace, true);
+    assert.equal(embedded.dialog.className, "localprompt-workspace-page");
+    assert.equal(embedded.dialog.style.width, "520px");
 });
 
 test("workspace surface closes once and backdrop binding ignores child clicks", () => {

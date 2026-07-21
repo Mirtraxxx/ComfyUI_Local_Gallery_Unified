@@ -7,7 +7,7 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=native-dialogs-20260721-1";
+} from "./dialogs.js?v=modal-surfaces-20260721-2";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
