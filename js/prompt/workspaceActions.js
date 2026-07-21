@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=native-dialogs-20260721-1";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=modal-surfaces-20260721-1";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -8,7 +8,7 @@ import {
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
 } from "./dialogs.js?v=native-dialogs-20260721-1";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=native-dialogs-20260721-1";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
 // for state and lifecycle, while dialogs/Card Manager own their own rendering.

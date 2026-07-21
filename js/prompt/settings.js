@@ -1,41 +1,12 @@
 import { escapeHtml } from "../shared/dom.js";
+import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
 import {
     getCardsDisplayMode,
     normalizeDisplayMode,
 } from "./preferences.js?v=prefs-schema-20260611";
 
-function closeOnOverlayClick(overlay) {
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            overlay.remove();
-        }
-    });
-}
-
 function createSettingsSurface({ workspaceContainer, onClose }) {
-    if (!workspaceContainer) {
-        const overlay = document.createElement("div");
-        overlay.className = "localprompt-modal-overlay";
-        document.body.appendChild(overlay);
-        return {
-            root: overlay,
-            close: () => overlay.remove(),
-            isWorkspace: false,
-        };
-    }
-
-    workspaceContainer.innerHTML = "";
-    const root = document.createElement("div");
-    root.className = "localprompt-workspace-panel";
-    workspaceContainer.appendChild(root);
-    return {
-        root,
-        close: () => {
-            root.remove();
-            onClose?.();
-        },
-        isWorkspace: true,
-    };
+    return createModalSurface({ workspaceContainer, onWorkspaceClose: onClose });
 }
 
 function populatePromptSourceSelect({
@@ -543,7 +514,7 @@ export async function showSettingsModal({
     renderPinnedCategoryManager();
 
     closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) closeOnOverlayClick(root);
+    if (!isWorkspace) bindBackdropClose(root, close);
 
     saveBtn.addEventListener("click", async () => {
         const categoryColors = {

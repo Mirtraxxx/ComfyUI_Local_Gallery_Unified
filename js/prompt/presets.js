@@ -1,39 +1,10 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
-
-function closeOnOverlayClick(overlay) {
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            overlay.remove();
-        }
-    });
-}
+import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
 
 function createPresetSurface({ workspaceContainer, onClose }) {
-    if (!workspaceContainer) {
-        const overlay = document.createElement("div");
-        overlay.className = "localprompt-modal-overlay";
-        document.body.appendChild(overlay);
-        return {
-            root: overlay,
-            close: () => overlay.remove(),
-            isWorkspace: false,
-        };
-    }
-
-    workspaceContainer.innerHTML = "";
-    const root = document.createElement("div");
-    root.className = "localprompt-workspace-panel";
-    workspaceContainer.appendChild(root);
-    return {
-        root,
-        close: () => {
-            root.remove();
-            onClose?.();
-        },
-        isWorkspace: true,
-    };
+    return createModalSurface({ workspaceContainer, onWorkspaceClose: onClose });
 }
 
 function normalizePresetPrompt(presetPrompt) {
@@ -257,7 +228,7 @@ export async function showPresetsModal({
 
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
     closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) closeOnOverlayClick(root);
+    if (!isWorkspace) bindBackdropClose(root, close);
 
     const presetsList = root.querySelector("#presets-list");
     const presetNameInput = root.querySelector("#preset-name-input");

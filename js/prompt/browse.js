@@ -1,4 +1,5 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
+import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
 import {
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
@@ -8,38 +9,8 @@ import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-bulk-editor-2
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
 
-function closeOnOverlayClick(overlay, closeHandler = () => overlay.remove()) {
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            closeHandler();
-        }
-    });
-}
-
 function createBrowseSurface({ workspaceContainer, onClose }) {
-    if (!workspaceContainer) {
-        const overlay = document.createElement("div");
-        overlay.className = "localprompt-modal-overlay";
-        document.body.appendChild(overlay);
-        return {
-            root: overlay,
-            close: () => overlay.remove(),
-            isWorkspace: false,
-        };
-    }
-
-    workspaceContainer.innerHTML = "";
-    const root = document.createElement("div");
-    root.className = "localprompt-workspace-panel";
-    workspaceContainer.appendChild(root);
-    return {
-        root,
-        close: () => {
-            root.remove();
-            onClose?.();
-        },
-        isWorkspace: true,
-    };
+    return createModalSurface({ workspaceContainer, onWorkspaceClose: onClose });
 }
 
 function populateCategorySelect(categorySelect, categories, counts = {}, totalCount = null, selectedCategory = "") {
@@ -557,7 +528,7 @@ export async function showCardManagerModal({
     }
 
     closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) closeOnOverlayClick(root, close);
+    if (!isWorkspace) bindBackdropClose(root, close);
 
     fullscreenToggleBtn?.addEventListener("click", (event) => {
         event.stopPropagation();

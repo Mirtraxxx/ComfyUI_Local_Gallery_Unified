@@ -51,13 +51,13 @@ import {
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
 } from "./library.js?v=native-dialogs-20260721-1";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=modal-surfaces-20260721-1";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-update-default-off-20260717-1";
 import { getPromptTemplate } from "./template.js?v=density-transform-20260714-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=native-dialogs-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=native-dialogs-20260721-1";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=modal-surfaces-20260721-1";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
