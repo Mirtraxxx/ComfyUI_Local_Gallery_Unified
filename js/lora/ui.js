@@ -11,7 +11,8 @@ import {
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
 } from "./displayState.js?v=lora-refactor-20260712";
-import { buildLoraPresetControlsHtml, buildSelectedLoraItemHtml, buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
+import { buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
+import { createLoraActiveStackController } from "./activeStackController.js?v=lora-active-stack-20260721-1";
 import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
 import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712";
@@ -21,7 +22,6 @@ import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor
 import { setupLoraStateWidgets } from "./stateWidgets.js";
 import { getLoraStyles } from "./styles.js?v=bottom-bar-search-20260718-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
-import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
 export function createLoraGalleryLifecycle(app) {
 const UnifiedLoraGalleryNode = {
@@ -597,380 +597,32 @@ const UnifiedLoraGalleryNode = {
                 renderMetadataEditor();
             };
             
-            let draggedIndex = -1;
-            let cleanupMouseReorder = null;
-
-            const clearDragMarkers = (root = widgetContainer) => {
-                root.querySelectorAll(".locallora-lora-item.drag-over-before, .locallora-lora-item.drag-over-after, .locallora-lora-item.drag-over").forEach(row => {
-                    row.classList.remove("drag-over-before", "drag-over-after", "drag-over");
-                });
-            };
-
-            const bindMouseReorderHandle = (row, handle, rowSelector, root, onMoved, onSimpleClick = null) => {
-                if (!row || !handle) return;
-
-                const shouldStartReorder = (event) => {
-                    if (event.target.closest?.(".locallora-selected-thumb")) return true;
-                    return !event.target.closest?.("button, input, select, textarea, a, .managed-weight-val, .lora-trigger-preset-picker");
-                };
-
-                const containsPoint = (rect, x, y) => (
-                    x >= rect.left &&
-                    x <= rect.right &&
-                    y >= rect.top &&
-                    y <= rect.bottom
-                );
-
-                handle.addEventListener("pointerdown", (event) => {
-                    if (event.button !== 0) return;
-                    if (!shouldStartReorder(event)) return;
-
-                    const startedFromDragSurface = Boolean(event.target.closest?.(".locallora-selected-thumb"));
-                    if (startedFromDragSurface) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-
-                    cleanupMouseReorder?.();
-                    draggedIndex = parseInt(row.dataset.index);
-                    const pointerId = event.pointerId;
-                    const startX = event.clientX;
-                    const startY = event.clientY;
-                    const startRect = row.getBoundingClientRect();
-                    const pointerOffsetX = startX - (startRect.left + startRect.width / 2);
-                    const pointerOffsetY = startY - (startRect.top + startRect.height / 2);
-                    let hasDragged = false;
-                    let lastDropMarker = null;
-                    row.setPointerCapture?.(event.pointerId);
-
-                    const getTargetRow = (moveEvent) => {
-                        const rows = Array.from(root.querySelectorAll(rowSelector)).filter(candidate => candidate !== row);
-                        if (!rows.length) return null;
-                        const dragCenterX = moveEvent.clientX - pointerOffsetX;
-                        const dragCenterY = moveEvent.clientY - pointerOffsetY;
-
-                        const sourceRect = row.getBoundingClientRect();
-                        if (containsPoint(sourceRect, dragCenterX, dragCenterY)) {
-                            return null;
-                        }
-
-                        const rootRect = root.getBoundingClientRect();
-                        if (!containsPoint(rootRect, dragCenterX, dragCenterY)) {
-                            return null;
-                        }
-
-                        const rowUnderPointer = rows.find(candidate => {
-                            const rect = candidate.getBoundingClientRect();
-                            return containsPoint(rect, dragCenterX, dragCenterY);
-                        });
-                        if (rowUnderPointer) return rowUnderPointer;
-
-                        return rows.reduce((nearestRow, candidate) => {
-                            const rect = candidate.getBoundingClientRect();
-                            const centerX = rect.left + rect.width / 2;
-                            const centerY = rect.top + rect.height / 2;
-                            const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
-                            if (!nearestRow || distance < nearestRow.distance) {
-                                return { row: candidate, distance };
-                            }
-                            return nearestRow;
-                        }, null)?.row || null;
-                    };
-
-                    const updateMarker = (moveEvent) => {
-                        clearDragMarkers(root);
-                        const targetRow = getTargetRow(moveEvent);
-                        if (!targetRow) return null;
-                        targetRow.classList.add("drag-over");
-                        lastDropMarker = { targetRow };
-                        return lastDropMarker;
-                    };
-
-                    const onPointerMove = (moveEvent) => {
-                        if (moveEvent.pointerId !== pointerId) return;
-                        if (!hasDragged) {
-                            const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
-                            if (distance < 4) return;
-                            hasDragged = true;
-                            row.classList.add("dragging");
-                            document.body.style.userSelect = "none";
-                        }
-                        moveEvent.preventDefault();
-                        moveEvent.stopPropagation();
-                        updateMarker(moveEvent);
-                    };
-
-                    const suppressClickAfterDrag = (clickEvent) => {
-                        clickEvent.preventDefault();
-                        clickEvent.stopPropagation();
-                        row.removeEventListener("click", suppressClickAfterDrag, true);
-                    };
-
-                    const onPointerUp = (upEvent) => {
-                        if (upEvent.pointerId !== pointerId) return;
-                        if (!hasDragged) {
-                            cleanupMouseReorder?.();
-                            if (typeof onSimpleClick === "function") {
-                                onSimpleClick();
-                            }
-                            return;
-                        }
-                        upEvent.preventDefault();
-                        upEvent.stopPropagation();
-                        const marker = updateMarker(upEvent) || lastDropMarker;
-                        const fromIndex = draggedIndex;
-                        const targetIndex = marker ? parseInt(marker.targetRow.dataset.index) : -1;
-                        cleanupMouseReorder?.();
-                        row.addEventListener("click", suppressClickAfterDrag, true);
-                        window.setTimeout(() => row.removeEventListener("click", suppressClickAfterDrag, true), 0);
-                        if (marker && fromIndex >= 0 && targetIndex >= 0 && fromIndex !== targetIndex) {
-                            onMoved(fromIndex, targetIndex);
-                        }
-                    };
-
-                    cleanupMouseReorder = () => {
-                        row.classList.remove("dragging");
-                        clearDragMarkers(root);
-                        draggedIndex = -1;
-                        document.body.style.userSelect = "";
-                        if (row.hasPointerCapture?.(pointerId)) {
-                            row.releasePointerCapture?.(pointerId);
-                        }
-                        document.removeEventListener("pointermove", onPointerMove, true);
-                        document.removeEventListener("pointerup", onPointerUp, true);
-                        document.removeEventListener("pointercancel", cleanupMouseReorder, true);
-                        window.removeEventListener("blur", cleanupMouseReorder);
-                        cleanupMouseReorder = null;
-                    };
-
-                    document.addEventListener("pointermove", onPointerMove, true);
-                    document.addEventListener("pointerup", onPointerUp, true);
-                    document.addEventListener("pointercancel", cleanupMouseReorder, true);
-                    window.addEventListener("blur", cleanupMouseReorder);
-                });
-            };
-
-            const resolveLoraInfo = (loraName, item = null) => this.availableLoras.find(lora => lora.name === loraName) || {
-                name: loraName,
-                tags: item?.tags || [],
-                trigger_words: item?.trigger_words || "",
-                trigger_presets: item?.trigger_presets || {},
-                download_url: item?.download_url || "",
-                preview_url: item?.preview_url || "",
-                preview_type: item?.preview_type || "none"
-            };
-
-            const hydrateSelectedLoraInfo = () => {
-                const loraInfoByName = new Map(this.availableLoras.map(lora => [lora.name, lora]));
-                this.loraData.forEach(item => {
-                    const lora = loraInfoByName.get(item.lora);
-                    if (!lora) return;
-                    item.preview_url = lora.preview_url || "";
-                    item.preview_type = lora.preview_type || "none";
-                    item.tags = lora.tags || [];
-                    item.trigger_words = lora.trigger_words || "";
-                    item.trigger_presets = lora.trigger_presets || {};
-                    item.download_url = lora.download_url || "";
-                });
-            };
-
-            const renderSelectedList = () => {
-                // Active-stack preset popovers are portaled to the document while open. Restore
-                // them before replacing the selected-card DOM so no orphaned menu remains.
-                document.querySelectorAll(".lora-trigger-preset-popover-portal").forEach(popover => {
-                    if (popover.dataset.loraPortalOwner !== uniqueId) return;
-                    if (typeof popover._restoreLoraPresetPopover === "function") {
-                        popover._restoreLoraPresetPopover();
-                    } else {
-                        popover.remove();
-                    }
-                });
-                selectedListEl.innerHTML = "";
-                activeStackBtn.classList.toggle("has-active", this.loraData.length > 0);
-                activeStackBtn.classList.toggle("empty", this.loraData.length === 0);
-                activeStackBtn.disabled = this.loraData.length === 0;
-                activeStackBtn.title = this.loraData.length ? "Show selected LoRAs" : "No selected LoRAs";
-                activeStackBtn.setAttribute("aria-pressed", String(mainContainer.classList.contains("active-stack-open")));
-                
-                const activeCountEl = widgetContainer.querySelector(`#${uniqueId}-active-count`);
-                if (activeCountEl) activeCountEl.textContent = `${this.loraData.length} selected`;
-                if (activeStackCount) activeStackCount.textContent = this.loraData.length;
-
-                if (!this.loraData.length) {
-                    closeActiveStack();
-                    return;
-                }
-
-                const displayState = getLoraDisplayState();
-                const isCompact = displayState.active_display_mode === "compact";
-
-                this.loraData.forEach((item, index) => {
-                    const lora = resolveLoraInfo(item.lora, item);
-                    const el = document.createElement("div");
-                    el.className = "locallora-lora-item";
-                    el.dataset.index = index;
-                    el.dataset.loraName = item.lora;
-                    el.classList.toggle("disabled", !item.on);
-                    el.title = `${item.lora}\nClick thumbnail to remove • Drag to reorder`;
-
-                    el.innerHTML = buildSelectedLoraItemHtml(item, index, lora, this.isModelOnly, isCompact, displayState.show_clip_weights);
-
-                    setupLoraPresetControls(el, lora, {
-                        nodeInstance: this,
-                        widgetContainer,
-                        uniqueId,
-                        updateSelection,
-                    });
-
-                    if (!isCompact) {
-                        const previewImage = el.querySelector(".locallora-selected-thumb img");
-                        if (previewImage) {
-                            previewImage.onerror = (e) => {
-                                e.target.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                            };
-                            previewImage.draggable = false;
-                        }
-                        const previewVideo = el.querySelector(".locallora-selected-thumb video");
-                        if (previewVideo) {
-                            previewVideo.draggable = false;
-                            el.addEventListener("mouseenter", () => previewVideo.play().catch(() => {}));
-                            el.addEventListener("mouseleave", () => { previewVideo.pause(); previewVideo.currentTime = 0; });
-                        }
-
-                        const activePreviewBtn = el.querySelector(".lora-active-preview-btn");
-                        if (activePreviewBtn) {
-                            activePreviewBtn.addEventListener("click", (e) => {
-                                e.stopPropagation();
-                                const loraName = item.lora;
-                                const isEditingThisLora = this.activeEditingLoraName === loraName
-                                    || (this.selectedLoraNamesForEditing.size === 1 && this.selectedLoraNamesForEditing.has(loraName));
-                                if (isEditingThisLora && metadataEditor.classList.contains("visible")) {
-                                    clearMetadataEditing();
-                                    return;
-                                }
-                                const card = findGalleryCardByLoraName(loraName);
-                                if (card) {
-                                    this.activeEditingLoraName = null;
-                                    document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                                    this.selectedLoraNamesForEditing.clear();
-                                    this.selectedLoraNamesForEditing.add(loraName);
-                                    card.classList.add("selected-edit");
-                                } else {
-                                    document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                                    this.selectedLoraNamesForEditing.clear();
-                                    this.activeEditingLoraName = loraName;
-                                }
-                                renderMetadataEditor();
-                            });
-                        }
-                    }
-
-                    const toggleBtn = el.querySelector(".lora-selected-toggle-pill");
-                    toggleBtn.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        this.loraData[index].on = !this.loraData[index].on;
-                        renderSelectedList();
-                        updateSelection();
-                    });
-
-                    const strengthModelVal = el.querySelector(".selected-strength-model");
-                    if (strengthModelVal) {
-                        strengthModelVal.addEventListener("wheel", (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const direction = e.deltaY < 0 ? 1 : -1;
-                            const nextVal = stepLoraWeight(
-                                this.loraData[index].strength ?? 1.0,
-                                direction,
-                                LORA_WEIGHT_LIMITS.modelMin,
-                                LORA_WEIGHT_LIMITS.modelMax,
-                            );
-                            this.loraData[index].strength = nextVal;
-                            strengthModelVal.textContent = formatLoraWeight(nextVal);
-                            updateSelection();
-                        }, { passive: false });
-                    }
-
-                    const strengthClipVal = el.querySelector(".selected-strength-clip");
-                    if (strengthClipVal) {
-                        strengthClipVal.addEventListener("wheel", (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const direction = e.deltaY < 0 ? 1 : -1;
-                            const currentVal = this.loraData[index].strength_clip ?? this.loraData[index].strength ?? 1.0;
-                            const nextVal = stepLoraWeight(
-                                currentVal,
-                                direction,
-                                LORA_WEIGHT_LIMITS.clipMin,
-                                LORA_WEIGHT_LIMITS.clipMax,
-                            );
-                            this.loraData[index].strength_clip = nextVal;
-                            strengthClipVal.textContent = formatLoraWeight(nextVal);
-                            updateSelection();
-                        }, { passive: false });
-                    }
-
-                    const removeActiveLora = (e) => {
-                        if (e && typeof e.stopPropagation === "function") {
-                            e.stopPropagation();
-                        }
-                        const loraNameToRemove = item.lora;
-                        const removeIndex = this.loraData.findIndex(entry => entry.lora === loraNameToRemove);
-                        if (removeIndex > -1) {
-                            this.loraData.splice(removeIndex, 1);
-                        }
-                        galleryEl.querySelectorAll(".locallora-lora-card").forEach(card => {
-                            if (card.dataset.loraName === loraNameToRemove) {
-                                card.classList.remove("selected-flow");
-                            }
-                        });
-                        renderSelectedList();
-                        updateSelection();
-                        if (mainContainer.classList.contains("gallery-collapsed")) {
-                            setTimeout(() => {
-                                const contentHeight = getLoraChromeHeight();
-                                this.size[1] = contentHeight + HEADER_HEIGHT;
-                                this.setDirtyCanvas(true, true);
-                            }, 0);
-                        }
-                        fetchAndRender(false);
-                        updatePresetButtonText(null);
-                    };
-
-                    el.querySelectorAll(".remove-lora-btn").forEach(removeTarget => {
-                        removeTarget.addEventListener("pointerdown", (e) => {
-                            e.stopPropagation();
-                        });
-                        removeTarget.addEventListener("click", removeActiveLora);
-                    });
-
-                    const dragHandle = el.querySelector(".locallora-selected-thumb") || el;
-                    const onThumbClickRemove = (dragHandle && dragHandle.classList.contains("locallora-selected-thumb"))
-                        ? () => removeActiveLora({})
-                        : null;
-                    bindMouseReorderHandle(el, dragHandle, ".locallora-lora-item", selectedListEl, (fromIdx, targetIdx) => {
-                        if (fromIdx === targetIdx || fromIdx < 0 || targetIdx < 0 || fromIdx >= this.loraData.length || targetIdx >= this.loraData.length) return;
-                        const items = [...this.loraData];
-                        [items[fromIdx], items[targetIdx]] = [items[targetIdx], items[fromIdx]];
-                        this.loraData = items;
-                        repaintLoraOrder();
-                        updateSelection();
-                    }, onThumbClickRemove);
-
-                    selectedListEl.appendChild(el);
-                });
-            };
-
-            const repaintLoraOrder = () => {
-                renderSelectedList();
-                renderCurrentView(false);
-                requestAnimationFrame(() => {
-                    renderSelectedList();
-                    renderCurrentView(false);
-                    this.setDirtyCanvas(true, true);
-                });
-            };
-
+            const activeStackController = createLoraActiveStackController({
+                nodeInstance: this,
+                widgetContainer,
+                selectedListEl,
+                activeStackBtn,
+                activeStackCount,
+                mainContainer,
+                metadataEditor,
+                galleryEl,
+                uniqueId,
+                headerHeight: HEADER_HEIGHT,
+                getLoraDisplayState,
+                getLoraChromeHeight,
+                closeActiveStack,
+                clearMetadataEditing,
+                findGalleryCardByLoraName,
+                renderMetadataEditor: () => renderMetadataEditor(),
+                updateSelection,
+                fetchAndRender: (...args) => fetchAndRender(...args),
+                renderCurrentView: (...args) => renderCurrentView(...args),
+                updatePresetButtonText,
+            });
+            const {
+                hydrateSelectedLoraInfo,
+                renderSelectedList,
+            } = activeStackController;
             const loraIconSvg = {
                 sync: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-14.5 7.1"></path><path d="M3 12A9 9 0 0 1 17.5 4.9"></path><path d="M18 2v5h-5"></path><path d="M6 22v-5h5"></path></svg>',
                 link: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>',
@@ -1854,6 +1506,7 @@ const UnifiedLoraGalleryNode = {
                         if (popover.isConnected && !widgetContainer.contains(popover)) popover.remove();
                     });
                     folderController.cancelDrag();
+                    activeStackController.dispose();
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

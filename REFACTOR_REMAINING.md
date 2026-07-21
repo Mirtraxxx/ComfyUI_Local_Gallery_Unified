@@ -22,7 +22,8 @@ Approximate current frontend sizes:
 | --- | ---: | --- |
 | `js/prompt/styles.js` | 4604 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
 | `js/prompt/ui.js` | 2900 | Prompt coordinator; still important but no longer carries every prompt feature. |
-| `js/lora/ui.js` | 1885 | Largest remaining JS behavior module and best cleanup target. |
+| `js/lora/ui.js` | 1538 | LoRA coordinator after Active Stack extraction. |
+| `js/lora/activeStackController.js` | 396 | LoRA Stack rendering, controls, and pointer reorder. |
 | `js/lora/styles.js` | 2459 | LoRA CSS-only file; large enough to deserve careful surface checks. |
 | `js/prompt/library.js` | 762 | Prompt Builder card drawer. |
 | `js/prompt/dialogs.js` | 797 | Prompt dialogs. |
@@ -30,20 +31,19 @@ Approximate current frontend sizes:
 | `js/prompt/browse.js` | 827 | Card Manager. |
 | `js/prompt/preferences.js` | 107 | Frontend preference helpers. |
 
-## Best Next Refactor Target
+## Current LoRA Cleanup State
 
 ### `js/lora/ui.js`
 
-This is the best cleanup target if the goal is maintainability rather than a specific prompt feature.
+This is now a coordinator. Further extraction should be tied to a feature or concrete maintenance
+problem rather than line-count reduction.
 
-Completed extractions include card HTML builders, preset controls, metadata editing, folder
-management, Civitai sync, selection serialization, and display-state normalization.
+Completed extractions include card HTML builders, selected LoRA Stack rendering and interactions,
+preset controls, metadata editing, folder management, Civitai sync, selection serialization, and
+display-state normalization.
 
-The clearest remaining extraction candidate is selected LoRA Stack rendering and its event
-binding, currently centered on `renderSelectedList()` in `js/lora/ui.js`. Keep pointer reorder
-behavior with that owner when extracting it.
-
-Reorder logic lives inside `js/lora/ui.js` (the old `moveSelectedLora` in helpers.js was dead and removed).
+Reorder logic lives in `js/lora/activeStackController.js`; pure swap and hydration behavior lives
+in `js/lora/activeStackState.js`.
 
 ## Prompt-Side Guidance
 
@@ -67,14 +67,12 @@ Tabs, Prompt UI, and LoRA UI now register through one extension in
 `js/Local_Gallery_Unified.js`. Prompt and LoRA expose lifecycle factories, and the entrypoint
 composes tab, LoRA, and Prompt node setup in a fixed order.
 
-### 2. LoRA UI Modularization
+### 2. LoRA UI Modularization (Baseline Completed 2026-07-21)
 
 Extract one area at a time and smoke test after each extraction.
 
-Recommended next step:
-
-1. Extract selected LoRA Stack rendering and event binding.
-2. Smoke test selection, removal, weights, trigger presets, thumbnails, and pointer reorder.
+Recommended next step: keep further LoRA extraction feature-driven and prioritize the shared
+modal/notification helpers below rather than splitting the coordinator solely by line count.
 
 ### 3. Shared Modal/Notification Helpers
 

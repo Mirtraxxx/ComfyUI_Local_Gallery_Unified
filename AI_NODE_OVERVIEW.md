@@ -162,6 +162,8 @@ Use product names from `LORA_UI_TERMINOLOGY.md` when discussing LoRA UI work.
 
 - Main LoRA UI: `js/lora/ui.js`
 - LoRA lifecycle factory: `createLoraGalleryLifecycle()` in `js/lora/ui.js`
+- LoRA Stack rendering/interactions: `js/lora/activeStackController.js`
+- Pure LoRA Stack hydration/reorder state: `js/lora/activeStackState.js`
 - LoRA state widgets: `js/lora/stateWidgets.js`
 - (Note: `js/lora/helpers.js` was deleted - only contained unused old reorder helper)
 - LoRA render helpers: `js/lora/renderers.js`

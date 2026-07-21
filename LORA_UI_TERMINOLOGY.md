@@ -1,6 +1,6 @@
 # LoRA UI Terminology
 
-Updated: 2026-06-18
+Updated: 2026-07-21
 
 This file defines product terms for the LoRA side of `ComfyUI_Local_Gallery_Unified`.
 Use these names when discussing LoRA work so future refactors do not inherit the old
@@ -39,7 +39,9 @@ Current code mapping:
 - Frontend runtime state: `node_instance.loraData`
 - Selected list container: `.locallora-active-chips` (id: `#...-active-chips`)
 - Active drawer item: `.locallora-lora-item`
-- Reorder: inline pointer-based drag in `js/lora/ui.js` (bindMouseReorderHandle)
+- Rendering and interactions: `js/lora/activeStackController.js`
+- Hydration/reorder state: `js/lora/activeStackState.js`
+- Reorder: pointer-based drag owned by `js/lora/activeStackController.js`
 
 Do not change the saved `lora_selection_data` array shape casually. Existing workflows
 depend on fields such as `on`, `lora`, `strength`, `strength_clip`, `selected_preset`,
@@ -129,7 +131,7 @@ Safe first-pass cleanup:
 - Extract state/widget setup out of `js/lora/ui.js`.
 - Extract pure HTML/render helpers for cards, active drawer cards, trigger preset controls,
   and metadata editor sections.
-- Reorder logic lives in `js/lora/ui.js` (bindMouseReorderHandle). `js/lora/helpers.js` was removed (contained only unused moveSelectedLora).
+- Reorder logic lives in `js/lora/activeStackController.js`. `js/lora/helpers.js` was removed (contained only unused moveSelectedLora).
 - Keep route calls under `/localgalleryunified/lora/*`.
 
 Higher-risk cleanup:
