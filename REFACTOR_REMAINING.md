@@ -21,14 +21,14 @@ Approximate current frontend sizes:
 | File | Lines | Notes |
 | --- | ---: | --- |
 | `js/prompt/styles.js` | 4604 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
-| `js/prompt/ui.js` | 2900 | Prompt coordinator; still important but no longer carries every prompt feature. |
-| `js/lora/ui.js` | 1538 | LoRA coordinator after Active Stack extraction. |
+| `js/prompt/ui.js` | 2905 | Prompt coordinator; still important but no longer carries every prompt feature. |
+| `js/lora/ui.js` | 1539 | LoRA coordinator after Active Stack extraction. |
 | `js/lora/activeStackController.js` | 396 | LoRA Stack rendering, controls, and pointer reorder. |
 | `js/lora/styles.js` | 2459 | LoRA CSS-only file; large enough to deserve careful surface checks. |
 | `js/prompt/library.js` | 762 | Prompt Builder card drawer. |
-| `js/prompt/dialogs.js` | 797 | Prompt dialogs. |
+| `js/prompt/dialogs.js` | 741 | Prompt dialogs using shared surface primitives. |
 | `js/prompt/settings.js` | 618 | Settings UI. |
-| `js/prompt/browse.js` | 827 | Card Manager. |
+| `js/prompt/browse.js` | 799 | Card Manager. |
 | `js/prompt/preferences.js` | 107 | Frontend preference helpers. |
 
 ## Current LoRA Cleanup State
@@ -59,7 +59,7 @@ Prompt-side work should be feature or bug driven. Before editing prompt UI, iden
 
 The most common failure mode is patching a visually similar but wrong surface. Check `PROMPT_UI_TERMINOLOGY.md` first.
 
-## Still Worth Doing
+## Cleanup Status
 
 ### 1. Lifecycle Setup Cleanup (Completed 2026-07-21)
 
@@ -74,34 +74,27 @@ Extract one area at a time and smoke test after each extraction.
 Recommended next step: keep further LoRA extraction feature-driven and prioritize the shared
 modal/notification helpers below rather than splitting the coordinator solely by line count.
 
-### 3. Shared Modal/Notification Helpers
+### 3. Shared Modal/Notification Helpers (Completed 2026-07-21)
 
-Native alerts and confirmations now route through `js/shared/nativeDialogs.js`, preserving their
-synchronous browser behavior while giving future notification work one compatibility boundary.
-Prompt and LoRA overlays are still implemented in several feature modules.
+Native alerts and confirmations route through `js/shared/nativeDialogs.js`. Reusable overlay,
+workspace-panel, backdrop-dismiss, and centered-dialog behavior lives in
+`js/shared/modalSurfaces.js`. Specialized bulk-edit and feature-specific surfaces remain with their
+owners. Context-menu and preview document listeners now have explicit cleanup on replacement and
+node removal.
 
-Future direction:
+Optional product work:
 
-- Shared modal helper.
 - Replace native alert presentation with a lightweight notification layer when product behavior is
   defined; keep the shared wrapper as the compatibility entry point.
-- Cleanup registry for document/window listeners.
 
-Do this after LoRA UI is less dense.
+### 4. Saved State Versioning (Completed 2026-07-21)
 
-### 4. Saved State Versioning
+New saves use `{ "version": 1, "items": [] }`. JavaScript and Python readers accept both this
+envelope and legacy raw arrays. Existing workflows therefore load unchanged and migrate when their
+selection state is next saved. Migration coverage exists in JavaScript and Python tests.
 
-Current hidden widget state still saves legacy-compatible raw arrays.
-
-Keep this for now.
-
-Future direction:
-
-- Continue reading raw arrays.
-- Allow object-wrapped `{ "version": 1, "items": [] }`.
-- Only switch saving format after explicit migration testing.
-
-Do not abruptly change saved workflow JSON shapes.
+No additional behavior-preserving refactor is currently queued. Further coordinator extraction
+should be driven by a feature, bug, or measured maintenance problem.
 
 ## Known Cautions
 

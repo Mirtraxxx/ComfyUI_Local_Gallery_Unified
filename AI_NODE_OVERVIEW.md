@@ -182,6 +182,7 @@ browser state can survive reloads without being confused with execution state.
 - Shared DOM utilities: `js/shared/dom.js`
 - Shared JSON utilities: `js/shared/json.js`
 - Shared synchronous alert/confirmation wrappers: `js/shared/nativeDialogs.js`
+- Shared overlay/workspace and centered-dialog surfaces: `js/shared/modalSurfaces.js`
 - Shared ComfyUI widget controllers: `js/shared/widgets.js`
 
 `js/lora/ui.js` is still large and is the best target for future behavior-preserving modular cleanup.
@@ -231,10 +232,13 @@ Do not change hidden widget names or saved JSON shapes casually. Existing workfl
 
 Selection JSON shape notes:
 
-- `prompt_selection_data` is a JSON array. Backend execution reads entries by `prompt_id` when possible, respects `on: false`, applies numeric `weight`, and may fall back to inline `prompt_text`/`prompt`/`name` fields.
-- `prompt_meta_tags` is a JSON array of hidden prompt objects. Enabled entries are ordered by `order` or `index`, then appended to `combined_prompt`.
+- New frontend saves use `{ "version": 1, "items": [] }` envelopes. Frontend and backend readers
+  continue accepting legacy raw arrays, so existing workflows migrate on their next state update.
+
+- `prompt_selection_data` contains prompt items. Backend execution reads entries by `prompt_id` when possible, respects `on: false`, applies numeric `weight`, and may fall back to inline `prompt_text`/`prompt`/`name` fields.
+- `prompt_meta_tags` contains hidden prompt objects. Enabled entries are ordered by `order` or `index`, then appended to `combined_prompt`.
 - `wildcard_categories` can be JSON category data or a legacy comma-separated string; category weights are supported by the prompt backend.
-- `lora_selection_data` is a JSON array of selected LoRA entries. Important fields include `lora`, `on`, `strength`, `strength_clip`, `selected_preset`, `selected_presets`, and `stack_trigger_presets`.
+- `lora_selection_data` contains selected LoRA entries. Important fields include `lora`, `on`, `strength`, `strength_clip`, `selected_preset`, `selected_presets`, and `stack_trigger_presets`.
 - LoRA runtime objects may be enriched with preview/metadata fields in the browser, but persistence should keep the workflow payload compact and compatibility-shaped.
 
 ## Prompt Preferences

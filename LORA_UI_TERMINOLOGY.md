@@ -43,8 +43,9 @@ Current code mapping:
 - Hydration/reorder state: `js/lora/activeStackState.js`
 - Reorder: pointer-based drag owned by `js/lora/activeStackController.js`
 
-Do not change the saved `lora_selection_data` array shape casually. Existing workflows
-depend on fields such as `on`, `lora`, `strength`, `strength_clip`, `selected_preset`,
+Do not change the saved `lora_selection_data` item shape casually. New saves wrap items in a
+versioned envelope while legacy raw arrays remain readable. Existing workflows depend on item
+fields such as `on`, `lora`, `strength`, `strength_clip`, `selected_preset`,
 `selected_presets`, and `stack_trigger_presets`.
 
 The frontend runtime objects can be richer than the serialized stack. Browser entries may carry
