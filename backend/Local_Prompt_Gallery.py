@@ -2,6 +2,7 @@ import os
 import threading
 import json
 import copy
+import asyncio
 import folder_paths
 import server
 from aiohttp import web
@@ -42,6 +43,14 @@ _pending_usage = {}
 _usage_flush_timer = None
 _usage_flush_generation = 0
 _USAGE_FLUSH_DELAY = 30  # seconds
+_USAGE_BUSY_RETRY_DELAY = 15  # seconds — do not rewrite 30MB metadata mid-run
+
+# Deferred wildcard cycle-state prefs (updated every execution with wildcards)
+_pending_wildcard_cycle_state = None
+_cycle_state_flush_timer = None
+_cycle_state_flush_generation = 0
+_CYCLE_STATE_FLUSH_DELAY = 5  # seconds
+_CYCLE_STATE_BUSY_RETRY_DELAY = 10  # seconds
 
 def _load_metadata_from_disk_locked():
     """Read the metadata file while the process-wide JSON lock is held.
@@ -120,12 +129,40 @@ class MetadataTransaction(AbstractContextManager):
         return False
 
 
+def _comfy_queue_busy():
+    """True when Comfy has a running job or pending queue items."""
+    try:
+        prompt_queue = getattr(server.PromptServer.instance, "prompt_queue", None)
+        if prompt_queue is None:
+            return False
+        running, pending = prompt_queue.get_current_queue()
+        return bool(running) or bool(pending)
+    except Exception:
+        return False
+
+
 def _flush_usage_counts(generation=None):
-    """Merge pending usage counts into metadata and save to disk."""
+    """Merge pending usage counts into metadata and save to disk.
+
+    Never rewrite the large metadata file while a generation is in progress —
+    that freezes sampling progress for several seconds.
+    """
     global _pending_usage, _usage_flush_timer
     try:
         with _json_file_lock:
             if not _pending_usage:
+                return
+            if generation is not None and generation != _usage_flush_generation:
+                return
+
+        if _comfy_queue_busy():
+            _schedule_usage_flush(delay=_USAGE_BUSY_RETRY_DELAY)
+            return
+
+        with _json_file_lock:
+            if not _pending_usage:
+                return
+            if generation is not None and generation != _usage_flush_generation:
                 return
             pending_snapshot = dict(_pending_usage)
             metadata = copy.deepcopy(_load_metadata_from_disk_locked())
@@ -139,15 +176,16 @@ def _flush_usage_counts(generation=None):
             if generation is None or generation == _usage_flush_generation:
                 _usage_flush_timer = None
 
-def _schedule_usage_flush():
+def _schedule_usage_flush(delay=None):
     """Debounce: reset the timer each time so we only write once after activity stops."""
     global _usage_flush_timer, _usage_flush_generation
+    flush_delay = _USAGE_FLUSH_DELAY if delay is None else max(1.0, float(delay))
     with _json_file_lock:
         _usage_flush_generation += 1
         generation = _usage_flush_generation
         if _usage_flush_timer is not None:
             _usage_flush_timer.cancel()
-        _usage_flush_timer = threading.Timer(_USAGE_FLUSH_DELAY, _flush_usage_counts, args=(generation,))
+        _usage_flush_timer = threading.Timer(flush_delay, _flush_usage_counts, args=(generation,))
         _usage_flush_timer.daemon = True
         _usage_flush_timer.start()
 
@@ -160,6 +198,58 @@ def _record_usage_counts(prompt_ids):
         for prompt_id in prompt_ids:
             _pending_usage[prompt_id] = _pending_usage.get(prompt_id, 0) + 1
     _schedule_usage_flush()
+
+
+def _flush_wildcard_cycle_state(generation=None):
+    """Merge the latest wildcard cycle state into current prefs and save once."""
+    global _pending_wildcard_cycle_state, _cycle_state_flush_timer
+    try:
+        with _json_file_lock:
+            pending = _pending_wildcard_cycle_state
+            if pending is None:
+                return
+            if generation is not None and generation != _cycle_state_flush_generation:
+                return
+
+        if _comfy_queue_busy():
+            # Keep pending state; retry once the queue is idle.
+            _schedule_wildcard_cycle_state_flush(pending, delay=_CYCLE_STATE_BUSY_RETRY_DELAY)
+            return
+
+        with _json_file_lock:
+            pending = _pending_wildcard_cycle_state
+            if pending is None:
+                return
+            if generation is not None and generation != _cycle_state_flush_generation:
+                return
+            _pending_wildcard_cycle_state = None
+        prefs = load_ui_prefs()
+        prefs["wildcard_cycle_state"] = pending
+        save_ui_prefs(prefs)
+    except Exception as e:
+        print(f"LocalPromptGallery: failed to flush wildcard cycle state: {e}")
+    finally:
+        with _json_file_lock:
+            if generation is None or generation == _cycle_state_flush_generation:
+                _cycle_state_flush_timer = None
+
+
+def _schedule_wildcard_cycle_state_flush(cycle_state, delay=None):
+    """Debounce cycle-state prefs writes across rapid sequential executions."""
+    global _pending_wildcard_cycle_state, _cycle_state_flush_timer, _cycle_state_flush_generation
+    flush_delay = _CYCLE_STATE_FLUSH_DELAY if delay is None else max(1.0, float(delay))
+    with _json_file_lock:
+        _pending_wildcard_cycle_state = copy.deepcopy(cycle_state)
+        _cycle_state_flush_generation += 1
+        generation = _cycle_state_flush_generation
+        if _cycle_state_flush_timer is not None:
+            _cycle_state_flush_timer.cancel()
+        _cycle_state_flush_timer = threading.Timer(
+            flush_delay, _flush_wildcard_cycle_state, args=(generation,)
+        )
+        _cycle_state_flush_timer.daemon = True
+        _cycle_state_flush_timer.start()
+
 
 VIDEO_EXTENSIONS = ('.mp4', '.webm', '.mov', '.avi')
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
@@ -323,6 +413,48 @@ def backup_and_remove_thumbnail(path):
         shutil.move(path, target)
     except Exception as e:
         print(f"Error moving thumbnail backup {path}: {e}")
+
+
+def assign_thumbnail_files(metadata, prompt_id, filename, subfolder='', folder_type='output'):
+    """Copy a Comfy output into the gallery thumbnail store and update metadata.
+
+    Mutates *metadata* in place. Returns the preview type string.
+    """
+    if prompt_id not in metadata:
+        raise KeyError(f"Prompt not found: {prompt_id}")
+
+    source_path, filename = resolve_comfy_output_path(filename, subfolder, folder_type)
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in IMAGE_EXTENSIONS:
+        preview_type = 'image'
+    elif ext in VIDEO_EXTENSIONS:
+        preview_type = 'video'
+    else:
+        raise ValueError(f"Unsupported file type: {ext or '(none)'}")
+
+    old_thumbnail_paths = find_thumbnail_paths(prompt_id)
+    target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+    temp_target_path = f"{target_path}.{int(time.time() * 1000)}.{threading.get_ident()}.tmp"
+    try:
+        shutil.copy2(source_path, temp_target_path)
+        for old_path in old_thumbnail_paths:
+            if old_path != target_path:
+                backup_and_remove_thumbnail(old_path)
+            elif os.path.exists(old_path):
+                backup_json_file(old_path)
+        os.replace(temp_target_path, target_path)
+
+        metadata[prompt_id]['preview_type'] = preview_type
+        metadata[prompt_id]['preview_version'] = int(time.time())
+        return preview_type
+    except Exception:
+        try:
+            if os.path.exists(temp_target_path):
+                os.remove(temp_target_path)
+        except Exception:
+            pass
+        raise
+
 
 def _prompt_has_order(metadata, prompt_ids):
     return any(metadata.get(prompt_id, {}).get('wildcard_order') is not None for prompt_id in prompt_ids)
@@ -1645,49 +1777,136 @@ async def assign_thumbnail_endpoint(request):
             return web.json_response({"status": "error", "message": "Missing data"}, status=400)
 
         with MetadataTransaction() as transaction:
-            metadata = transaction.metadata
-            if prompt_id not in metadata:
-                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-
-            source_path, filename = resolve_comfy_output_path(filename, subfolder, folder_type)
-
-        # Determine file extension and type
-            ext = os.path.splitext(filename)[1].lower()
-            if ext in IMAGE_EXTENSIONS:
-                preview_type = 'image'
-            elif ext in VIDEO_EXTENSIONS:
-                preview_type = 'video'
-            else:
-                return web.json_response({"status": "error", "message": "Unsupported file type"}, status=400)
-
-        # Copy new thumbnail
-            old_thumbnail_paths = find_thumbnail_paths(prompt_id)
-            target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
-            temp_target_path = f"{target_path}.{int(time.time() * 1000)}.tmp"
             try:
-                shutil.copy2(source_path, temp_target_path)
-                for old_path in old_thumbnail_paths:
-                    if old_path != target_path:
-                        backup_and_remove_thumbnail(old_path)
-                    elif os.path.exists(old_path):
-                        backup_json_file(old_path)
-                os.replace(temp_target_path, target_path)
+                preview_type = assign_thumbnail_files(
+                    transaction.metadata,
+                    prompt_id,
+                    filename,
+                    subfolder,
+                    folder_type,
+                )
+            except KeyError:
+                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
+            except ValueError as e:
+                return web.json_response({"status": "error", "message": str(e)}, status=400)
+            transaction.commit()
 
-                metadata[prompt_id]['preview_type'] = preview_type
-                metadata[prompt_id]['preview_version'] = int(time.time())
-                transaction.commit()
-            except Exception:
-                try:
-                    if os.path.exists(temp_target_path):
-                        os.remove(temp_target_path)
-                except Exception:
-                    pass
-                raise
-        
         return web.json_response({"status": "ok", "preview_type": preview_type})
 
     except Exception as e:
         print(f"Error assigning thumbnail: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+def _assign_thumbnails_batch_sync(by_prompt_id):
+    """Run batch thumbnail assignment off the asyncio event loop."""
+    results = []
+    attached_count = 0
+    with MetadataTransaction() as transaction:
+        for prompt_id, item in by_prompt_id.items():
+            try:
+                preview_type = assign_thumbnail_files(
+                    transaction.metadata,
+                    prompt_id,
+                    item["filename"],
+                    item["subfolder"],
+                    item["type"],
+                )
+                results.append({
+                    "prompt_id": prompt_id,
+                    "status": "ok",
+                    "preview_type": preview_type,
+                })
+                attached_count += 1
+            except KeyError:
+                results.append({
+                    "prompt_id": prompt_id,
+                    "status": "error",
+                    "message": "Prompt not found",
+                })
+            except FileNotFoundError as e:
+                results.append({
+                    "prompt_id": prompt_id,
+                    "status": "error",
+                    "message": str(e),
+                })
+            except ValueError as e:
+                results.append({
+                    "prompt_id": prompt_id,
+                    "status": "error",
+                    "message": str(e),
+                })
+            except Exception as e:
+                results.append({
+                    "prompt_id": prompt_id,
+                    "status": "error",
+                    "message": str(e),
+                })
+
+        if attached_count > 0:
+            transaction.commit()
+
+    return {
+        "status": "ok",
+        "attached_count": attached_count,
+        "results": results,
+    }
+
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/assign_thumbnails_batch")
+async def assign_thumbnails_batch_endpoint(request):
+    """Assign many thumbnails in one metadata transaction.
+
+    Used by deferred wildcard auto-attach so long sequential queues do one
+    large metadata rewrite at the end instead of one per image.
+    Heavy disk work runs in a worker thread so the PromptServer event loop
+    (and sampling progress) are not blocked.
+    """
+    try:
+        data = await request.json()
+        assignments = data.get("assignments")
+        if not isinstance(assignments, list) or not assignments:
+            return web.json_response({"status": "error", "message": "assignments list is required"}, status=400)
+
+        # Latest assignment wins per prompt card.
+        by_prompt_id = {}
+        for item in assignments:
+            if not isinstance(item, dict):
+                continue
+            prompt_id = str(item.get("prompt_id") or "").strip()
+            filename = item.get("filename")
+            if not prompt_id or not filename:
+                continue
+            by_prompt_id[prompt_id] = {
+                "prompt_id": prompt_id,
+                "filename": filename,
+                "subfolder": item.get("subfolder", "") or "",
+                "type": item.get("type", "output") or "output",
+            }
+
+        if not by_prompt_id:
+            return web.json_response({"status": "error", "message": "No valid assignments"}, status=400)
+
+        # Refuse to thrash the 30MB metadata file while a generation is active.
+        if _comfy_queue_busy():
+            return web.json_response({
+                "status": "busy",
+                "message": "ComfyUI queue is active; try again when idle",
+                "attached_count": 0,
+                "results": [],
+            }, status=503)
+
+        try:
+            payload = await asyncio.to_thread(_assign_thumbnails_batch_sync, by_prompt_id)
+        except AttributeError:
+            # Python < 3.9 fallback (Comfy commonly ships 3.10+, but be safe).
+            loop = asyncio.get_event_loop()
+            payload = await loop.run_in_executor(None, _assign_thumbnails_batch_sync, by_prompt_id)
+
+        return web.json_response(payload)
+
+    except Exception as e:
+        print(f"Error batch assigning thumbnails: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.get("/localgalleryunified/prompt/thumbnail/{prompt_id}")
@@ -2301,6 +2520,8 @@ class LocalPromptGallery:
         )
     
     def process(self, **kwargs):
+        global _ui_prefs_cache
+
         wildcard_categories = kwargs.get("wildcard_categories", "")
         wildcard_mode = kwargs.get("wildcard_mode", "off")
         wildcard_rng_mode = str(kwargs.get("wildcard_rng_mode", "seed_stable") or "seed_stable")
@@ -2473,8 +2694,11 @@ class LocalPromptGallery:
         _record_usage_counts(used_prompt_ids)
 
         if wildcard_cycle_state_changed:
+            # Keep cycle progress in the in-memory prefs cache immediately, but
+            # debounce the disk write so long sequential queues do not thrash prefs I/O.
             prefs["wildcard_cycle_state"] = wildcard_cycle_state
-            save_ui_prefs(prefs)
+            _ui_prefs_cache = copy.deepcopy(prefs)
+            _schedule_wildcard_cycle_state_flush(wildcard_cycle_state)
         
         return {
             "ui": {

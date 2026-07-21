@@ -310,3 +310,16 @@ export async function assignThumbnail(promptId, lastOutput) {
     });
     return await response.json();
 }
+
+/**
+ * Assign many card thumbnails in one backend metadata write.
+ * @param {Array<{prompt_id: string, filename: string, subfolder?: string, type?: string}>} assignments
+ */
+export async function assignThumbnailsBatch(assignments = []) {
+    const response = await api.fetchApi("/localgalleryunified/prompt/assign_thumbnails_batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignments }),
+    });
+    return await response.json();
+}

@@ -1,4 +1,4 @@
-import * as promptApi from "../api/promptApi.js?v=card-manager-bulk-move-20260712";
+import * as promptApi from "../api/promptApi.js?v=auto-attach-idle-only-20260720-2";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -75,6 +75,16 @@ const UnifiedPromptGalleryNode = {
     instances: new Set(),
     pendingWildcardAutoAttach: new Map(),
     recentOutputsByPromptId: new Map(),
+    // Deferred auto-attach: queue card updates during long sequential runs and
+    // flush only when Comfy is fully idle (never mid-sampling).
+    deferredAutoAttachByPromptId: new Map(),
+    deferredAutoAttachTimer: null,
+    deferredAutoAttachFlushing: false,
+    // Track Comfy execution so we never rewrite the large metadata file mid-run.
+    isExecuting: false,
+    queueRemaining: 0,
+    // Short settle after true idle so the next queued job can cancel us first.
+    AUTO_ATTACH_IDLE_SETTLE_MS: 750,
     FAVORITE_COLORS,
     CATEGORY_ROLE_PALETTE,
     THUMBNAIL_SIZE_MIN,
@@ -356,6 +366,165 @@ const UnifiedPromptGalleryNode = {
         } catch (e) {
             console.error("LocalPromptGallery: Failed to assign thumbnail", e);
             return { status: "error", message: e.toString() };
+        }
+    },
+
+    async assignThumbnailsBatch(assignments) {
+        try {
+            return await promptApi.assignThumbnailsBatch(assignments);
+        } catch (e) {
+            console.error("LocalPromptGallery: Failed to batch assign thumbnails", e);
+            return { status: "error", message: e.toString(), attached_count: 0, results: [] };
+        }
+    },
+
+    isComfyIdle() {
+        return !this.isExecuting && Number(this.queueRemaining || 0) <= 0;
+    },
+
+    cancelDeferredAutoAttachFlush() {
+        if (this.deferredAutoAttachTimer != null) {
+            clearTimeout(this.deferredAutoAttachTimer);
+            this.deferredAutoAttachTimer = null;
+        }
+    },
+
+    queueDeferredAutoAttach(promptIds, lastOutput) {
+        if (!lastOutput?.filename || !Array.isArray(promptIds) || promptIds.length === 0) {
+            return;
+        }
+        for (const promptId of promptIds) {
+            const id = String(promptId || "").trim();
+            if (!id) continue;
+            // Latest image for a card wins if it was selected again later in the queue.
+            this.deferredAutoAttachByPromptId.set(id, {
+                filename: lastOutput.filename,
+                subfolder: lastOutput.subfolder || "",
+                type: lastOutput.type || "output",
+            });
+        }
+        // Never start a wall-clock timer while more jobs may still be running —
+        // that was freezing sampling around step ~5 of the next prompt.
+        this.tryScheduleDeferredAutoAttachFlush();
+    },
+
+    tryScheduleDeferredAutoAttachFlush() {
+        if (this.deferredAutoAttachByPromptId.size === 0) {
+            return;
+        }
+        if (!this.isComfyIdle()) {
+            this.cancelDeferredAutoAttachFlush();
+            return;
+        }
+        this.scheduleDeferredAutoAttachFlush(this.AUTO_ATTACH_IDLE_SETTLE_MS);
+    },
+
+    scheduleDeferredAutoAttachFlush(delayMs) {
+        if (this.deferredAutoAttachByPromptId.size === 0) {
+            return;
+        }
+        if (!this.isComfyIdle()) {
+            this.cancelDeferredAutoAttachFlush();
+            return;
+        }
+        if (this.deferredAutoAttachTimer != null) {
+            clearTimeout(this.deferredAutoAttachTimer);
+        }
+        this.deferredAutoAttachTimer = setTimeout(() => {
+            this.deferredAutoAttachTimer = null;
+            void this.flushDeferredAutoAttach();
+        }, Math.max(0, Number(delayMs) || this.AUTO_ATTACH_IDLE_SETTLE_MS));
+    },
+
+    async flushDeferredAutoAttach() {
+        if (this.deferredAutoAttachFlushing) {
+            // Another flush is in flight; retry only if still idle later.
+            this.tryScheduleDeferredAutoAttachFlush();
+            return;
+        }
+        if (this.deferredAutoAttachByPromptId.size === 0) {
+            return;
+        }
+        // Hard gate: never rewrite ~30MB metadata while a prompt is generating.
+        if (!this.isComfyIdle()) {
+            this.cancelDeferredAutoAttachFlush();
+            return;
+        }
+
+        this.deferredAutoAttachFlushing = true;
+        this.cancelDeferredAutoAttachFlush();
+
+        const assignments = [];
+        for (const [promptId, lastOutput] of this.deferredAutoAttachByPromptId.entries()) {
+            assignments.push({
+                prompt_id: promptId,
+                filename: lastOutput.filename,
+                subfolder: lastOutput.subfolder || "",
+                type: lastOutput.type || "output",
+            });
+        }
+        this.deferredAutoAttachByPromptId.clear();
+
+        try {
+            // If a new job started between the settle timer and now, re-queue and abort.
+            if (!this.isComfyIdle()) {
+                for (const item of assignments) {
+                    this.deferredAutoAttachByPromptId.set(item.prompt_id, {
+                        filename: item.filename,
+                        subfolder: item.subfolder,
+                        type: item.type,
+                    });
+                }
+                return;
+            }
+
+            const result = await this.assignThumbnailsBatch(assignments);
+            // Backend refused because a new job started — put items back and wait.
+            if (result?.status === "busy") {
+                for (const item of assignments) {
+                    this.deferredAutoAttachByPromptId.set(item.prompt_id, {
+                        filename: item.filename,
+                        subfolder: item.subfolder,
+                        type: item.type,
+                    });
+                }
+                return;
+            }
+            const attachedCount = Number(result?.attached_count) || 0;
+            if (result?.status !== "ok") {
+                console.warn(
+                    "LocalPromptGallery: Deferred auto-attach batch failed",
+                    result?.message || "unknown error"
+                );
+            } else if (Array.isArray(result?.results)) {
+                for (const item of result.results) {
+                    if (item?.status && item.status !== "ok") {
+                        console.warn(
+                            `LocalPromptGallery: Could not auto-attach output to wildcard card ${item.prompt_id}`,
+                            item.message || "unknown error"
+                        );
+                    }
+                }
+            }
+
+            // Only refresh gallery UI when still idle so we don't thrash the browser mid-run.
+            if (attachedCount > 0 && this.isComfyIdle()) {
+                await Promise.all([...this.instances].map(async (instance) => {
+                    try {
+                        await instance.__localGalleryRefresh?.();
+                    } catch (error) {
+                        console.warn("LocalPromptGallery: Failed to refresh after deferred auto-attach", error);
+                    }
+                }));
+            }
+        } catch (error) {
+            console.warn("LocalPromptGallery: Deferred auto-attach flush failed", error);
+        } finally {
+            this.deferredAutoAttachFlushing = false;
+            // If more items arrived while we were writing, schedule another pass only if idle.
+            if (this.deferredAutoAttachByPromptId.size > 0) {
+                this.tryScheduleDeferredAutoAttachFlush();
+            }
         }
     },
 
@@ -2680,7 +2849,15 @@ app.registerExtension({
             }
         });
 
-        api.addEventListener("execution_success", async ({ detail }) => {
+        api.addEventListener("execution_start", () => {
+            UnifiedPromptGalleryNode.isExecuting = true;
+            // Abort any idle flush timer so we never hit disk mid-sampling.
+            UnifiedPromptGalleryNode.cancelDeferredAutoAttachFlush();
+        });
+
+        api.addEventListener("execution_success", ({ detail }) => {
+            UnifiedPromptGalleryNode.isExecuting = false;
+
             const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
             if (!promptId) return;
 
@@ -2691,42 +2868,27 @@ app.registerExtension({
 
             if (!pending?.promptIds?.length || !lastOutput?.filename) return;
 
-            let attachedCount = 0;
-            for (const promptIdToUpdate of pending.promptIds) {
-                try {
-                    const result = await UnifiedPromptGalleryNode.assignThumbnail(promptIdToUpdate, lastOutput);
-                    if (result?.status === "ok") {
-                        attachedCount += 1;
-                    } else {
-                        console.warn(
-                            `LocalPromptGallery: Could not auto-attach output to wildcard card ${promptIdToUpdate}`,
-                            result?.message || "unknown error"
-                        );
-                    }
-                } catch (error) {
-                    console.warn(
-                        `LocalPromptGallery: Could not auto-attach output to wildcard card ${promptIdToUpdate}`,
-                        error
-                    );
-                }
-            }
+            // Queue only; flush happens only when Comfy is fully idle.
+            UnifiedPromptGalleryNode.queueDeferredAutoAttach(pending.promptIds, lastOutput);
+        });
 
-            if (attachedCount > 0) {
-                await Promise.all([...UnifiedPromptGalleryNode.instances].map(async instance => {
-                    try {
-                        await instance.__localGalleryRefresh?.();
-                    } catch (error) {
-                        console.warn("LocalPromptGallery: Failed to refresh after auto-attaching thumbnail", error);
-                    }
-                }));
+        api.addEventListener("status", ({ detail }) => {
+            const remaining = detail?.exec_info?.queue_remaining;
+            if (typeof remaining === "number" && Number.isFinite(remaining)) {
+                UnifiedPromptGalleryNode.queueRemaining = remaining;
             }
+            // queue_remaining can be 0 while the current job is still sampling —
+            // isComfyIdle() also requires !isExecuting.
+            UnifiedPromptGalleryNode.tryScheduleDeferredAutoAttachFlush();
         });
 
         const clearWildcardExecutionState = ({ detail }) => {
+            UnifiedPromptGalleryNode.isExecuting = false;
             const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
             if (!promptId) return;
             UnifiedPromptGalleryNode.pendingWildcardAutoAttach.delete(promptId);
             UnifiedPromptGalleryNode.recentOutputsByPromptId.delete(promptId);
+            UnifiedPromptGalleryNode.tryScheduleDeferredAutoAttachFlush();
         };
         api.addEventListener("execution_error", clearWildcardExecutionState);
         api.addEventListener("execution_interrupted", clearWildcardExecutionState);
