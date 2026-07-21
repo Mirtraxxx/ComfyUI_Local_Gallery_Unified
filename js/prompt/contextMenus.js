@@ -1,4 +1,33 @@
 import { showAlert } from "../shared/nativeDialogs.js";
+
+let disposeActiveContextMenu = null;
+
+export function closePromptContextMenus() {
+    disposeActiveContextMenu?.();
+    disposeActiveContextMenu = null;
+    document.querySelectorAll(".localprompt-context-menu, .localprompt-submenu").forEach(menu => menu.remove());
+}
+
+function installOutsideClickDismiss(menu, { includeSubmenu = false, delay = 0 } = {}) {
+    let timer = null;
+    const closeMenu = event => {
+        const submenu = includeSubmenu ? document.querySelector(".localprompt-submenu") : null;
+        if (menu.contains(event.target) || submenu?.contains(event.target)) return;
+        closePromptContextMenus();
+    };
+    disposeActiveContextMenu = () => {
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+        document.removeEventListener("click", closeMenu);
+        menu.remove();
+        if (includeSubmenu) document.querySelector(".localprompt-submenu")?.remove();
+    };
+    timer = setTimeout(() => {
+        timer = null;
+        document.addEventListener("click", closeMenu);
+    }, delay);
+}
+
 export function showPromptActionContextMenu({
     prompt,
     x,
@@ -13,10 +42,7 @@ export function showPromptActionContextMenu({
     }
     const normalizedPrompt = { ...prompt, id: promptId };
 
-    const existingMenu = document.querySelector(".localprompt-context-menu");
-    if (existingMenu) existingMenu.remove();
-    const existingSub = document.querySelector(".localprompt-submenu");
-    if (existingSub) existingSub.remove();
+    closePromptContextMenus();
 
     const menu = document.createElement("div");
     menu.className = "localprompt-context-menu";
@@ -63,7 +89,7 @@ export function showPromptActionContextMenu({
         item.addEventListener("mouseleave", () => item.style.background = "transparent");
         item.addEventListener("click", async () => {
             if (disabled) return;
-            menu.remove();
+            closePromptContextMenus();
             await actions[action]?.(normalizedPrompt);
         });
         menu.appendChild(item);
@@ -79,15 +105,7 @@ export function showPromptActionContextMenu({
         menu.style.top = `${window.innerHeight - menuRect.height - 10}px`;
     }
 
-    const closeMenu = (event) => {
-        const sub = document.querySelector(".localprompt-submenu");
-        if (!menu.contains(event.target) && (!sub || !sub.contains(event.target))) {
-            menu.remove();
-            if (sub) sub.remove();
-            document.removeEventListener("click", closeMenu);
-        }
-    };
-    setTimeout(() => document.addEventListener("click", closeMenu), 10);
+    installOutsideClickDismiss(menu, { includeSubmenu: true, delay: 10 });
 }
 
 export function showPromptContextMenu({
@@ -97,8 +115,7 @@ export function showPromptContextMenu({
     showUploadThumbnailDialog,
     deletePromptWithConfirm,
 }) {
-    const existingMenu = document.querySelector(".localprompt-context-menu");
-    if (existingMenu) existingMenu.remove();
+    closePromptContextMenus();
 
     const menu = document.createElement("div");
     menu.className = "localprompt-context-menu";
@@ -133,20 +150,13 @@ export function showPromptContextMenu({
         item.addEventListener("mouseenter", () => item.style.background = "#3a3a3a");
         item.addEventListener("mouseleave", () => item.style.background = "transparent");
         item.addEventListener("click", () => {
+            closePromptContextMenus();
             option.action();
-            menu.remove();
         });
         menu.appendChild(item);
     });
 
     document.body.appendChild(menu);
 
-    const closeMenu = (closeEvent) => {
-        if (!menu.contains(closeEvent.target)) {
-            menu.remove();
-            document.removeEventListener("click", closeMenu);
-        }
-    };
-
-    setTimeout(() => document.addEventListener("click", closeMenu), 0);
+    installOutsideClickDismiss(menu);
 }

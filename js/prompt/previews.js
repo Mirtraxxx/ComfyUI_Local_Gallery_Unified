@@ -4,6 +4,8 @@ import {
 } from "./helpers.js?v=preview-popover-20260606";
 import { escapeHtml } from "../shared/dom.js";
 
+let disposePreviewOutsideClick = null;
+
 function getPromptPreviewMediaUrl(prompt) {
     return prompt?.preview_url || "";
 }
@@ -12,6 +14,12 @@ function closeExpandedPreview() {
     const overlay = document.querySelector(".localprompt-preview-lightbox");
     overlay?._disposePromptPreview?.();
     overlay?.remove();
+}
+
+export function closePromptPreviews() {
+    disposePreviewOutsideClick?.();
+    disposePreviewOutsideClick = null;
+    closeExpandedPreview();
 }
 
 function showExpandedPreview(prompt) {
@@ -100,16 +108,29 @@ export function attachInfoPopup({
 
         if (isShowing) {
             hideHoverPreview();
+            disposePreviewOutsideClick?.();
+            disposePreviewOutsideClick = null;
         } else {
+            disposePreviewOutsideClick?.();
             showHoverPreview(prompt, event, element);
 
+            let timer = null;
             const closePreview = (closeEvent) => {
                 if (!hoverPreview.contains(closeEvent.target) && closeEvent.target !== infoBtn) {
                     hideHoverPreview();
-                    document.removeEventListener("click", closePreview);
+                    disposePreviewOutsideClick?.();
                 }
             };
-            setTimeout(() => document.addEventListener("click", closePreview), 10);
+            disposePreviewOutsideClick = () => {
+                if (timer !== null) clearTimeout(timer);
+                timer = null;
+                document.removeEventListener("click", closePreview);
+                disposePreviewOutsideClick = null;
+            };
+            timer = setTimeout(() => {
+                timer = null;
+                document.addEventListener("click", closePreview);
+            }, 10);
         }
     };
 

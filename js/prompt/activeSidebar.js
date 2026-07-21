@@ -74,63 +74,6 @@ export function applyActiveSidebarPreference({
     });
 }
 
-export function setupActiveSidebarResize({
-    widgetContainer,
-    uniqueId,
-    nodeInstance,
-    activeSidebarWidthWidget,
-    saveUiPrefs,
-}) {
-    const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
-    if (!splitter) return;
-
-    let startX = 0;
-    let startWidth = 0;
-
-    const onMouseMove = (event) => {
-        const nextWidth = clampActiveSidebarWidth({
-            widgetContainer,
-            nodeInstance,
-            width: startWidth + (event.clientX - startX),
-        });
-        widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${nextWidth}px`);
-    };
-
-    const onMouseUp = async (event) => {
-        const finalWidth = clampActiveSidebarWidth({
-            widgetContainer,
-            nodeInstance,
-            width: startWidth + (event.clientX - startX),
-        });
-        nodeInstance.uiPrefs.active_sidebar_width = finalWidth;
-        nodeInstance.properties.active_sidebar_width = finalWidth;
-        if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = finalWidth;
-        widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${finalWidth}px`);
-        splitter.classList.remove("dragging");
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-        await saveUiPrefs();
-    };
-
-    splitter.addEventListener("mousedown", (event) => {
-        if (typeof isActiveSidebarOpen === "function" ? !isActiveSidebarOpen() : !isActiveSidebarOpen({ nodeInstance })) return;
-        event.preventDefault();
-        startX = event.clientX;
-        startWidth = clampActiveSidebarWidth({
-            widgetContainer,
-            nodeInstance,
-            width: getActiveSidebarWidth({ nodeInstance }),
-        });
-        splitter.classList.add("dragging");
-        document.body.style.cursor = "ew-resize";
-        document.body.style.userSelect = "none";
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-    });
-}
-
 export async function renderActiveSidebar({
     widgetContainer,
     uniqueId,

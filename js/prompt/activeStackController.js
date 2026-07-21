@@ -1,7 +1,7 @@
 import {
     applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
     renderActiveSidebar as renderPromptActiveSidebar,
-} from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
+} from "./activeSidebar.js?v=listener-cleanup-20260721-1";
 
 /** Coordinates the Prompt Active Stack sidebar state, timers, and renders. */
 export function createActiveStackController({
@@ -166,4 +166,3 @@ export function createActiveStackController({
         dispose,
     };
 }
-

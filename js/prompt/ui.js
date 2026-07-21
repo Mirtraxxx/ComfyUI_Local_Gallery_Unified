@@ -27,14 +27,16 @@ import {
     syncPinnedOrderWithPromptIds,
 } from "./helpers.js?v=unified-icons-20260606";
 import {
+    closePromptContextMenus,
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
-} from "./contextMenus.js?v=native-dialogs-20260721-1";
+} from "./contextMenus.js?v=listener-cleanup-20260721-1";
 import {
     attachInfoPopup as attachPromptInfoPopup,
+    closePromptPreviews,
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
-} from "./previews.js?v=repository-review-20260712";
+} from "./previews.js?v=listener-cleanup-20260721-1";
 import {
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
@@ -43,7 +45,7 @@ import { createPromptGalleryController } from "./galleryController.js?v=prompt-g
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=prompt-display-preferences-20260712";
-import { createActiveStackController } from "./activeStackController.js?v=prompt-active-stack-20260712";
+import { createActiveStackController } from "./activeStackController.js?v=listener-cleanup-20260721-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
@@ -917,6 +919,8 @@ const UnifiedPromptGalleryNode = {
                 workspaceController.dispose?.();
                 categoryStripController?.dispose?.();
                 metaTagsController.dispose?.();
+                closePromptContextMenus();
+                closePromptPreviews();
                 globalListeners.cleanup();
                 closeCategoryContextMenu();
                 if (originalOnRemoved) originalOnRemoved.call(this);
