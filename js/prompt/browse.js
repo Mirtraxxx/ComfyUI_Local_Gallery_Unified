@@ -1,3 +1,4 @@
+import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import {
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
@@ -707,16 +708,16 @@ export async function showCardManagerModal({
     deleteSelectedBtn?.addEventListener("click", async () => {
         if (bulkSelectedPromptIds.size === 0) return;
         const idsToDelete = Array.from(bulkSelectedPromptIds);
-        const confirmed = confirm(
+        const confirmed = confirmAction(
             `Delete ${idsToDelete.length} selected cards?\n\nThis removes their metadata and backs up their thumbnails.`
         );
         if (!confirmed) return;
-        const finalConfirmed = confirm(`Final confirmation: delete all ${idsToDelete.length} selected cards?`);
+        const finalConfirmed = confirmAction(`Final confirmation: delete all ${idsToDelete.length} selected cards?`);
         if (!finalConfirmed) return;
 
         const result = await galleryNode.deletePromptsBulk(idsToDelete);
         if (!result || result.status !== "ok") {
-            alert(`Bulk delete failed: ${result?.message || "Unknown error"}`);
+            showAlert(`Bulk delete failed: ${result?.message || "Unknown error"}`);
             return;
         }
 
@@ -730,7 +731,7 @@ export async function showCardManagerModal({
         await loadBrowseGallery(1);
         await refreshAllSections();
         if (Array.isArray(result.missing_ids) && result.missing_ids.length) {
-            alert(`Deleted ${result.deleted_count || 0} prompt(s). ${result.missing_ids.length} item(s) were already missing.`);
+            showAlert(`Deleted ${result.deleted_count || 0} prompt(s). ${result.missing_ids.length} item(s) were already missing.`);
         }
     });
 
@@ -768,7 +769,7 @@ export async function showCardManagerModal({
     root.querySelector("#browse-export-category")?.addEventListener("click", async () => {
         const categoryToExport = categorySelect.value;
         if (!categoryToExport) {
-            alert("Please select a category to export.");
+            showAlert("Please select a category to export.");
             return;
         }
         if (typeof onExportCategory === "function") {
@@ -788,18 +789,18 @@ export async function showCardManagerModal({
     root.querySelector("#browse-delete-category")?.addEventListener("click", async () => {
         const categoryToDelete = categorySelect.value;
         if (!categoryToDelete) {
-            alert("Please select a category to delete.");
+            showAlert("Please select a category to delete.");
             return;
         }
 
-        const confirmed = confirm(
+        const confirmed = confirmAction(
             `DELETE ENTIRE CATEGORY\n\n` +
             `Are you sure you want to delete the category "${categoryToDelete}" and ALL prompts within it?\n\n` +
             `This action cannot be undone!`
         );
         if (!confirmed) return;
 
-        const doubleConfirmed = confirm(
+        const doubleConfirmed = confirmAction(
             `Final confirmation:\n\nDelete ALL prompts in "${categoryToDelete}"?`
         );
         if (!doubleConfirmed) return;
@@ -807,17 +808,17 @@ export async function showCardManagerModal({
         try {
             const result = await galleryNode.deleteCategory(categoryToDelete);
             if (result.status === "ok") {
-                alert(result.message);
+                showAlert(result.message);
                 await loadBrowseCategoryOptions();
                 updateCategoryActionButtons(root, "");
                 await loadBrowseGallery(1);
                 refreshAllSections();
             } else {
-                alert("Error: " + (result.message || "Failed to delete category"));
+                showAlert("Error: " + (result.message || "Failed to delete category"));
             }
         } catch (error) {
             console.error("Error deleting category:", error);
-            alert("Error deleting category: " + error.message);
+            showAlert("Error deleting category: " + error.message);
         }
     });
 

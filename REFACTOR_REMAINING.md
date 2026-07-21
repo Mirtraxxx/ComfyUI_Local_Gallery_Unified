@@ -76,13 +76,15 @@ modal/notification helpers below rather than splitting the coordinator solely by
 
 ### 3. Shared Modal/Notification Helpers
 
-Many prompt and LoRA modules still use scattered overlays, `alert()`, and `confirm()`.
+Native alerts and confirmations now route through `js/shared/nativeDialogs.js`, preserving their
+synchronous browser behavior while giving future notification work one compatibility boundary.
+Prompt and LoRA overlays are still implemented in several feature modules.
 
 Future direction:
 
 - Shared modal helper.
-- Shared confirmation helper.
-- Lightweight notification helper.
+- Replace native alert presentation with a lightweight notification layer when product behavior is
+  defined; keep the shared wrapper as the compatibility entry point.
 - Cleanup registry for document/window listeners.
 
 Do this after LoRA UI is less dense.

@@ -1,3 +1,4 @@
+import { confirmAction } from "../shared/nativeDialogs.js";
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
@@ -904,7 +905,7 @@ const UnifiedLoraGalleryNode = {
                     deleteBtn.onclick = async (e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        if (confirm(`Are you sure you want to delete preset "${name}"?`)) {
+                        if (confirmAction(`Are you sure you want to delete preset "${name}"?`)) {
                             const data = await loraApi.deletePreset(name);
                             renderPresets(data.presets);
                         }

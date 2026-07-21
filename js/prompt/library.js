@@ -1,3 +1,4 @@
+import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
@@ -132,10 +133,10 @@ export async function renderPromptBuilderBar({
         tabBtn.addEventListener("contextmenu", async (event) => {
             event.preventDefault();
             if (isUtilityLibraryTab(tabContent)) {
-                alert("Cannot remove default tabs.");
+                showAlert("Cannot remove default tabs.");
                 return;
             }
-            if (confirm(`Remove "${tabContent}" from library bar?`)) {
+            if (confirmAction(`Remove "${tabContent}" from library bar?`)) {
                 await saveLibraryTabs(getLibraryTabs().filter(tab => tab !== tabContent));
                 if (getActiveLibraryTab() === tabContent) {
                     setActiveLibraryTab(null);

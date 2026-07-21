@@ -1,3 +1,4 @@
+import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import * as promptApi from "../api/promptApi.js?v=auto-attach-idle-only-20260720-2";
 import {
     CATEGORY_ROLE_PALETTE,
@@ -28,7 +29,7 @@ import {
 import {
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
-} from "./contextMenus.js?v=card-manager-fullscreen-20260711";
+} from "./contextMenus.js?v=native-dialogs-20260721-1";
 import {
     attachInfoPopup as attachPromptInfoPopup,
     hideHoverPreview as hidePromptHoverPreview,
@@ -49,14 +50,14 @@ import {
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=repository-review-20260712";
+} from "./library.js?v=native-dialogs-20260721-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
 import { showWildcardsModal } from "./wildcards.js?v=wildcard-update-default-off-20260717-1";
 import { getPromptTemplate } from "./template.js?v=density-transform-20260714-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
-import { createMetaTagsController } from "./metaTags.js";
+import { createMetaTagsController } from "./metaTags.js?v=native-dialogs-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=reference-ux-20260713-2";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=native-dialogs-20260721-1";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -1799,7 +1800,7 @@ const UnifiedPromptGalleryNode = {
                     e.stopPropagation();
                     const categories = await getCachedCategories();
                     if (!categories || categories.length === 0) {
-                        alert("No categories available to add.");
+                        showAlert("No categories available to add.");
                         return;
                     }
                     
@@ -2186,7 +2187,7 @@ const UnifiedPromptGalleryNode = {
                                 const editablePrompt = await ensurePromptExistsForEdit(selectedPrompt);
                                 showEditPromptDialog(editablePrompt, refresh);
                             } catch (e) {
-                                alert('Error preparing prompt for edit: ' + e.message);
+                                showAlert('Error preparing prompt for edit: ' + e.message);
                             }
                         },
                         thumbnail: async (selectedPrompt) => {
@@ -2209,12 +2210,12 @@ const UnifiedPromptGalleryNode = {
                                 if (res.status === 'ok') {
                                     await refresh();
                                 } else {
-                                    alert('Error: ' + res.message);
+                                    showAlert('Error: ' + res.message);
                                 }
                             }
                         },
                         delete: async (selectedPrompt) => {
-                            if (confirm(`Delete prompt "${selectedPrompt.name}"?`)) {
+                            if (confirmAction(`Delete prompt "${selectedPrompt.name}"?`)) {
                                 await UnifiedPromptGalleryNode.deletePrompt(selectedPrompt.id);
                                 const idx = node_instance.promptData.findIndex(p => p.prompt_id === selectedPrompt.id);
                                 if (idx >= 0) {
@@ -2284,7 +2285,7 @@ const UnifiedPromptGalleryNode = {
             async function renameCategoryWithPrompt(oldCategory, onSuccess) {
                 const sourceCategory = String(oldCategory || '').trim();
                 if (!sourceCategory) {
-                    alert('No category selected to rename.');
+                    showAlert('No category selected to rename.');
                     return false;
                 }
 
@@ -2293,21 +2294,21 @@ const UnifiedPromptGalleryNode = {
 
                 const targetCategory = requestedName.trim();
                 if (!targetCategory) {
-                    alert('Please enter a category name.');
+                    showAlert('Please enter a category name.');
                     return false;
                 }
                 if (targetCategory === sourceCategory) {
                     return false;
                 }
 
-                const confirmed = confirm(
+                const confirmed = confirmAction(
                     `Rename "${sourceCategory}" to "${targetCategory}" and move every prompt in that category?`
                 );
                 if (!confirmed) return false;
 
                 const result = await UnifiedPromptGalleryNode.renameCategory(sourceCategory, targetCategory);
                 if (result?.status !== 'ok') {
-                    alert('Error: ' + (result?.message || 'Failed to rename category'));
+                    showAlert('Error: ' + (result?.message || 'Failed to rename category'));
                     return false;
                 }
 
@@ -2420,7 +2421,7 @@ const UnifiedPromptGalleryNode = {
                     await toggleWorkspaceMode("from_last_output", showFromLastOutputWorkspace);
                 } catch (e) {
                     console.error("Error in showFromLastOutputDialog:", e);
-                    alert("Error opening dialog: " + e.message);
+                    showAlert("Error opening dialog: " + e.message);
                 }
             });
 
@@ -2429,7 +2430,7 @@ const UnifiedPromptGalleryNode = {
                     await toggleWorkspaceMode("library_import", showImportWorkspace);
                 } catch (e) {
                     console.error("Error showing import dialog:", e);
-                    alert(e.message);
+                    showAlert(e.message);
                 }
             });
 
@@ -2460,12 +2461,12 @@ const UnifiedPromptGalleryNode = {
                         const categoryToDelete = categorySelect?.value;
                         
                         if (!categoryToDelete) {
-                            alert('Please select a category to delete.');
+                            showAlert('Please select a category to delete.');
                             return;
                         }
                         
                         // Show confirmation dialog
-                        const confirmed = confirm(
+                        const confirmed = confirmAction(
                             `DELETE ENTIRE CATEGORY\n\n` +
                             `Are you sure you want to delete the category "${categoryToDelete}" and ALL prompts within it?\n\n` +
                             `This action cannot be undone!`
@@ -2474,7 +2475,7 @@ const UnifiedPromptGalleryNode = {
                         if (!confirmed) return;
                         
                         // Second confirmation for safety
-                        const doubleConfirmed = confirm(
+                        const doubleConfirmed = confirmAction(
                             `Final confirmation:\n\n` +
                             `Delete ALL prompts in "${categoryToDelete}"?`
                         );
@@ -2484,17 +2485,17 @@ const UnifiedPromptGalleryNode = {
                         try {
                             const result = await UnifiedPromptGalleryNode.deleteCategory(categoryToDelete);
                             if (result.status === 'ok') {
-                                alert(result.message);
+                                showAlert(result.message);
                                 categorySelect.value = ''; // Reset to "All Categories"
                                 deleteCategoryBtn.style.display = 'none';
                                 await loadCategories();
                                 await loadPromptsForGallery(1);
                             } else {
-                                alert('Error: ' + (result.message || 'Failed to delete category'));
+                                showAlert('Error: ' + (result.message || 'Failed to delete category'));
                             }
                         } catch (e) {
                             console.error('Error deleting category:', e);
-                            alert('Error deleting category: ' + e.message);
+                            showAlert('Error deleting category: ' + e.message);
                         }
                     });
                 }
@@ -2783,7 +2784,7 @@ const UnifiedPromptGalleryNode = {
                 });
 
                 widgetContainer.querySelector(`#${uniqueId}-active-clear-btn`)?.addEventListener('click', () => {
-                    if (node_instance.promptData.length > 0 && confirm("Remove all prompts from selection?")) {
+                    if (node_instance.promptData.length > 0 && confirmAction("Remove all prompts from selection?")) {
                         clearAllSelections();
                     }
                 });

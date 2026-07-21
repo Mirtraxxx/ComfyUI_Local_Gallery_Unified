@@ -1,3 +1,4 @@
+import { showAlert } from "../shared/nativeDialogs.js";
 export function showPromptActionContextMenu({
     prompt,
     x,
@@ -7,7 +8,7 @@ export function showPromptActionContextMenu({
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
-        alert("This prompt has no saved prompt id, so it cannot be edited.");
+        showAlert("This prompt has no saved prompt id, so it cannot be edited.");
         return;
     }
     const normalizedPrompt = { ...prompt, id: promptId };

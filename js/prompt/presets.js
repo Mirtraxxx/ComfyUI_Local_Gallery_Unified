@@ -1,3 +1,4 @@
+import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
 
@@ -186,12 +187,12 @@ function renderPresetRow({
     });
 
     row.querySelector(".delete-preset-btn").addEventListener("click", async () => {
-        if (confirm(`Delete preset "${preset.name}"?`)) {
+        if (confirmAction(`Delete preset "${preset.name}"?`)) {
             const result = await deletePreset(preset.name);
             if (result.status === "ok") {
                 await renderPresetsList();
             } else {
-                alert("Error: " + result.message);
+                showAlert("Error: " + result.message);
             }
         }
     });
@@ -267,7 +268,7 @@ export async function showPresetsModal({
     const loadPreset = async (preset) => {
         const result = await galleryNode.loadPreset(preset.name);
         if (result.status !== "ok") {
-            alert("Error loading preset: " + result.message);
+            showAlert("Error loading preset: " + result.message);
             return;
         }
 
@@ -320,7 +321,7 @@ export async function showPresetsModal({
     savePresetBtn.addEventListener("click", async () => {
         const name = presetNameInput.value.trim();
         if (!name) {
-            alert("Please enter a preset name");
+            showAlert("Please enter a preset name");
             return;
         }
 
@@ -333,22 +334,22 @@ export async function showPresetsModal({
         if (result.status === "ok") {
             presetNameInput.value = "";
             await renderPresetsList();
-            alert(`Preset "${name}" saved!`);
+            showAlert(`Preset "${name}" saved!`);
         } else {
-            alert("Error: " + result.message);
+            showAlert("Error: " + result.message);
         }
     });
 
     createComboBtn.addEventListener("click", async () => {
         const name = presetNameInput.value.trim();
         if (!name) {
-            alert("Please enter a preset name in the field above.");
+            showAlert("Please enter a preset name in the field above.");
             return;
         }
 
         const promptsText = comboPromptsInput.value;
         if (!promptsText.trim()) {
-            alert("Please paste some comma-separated prompts.");
+            showAlert("Please paste some comma-separated prompts.");
             return;
         }
 
@@ -361,7 +362,7 @@ export async function showPresetsModal({
         try {
             const result = await galleryNode.getOrCreatePrompts(prompts);
             if (result.status !== "ok" || !result.prompts) {
-                alert("Error processing prompts: " + result.message);
+                showAlert("Error processing prompts: " + result.message);
                 return;
             }
 
@@ -383,7 +384,7 @@ export async function showPresetsModal({
 
             const saveResult = await galleryNode.savePreset(name, newSelectionParams, "off", []);
             if (saveResult.status === "ok") {
-                alert(`Combo Preset created and loaded: ${prompts.length} prompts`);
+                showAlert(`Combo Preset created and loaded: ${prompts.length} prompts`);
                 presetNameInput.value = "";
                 comboPromptsInput.value = "";
 
@@ -402,10 +403,10 @@ export async function showPresetsModal({
                     app,
                 });
             } else {
-                alert("Error saving combo preset: " + saveResult.message);
+                showAlert("Error saving combo preset: " + saveResult.message);
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            showAlert("Error: " + error.message);
         } finally {
             createComboBtn.textContent = "Create & Load Combo";
             createComboBtn.disabled = false;

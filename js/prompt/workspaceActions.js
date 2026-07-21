@@ -1,4 +1,5 @@
-import { showCardManagerModal as openCardManager } from "./browse.js?v=reference-ux-20260713-2";
+import { confirmAction } from "../shared/nativeDialogs.js";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=native-dialogs-20260721-1";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -6,8 +7,8 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=reference-ux-20260713-2";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=reference-ux-20260713-2";
+} from "./dialogs.js?v=native-dialogs-20260721-1";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=native-dialogs-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
 // for state and lifecycle, while dialogs/Card Manager own their own rendering.
@@ -197,7 +198,7 @@ export function createPromptWorkspaceActions({
     }
 
     async function deletePromptWithConfirm(prompt) {
-        if (!confirm(`Are you sure you want to delete "${prompt.name}"?`)) return;
+        if (!confirmAction(`Are you sure you want to delete "${prompt.name}"?`)) return;
         await galleryNode.deletePrompt(prompt.id);
         await loadCategories();
         await loadPromptsForGallery(galleryNode.currentPage);

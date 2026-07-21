@@ -181,6 +181,7 @@ browser state can survive reloads without being confused with execution state.
 
 - Shared DOM utilities: `js/shared/dom.js`
 - Shared JSON utilities: `js/shared/json.js`
+- Shared synchronous alert/confirmation wrappers: `js/shared/nativeDialogs.js`
 - Shared ComfyUI widget controllers: `js/shared/widgets.js`
 
 `js/lora/ui.js` is still large and is the best target for future behavior-preserving modular cleanup.

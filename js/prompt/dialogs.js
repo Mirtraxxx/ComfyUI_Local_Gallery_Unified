@@ -1,3 +1,4 @@
+import { showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
 import {
     buildLastOutputPreviewUrl,
@@ -138,7 +139,7 @@ export async function showAddPromptDialog({
                 const category = categoryInput.value.trim();
 
                 if (!name) {
-                    alert("Please enter a name for the prompt");
+                    showAlert("Please enter a name for the prompt");
                     return;
                 }
 
@@ -152,16 +153,16 @@ export async function showAddPromptDialog({
                     await loadCategories();
                     await loadPromptsForGallery(1);
                 } else {
-                    alert("Failed to create prompt: " + (result.message || "Unknown error"));
+                    showAlert("Failed to create prompt: " + (result.message || "Unknown error"));
                 }
             } catch (error) {
                 console.error("Error creating prompt:", error);
-                alert("Error creating prompt: " + error.message);
+                showAlert("Error creating prompt: " + error.message);
             }
         });
     } catch (error) {
         console.error("Error showing add prompt dialog:", error);
-        alert("Error opening dialog: " + error.message);
+        showAlert("Error opening dialog: " + error.message);
     }
 }
 
@@ -176,7 +177,7 @@ export async function showEditPromptDialog({
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
-        alert("This prompt has no saved prompt id, so it cannot be edited.");
+        showAlert("This prompt has no saved prompt id, so it cannot be edited.");
         return;
     }
 
@@ -289,7 +290,7 @@ export function showUploadThumbnailDialog({
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
-        alert("This prompt has no saved prompt id, so its thumbnail cannot be updated.");
+        showAlert("This prompt has no saved prompt id, so its thumbnail cannot be updated.");
         return;
     }
 
@@ -319,7 +320,7 @@ export function showUploadThumbnailDialog({
     uploadBtn.addEventListener("click", async () => {
         const file = fileInput.files[0];
         if (!file) {
-            alert("Please select a file");
+            showAlert("Please select a file");
             return;
         }
 
@@ -333,7 +334,7 @@ export function showUploadThumbnailDialog({
                 await loadPromptsForGallery(galleryNode.currentPage);
             }
         } else {
-            alert("Failed to upload thumbnail: " + (result.message || "Unknown error"));
+            showAlert("Failed to upload thumbnail: " + (result.message || "Unknown error"));
         }
     });
 }
@@ -640,19 +641,19 @@ export async function showFromLastOutputDialog({
     onClose = null,
 }) {
     if (!galleryNode.lastOutput?.filename) {
-        alert("No previous output found yet.");
+        showAlert("No previous output found yet.");
         return;
     }
 
     const sourceNode = getPromptSourceNode();
     if (!sourceNode) {
-        alert("No prompt source selected. Select your Show Text node first, then click Pick Prompt Source.");
+        showAlert("No prompt source selected. Select your Show Text node first, then click Pick Prompt Source.");
         return;
     }
 
     const capturedPromptText = normalizePromptText(extractPromptTextFromSourceNode(sourceNode));
     if (!capturedPromptText) {
-        alert("The selected prompt source has no text yet. Run the workflow once so the Show Text node updates.");
+        showAlert("The selected prompt source has no text yet. Run the workflow once so the Show Text node updates.");
         return;
     }
 
@@ -759,7 +760,7 @@ export async function showFromLastOutputDialog({
         const category = categorySelect.value;
 
         if (!promptText) {
-            alert("Prompt text is empty.");
+            showAlert("Prompt text is empty.");
             return;
         }
 
@@ -789,7 +790,7 @@ export async function showFromLastOutputDialog({
             }
         } catch (error) {
             console.error("Error creating prompt from last output:", error);
-            alert(`Error: ${error.message}`);
+            showAlert(`Error: ${error.message}`);
             saveBtn.disabled = false;
             saveBtn.style.opacity = "1";
         }

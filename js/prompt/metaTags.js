@@ -1,3 +1,4 @@
+import { confirmAction } from "../shared/nativeDialogs.js";
 export function createMetaTagsController({
     app,
     nodeInstance,
@@ -125,7 +126,7 @@ export function createMetaTagsController({
                 saveMetaTags({ redrawCanvas: false, skipRender: true });
             });
             row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
-                if (!confirm(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
+                if (!confirmAction(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
                 nodeInstance.metaTags.splice(index, 1);
                 saveMetaTags();
             });
