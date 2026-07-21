@@ -548,6 +548,64 @@ export function getLoraStyles(uniqueId) {
                         stroke: currentColor;
                     }
 
+                    #${uniqueId} .lora-search-anchor {
+                        position: relative;
+                        display: flex;
+                        flex: 0 0 auto;
+                    }
+
+                    #${uniqueId} .lora-search-popover {
+                        position: absolute;
+                        left: 0;
+                        bottom: calc(100% + 8px);
+                        z-index: 140;
+                        width: min(240px, calc(100vw - 32px));
+                        padding: 7px;
+                        align-items: center;
+                        gap: 4px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.16);
+                        border-radius: 9px;
+                        background: #202124;
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.46);
+                    }
+
+                    #${uniqueId} .lora-search-popover .search-input {
+                        width: 100%;
+                        min-width: 0;
+                        height: 28px;
+                        padding: 4px 28px 4px 8px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.16);
+                        border-radius: 6px;
+                        background: #121315;
+                        color: #eee;
+                        outline: none;
+                    }
+
+                    #${uniqueId} .lora-search-popover .search-input:focus {
+                        border-color: rgba(255, 122, 0, 0.68);
+                        box-shadow: 0 0 0 2px rgba(255, 122, 0, 0.14);
+                    }
+
+                    #${uniqueId} .lora-search-clear-btn {
+                        position: absolute;
+                        right: 12px;
+                        width: 20px;
+                        height: 20px;
+                        padding: 0;
+                        border: 0;
+                        background: transparent;
+                        color: #aaa;
+                        font-size: 17px;
+                        line-height: 20px;
+                        cursor: pointer;
+                    }
+
+                    #${uniqueId} .lora-search-clear-btn:hover {
+                        color: #fff;
+                    }
+
                     /* --- Display Options Popover --- */
                     #${uniqueId} .lora-display-options-anchor {
                         position: relative;
@@ -2202,6 +2260,200 @@ export function getLoraStyles(uniqueId) {
                         padding: 0 10px !important;
                     }
 
+                    /* --- Precision Contact Sheet visual system --- */
+                    #${uniqueId} .locallora-container {
+                        --contact-bg: #171816;
+                        --contact-surface-1: #1d1f1c;
+                        --contact-surface-2: #242722;
+                        --contact-surface-3: #2b2f29;
+                        --contact-edge: rgba(226, 232, 218, 0.10);
+                        --contact-edge-strong: rgba(226, 232, 218, 0.18);
+                        --contact-text: #e7e9e2;
+                        --contact-muted: #a6aca1;
+                        --contact-lora: #b88763;
+                        --contact-lora-bright: #d4aa87;
+                        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                        background: var(--contact-bg);
+                        color: var(--contact-text);
+                    }
+                    #${uniqueId} .locallora-controls,
+                    #${uniqueId} .locallora-actions {
+                        background: rgba(27, 29, 26, 0.97);
+                        border-color: var(--contact-edge);
+                        box-shadow: none;
+                    }
+                    #${uniqueId} .lora-folder-pill {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-left-color: color-mix(in srgb, var(--folder-color, var(--contact-lora)) 60%, #72766e);
+                        border-radius: 5px;
+                        color: #c9cdc4;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                    }
+                    #${uniqueId} .lora-folder-pill:hover {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        border-left-color: color-mix(in srgb, var(--folder-color, var(--contact-lora)) 72%, #8b8f86);
+                        color: var(--contact-text);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+                        transform: none;
+                    }
+                    #${uniqueId} .lora-folder-pill.active {
+                        background: #302923;
+                        border-color: rgba(184, 135, 99, 0.46);
+                        border-left-color: var(--folder-color, var(--contact-lora));
+                        color: #ebd4c1;
+                        box-shadow: inset 0 -2px 0 rgba(184, 135, 99, 0.72);
+                    }
+                    #${uniqueId} .lora-active-stack-btn,
+                    #${uniqueId} .lora-action-btn {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 5px;
+                        color: #cdd1c8;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                    }
+                    #${uniqueId} .lora-active-stack-btn:hover,
+                    #${uniqueId} .lora-active-stack-btn.open,
+                    #${uniqueId} .lora-action-btn:hover,
+                    #${uniqueId} .lora-action-btn.active {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        color: var(--contact-text);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+                        transform: none;
+                    }
+                    #${uniqueId} .locallora-active-sidebar {
+                        background: rgba(29, 31, 28, 0.985);
+                        border-color: rgba(184, 135, 99, 0.30);
+                        border-radius: 10px;
+                        box-shadow: 0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.04);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
+                    }
+                    #${uniqueId} .locallora-active-sidebar-header {
+                        background: #242722;
+                        border-bottom-color: var(--contact-edge);
+                    }
+                    #${uniqueId} .locallora-active-sidebar-title span:first-child {
+                        color: var(--contact-text);
+                        text-transform: none;
+                        letter-spacing: 0.01em;
+                    }
+                    #${uniqueId} .locallora-lora-card,
+                    #${uniqueId} .locallora-lora-item,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 6px;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+                    }
+                    #${uniqueId} .locallora-lora-card:hover,
+                    #${uniqueId} .locallora-lora-item:hover,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item:hover {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 4px 10px rgba(0,0,0,0.16);
+                        transform: none;
+                    }
+                    #${uniqueId} .locallora-lora-card.selected-flow {
+                        background-color: #2b2520;
+                        border-color: rgba(184, 135, 99, 0.72);
+                        box-shadow: inset 0 0 0 1px rgba(212, 170, 135, 0.14);
+                    }
+                    #${uniqueId} .locallora-lora-card.selected-flow::before,
+                    #${uniqueId} .locallora-lora-card.selected-flow::after {
+                        content: '';
+                        position: absolute;
+                        z-index: 15;
+                        width: 15px;
+                        height: 15px;
+                        pointer-events: none;
+                    }
+                    #${uniqueId} .locallora-lora-card.selected-flow::before {
+                        top: 5px;
+                        left: 5px;
+                        border-top: 2px solid var(--contact-lora-bright);
+                        border-left: 2px solid var(--contact-lora-bright);
+                    }
+                    #${uniqueId} .locallora-lora-card.selected-flow::after {
+                        right: 5px;
+                        bottom: 5px;
+                        border-right: 2px solid var(--contact-lora-bright);
+                        border-bottom: 2px solid var(--contact-lora-bright);
+                    }
+                    #${uniqueId} .locallora-media-container {
+                        background: #121310;
+                    }
+                    #${uniqueId} .locallora-lora-card-info {
+                        padding: 32px 8px 8px;
+                        background: linear-gradient(180deg, transparent, rgba(12, 14, 12, 0.94));
+                        opacity: 1;
+                        transform: none;
+                    }
+                    #${uniqueId} .lora-card-tags .tag {
+                        background: rgba(184, 135, 99, 0.14);
+                        border-color: rgba(184, 135, 99, 0.26);
+                        border-radius: 3px;
+                        color: #d8c0ad;
+                    }
+                    #${uniqueId} .lora-card-tags .tag:hover {
+                        background: rgba(184, 135, 99, 0.24);
+                        border-color: rgba(212, 170, 135, 0.42);
+                    }
+                    #${uniqueId} .card-btn {
+                        background: rgba(20, 21, 19, 0.88);
+                        border-color: var(--contact-edge-strong);
+                        border-radius: 4px;
+                        box-shadow: none;
+                    }
+                    #${uniqueId} .card-btn:hover {
+                        background: #30332e;
+                        border-color: rgba(184, 135, 99, 0.52);
+                    }
+                    #${uniqueId} .locallora-lora-item:not(.disabled),
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item:not(.disabled) {
+                        border-color: rgba(184, 135, 99, 0.30);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+                    }
+                    #${uniqueId} .locallora-lora-item.drag-over,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-lora-item.drag-over {
+                        border-color: var(--contact-lora-bright) !important;
+                        box-shadow: inset 3px 0 0 var(--contact-lora-bright) !important;
+                    }
+                    #${uniqueId} .lora-selected-toggle-pill,
+                    #${uniqueId} .locallora-active-overlay-capsule,
+                    #${uniqueId} .locallora-selected-name,
+                    #${uniqueId} .lora-trigger-preset-button {
+                        border-radius: 4px;
+                    }
+                    #${uniqueId} .lora-selected-toggle-pill.on {
+                        background: #53644d;
+                        border-color: #73836d;
+                    }
+                    #${uniqueId} .lora-folder-overflow,
+                    #${uniqueId} .lora-folder-pull-tab,
+                    #${uniqueId} .lora-display-options-popover,
+                    #${uniqueId} .preset-dropdown {
+                        background-color: #20221f;
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: 0 8px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        #${uniqueId} .locallora-container *,
+                        #${uniqueId} .locallora-container *::before,
+                        #${uniqueId} .locallora-container *::after {
+                            scroll-behavior: auto !important;
+                            animation-duration: 0.01ms !important;
+                            animation-iteration-count: 1 !important;
+                            transition-duration: 0.01ms !important;
+                        }
+                    }
                 </style>
     `;
 }

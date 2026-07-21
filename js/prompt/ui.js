@@ -51,9 +51,9 @@ import {
     renderPromptBuilderDrawer,
 } from "./library.js?v=repository-review-20260712";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prefs-schema-20260611";
-import { showWildcardsModal } from "./wildcards.js?v=wildcard-auto-attach-category-fix-20260711";
+import { showWildcardsModal } from "./wildcards.js?v=wildcard-update-default-off-20260717-1";
 import { getPromptTemplate } from "./template.js?v=density-transform-20260714-1";
-import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-auto-attach-category-fix-20260711";
+import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
 import { createPromptWorkspaceActions } from "./workspaceActions.js?v=reference-ux-20260713-2";

@@ -4354,6 +4354,251 @@ export function getPromptStyles(uniqueId) {
                         backdrop-filter: blur(12px) saturate(1.12);
                         -webkit-backdrop-filter: blur(12px) saturate(1.12);
                     }
+                    /* --- Precision Contact Sheet visual system --- */
+                    .localprompt-container {
+                        --contact-bg: #171816;
+                        --contact-surface-1: #1d1f1c;
+                        --contact-surface-2: #242722;
+                        --contact-surface-3: #2b2f29;
+                        --contact-edge: rgba(226, 232, 218, 0.10);
+                        --contact-edge-strong: rgba(226, 232, 218, 0.18);
+                        --contact-text: #e7e9e2;
+                        --contact-muted: #a6aca1;
+                        --contact-prompt: #91a985;
+                        --contact-prompt-bright: #b8c9ae;
+                        background: var(--contact-bg);
+                        color: var(--contact-text);
+                    }
+                    .localprompt-top-row,
+                    .localprompt-bottom-bar {
+                        background: rgba(27, 29, 26, 0.97);
+                        border-color: var(--contact-edge);
+                        box-shadow: none;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }
+                    .localprompt-top-row {
+                        border-bottom-color: var(--contact-edge);
+                    }
+                    .localprompt-bottom-bar {
+                        border-top-color: var(--contact-edge);
+                    }
+                    .localprompt-library-shell,
+                    .localprompt-workspace-host {
+                        background: var(--contact-bg);
+                    }
+                    .localprompt-library-shell .localprompt-workspace-page,
+                    .localprompt-library-shell .localprompt-modal.localprompt-workspace-page {
+                        background: transparent !important;
+                    }
+                    .localprompt-library-shell .localprompt-workspace-header,
+                    .localprompt-library-subnav,
+                    .localprompt-library-shell .localprompt-workspace-footer {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                    }
+                    .localprompt-library-shell .localprompt-workspace-title h3 {
+                        color: var(--contact-text);
+                        text-shadow: none;
+                        letter-spacing: -0.01em;
+                    }
+                    .localprompt-library-tab,
+                    .localprompt-pinned-category-pill,
+                    .localprompt-library-subnav-item {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 5px;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        color: #c9cdc4;
+                    }
+                    .localprompt-library-tab:hover,
+                    .localprompt-pinned-category-pill:hover,
+                    .localprompt-library-subnav-item:hover {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+                        color: var(--contact-text);
+                        transform: none;
+                    }
+                    .localprompt-library-tab.active,
+                    .localprompt-pinned-category-pill.active,
+                    .localprompt-library-subnav-item.active {
+                        background: #2b3028;
+                        border-color: rgba(145, 169, 133, 0.50);
+                        color: var(--contact-prompt-bright);
+                        box-shadow: inset 0 -2px 0 rgba(145, 169, 133, 0.72);
+                    }
+                    .localprompt-library-choice,
+                    .localprompt-browse-toolbar,
+                    .localprompt-workspace-section {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 8px;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }
+                    .localprompt-library-choice:hover {
+                        background: var(--contact-surface-2);
+                        border-color: color-mix(in srgb, var(--library-accent, var(--contact-prompt)) 40%, var(--contact-edge-strong));
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 5px 12px rgba(0,0,0,0.18);
+                        transform: none;
+                    }
+                    .localprompt-library-choice-icon {
+                        width: 36px;
+                        height: 36px;
+                        margin-bottom: 20px;
+                        border: 0;
+                        border-radius: 0;
+                        background: transparent;
+                        box-shadow: none;
+                        color: color-mix(in srgb, var(--library-accent, var(--contact-prompt)) 72%, #d9ddd4);
+                    }
+                    .localprompt-library-choice strong {
+                        color: var(--contact-text);
+                        text-shadow: none;
+                    }
+                    .localprompt-toolbar-button.localprompt-icon-btn,
+                    .localprompt-bottom-bar .localprompt-icon-btn,
+                    .localprompt-category-grid-button,
+                    .localprompt-favorite-toggle-btn,
+                    .localprompt-active-side-tab {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 5px;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }
+                    .localprompt-toolbar-button.localprompt-icon-btn:hover,
+                    .localprompt-bottom-bar .localprompt-icon-btn:hover,
+                    .localprompt-category-grid-button:hover,
+                    .localprompt-favorite-toggle-btn:hover,
+                    .localprompt-active-side-tab:hover,
+                    .localprompt-active-side-tab.active {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+                        transform: none;
+                    }
+                    .localprompt-bottom-bar .localprompt-wildcard-toggle > svg {
+                        display: none !important;
+                    }
+                    .localprompt-bottom-bar .localprompt-wildcard-toggle::before {
+                        content: '';
+                        display: block;
+                        width: 18px;
+                        height: 18px;
+                        flex: 0 0 18px;
+                        box-sizing: border-box;
+                        border: 2px solid currentColor;
+                        border-radius: 2px;
+                        background:
+                            radial-gradient(circle at 25% 25%, currentColor 0 1.25px, transparent 1.5px),
+                            radial-gradient(circle at 75% 25%, currentColor 0 1.25px, transparent 1.5px),
+                            radial-gradient(circle at 50% 50%, currentColor 0 1.25px, transparent 1.5px),
+                            radial-gradient(circle at 25% 75%, currentColor 0 1.25px, transparent 1.5px),
+                            radial-gradient(circle at 75% 75%, currentColor 0 1.25px, transparent 1.5px);
+                        color: inherit;
+                        pointer-events: none;
+                    }
+                    .localprompt-bottom-bar .localprompt-wildcard-toggle.active::before {
+                        color: #f1fff4;
+                    }
+                    .localprompt-active-sidebar {
+                        background: rgba(29, 31, 28, 0.985);
+                        border-color: rgba(145, 169, 133, 0.28);
+                        border-radius: 10px;
+                        box-shadow: 0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.04);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
+                    }
+                    .localprompt-active-sidebar-header {
+                        background: #242722;
+                        border-bottom-color: var(--contact-edge);
+                    }
+                    .localprompt-chip,
+                    .localprompt-chip-thumb,
+                    .localprompt-gallery-item {
+                        background: var(--contact-surface-1);
+                        border-color: var(--contact-edge);
+                        border-radius: 6px;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+                    }
+                    .localprompt-chip:hover,
+                    .localprompt-chip-thumb:hover,
+                    .localprompt-gallery-item:hover {
+                        background: var(--contact-surface-2);
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 4px 10px rgba(0,0,0,0.16);
+                        transform: none;
+                    }
+                    .localprompt-chip.selected,
+                    .localprompt-chip-thumb.selected,
+                    .localprompt-gallery-item.selected {
+                        background-color: #252b23;
+                        border-color: rgba(145, 169, 133, 0.68);
+                        box-shadow: inset 0 0 0 1px rgba(184, 201, 174, 0.14);
+                    }
+                    .localprompt-gallery-item.selected::after {
+                        content: '';
+                        top: 5px;
+                        left: 5px;
+                        width: 15px;
+                        height: 15px;
+                        border: 0;
+                        border-top: 2px solid var(--contact-prompt-bright);
+                        border-left: 2px solid var(--contact-prompt-bright);
+                        border-radius: 0;
+                        background: transparent;
+                        box-shadow: none;
+                    }
+                    .localprompt-gallery-item .item-info,
+                    .localprompt-chip-thumb .thumb-label {
+                        opacity: 1;
+                        transform: none;
+                        background: linear-gradient(180deg, transparent, rgba(12, 14, 12, 0.92));
+                    }
+                    .localprompt-gallery-item .item-preview,
+                    .localprompt-chip-thumb {
+                        background-color: #121310;
+                    }
+                    .localprompt-chip .usage-count,
+                    .localprompt-chip-thumb.pinned-managed .managed-state-pill {
+                        border-radius: 3px;
+                    }
+                    .localprompt-chip.pinned-drop-target,
+                    .localprompt-chip-thumb.pinned-drop-target,
+                    .localprompt-gallery-item.pinned-drop-target {
+                        border-color: var(--contact-prompt-bright) !important;
+                        box-shadow: inset 3px 0 0 var(--contact-prompt-bright);
+                    }
+                    .localprompt-category-overflow,
+                    .localprompt-category-pull-tab {
+                        background: #20221f;
+                        border-color: var(--contact-edge-strong);
+                        box-shadow: 0 8px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }
+                    .localprompt-category-pull-tab::before {
+                        background: #20221f;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        .localprompt-container *,
+                        .localprompt-container *::before,
+                        .localprompt-container *::after {
+                            scroll-behavior: auto !important;
+                            animation-duration: 0.01ms !important;
+                            animation-iteration-count: 1 !important;
+                            transition-duration: 0.01ms !important;
+                        }
+                    }
                 </style>
     `;
 }

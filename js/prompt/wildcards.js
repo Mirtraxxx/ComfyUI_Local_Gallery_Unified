@@ -16,7 +16,7 @@ function buildWeightMap(savedData) {
     savedData.forEach(item => {
         categoryMap[item.category] = {
             weight: Number.isFinite(Number(item.weight)) ? Number(item.weight) : 1.0,
-            autoAttach: item.auto_attach !== false,
+            autoAttach: item.auto_attach === true,
         };
     });
     return categoryMap;
@@ -49,7 +49,7 @@ function createCategoryRow(category, categoryMap, onChange, onExport) {
     const savedCategory = categoryMap[category];
     const isChecked = Boolean(savedCategory);
     const weight = isChecked ? savedCategory.weight : 1.0;
-    const autoAttach = isChecked ? savedCategory.autoAttach : true;
+    const autoAttach = isChecked ? savedCategory.autoAttach : false;
 
     const row = document.createElement("div");
     row.style.cssText = "display: flex; align-items: center; gap: 6px; padding: 4px 0;";

@@ -2384,7 +2384,7 @@ class LocalPromptGallery:
                     continue
 
                 category_prompt_ids = indexes.get("wildcard_category_ids", {}).get(category, [])
-                auto_attach_category = cat_info.get("auto_attach", True)
+                auto_attach_category = cat_info.get("auto_attach", False)
                 if isinstance(auto_attach_category, str):
                     auto_attach_category = auto_attach_category.lower() not in ("off", "false", "0", "no")
 

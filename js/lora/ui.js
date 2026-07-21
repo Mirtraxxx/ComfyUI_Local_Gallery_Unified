@@ -19,7 +19,7 @@ import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-202
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-display-state-lifecycle-20260712";
+import { getLoraStyles } from "./styles.js?v=bottom-bar-search-20260718-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
 import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
@@ -120,7 +120,6 @@ const UnifiedLoraGalleryNode = {
                             </div>
                             <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
                                 <button class="toggle-all-btn">Toggle All</button>
-                                <input type="text" class="search-input" placeholder="Filter by Name..." style="flex-grow: 1;">
                                 <button class="clear-all-btn" title="Clear all selected LoRAs">Clear All</button>
                                 <button class="toggle-gallery-btn" title="Toggle Gallery">Hide Gallery</button>
                             </div>
@@ -187,6 +186,15 @@ const UnifiedLoraGalleryNode = {
                             </div>
                         </div>
                         <div class="locallora-bottom-bar">
+                            <div class="lora-search-anchor">
+                                <button class="lora-action-btn lora-search-btn" type="button" title="Search LoRAs by name" aria-label="Search LoRAs by name" aria-expanded="false" aria-controls="${uniqueId}-search-popover">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                                </button>
+                                <div class="lora-search-popover" id="${uniqueId}-search-popover" style="display: none;">
+                                    <input type="search" class="search-input" placeholder="Search LoRAs..." aria-label="Search LoRAs by name" autocomplete="off">
+                                    <button class="lora-search-clear-btn" type="button" title="Clear search" aria-label="Clear search">&times;</button>
+                                </div>
+                            </div>
                             <button class="lora-action-btn save-preset-btn" title="Save current stack as preset" aria-label="Save LoRA preset">
                                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
                             </button>
@@ -303,6 +311,10 @@ const UnifiedLoraGalleryNode = {
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
             const displayOptionsBtn = widgetContainer.querySelector(".lora-display-options-btn");
             const displayOptionsPopover = widgetContainer.querySelector(".lora-display-options-popover");
+            const searchAnchor = widgetContainer.querySelector(".lora-search-anchor");
+            const searchBtn = widgetContainer.querySelector(".lora-search-btn");
+            const searchPopover = widgetContainer.querySelector(".lora-search-popover");
+            const clearNameSearchBtn = widgetContainer.querySelector(".lora-search-clear-btn");
             const getLoraChromeHeight = () => {
                 const controlsEl = widgetContainer.querySelector(".locallora-controls");
                 const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
@@ -1733,7 +1745,32 @@ const UnifiedLoraGalleryNode = {
                     updateSelection();
                 });
 
-                searchInput.addEventListener("input", () => renderCurrentView(false));
+                const setNameSearchOpen = (isOpen) => {
+                    searchPopover.style.display = isOpen ? "flex" : "none";
+                    searchBtn.setAttribute("aria-expanded", String(isOpen));
+                    searchBtn.classList.toggle("active", isOpen || Boolean(searchInput.value));
+                    if (isOpen) requestAnimationFrame(() => searchInput.focus());
+                };
+
+                searchBtn.addEventListener("click", () => {
+                    setNameSearchOpen(searchPopover.style.display === "none");
+                });
+                searchInput.addEventListener("input", () => {
+                    searchBtn.classList.toggle("active", Boolean(searchInput.value));
+                    renderCurrentView(false);
+                });
+                searchInput.addEventListener("keydown", (event) => {
+                    if (event.key === "Escape") {
+                        setNameSearchOpen(false);
+                        searchBtn.focus();
+                    }
+                });
+                clearNameSearchBtn.addEventListener("click", () => {
+                    searchInput.value = "";
+                    searchBtn.classList.add("active");
+                    renderCurrentView(false);
+                    searchInput.focus();
+                });
                 tagFilterInput.addEventListener("keydown", (e) => { if(e.key === 'Enter') saveStateAndFetch(); });
                 
                 const arrow = multiSelectTagContainer.querySelector('.locallora-multiselect-arrow');
@@ -1754,6 +1791,9 @@ const UnifiedLoraGalleryNode = {
                     if (displayOptionsPopover && !e.target.closest?.(`#${uniqueId} .lora-display-options-anchor`)) {
                         displayOptionsPopover.style.display = "none";
                         displayOptionsBtn?.classList.remove("active");
+                    }
+                    if (searchPopover && !searchAnchor.contains(e.target)) {
+                        setNameSearchOpen(false);
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId}-active-sidebar`)) {
                         closeActiveStack();
