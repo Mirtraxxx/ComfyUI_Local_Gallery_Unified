@@ -65,7 +65,7 @@ import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 
-export function registerPromptGalleryUi(app, api) {
+export function createPromptGalleryLifecycle(app, api) {
 const UnifiedPromptGalleryNode = {
     name: "LocalGalleryPromptLora.PromptUI",
     isLoading: false,
@@ -2799,8 +2799,7 @@ const UnifiedPromptGalleryNode = {
     }
 };
 
-app.registerExtension({
-    name: "LocalGalleryPromptLora.PromptUI",
+return {
     async setup() {
         // Global execution listener to track outputs from ANY node
         api.addEventListener("executed", (event) => {
@@ -2893,15 +2892,9 @@ app.registerExtension({
         api.addEventListener("execution_error", clearWildcardExecutionState);
         api.addEventListener("execution_interrupted", clearWildcardExecutionState);
     },
-    async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        if (nodeData.name === "LocalGalleryPromptLora") {
-            UnifiedPromptGalleryNode.setup(nodeType, nodeData);
-        }
-    },
-    async nodeCreated(node) {
-        // onExecuted seed sync is handled inside the setup() setTimeout block
-        // where the DOM elements are guaranteed to exist.
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        UnifiedPromptGalleryNode.setup(nodeType, nodeData);
     }
-});
+};
 }
 

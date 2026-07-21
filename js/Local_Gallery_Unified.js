@@ -1,19 +1,23 @@
-﻿import { app } from "../../scripts/app.js";
+import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { setupUnifiedGalleryTabs } from "./tabs.js?v=density-80-20260714-3";
-import { registerLoraGalleryUi } from "./lora/ui.js?v=bottom-bar-search-20260718-1";
-import { registerPromptGalleryUi } from "./prompt/ui.js?v=auto-attach-idle-only-20260720-2";
+import { setupUnifiedGalleryTabs } from "./tabs.js?v=unified-lifecycle-20260721-1";
+import { createLoraGalleryLifecycle } from "./lora/ui.js?v=unified-lifecycle-20260721-1";
+import { createPromptGalleryLifecycle } from "./prompt/ui.js?v=unified-lifecycle-20260721-1";
+
+const loraLifecycle = createLoraGalleryLifecycle(app);
+const promptLifecycle = createPromptGalleryLifecycle(app, api);
 
 app.registerExtension({
-    name: "LocalGalleryPromptLora.Tabs",
+    name: "LocalGalleryPromptLora.Unified",
+    async setup() {
+        await loraLifecycle.setup?.();
+        await promptLifecycle.setup?.();
+    },
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name === "LocalGalleryPromptLora") {
-            setupUnifiedGalleryTabs(nodeType);
-        }
+        if (nodeData.name !== "LocalGalleryPromptLora") return;
+
+        setupUnifiedGalleryTabs(nodeType, app);
+        await loraLifecycle.beforeRegisterNodeDef?.(nodeType, nodeData);
+        await promptLifecycle.beforeRegisterNodeDef?.(nodeType, nodeData);
     },
 });
-
-registerLoraGalleryUi(app);
-
-registerPromptGalleryUi(app, api);
-

@@ -1,6 +1,6 @@
 # Remaining Work
 
-Updated: 2026-06-18
+Updated: 2026-07-21
 
 This file is the current practical work queue. Older baseline audits and migration plans were removed because they described pre-standalone architecture and stale legacy-route assumptions.
 
@@ -20,14 +20,14 @@ Approximate current frontend sizes:
 
 | File | Lines | Notes |
 | --- | ---: | --- |
-| `js/prompt/styles.js` | 3835 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
-| `js/prompt/ui.js` | 3325 | Prompt coordinator; still important but no longer carries every prompt feature. |
-| `js/lora/ui.js` | 2582 | Largest remaining JS behavior module and best cleanup target. |
-| `js/lora/styles.js` | 1998 | LoRA CSS-only file; large enough to deserve careful surface checks. |
-| `js/prompt/library.js` | 757 | Prompt Builder card drawer. |
-| `js/prompt/dialogs.js` | 627 | Prompt dialogs. |
+| `js/prompt/styles.js` | 4604 | Largest prompt file; CSS-only, but easy to patch the wrong surface. |
+| `js/prompt/ui.js` | 2900 | Prompt coordinator; still important but no longer carries every prompt feature. |
+| `js/lora/ui.js` | 1885 | Largest remaining JS behavior module and best cleanup target. |
+| `js/lora/styles.js` | 2459 | LoRA CSS-only file; large enough to deserve careful surface checks. |
+| `js/prompt/library.js` | 762 | Prompt Builder card drawer. |
+| `js/prompt/dialogs.js` | 797 | Prompt dialogs. |
 | `js/prompt/settings.js` | 618 | Settings UI. |
-| `js/prompt/browse.js` | 432 | Card Manager. |
+| `js/prompt/browse.js` | 827 | Card Manager. |
 | `js/prompt/preferences.js` | 107 | Frontend preference helpers. |
 
 ## Best Next Refactor Target
@@ -36,14 +36,12 @@ Approximate current frontend sizes:
 
 This is the best cleanup target if the goal is maintainability rather than a specific prompt feature.
 
-Good extraction candidates:
+Completed extractions include card HTML builders, preset controls, metadata editing, folder
+management, Civitai sync, selection serialization, and display-state normalization.
 
-- LoRA gallery card HTML builders.
-- LoRA compact row builders.
-- Selected LoRA list rendering.
-- LoRA preset controls.
-- Metadata editor helpers.
-- Civitai sync UI status handling.
+The clearest remaining extraction candidate is selected LoRA Stack rendering and its event
+binding, currently centered on `renderSelectedList()` in `js/lora/ui.js`. Keep pointer reorder
+behavior with that owner when extracting it.
 
 Reorder logic lives inside `js/lora/ui.js` (the old `moveSelectedLora` in helpers.js was dead and removed).
 
@@ -63,27 +61,20 @@ The most common failure mode is patching a visually similar but wrong surface. C
 
 ## Still Worth Doing
 
-### 1. Lifecycle Setup Cleanup
+### 1. Lifecycle Setup Cleanup (Completed 2026-07-21)
 
-Tabs, Prompt UI, and LoRA UI still use separate extension setup paths. It works, but registration order matters.
-
-Future direction:
-
-- Move toward one clearer initializer for the unified node.
-- Do this during a quiet testing window.
-- Do not combine it with large UI extraction.
+Tabs, Prompt UI, and LoRA UI now register through one extension in
+`js/Local_Gallery_Unified.js`. Prompt and LoRA expose lifecycle factories, and the entrypoint
+composes tab, LoRA, and Prompt node setup in a fixed order.
 
 ### 2. LoRA UI Modularization
 
 Extract one area at a time and smoke test after each extraction.
 
-Recommended order:
+Recommended next step:
 
-1. Card/row builders.
-2. Selected LoRA list rendering.
-3. Preset controls.
-4. Metadata editor.
-5. Civitai sync UI.
+1. Extract selected LoRA Stack rendering and event binding.
+2. Smoke test selection, removal, weights, trigger presets, thumbnails, and pointer reorder.
 
 ### 3. Shared Modal/Notification Helpers
 

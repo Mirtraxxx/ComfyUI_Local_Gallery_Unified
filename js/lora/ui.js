@@ -23,7 +23,7 @@ import { getLoraStyles } from "./styles.js?v=bottom-bar-search-20260718-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
 import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
-export function registerLoraGalleryUi(app) {
+export function createLoraGalleryLifecycle(app) {
 const UnifiedLoraGalleryNode = {
     name: "LocalLoraGallery",
     isLoading: false,
@@ -1876,13 +1876,10 @@ const UnifiedLoraGalleryNode = {
     }
 };
 
-app.registerExtension({
-    name: "LocalGalleryPromptLora.LoraUI",
+return {
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name === "LocalGalleryPromptLora") {
-            UnifiedLoraGalleryNode.setup(nodeType, nodeData);
-        }
+        UnifiedLoraGalleryNode.setup(nodeType, nodeData);
     },
-});
+};
 }
 

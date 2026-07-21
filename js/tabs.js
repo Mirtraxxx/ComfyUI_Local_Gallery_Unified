@@ -1,6 +1,6 @@
 import { hideWidget, setDomWidgetVisible } from "./shared/widgets.js";
 
-export function setupUnifiedGalleryTabs(nodeType) {
+export function setupUnifiedGalleryTabs(nodeType, app) {
     const onNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         const result = onNodeCreated?.apply(this, arguments);

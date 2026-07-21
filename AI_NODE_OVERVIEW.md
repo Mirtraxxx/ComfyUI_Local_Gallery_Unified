@@ -1,6 +1,6 @@
 # ComfyUI Local Gallery Unified - Current Architecture
 
-Updated: 2026-06-18
+Updated: 2026-07-21
 
 ## Purpose
 
@@ -104,7 +104,8 @@ LoRA route groups:
 
 - `js/Local_Gallery_Unified.js`
   - Small frontend entrypoint.
-  - Registers tabs, LoRA UI, and Prompt UI.
+  - Registers one unified extension lifecycle.
+  - Composes tab setup, LoRA UI setup, and Prompt UI setup in a fixed order.
 - `js/tabs.js`
   - Prompt/LoRA tab switcher.
   - Persists visible tab through `active_tab`.
@@ -149,7 +150,7 @@ Important naming trap:
 
 Prompt UI call graph:
 
-- `registerPromptGalleryUi()` in `js/prompt/ui.js` installs the node UI and orchestrates smaller modules.
+- `createPromptGalleryLifecycle()` in `js/prompt/ui.js` provides Prompt lifecycle hooks to the unified entrypoint and orchestrates smaller modules.
 - Prompt Builder rendering delegates to `renderPromptBuilderBar()` and `renderPromptBuilderDrawer()` in `js/prompt/library.js`; old `renderLibrary*` names are aliases.
 - Card Manager delegates to `showCardManagerModal()` in `js/prompt/browse.js`; old `showBrowseModal()` is an alias.
 - Hidden Prompts are owned by `createMetaTagsController()` in `js/prompt/metaTags.js`; `ui.js` wires the controller into the toolbar and node state.
@@ -160,6 +161,7 @@ Prompt UI call graph:
 Use product names from `LORA_UI_TERMINOLOGY.md` when discussing LoRA UI work.
 
 - Main LoRA UI: `js/lora/ui.js`
+- LoRA lifecycle factory: `createLoraGalleryLifecycle()` in `js/lora/ui.js`
 - LoRA state widgets: `js/lora/stateWidgets.js`
 - (Note: `js/lora/helpers.js` was deleted - only contained unused old reorder helper)
 - LoRA render helpers: `js/lora/renderers.js`
