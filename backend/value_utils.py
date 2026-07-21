@@ -3,14 +3,18 @@ import math
 
 
 def parse_json_list(value):
-    """Return a decoded JSON list, or an empty list for malformed/wrong-shaped input."""
+    """Decode a legacy list or a versioned ``{"items": [...]}`` envelope."""
     if isinstance(value, list):
         return value
     try:
         parsed = json.loads(value or "[]")
     except (TypeError, ValueError, json.JSONDecodeError):
         return []
-    return parsed if isinstance(parsed, list) else []
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, dict) and isinstance(parsed.get("items"), list):
+        return parsed["items"]
+    return []
 
 
 def finite_float(value, fallback=1.0):

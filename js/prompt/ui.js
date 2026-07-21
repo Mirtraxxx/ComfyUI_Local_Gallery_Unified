@@ -66,7 +66,7 @@ import {
 } from "./preferences.js?v=prefs-schema-20260611";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
-import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
+import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
 
 export function createPromptGalleryLifecycle(app, api) {
 const UnifiedPromptGalleryNode = {

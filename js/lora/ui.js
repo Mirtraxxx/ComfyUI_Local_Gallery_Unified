@@ -2,7 +2,7 @@ import { confirmAction } from "../shared/nativeDialogs.js";
 import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
-import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
+import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
 import {
     LORA_DISPLAY_LIMITS,
     clampInteger,

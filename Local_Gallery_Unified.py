@@ -4,9 +4,11 @@ import time
 try:
     from .backend.Local_Lora_Gallery import LocalLoraGallery
     from .backend.Local_Prompt_Gallery import LocalPromptGallery
+    from .backend.value_utils import parse_json_list
 except ImportError:
     from backend.Local_Lora_Gallery import LocalLoraGallery
     from backend.Local_Prompt_Gallery import LocalPromptGallery
+    from backend.value_utils import parse_json_list
 
 
 class LocalGalleryPromptLora:
@@ -134,12 +136,7 @@ class LocalGalleryPromptLora:
 
     @classmethod
     def _get_enabled_meta_prompt_parts(cls, prompt_meta_tags):
-        try:
-            meta_tags = json.loads(prompt_meta_tags or "[]")
-            if not isinstance(meta_tags, list):
-                meta_tags = []
-        except Exception:
-            meta_tags = []
+        meta_tags = parse_json_list(prompt_meta_tags)
 
         enabled_tags = []
         for index, tag in enumerate(meta_tags):

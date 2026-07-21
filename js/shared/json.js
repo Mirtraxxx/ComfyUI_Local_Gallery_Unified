@@ -29,6 +29,9 @@ export function readSelectionArray(rawValue, fallback = []) {
     return fallback;
 }
 
-export function writeSelectionArray(items, fallback = "[]") {
-    return stringifyJsonOr(Array.isArray(items) ? items : [], fallback);
+export function writeSelectionArray(items, fallback = "[]", version = 1) {
+    return stringifyJsonOr({
+        version,
+        items: Array.isArray(items) ? items : [],
+    }, fallback);
 }
