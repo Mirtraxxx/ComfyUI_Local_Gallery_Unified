@@ -304,7 +304,7 @@ export function getPromptReferenceUxStyles() {
                 display: flex;
                 align-items: stretch;
                 gap: 0;
-                min-height: 44px;
+                min-height: 36px;
                 padding: 0 14px;
                 background: rgba(7, 15, 23, 0.38);
                 border-top: 1px solid rgba(255,255,255,0.012);
@@ -317,14 +317,14 @@ export function getPromptReferenceUxStyles() {
 
             .localprompt-library-subnav-item {
                 position: relative;
-                min-width: 82px;
-                min-height: 44px;
-                padding: 0 13px;
+                min-width: 74px;
+                min-height: 36px;
+                padding: 0 10px;
                 color: #aab5c0;
                 background: transparent;
                 border: 0;
                 border-radius: 0;
-                font-size: 12px;
+                font-size: 11px;
                 font-weight: 520;
                 cursor: pointer;
                 transition: color 0.17s ease, background 0.17s ease;
@@ -542,7 +542,7 @@ export function getPromptReferenceUxStyles() {
             #create-combo-btn,
             #import-save-btn,
             #export-save-btn,
-            .localprompt-btn.active,
+            .localprompt-btn.active:not(.localprompt-icon-btn),
             .localprompt-btn.primary {
                 min-height: 44px;
                 padding: 9px 18px !important;
@@ -559,7 +559,7 @@ export function getPromptReferenceUxStyles() {
             #create-combo-btn:hover,
             #import-save-btn:hover,
             #export-save-btn:hover,
-            .localprompt-btn.active:hover,
+            .localprompt-btn.active:not(.localprompt-icon-btn):hover,
             .localprompt-btn.primary:hover {
                 background:
                     linear-gradient(135deg, rgba(103, 238, 143, 0.36), rgba(44, 129, 81, 0.15)),
@@ -654,17 +654,35 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-browse-toolbar {
-                display: grid;
-                grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(140px, 1fr) auto auto auto;
-                gap: 9px;
-                min-height: 62px;
-                padding: 9px;
-                background: rgba(8, 17, 25, 0.68);
-                border: 1px solid rgba(143, 177, 200, 0.13);
-                border-radius: 12px;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.018);
-                backdrop-filter: blur(16px);
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 5px;
+                max-height: none;
+                margin-bottom: 6px;
+                padding: 0;
+                overflow: visible;
+                background: transparent;
+                border: 0;
+                border-radius: 0;
+                box-shadow: none;
+                backdrop-filter: none;
             }
+
+            .localprompt-browse-toolbar-row {
+                display: flex;
+                align-items: stretch;
+                gap: 5px;
+                width: 100%;
+                min-width: 0;
+            }
+
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-search { flex: 1.2 1 140px; }
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-select { flex: 1.7 1 180px; }
+            .localprompt-browse-toolbar-row-primary #browse-stats { flex: 0.45 1 62px; }
+            .localprompt-browse-toolbar-row-primary #browse-fullscreen-toggle { flex: 0.65 1 96px; }
+            .localprompt-browse-toolbar-row-actions > * { flex: 1 1 100px; }
+            .localprompt-browse-toolbar-row-actions .localprompt-browse-sort-select { flex: 1.2 1 140px; }
 
             .localprompt-browse-search {
                 position: relative;
@@ -675,10 +693,12 @@ export function getPromptReferenceUxStyles() {
 
             .localprompt-browse-search > svg {
                 position: absolute;
-                left: 13px;
+                top: 50%;
+                left: 9px;
                 z-index: 2;
-                width: 17px;
-                height: 17px;
+                width: 14px;
+                height: 14px;
+                transform: translateY(-50%);
                 fill: none;
                 stroke: #8fa0ad;
                 stroke-width: 1.8;
@@ -688,25 +708,53 @@ export function getPromptReferenceUxStyles() {
 
             .localprompt-browse-search .localprompt-browse-input {
                 width: 100%;
-                padding-left: 39px !important;
+                padding: 0 9px 0 46px !important;
+                line-height: 30px;
+            }
+
+            .localprompt-browse-toolbar .localprompt-browse-input,
+            .localprompt-browse-toolbar .localprompt-browse-select,
+            .localprompt-browse-toolbar .localprompt-browse-sort-select {
+                width: 100%;
+                height: 32px !important;
+                min-height: 32px !important;
+                box-sizing: border-box;
+                border-radius: 7px !important;
+                font-size: 10.5px !important;
+            }
+
+            .localprompt-browse-toolbar .localprompt-browse-input {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            .localprompt-browse-toolbar .localprompt-browse-select,
+            .localprompt-browse-toolbar .localprompt-browse-sort-select {
+                padding: 0 28px 0 9px !important;
+                line-height: normal;
             }
 
             .localprompt-browse-toolbar-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 7px;
-                min-height: 44px;
-                padding: 8px 13px !important;
+                gap: 5px;
+                min-height: 32px;
+                padding: 4px 9px !important;
                 color: #d7e1e7;
                 background: #0c1721;
                 border: 1px solid rgba(143, 177, 200, 0.17);
-                border-radius: 10px;
+                border-radius: 7px;
+                font-size: 10.5px;
+            }
+
+            .localprompt-browse-toolbar-row .localprompt-browse-toolbar-btn {
+                width: 100%;
             }
 
             .localprompt-browse-toolbar-btn svg {
-                width: 17px;
-                height: 17px;
+                width: 14px;
+                height: 14px;
                 flex: 0 0 auto;
                 fill: none;
                 stroke: currentColor;
@@ -722,18 +770,46 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-browse-pagination-pill {
-                min-height: 38px;
-                padding: 5px 8px;
+                min-height: 28px;
+                padding: 3px 6px;
                 background: rgba(8, 17, 25, 0.92);
                 border-color: rgba(143, 177, 200, 0.15);
                 box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+            }
+
+            .localprompt-browse-page.localprompt-workspace-page,
+            .localprompt-library-shell .localprompt-browse-page.localprompt-workspace-page {
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+            }
+
+            .localprompt-library-shell .localprompt-browse-page .localprompt-workspace-body {
+                padding: 8px 10px 0;
+            }
+
+            .localprompt-library-shell:has(.localprompt-browse-page) .localprompt-library-shell-content {
+                padding: 0;
+            }
+
+            .localprompt-browse-page .localprompt-gallery-grid {
+                padding-bottom: 8px;
+            }
+
+            .localprompt-library-shell .localprompt-browse-footer.localprompt-workspace-footer,
+            .localprompt-browse-page .localprompt-browse-footer {
+                min-height: 0;
+                padding: 0 0 6px;
+                background: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
             }
 
             @container (max-width: 940px) {
                 .localprompt-library-landing { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 .localprompt-library-choice:nth-child(2) { border-right: 0; }
                 .localprompt-library-choice:nth-child(-n+2) { border-bottom: 1px solid rgba(143,174,196,0.10); }
-                .localprompt-browse-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                .localprompt-browse-toolbar-row { gap: 4px; }
             }
 
             @container (max-width: 620px) {
@@ -754,8 +830,12 @@ export function getPromptReferenceUxStyles() {
                 .localprompt-library-choice-icon { width: 44px; height: 44px; margin-bottom: 16px; padding: 10px; }
                 .localprompt-library-choice strong { font-size: 17px; margin-bottom: 7px; }
                 .localprompt-preset-save-row { flex-direction: column; }
-                .localprompt-browse-toolbar { grid-template-columns: 1fr 1fr; max-height: none; }
-                .localprompt-browse-search { grid-column: 1 / -1; }
+                .localprompt-browse-toolbar-row-primary,
+                .localprompt-browse-toolbar-row-actions {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                }
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-search { grid-column: 1 / -1; }
                 .localprompt-bottom-bar { padding-inline: 8px; gap: 6px; overflow-x: auto; }
             }
         </style>

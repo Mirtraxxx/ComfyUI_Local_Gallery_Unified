@@ -34,6 +34,7 @@ export function showPromptActionContextMenu({
     y,
     hasLastOutput,
     actions,
+    surfaceHost = null,
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
@@ -95,7 +96,7 @@ export function showPromptActionContextMenu({
         menu.appendChild(item);
     });
 
-    document.body.appendChild(menu);
+    (surfaceHost?.isConnected ? surfaceHost : document.body).appendChild(menu);
 
     const menuRect = menu.getBoundingClientRect();
     if (x + menuRect.width > window.innerWidth) {

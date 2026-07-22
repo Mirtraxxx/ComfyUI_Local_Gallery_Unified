@@ -1,6 +1,6 @@
-import { getPromptStyles } from "./styles.js?v=wildcard-toolbar-order-20260712";
-import { getPromptReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
-import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX } from "./constants.js";
+import { getPromptStyles } from "./styles.js?v=card-manager-surface-host-20260721-1";
+import { getPromptReferenceUxStyles } from "./referenceUx.js?v=compact-card-manager-20260721-6";
+import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX, BARS_SIZE_SCALE_MIN, BARS_SIZE_SCALE_MAX } from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {
     return `
@@ -44,7 +44,7 @@ export function getPromptTemplate(uniqueId) {
                                             <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                         </div>
                                         <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" title="Show all categories">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -113,6 +113,14 @@ export function getPromptTemplate(uniqueId) {
                                         <label class="localprompt-thumbnail-size-control" id="${uniqueId}-cards-size-control" title="Cards thumbnail size">
                                             <span>-</span>
                                             <input id="${uniqueId}-thumbnail-size-slider" type="range" min="${THUMBNAIL_SIZE_MIN}" max="${THUMBNAIL_SIZE_MAX}" step="1">
+                                            <span>+</span>
+                                        </label>
+                                    </section>
+                                    <section class="localprompt-display-section">
+                                        <div class="localprompt-display-section-title">BAR SIZE</div>
+                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-bars-size-control" title="Top and bottom bar size">
+                                            <span>-</span>
+                                            <input id="${uniqueId}-bars-size-slider" type="range" min="${BARS_SIZE_SCALE_MIN}" max="${BARS_SIZE_SCALE_MAX}" step="1">
                                             <span>+</span>
                                         </label>
                                     </section>

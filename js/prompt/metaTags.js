@@ -1,4 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
+import { createDebouncedCommitter } from "./performance.js?v=prompt-performance-20260721-1";
 export function createMetaTagsController({
     app,
     nodeInstance,
@@ -25,6 +26,13 @@ export function createMetaTagsController({
 
     let metaSaveStatusTimer = null;
     let activePointerCleanup = null;
+    let autoGrowFrame = null;
+    let pendingMetaSaveOptions = {};
+    const META_SAVE_DEBOUNCE_MS = 220;
+    const metaCommitter = createDebouncedCommitter(
+        () => commitMetaTags({ ...pendingMetaSaveOptions, skipStatus: true }),
+        META_SAVE_DEBOUNCE_MS
+    );
     function setMetaSaveStatus(text, statusClass = "") {
         const statusEl = widgetContainer.querySelector(`#${uniqueId}-meta-save-status`);
         if (!statusEl) return;
@@ -44,7 +52,8 @@ export function createMetaTagsController({
         }, 220);
     }
 
-    function saveMetaTags(options = {}) {
+    function commitMetaTags(options = {}) {
+        pendingMetaSaveOptions = {};
         if (!options.skipStatus) {
             showMetaSaveFeedback();
         }
@@ -62,6 +71,33 @@ export function createMetaTagsController({
         }
         nodeInstance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
         if (app.graph) app.graph.change();
+    }
+
+    /**
+     * Persist Hidden Prompts once a short burst of edits settles.  Text input
+     * used to stringify, dirty the graph, and rebuild state on every key;
+     * keeping state local until this commit preserves execution data while
+     * avoiding that hot path.
+     */
+    function saveMetaTags(options = {}) {
+        const immediate = options.immediate === true;
+        if (immediate) {
+            metaCommitter.dispose({ flushPending: false });
+            commitMetaTags(options);
+            return;
+        }
+        pendingMetaSaveOptions = options;
+        if (!options.skipStatus) showMetaSaveFeedback();
+        updateMetaTagsButtonState();
+        metaCommitter.schedule();
+    }
+
+    function flushMetaTags(options = {}) {
+        if (!metaCommitter.pending) return;
+        pendingMetaSaveOptions = { ...pendingMetaSaveOptions, ...options };
+        // The committer invokes the canonical quiet commit. Status feedback
+        // is already shown at the time the edit was made.
+        metaCommitter.flush();
     }
 
     function updateMetaTagsButtonState() {
@@ -122,13 +158,22 @@ export function createMetaTagsController({
 
             promptTextArea?.addEventListener("input", (event) => {
                 nodeInstance.metaTags[index].prompt_text = event.target.value;
-                autoGrowPromptText();
+                if (!autoGrowFrame) {
+                    autoGrowFrame = requestAnimationFrame(() => {
+                        autoGrowFrame = null;
+                        autoGrowPromptText();
+                    });
+                }
                 saveMetaTags({ redrawCanvas: false, skipRender: true });
+            });
+            promptTextArea?.addEventListener("blur", () => {
+                flushMetaTags({ redrawCanvas: false, skipRender: true });
             });
             row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
                 if (!confirmAction(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
+                flushMetaTags({ redrawCanvas: false, skipRender: true });
                 nodeInstance.metaTags.splice(index, 1);
-                saveMetaTags();
+                saveMetaTags({ immediate: true });
             });
 
             list.appendChild(row);
@@ -221,7 +266,7 @@ export function createMetaTagsController({
                     });
 
                     // Save and re-render
-                    saveMetaTags();
+                    saveMetaTags({ immediate: true });
                 };
 
                 const onPointerCancel = () => {
@@ -256,7 +301,7 @@ export function createMetaTagsController({
 
     function loadMetaTagsFromProperties() {
         nodeInstance.metaTags = normalizeMetaTags(readSelectionArray(nodeInstance.properties?.prompt_meta_tags || "[]", []));
-        saveMetaTags({ redrawCanvas: false, skipStatus: true });
+        saveMetaTags({ immediate: true, redrawCanvas: false, skipStatus: true });
     }
 
     function bindAddMetaTagButton() {
@@ -268,7 +313,8 @@ export function createMetaTagsController({
                 enabled: true,
                 order: nodeInstance.metaTags.length,
             });
-            saveMetaTags();
+            flushMetaTags({ redrawCanvas: false, skipRender: true });
+            saveMetaTags({ immediate: true });
             requestAnimationFrame(() => {
                 const rows = widgetContainer.querySelectorAll(`#${uniqueId}-meta-tags-list .localprompt-meta-row`);
                 const lastRow = rows[rows.length - 1];
@@ -281,15 +327,21 @@ export function createMetaTagsController({
         normalizeMetaTags,
         loadMetaTagsFromProperties,
         saveMetaTags,
+        flushMetaTags,
         renderMetaTags,
         updateMetaTagsButtonState,
         bindAddMetaTagButton,
         dispose() {
+            flushMetaTags({ redrawCanvas: false, skipRender: true });
             activePointerCleanup?.();
             activePointerCleanup = null;
             if (metaSaveStatusTimer) {
                 clearTimeout(metaSaveStatusTimer);
                 metaSaveStatusTimer = null;
+            }
+            if (autoGrowFrame) {
+                cancelAnimationFrame(autoGrowFrame);
+                autoGrowFrame = null;
             }
         },
     };

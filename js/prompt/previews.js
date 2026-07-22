@@ -22,7 +22,12 @@ export function closePromptPreviews() {
     closeExpandedPreview();
 }
 
-function showExpandedPreview(prompt) {
+function mountPreviewSurface(surface, surfaceHost = null) {
+    const target = surfaceHost?.isConnected ? surfaceHost : document.body;
+    target.appendChild(surface);
+}
+
+function showExpandedPreview(prompt, surfaceHost = null) {
     const mediaUrl = getPromptPreviewMediaUrl(prompt);
     if (!mediaUrl) return;
 
@@ -52,7 +57,8 @@ function showExpandedPreview(prompt) {
     });
     overlay.querySelector(".localprompt-preview-lightbox-close")?.addEventListener("click", closeExpandedPreview);
     document.addEventListener("keydown", onKeydown);
-    document.body.appendChild(overlay);
+    overlay._localpromptSurfaceHost = surfaceHost || null;
+    mountPreviewSurface(overlay, surfaceHost);
 }
 
 async function copyPromptText(prompt, button) {
@@ -85,7 +91,7 @@ function bindPreviewActions(hoverPreview, prompt) {
             } else if (action === "copy-prompt") {
                 copyPromptText(prompt, button);
             } else if (action === "expand-image") {
-                showExpandedPreview(prompt);
+                showExpandedPreview(prompt, hoverPreview._localpromptSurfaceHost);
             }
         });
     });
@@ -97,6 +103,7 @@ export function attachInfoPopup({
     uniqueId,
     showHoverPreview,
     hideHoverPreview,
+    getSurfaceHost = null,
 }) {
     const infoBtn = element.querySelector(".localprompt-info-btn, .localprompt-active-preview-target");
     if (!infoBtn) return;
@@ -112,6 +119,12 @@ export function attachInfoPopup({
             disposePreviewOutsideClick = null;
         } else {
             disposePreviewOutsideClick?.();
+            const surfaceHost = getSurfaceHost?.() || null;
+            const hoverPreview = document.getElementById(`${uniqueId}-hover-preview`);
+            if (hoverPreview) {
+                hoverPreview._localpromptSurfaceHost = surfaceHost;
+                mountPreviewSurface(hoverPreview, surfaceHost);
+            }
             showHoverPreview(prompt, event, element);
 
             let timer = null;

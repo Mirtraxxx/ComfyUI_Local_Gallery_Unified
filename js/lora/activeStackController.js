@@ -13,7 +13,6 @@ export function createLoraActiveStackController({
     activeStackCount,
     mainContainer,
     metadataEditor,
-    galleryEl,
     uniqueId,
     headerHeight,
     getLoraDisplayState,
@@ -23,8 +22,7 @@ export function createLoraActiveStackController({
     findGalleryCardByLoraName,
     renderMetadataEditor,
     updateSelection,
-    fetchAndRender,
-    renderCurrentView,
+    syncGallerySelection,
     updatePresetButtonText,
 }) {
     let draggedIndex = -1;
@@ -79,24 +77,32 @@ export function createLoraActiveStackController({
             const pointerOffsetY = startY - (startRect.top + startRect.height / 2);
             let hasDragged = false;
             let lastDropMarker = null;
+            let pendingMoveEvent = null;
+            let geometryFrame = null;
+            let rootRect = null;
+            let rowRects = [];
+            const refreshGeometry = () => {
+                rootRect = root.getBoundingClientRect();
+                rowRects = Array.from(root.querySelectorAll(rowSelector))
+                    .filter(candidate => candidate !== row)
+                    .map(candidate => ({ row: candidate, rect: candidate.getBoundingClientRect() }));
+            };
+            refreshGeometry();
             row.setPointerCapture?.(pointerId);
 
             const getTargetRow = moveEvent => {
-                const rows = Array.from(root.querySelectorAll(rowSelector)).filter(candidate => candidate !== row);
-                if (!rows.length) return null;
+                if (!rowRects.length) return null;
                 const dragCenterX = moveEvent.clientX - pointerOffsetX;
                 const dragCenterY = moveEvent.clientY - pointerOffsetY;
 
                 if (containsPoint(row.getBoundingClientRect(), dragCenterX, dragCenterY)) return null;
-                if (!containsPoint(root.getBoundingClientRect(), dragCenterX, dragCenterY)) return null;
+                if (!containsPoint(rootRect, dragCenterX, dragCenterY)) return null;
 
-                const rowUnderPointer = rows.find(candidate => (
-                    containsPoint(candidate.getBoundingClientRect(), dragCenterX, dragCenterY)
-                ));
-                if (rowUnderPointer) return rowUnderPointer;
+                const rowUnderPointer = rowRects.find(candidate => containsPoint(candidate.rect, dragCenterX, dragCenterY));
+                if (rowUnderPointer) return rowUnderPointer.row;
 
-                return rows.reduce((nearestRow, candidate) => {
-                    const rect = candidate.getBoundingClientRect();
+                return rowRects.reduce((nearestRow, candidate) => {
+                    const rect = candidate.rect;
                     const centerX = rect.left + rect.width / 2;
                     const centerY = rect.top + rect.height / 2;
                     const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
@@ -127,7 +133,15 @@ export function createLoraActiveStackController({
                 }
                 moveEvent.preventDefault();
                 moveEvent.stopPropagation();
-                updateMarker(moveEvent);
+                pendingMoveEvent = moveEvent;
+                if (geometryFrame !== null) return;
+                geometryFrame = requestAnimationFrame(() => {
+                    geometryFrame = null;
+                    if (!pendingMoveEvent) return;
+                    refreshGeometry();
+                    updateMarker(pendingMoveEvent);
+                    pendingMoveEvent = null;
+                });
             };
 
             const suppressClickAfterDrag = clickEvent => {
@@ -145,6 +159,11 @@ export function createLoraActiveStackController({
                 }
                 upEvent.preventDefault();
                 upEvent.stopPropagation();
+                if (geometryFrame !== null) {
+                    cancelAnimationFrame(geometryFrame);
+                    geometryFrame = null;
+                }
+                refreshGeometry();
                 const marker = updateMarker(upEvent) || lastDropMarker;
                 const fromIndex = draggedIndex;
                 const targetIndex = marker ? Number.parseInt(marker.targetRow.dataset.index, 10) : -1;
@@ -158,6 +177,9 @@ export function createLoraActiveStackController({
 
             cleanupMouseReorder = () => {
                 row.classList.remove("dragging");
+                if (geometryFrame !== null) cancelAnimationFrame(geometryFrame);
+                geometryFrame = null;
+                pendingMoveEvent = null;
                 clearDragMarkers(root);
                 draggedIndex = -1;
                 document.body.style.userSelect = "";
@@ -190,12 +212,8 @@ export function createLoraActiveStackController({
 
     const repaintLoraOrder = () => {
         renderSelectedList();
-        renderCurrentView(false);
-        requestAnimationFrame(() => {
-            renderSelectedList();
-            renderCurrentView(false);
-            nodeInstance.setDirtyCanvas(true, true);
-        });
+        syncGallerySelection();
+        nodeInstance.setDirtyCanvas(true, true);
     };
 
     renderSelectedList = () => {
@@ -299,7 +317,12 @@ export function createLoraActiveStackController({
             element.querySelector(".lora-selected-toggle-pill")?.addEventListener("click", event => {
                 event.stopPropagation();
                 nodeInstance.loraData[index].on = !nodeInstance.loraData[index].on;
-                renderSelectedList();
+                const enabled = nodeInstance.loraData[index].on;
+                element.classList.toggle("disabled", !enabled);
+                const toggle = event.currentTarget;
+                toggle.classList.toggle("on", enabled);
+                toggle.classList.toggle("off", !enabled);
+                toggle.textContent = enabled ? "ON" : "OFF";
                 updateSelection();
             });
 
@@ -339,18 +362,15 @@ export function createLoraActiveStackController({
                 const loraNameToRemove = item.lora;
                 const removeIndex = nodeInstance.loraData.findIndex(entry => entry.lora === loraNameToRemove);
                 if (removeIndex > -1) nodeInstance.loraData.splice(removeIndex, 1);
-                galleryEl.querySelectorAll(".locallora-lora-card").forEach(card => {
-                    if (card.dataset.loraName === loraNameToRemove) card.classList.remove("selected-flow");
-                });
                 renderSelectedList();
                 updateSelection();
+                syncGallerySelection();
                 if (mainContainer.classList.contains("gallery-collapsed")) {
                     setTimeout(() => {
                         nodeInstance.size[1] = getLoraChromeHeight() + headerHeight;
                         nodeInstance.setDirtyCanvas(true, true);
                     }, 0);
                 }
-                fetchAndRender(false);
                 updatePresetButtonText(null);
             };
 

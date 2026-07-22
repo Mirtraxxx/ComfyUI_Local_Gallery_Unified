@@ -31,7 +31,23 @@ export function getPromptStyles(uniqueId) {
                         cursor: not-allowed;
                         filter: saturate(0.45);
                     }
-                    .localprompt-btn.active { background: #4a7c4a; border-color: #5a9c5a; }
+                    .localprompt-btn.active {
+                        background: #4a7c4a;
+                        border-color: #5a9c5a;
+                        color: #ffffff;
+                    }
+                    .localprompt-icon-btn.active {
+                        background: #4a7c4a !important;
+                        border-color: #5a9c5a !important;
+                        color: #ffffff !important;
+                        padding: 0 !important;
+                        min-height: unset !important;
+                    }
+                    .localprompt-icon-btn.active svg {
+                        stroke: #ffffff !important;
+                        color: #ffffff !important;
+                        display: block !important;
+                    }
                     .localprompt-clear-btn:hover { background: #6a3a3a !important; border-color: #8a4a4a !important; }
                     .localprompt-icon-btn {
                         width: 32px;
@@ -101,31 +117,29 @@ export function getPromptStyles(uniqueId) {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        position: absolute;
-                        top: 100%;
+                        position: relative;
+                        top: 0;
                         margin-top: -1px;
-                        left: 50%;
-                        transform: translateX(-50%);
                         z-index: 1002;
-                        width: 60px;
-                        height: 16px;
+                        width: 64px;
+                        height: 18px;
                         padding: 0;
-                        background: #141416;
-                        border: 1px solid #333;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)), #0b151f;
+                        border: 1px solid rgba(155, 186, 208, 0.22);
                         border-top: none;
-                        border-radius: 0 0 6px 6px;
+                        border-radius: 0 0 8px 8px;
                         cursor: pointer;
                         opacity: 1;
-                        color: #aaa;
-                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                        color: #c5d6e2;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.04);
                         pointer-events: auto;
-                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+                        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
                     }
                     .localprompt-category-pull-tab svg {
-                        width: 10px;
-                        height: 10px;
+                        width: 11px;
+                        height: 11px;
                         stroke: currentColor;
-                        transition: transform 0.16s ease, color 0.16s ease;
+                        transition: transform 0.2s ease, color 0.18s ease;
                     }
                     .localprompt-category-pull-tab::before {
                         content: '';
@@ -134,23 +148,28 @@ export function getPromptStyles(uniqueId) {
                         left: -1px;
                         right: -1px;
                         height: 1px;
-                        background: #141416;
+                        background: #0b151f;
                         z-index: 1003;
-                        transition: background-color 0.16s ease;
+                        transition: background-color 0.18s ease;
                     }
+                    .localprompt-category-pull-tab:hover,
                     .localprompt-category-pull-tab[aria-expanded="true"] {
-                        background: #141416;
-                        border-color: #333;
-                        color: #ccc;
+                        background: linear-gradient(180deg, rgba(85,221,125,0.20), rgba(255,255,255,0.02)), #0c1a1f;
+                        border-color: rgba(85, 221, 125, 0.55);
+                        color: #55dd7d;
+                        box-shadow: 0 0 16px rgba(69, 218, 116, 0.18), inset 0 1px 0 rgba(255,255,255,0.06);
                     }
                     .localprompt-category-pull-tab[aria-expanded="true"] svg {
                         transform: rotate(180deg);
-                        color: #ccc;
+                        color: #55dd7d;
                     }
                     .localprompt-category-pull-tab:hover svg {
-                        color: #3b82f6;
+                        color: #55dd7d;
                     }
                     .localprompt-category-overflow {
+                        position: relative;
+                        width: 100%;
+                        background: #141416;
                         position: relative;
                         width: 100%;
                         background: #141416;
@@ -3420,14 +3439,16 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-card-manager-fullscreen {
                         position: fixed !important;
                         inset: 0 !important;
-                        z-index: 100000 !important;
+                        z-index: 2147483000 !important;
                         width: 100vw !important;
                         height: 100vh !important;
                         min-height: 0 !important;
                         box-sizing: border-box;
                         padding: 0 !important;
                         overflow: hidden !important;
-                        background: #111820;
+                        isolation: isolate;
+                        opacity: 1 !important;
+                        background: #08111a !important;
                     }
                     .localprompt-card-manager-fullscreen.localprompt-modal-overlay {
                         align-items: stretch;
@@ -3441,6 +3462,27 @@ export function getPromptStyles(uniqueId) {
                         border: 0 !important;
                         border-radius: 0 !important;
                         box-shadow: none !important;
+                        background: #08111a !important;
+                        opacity: 1 !important;
+                    }
+                    .localprompt-card-manager-fullscreen .localprompt-workspace-body,
+                    .localprompt-card-manager-fullscreen .localprompt-modal-content {
+                        background: #08111a !important;
+                    }
+                    /* Card Manager uses CSS fullscreen. Portaled Prompt
+                       surfaces must live under this high stacking context,
+                       otherwise body-level previews render behind it. */
+                    .localprompt-card-manager-surface-host {
+                        position: fixed;
+                        inset: 0;
+                        z-index: 2147483600;
+                        pointer-events: none;
+                    }
+                    .localprompt-card-manager-surface-host > * {
+                        pointer-events: auto;
+                    }
+                    body:has(> .localprompt-card-manager-fullscreen) > .localprompt-modal-overlay:not(.localprompt-card-manager-fullscreen) {
+                        z-index: 2147483500 !important;
                     }
                     .localprompt-card-manager-fullscreen .localprompt-gallery-grid {
                         grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
@@ -3448,8 +3490,10 @@ export function getPromptStyles(uniqueId) {
                         gap: 14px;
                     }
                     .localprompt-card-manager-fullscreen .localprompt-gallery-item .item-preview {
+                        width: 100%;
                         height: auto;
-                        min-height: 180px;
+                        min-height: 0;
+                        aspect-ratio: 1.04 / 1;
                     }
                     .localprompt-card-manager-fullscreen .localprompt-gallery-item .item-preview:not(.no-img) {
                         min-height: 0;
@@ -3458,8 +3502,8 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-card-manager-fullscreen .localprompt-gallery-item .item-preview video {
                         display: block;
                         width: 100%;
-                        height: auto;
-                        object-fit: contain;
+                        height: 100%;
+                        object-fit: cover;
                     }
                     .localprompt-browse-toolbar {
                         display: flex;
@@ -3704,7 +3748,7 @@ export function getPromptStyles(uniqueId) {
                         margin-top: 10px;
                         padding: 8px 10px;
                         position: sticky;
-                        top: 48px;
+                        top: 118px;
                         z-index: 39;
                         background: linear-gradient(135deg, #1d2a32, #172129);
                         border: 1px solid rgba(84, 214, 106, 0.25);
@@ -3756,7 +3800,7 @@ export function getPromptStyles(uniqueId) {
                         z-index: 10;
                     }
                     .localprompt-bulk-move-overlay {
-                        z-index: 100010;
+                        z-index: 2147483500;
                     }
                     .localprompt-bulk-move-dialog {
                         width: min(440px, calc(100vw - 32px));
@@ -3902,6 +3946,113 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-bulk-edit-error {
                         flex: 1 1 100%;
                         min-height: 14px;
+                    }
+                    .localprompt-stats-overlay {
+                        z-index: 2147483500;
+                    }
+                    .localprompt-stats-dialog {
+                        width: min(820px, calc(100vw - 32px));
+                        height: min(780px, calc(100vh - 32px));
+                    }
+                    .localprompt-stats-subtitle,
+                    .localprompt-stats-note,
+                    .localprompt-stats-footer {
+                        color: #aebbc4;
+                        font-size: 11px;
+                    }
+                    .localprompt-stats-content {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        min-height: 0;
+                        overflow: hidden !important;
+                    }
+                    .localprompt-stats-summary {
+                        color: #e5edf1;
+                        font-size: 12px;
+                        font-weight: 650;
+                    }
+                    .localprompt-stats-controls {
+                        display: flex;
+                        align-items: center;
+                        gap: 7px;
+                        flex-wrap: wrap;
+                    }
+                    .localprompt-stats-tabs {
+                        display: flex;
+                        gap: 4px;
+                        flex: 1 1 auto;
+                    }
+                    .localprompt-stats-tabs .active {
+                        color: #fff;
+                        background: #2f6f45;
+                    }
+                    .localprompt-stats-search input,
+                    .localprompt-stats-controls select {
+                        box-sizing: border-box;
+                        min-height: 30px;
+                        padding: 5px 9px;
+                        color: #e5edf1;
+                        background: #111820;
+                        border: 1px solid #3b4652;
+                        border-radius: 6px;
+                    }
+                    .localprompt-stats-note {
+                        min-height: 16px;
+                        margin: 0;
+                    }
+                    .localprompt-stats-list {
+                        display: grid;
+                        gap: 5px;
+                        min-height: 0;
+                        overflow-y: auto;
+                    }
+                    .localprompt-stats-row {
+                        display: grid;
+                        grid-template-columns: minmax(180px, 1fr) auto;
+                        gap: 5px 12px;
+                        padding: 8px 10px;
+                        color: #dce5ea;
+                        background: rgba(255,255,255,0.035);
+                        border: 1px solid rgba(255,255,255,0.08);
+                        border-radius: 6px;
+                    }
+                    .localprompt-stats-tag {
+                        overflow-wrap: anywhere;
+                    }
+                    .localprompt-stats-count {
+                        display: flex;
+                        align-items: baseline;
+                        gap: 7px;
+                        white-space: nowrap;
+                    }
+                    .localprompt-stats-count span,
+                    .localprompt-stats-categories {
+                        color: #94a4ae;
+                        font-size: 10px;
+                    }
+                    .localprompt-stats-categories {
+                        grid-column: 1 / -1;
+                    }
+                    .localprompt-stats-categories summary {
+                        cursor: pointer;
+                    }
+                    .localprompt-stats-categories div {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 5px 12px;
+                        padding-top: 6px;
+                    }
+                    .localprompt-stats-empty {
+                        padding: 24px;
+                        color: #94a4ae;
+                        text-align: center;
+                    }
+                    .localprompt-stats-footer {
+                        display: flex;
+                        align-items: center;
+                        justify-content: flex-end;
+                        gap: 8px;
                     }
                     .localprompt-gallery-item.manage-mode {
                         cursor: pointer;
@@ -4578,16 +4729,45 @@ export function getPromptStyles(uniqueId) {
                         border-color: var(--contact-prompt-bright) !important;
                         box-shadow: inset 3px 0 0 var(--contact-prompt-bright);
                     }
-                    .localprompt-category-overflow,
-                    .localprompt-category-pull-tab {
-                        background: #20221f;
-                        border-color: var(--contact-edge-strong);
-                        box-shadow: 0 8px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
-                        backdrop-filter: none;
-                        -webkit-backdrop-filter: none;
+                    .localprompt-category-overflow {
+                        background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)), #0b151f;
+                        border: 1px solid rgba(155, 186, 208, 0.22);
+                        border-top: none;
+                        border-radius: 0 0 10px 10px;
+                        box-shadow: 0 16px 36px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.04);
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
                     }
-                    .localprompt-category-pull-tab::before {
-                        background: #20221f;
+                    .localprompt-active-side-tab,
+                    .localprompt-toolbar-button.localprompt-icon-btn,
+                    .localprompt-favorite-toggle-btn,
+                    .localprompt-category-grid-button,
+                    .localprompt-bottom-bar .localprompt-icon-btn {
+                        width: calc(36px * var(--localprompt-bar-scale, 1)) !important;
+                        height: calc(34px * var(--localprompt-bar-scale, 1)) !important;
+                        min-width: calc(36px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    .localprompt-bottom-bar .localprompt-icon-btn svg,
+                    .localprompt-top-row .localprompt-icon-btn svg {
+                        width: calc(15px * var(--localprompt-bar-scale, 1)) !important;
+                        height: calc(15px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    .localprompt-pinned-category-pill,
+                    .localprompt-library-tab {
+                        min-height: calc(34px * var(--localprompt-bar-scale, 1)) !important;
+                        padding: 0 calc(11px * var(--localprompt-bar-scale, 1)) !important;
+                        font-size: calc(11px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    .localprompt-active-side-tab-count {
+                        font-size: calc(13px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    .localprompt-category-pull-tab {
+                        width: calc(64px * var(--localprompt-bar-scale, 1)) !important;
+                        height: calc(18px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    .localprompt-category-pull-tab svg {
+                        width: calc(11px * var(--localprompt-bar-scale, 1)) !important;
+                        height: calc(11px * var(--localprompt-bar-scale, 1)) !important;
                     }
                     @media (prefers-reduced-motion: reduce) {
                         .localprompt-container *,

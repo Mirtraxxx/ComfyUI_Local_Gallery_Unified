@@ -151,11 +151,12 @@ export async function showBulkEditDrawer({
     selection,
     activePromptIds = [],
     onApplied,
+    surfaceHost = null,
 }) {
     const overlay = document.createElement("div");
     overlay.innerHTML = createOperationEditorHtml(selectedCount);
     const root = overlay.firstElementChild;
-    document.body.appendChild(root);
+    (surfaceHost?.isConnected ? surfaceHost : document.body).appendChild(root);
     const categorySelect = root.querySelector("#bulk-edit-category");
     const applyButton = root.querySelector("[data-bulk-edit-apply]");
     const errorElement = root.querySelector("#bulk-edit-error");

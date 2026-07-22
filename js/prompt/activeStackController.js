@@ -1,7 +1,7 @@
 import {
     applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
     renderActiveSidebar as renderPromptActiveSidebar,
-} from "./activeSidebar.js?v=listener-cleanup-20260721-1";
+} from "./activeSidebar.js?v=prompt-performance-20260721-1";
 
 /** Coordinates the Prompt Active Stack sidebar state, timers, and renders. */
 export function createActiveStackController({

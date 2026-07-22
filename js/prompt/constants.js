@@ -18,11 +18,16 @@ export const CATEGORY_ROLE_PALETTE = [
     "#b08968", "#8d99ae", "#6c757d", "#495057", "#adb5bd",
 ];
 
-export const THUMBNAIL_SIZE_MIN = 70;
-export const THUMBNAIL_SIZE_MAX = 180;
+export const THUMBNAIL_SIZE_MIN = 40;
+export const THUMBNAIL_SIZE_MAX = 320;
 export const THUMBNAIL_SIZE_DEFAULT = 96;
 export const THUMBNAIL_SIZE_LEGACY_PRESETS = {
     small: 81,
     medium: 96,
     large: 115,
 };
+
+export const BARS_SIZE_SCALE_MIN = 60;
+export const BARS_SIZE_SCALE_MAX = 160;
+export const BARS_SIZE_SCALE_DEFAULT = 100;
+

@@ -15,8 +15,10 @@ from contextlib import AbstractContextManager
 
 try:
     from .value_utils import bounded_int, finite_float, parse_json_list
+    from .prompt_stats import build_prompt_stats, query_prompt_stats
 except ImportError:
     from value_utils import bounded_int, finite_float, parse_json_list
+    from prompt_stats import build_prompt_stats, query_prompt_stats
 
 NODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(NODE_DIR, "..", "data", "prompt_gallery"))
@@ -37,6 +39,7 @@ _metadata_indexes_mtime = 0
 _ui_prefs_cache = None
 _ui_prefs_mtime = 0
 _json_file_lock = threading.RLock()
+_prompt_stats_cache = {}
 
 # Deferred usage-count saving
 _pending_usage = {}
@@ -52,7 +55,7 @@ _cycle_state_flush_generation = 0
 _CYCLE_STATE_FLUSH_DELAY = 5  # seconds
 _CYCLE_STATE_BUSY_RETRY_DELAY = 10  # seconds
 
-def _load_metadata_from_disk_locked():
+def _load_metadata_from_disk_locked(update_cache=True):
     """Read the metadata file while the process-wide JSON lock is held.
 
     Mutation paths must not start from the in-memory cache: a deferred usage
@@ -64,8 +67,12 @@ def _load_metadata_from_disk_locked():
     metadata = load_json_file(METADATA_FILE, {}, strict=True)
     if not isinstance(metadata, dict):
         raise JsonDataError(f"{METADATA_FILE} must contain a JSON object")
-    _metadata_cache = metadata
-    _metadata_mtime = os.path.getmtime(METADATA_FILE) if os.path.exists(METADATA_FILE) else 0
+    # Transactions receive this newly parsed object exclusively while holding
+    # the lock.  Do not publish it until their atomic save succeeds: otherwise
+    # a failed mutation could leak uncommitted edits through the read cache.
+    if update_cache:
+        _metadata_cache = metadata
+        _metadata_mtime = os.path.getmtime(METADATA_FILE) if os.path.exists(METADATA_FILE) else 0
     return metadata
 
 
@@ -109,7 +116,10 @@ class MetadataTransaction(AbstractContextManager):
     def __enter__(self):
         _json_file_lock.acquire()
         try:
-            self.metadata = copy.deepcopy(_load_metadata_from_disk_locked())
+            # json.loads already returned a fresh object.  Avoiding a second
+            # full deep copy is significant for large metadata libraries while
+            # retaining the transaction's all-or-nothing cache visibility.
+            self.metadata = _load_metadata_from_disk_locked(update_cache=False)
             self._pending_snapshot = dict(_pending_usage)
             _apply_pending_usage_locked(self.metadata, self._pending_snapshot)
             return self
@@ -165,7 +175,7 @@ def _flush_usage_counts(generation=None):
             if generation is not None and generation != _usage_flush_generation:
                 return
             pending_snapshot = dict(_pending_usage)
-            metadata = copy.deepcopy(_load_metadata_from_disk_locked())
+            metadata = _load_metadata_from_disk_locked(update_cache=False)
             _apply_pending_usage_locked(metadata, pending_snapshot)
             save_metadata(metadata)
             _consume_pending_usage_locked(pending_snapshot)
@@ -564,6 +574,7 @@ def build_metadata_indexes(metadata):
     favorite_ids = []
     used_ids = []
     name_to_id = {}
+    searchable_text_by_id = {}
 
     for prompt_id, data in metadata.items():
         category = data.get('category', '')
@@ -579,6 +590,12 @@ def build_metadata_indexes(metadata):
         name = data.get('name', '')
         if name:
             name_to_id[name.lower()] = prompt_id
+        # Search retains the old Python lower()/substring semantics, but the
+        # expensive normalization now happens once per metadata revision.
+        searchable_text_by_id[prompt_id] = (
+            str(name).lower(),
+            str(data.get('prompt_text', '')).lower(),
+        )
 
     wildcard_category_ids = {
         category: _sort_prompt_ids_for_wildcards(metadata, prompt_ids)
@@ -599,6 +616,7 @@ def build_metadata_indexes(metadata):
         "favorite_name_ids": sorted(favorite_ids, key=sort_by_name),
         "used_ids": used_ids,
         "name_to_id": name_to_id,
+        "searchable_text_by_id": searchable_text_by_id,
         "all_name_ids": sorted(metadata.keys(), key=sort_by_name),
     }
 
@@ -643,6 +661,7 @@ UI_PREF_DEFAULTS = {
     "thumbnail_size": "medium",
     "thumbnail_size_px": 96,
     "active_thumbnail_size_px": 110,
+    "bars_size_scale": 100,
     "pinned_categories": None,
     "visible_pinned_category_count": 5,
     "pinned_order": [],
@@ -743,8 +762,9 @@ UI_PREF_VALIDATORS = {
     "library_tabs": lambda value, prefs: _normalize_str_list(value),
     "library_tab_layout": lambda value, prefs: _normalize_choice(value, {"scroll", "wrap"}, UI_PREF_DEFAULTS["library_tab_layout"]),
     "thumbnail_size": lambda value, prefs: _normalize_choice(value, {"small", "medium", "large"}, UI_PREF_DEFAULTS["thumbnail_size"]),
-    "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 70, 180),
-    "active_thumbnail_size_px": lambda value, prefs: _normalize_int(value, prefs.get("thumbnail_size_px", UI_PREF_DEFAULTS["active_thumbnail_size_px"]), 70, 180),
+    "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 40, 320),
+    "active_thumbnail_size_px": lambda value, prefs: _normalize_int(value, prefs.get("thumbnail_size_px", UI_PREF_DEFAULTS["active_thumbnail_size_px"]), 40, 320),
+    "bars_size_scale": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["bars_size_scale"], 60, 160),
     "pinned_categories": lambda value, prefs: _normalize_nullable_str_list(value),
     "visible_pinned_category_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["visible_pinned_category_count"], 1, 20),
     "pinned_order": lambda value, prefs: _normalize_str_list(value),
@@ -798,7 +818,12 @@ def normalize_ui_prefs(raw_prefs):
             "thumbnail_size_px",
             UI_PREF_DEFAULTS["active_thumbnail_size_px"],
         )
-
+    prefs["bars_size_scale"] = _normalize_int(
+        prefs.get("bars_size_scale"),
+        UI_PREF_DEFAULTS["bars_size_scale"],
+        60,
+        160,
+    )
     prefs["cards_display_mode"] = _normalize_display_mode(
         prefs.get("cards_display_mode"),
         UI_PREF_DEFAULTS["cards_display_mode"],
@@ -993,9 +1018,10 @@ async def get_prompts_endpoint(request):
             if not data:
                 continue
 
-            prompt_text = data.get('prompt_text', '')
-            name_lower = data.get('name', '').lower()
-            prompt_text_lower = prompt_text.lower()
+            name_lower, prompt_text_lower = indexes.get("searchable_text_by_id", {}).get(
+                prompt_id,
+                (str(data.get('name', '')).lower(), str(data.get('prompt_text', '')).lower()),
+            )
 
             # Check if filter text is found in name or prompt_text
             if filter_lower not in name_lower and filter_lower not in prompt_text_lower:
@@ -1122,6 +1148,50 @@ async def get_categories_endpoint(request):
             'category_counts': {},
             'total_count': 0,
         }, status=500)
+
+@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_prompt_stats")
+async def get_prompt_stats_endpoint(request):
+    """Return comma-delimited prompt tag frequencies for Card Manager."""
+    try:
+        category_supplied = "category" in request.query
+        category = request.query.get("category", "") if category_supplied else None
+        group = request.query.get("group", "all")
+        if group not in {"all", "characters", "franchises", "other"}:
+            group = "all"
+        search = request.query.get("search", "")
+        sort_mode = request.query.get("sort", "count")
+        if sort_mode not in {"count", "name"}:
+            sort_mode = "count"
+        page = bounded_int(request.query.get("page", 1), 1, 1, 1_000_000)
+        per_page = bounded_int(request.query.get("per_page", 100), 100, 20, 200)
+
+        revision = metadata_revision()
+        cache_key = (revision, category)
+        aggregate = _prompt_stats_cache.get(cache_key)
+        if aggregate is None:
+            metadata = load_metadata()
+            aggregate = build_prompt_stats(metadata, category=category)
+            _prompt_stats_cache.clear()
+            _prompt_stats_cache[cache_key] = aggregate
+
+        result = query_prompt_stats(
+            aggregate,
+            group=group,
+            search=search,
+            sort=sort_mode,
+            page=page,
+            per_page=per_page,
+        )
+        return web.json_response({
+            "status": "ok",
+            "scope": "category" if category_supplied else "all",
+            "category": category,
+            "group": group,
+            **result,
+        })
+    except Exception as e:
+        print(f"Error getting prompt stats: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.post("/localgalleryunified/prompt/update_metadata")
 async def update_metadata_endpoint(request):
@@ -2029,8 +2099,8 @@ async def get_most_used_endpoint(request):
         count = bounded_int(request.query.get('count', 10), 10, 1, 50)
         
         with _json_file_lock:
-            metadata = copy.deepcopy(load_metadata())
-            indexes = build_metadata_indexes(metadata)
+            metadata = load_metadata()
+            indexes = get_metadata_indexes()
             # Merge any pending (not-yet-flushed) usage counts for accurate reading
             pending_snapshot = dict(_pending_usage)
         

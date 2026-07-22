@@ -1,5 +1,5 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
-import * as promptApi from "../api/promptApi.js?v=auto-attach-idle-only-20260720-2";
+import * as promptApi from "../api/promptApi.js?v=prompt-performance-20260721-1";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -30,13 +30,13 @@ import {
     closePromptContextMenus,
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
-} from "./contextMenus.js?v=listener-cleanup-20260721-1";
+} from "./contextMenus.js?v=card-manager-surface-host-20260721-1";
 import {
     attachInfoPopup as attachPromptInfoPopup,
     closePromptPreviews,
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
-} from "./previews.js?v=listener-cleanup-20260721-1";
+} from "./previews.js?v=card-manager-surface-host-20260721-1";
 import {
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
@@ -45,21 +45,21 @@ import { createPromptGalleryController } from "./galleryController.js?v=prompt-g
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=prompt-display-preferences-20260712";
-import { createActiveStackController } from "./activeStackController.js?v=listener-cleanup-20260721-1";
+import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=native-dialogs-20260721-1";
+} from "./library.js?v=prompt-performance-20260721-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=modal-surfaces-20260721-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=density-transform-20260714-1";
+import { getPromptTemplate } from "./template.js?v=card-manager-surface-host-20260721-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
-import { createMetaTagsController } from "./metaTags.js?v=native-dialogs-20260721-1";
+import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=modal-surfaces-20260721-1";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-surface-host-20260721-1";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -95,14 +95,15 @@ const UnifiedPromptGalleryNode = {
     THUMBNAIL_SIZE_DEFAULT,
     THUMBNAIL_SIZE_LEGACY_PRESETS,
 
-    async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE, sortMode = "manual") {
+    async getPrompts(filter_name = "", mode = "OR", page = 1, selected_prompts = [], filter_category = "", favorites_only = false, perPage = PER_PAGE, sortMode = "manual", requestOptions = {}) {
         this.isLoading = true;
         try {
-            const data = await promptApi.getPrompts(filter_name, mode, page, selected_prompts, filter_category, favorites_only, perPage, sortMode);
+            const data = await promptApi.getPrompts(filter_name, mode, page, selected_prompts, filter_category, favorites_only, perPage, sortMode, requestOptions);
             this.totalPages = data.total_pages || 1;
             this.currentPage = data.current_page || 1;
             return data;
         } catch (error) {
+            if (requestOptions?.signal?.aborted) throw error;
             console.error("LocalPromptGallery: Error fetching prompts:", error);
             return { prompts: [], total_pages: 1, current_page: 1 };
         } finally {
@@ -143,6 +144,15 @@ const UnifiedPromptGalleryNode = {
         } catch (error) {
             console.error("LocalPromptGallery: Error fetching category summary:", error);
             return { categories: [], counts: {}, totalCount: null };
+        }
+    },
+
+    async getPromptStats(options = {}) {
+        try {
+            return await promptApi.getPromptStats(options);
+        } catch (error) {
+            console.error("LocalPromptGallery: Error fetching prompt stats:", error);
+            throw error;
         }
     },
 
@@ -627,11 +637,20 @@ const UnifiedPromptGalleryNode = {
             });
             const {
                 saveMetaTags,
+                flushMetaTags,
                 renderMetaTags,
                 updateMetaTagsButtonState,
                 loadMetaTagsFromProperties,
                 bindAddMetaTagButton,
             } = metaTagsController;
+
+            // Comfy serializes hidden widgets immediately before execution.
+            // Flush an in-flight textarea debounce at that boundary so a fast
+            // queue action never observes older Hidden Prompts.
+            metaTagsWidget.serializeValue = () => {
+                flushMetaTags({ redrawCanvas: false, skipRender: true });
+                return node_instance.properties["prompt_meta_tags"] || "[]";
+            };
 
             let activeLibraryTab = null;
             let categoryOverflowOpen = false;
@@ -639,10 +658,54 @@ const UnifiedPromptGalleryNode = {
             let disposed = false;
             let libraryDrawerRenderToken = 0;
             let queuedLibraryDrawerTimer = null;
+            let selectionGraphChangeTimer = null;
             let setupTimer = null;
             const libraryGalleryGuardButtons = new WeakSet();
             let cachedCategories = null;
             let cachedCategoriesPromise = null;
+            // Per-node models keep Active Stack operations independent from
+            // network latency.  Cards are seeded from every visible list and
+            // only unresolved workflow ids are fetched during hydration.
+            const promptModelCache = new Map();
+            const promptModelRequests = new Map();
+            const promptBuilderDrawerCache = new Map();
+
+            function seedPromptModels(prompts) {
+                (Array.isArray(prompts) ? prompts : []).forEach(prompt => {
+                    const id = prompt?.id ?? prompt?.prompt_id;
+                    if (id == null) return;
+                    const key = String(id);
+                    const previous = promptModelCache.get(key) || {};
+                    promptModelCache.set(key, { ...previous, ...prompt, id: prompt.id ?? id });
+                });
+            }
+
+            function invalidatePromptModelCache(promptIds = null) {
+                if (!Array.isArray(promptIds)) {
+                    promptModelCache.clear();
+                    promptModelRequests.clear();
+                    promptBuilderDrawerCache.clear();
+                    return;
+                }
+                promptIds.forEach(id => {
+                    const key = String(id);
+                    promptModelCache.delete(key);
+                    promptModelRequests.delete(key);
+                });
+                // A changed card can affect any cached builder listing.
+                promptBuilderDrawerCache.clear();
+            }
+
+            async function getCachedPromptBuilderPrompts({ tabName, maxCount, sortMode, load }) {
+                const cacheKey = `${tabName}|${maxCount}|${sortMode}`;
+                const cached = promptBuilderDrawerCache.get(cacheKey);
+                if (cached) return cached;
+                const prompts = await load();
+                const stablePrompts = Array.isArray(prompts) ? prompts : [];
+                seedPromptModels(stablePrompts);
+                promptBuilderDrawerCache.set(cacheKey, stablePrompts);
+                return stablePrompts;
+            }
 
             function queueLibraryDrawerRender(tabName = activeLibraryTab, delay = 60) {
                 if (!tabName) return;
@@ -907,6 +970,11 @@ const UnifiedPromptGalleryNode = {
                     clearTimeout(queuedLibraryDrawerTimer);
                     queuedLibraryDrawerTimer = null;
                 }
+                if (selectionGraphChangeTimer) {
+                    clearTimeout(selectionGraphChangeTimer);
+                    selectionGraphChangeTimer = null;
+                    app.graph?.change?.();
+                }
                 if (setupTimer) {
                     clearTimeout(setupTimer);
                     setupTimer = null;
@@ -932,7 +1000,20 @@ const UnifiedPromptGalleryNode = {
                 selectionWidget.value = data;
                 syncActivePromptCounts();
                 node_instance.setDirtyCanvas?.(true, options.redrawCanvas !== false);
-                if (app.graph) app.graph.change();
+                if (!app.graph) return;
+                if (options.coalesceGraphChange) {
+                    if (selectionGraphChangeTimer) clearTimeout(selectionGraphChangeTimer);
+                    selectionGraphChangeTimer = setTimeout(() => {
+                        selectionGraphChangeTimer = null;
+                        app.graph?.change?.();
+                    }, 100);
+                    return;
+                }
+                if (selectionGraphChangeTimer) {
+                    clearTimeout(selectionGraphChangeTimer);
+                    selectionGraphChangeTimer = null;
+                }
+                app.graph.change();
             }
 
             function closeToolbarPanels(exceptPanel = null) {
@@ -1745,11 +1826,24 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function getActivePromptModels() {
-                const promptIds = node_instance.promptData.map(entry => entry.prompt_id);
-                const fetchedPrompts = await UnifiedPromptGalleryNode.getPromptsByIds(promptIds);
-                const promptMap = new Map(fetchedPrompts.map(prompt => [String(prompt.id), prompt]));
+                const promptIds = node_instance.promptData.map(entry => String(entry.prompt_id));
+                const unresolvedIds = [...new Set(promptIds.filter(id => !promptModelCache.has(id)))];
+                if (unresolvedIds.length) {
+                    const requestKey = unresolvedIds.slice().sort().join("|");
+                    let request = promptModelRequests.get(requestKey);
+                    if (!request) {
+                        request = UnifiedPromptGalleryNode.getPromptsByIds(unresolvedIds)
+                            .then(prompts => {
+                                seedPromptModels(prompts);
+                                return prompts;
+                            })
+                            .finally(() => promptModelRequests.delete(requestKey));
+                        promptModelRequests.set(requestKey, request);
+                    }
+                    await request;
+                }
                 return node_instance.promptData.map(entry => {
-                    const fullPrompt = promptMap.get(String(entry.prompt_id));
+                    const fullPrompt = promptModelCache.get(String(entry.prompt_id));
                     if (fullPrompt) return fullPrompt;
                     return {
                         id: entry.prompt_id,
@@ -2061,18 +2155,22 @@ const UnifiedPromptGalleryNode = {
                     getManualOrder: scope => getPromptManualOrder(scope || tabName),
                     persistManualOrder: persistPromptManualOrder,
                     getDisplayMode: getCardsDisplayMode,
+                    getCachedPrompts: getCachedPromptBuilderPrompts,
+                    onPromptsLoaded: seedPromptModels,
+                    invalidatePrompts: invalidatePromptModelCache,
                     isRenderCurrent: () => renderToken === libraryDrawerRenderToken && activeLibraryTab === tabName,
                 });
             }
 
             // Helper to attach info popup to element
-            function attachInfoPopup(element, prompt) {
+            function attachInfoPopup(element, prompt, options = {}) {
                 attachPromptInfoPopup({
                     element,
                     prompt,
                     uniqueId,
                     showHoverPreview,
                     hideHoverPreview,
+                    getSurfaceHost: options.getSurfaceHost,
                 });
             }
 
@@ -2087,6 +2185,7 @@ const UnifiedPromptGalleryNode = {
 
             // Global refresh function for after context menu actions
             async function refreshAllSections() {
+                invalidatePromptModelCache();
                 if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
                 renderPrompts();
             }
@@ -2173,17 +2272,25 @@ const UnifiedPromptGalleryNode = {
                 }
 
                 if (changedSelection) {
-                    saveSelectionData({ redrawCanvas: false });
+                    saveSelectionData({ redrawCanvas: false, coalesceGraphChange: true });
                 }
+                const cached = promptModelCache.get(key);
+                if (cached) {
+                    seedPromptModels([{ ...cached, ...nextData, id: promptId }]);
+                } else {
+                    invalidatePromptModelCache([promptId]);
+                }
+                promptBuilderDrawerCache.clear();
             }
 
             // Context menu function (global)
-            function showContextMenu(prompt, x, y, customRefresh = null) {
+            function showContextMenu(prompt, x, y, customRefresh = null, options = {}) {
                 const refresh = customRefresh || refreshAllSections;
                 openPromptActionContextMenu({
                     prompt,
                     x,
                     y,
+                    surfaceHost: options.surfaceHost || null,
                     hasLastOutput: !!UnifiedPromptGalleryNode.lastOutput,
                     actions: {
                         edit: async (selectedPrompt) => {
@@ -2235,6 +2342,7 @@ const UnifiedPromptGalleryNode = {
 
             // Helper to add/remove prompt from selection
             function addPromptToSelection(prompt) {
+                seedPromptModels([prompt]);
                 const existingIndex = node_instance.promptData.findIndex(p => String(p.prompt_id) === String(prompt.id));
                 let isNowSelected = false;
                 if (existingIndex >= 0) {
@@ -2351,6 +2459,7 @@ const UnifiedPromptGalleryNode = {
                 persistPromptManualOrder,
                 applyPromptManualOrderLocally,
                 getActivePromptModels,
+                onPromptsLoaded: seedPromptModels,
                 disposed: () => disposed,
             });
 
@@ -2395,6 +2504,7 @@ const UnifiedPromptGalleryNode = {
                 returnToGallery,
                 renderLibraryShell,
                 getLibrarySubnavHtml,
+                onPromptsLoaded: seedPromptModels,
             });
             const {
                 showEditPromptDialog,

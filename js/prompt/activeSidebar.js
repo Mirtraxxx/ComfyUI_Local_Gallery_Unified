@@ -149,7 +149,9 @@ export async function renderActiveSidebar({
     const getActiveCards = () => Array.from(container.querySelectorAll("[data-prompt-id]"));
 
     const getSwapTarget = (dragState, clientX, clientY) => {
-        const cards = getActiveCards().filter(card => card !== dragState.chip);
+        const cards = dragState.cardGeometry || getActiveCards()
+            .filter(card => card !== dragState.chip)
+            .map(card => ({ card, rect: card.getBoundingClientRect() }));
         if (!cards.length) return null;
         const dragCenterX = clientX - dragState.pointerOffsetX;
         const dragCenterY = clientY - dragState.pointerOffsetY;
@@ -163,14 +165,12 @@ export async function renderActiveSidebar({
             return null;
         }
 
-        const directTarget = cards.find(card => {
-            const rect = card.getBoundingClientRect();
+        const directTarget = cards.find(({ rect }) => {
             return dragCenterX >= rect.left && dragCenterX <= rect.right && dragCenterY >= rect.top && dragCenterY <= rect.bottom;
         });
-        if (directTarget) return directTarget;
+        if (directTarget) return directTarget.card;
 
-        return cards.reduce((nearest, card) => {
-            const rect = card.getBoundingClientRect();
+        return cards.reduce((nearest, { card, rect }) => {
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
             const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
@@ -209,10 +209,15 @@ export async function renderActiveSidebar({
                 pointerOffsetY: event.clientY - (rect.top + rect.height / 2),
                 active: false,
                 lastTarget: null,
+                cardGeometry: null,
             };
+            let pendingMoveEvent = null;
+            let moveFrame = null;
             chip.setPointerCapture?.(event.pointerId);
 
             const cleanup = () => {
+                if (moveFrame) cancelAnimationFrame(moveFrame);
+                moveFrame = null;
                 chip.classList.remove("pinned-dragging");
                 chip.releasePointerCapture?.(dragState.pointerId);
                 clearActiveDropTargets();
@@ -240,10 +245,23 @@ export async function renderActiveSidebar({
                     if (distance < 6) return;
                     dragState.active = true;
                     chip.classList.add("pinned-dragging");
+                    // Geometry is stable while this renderer does not reorder
+                    // DOM; snapshot it once per drag instead of reading every
+                    // card's layout on every pointer event.
+                    dragState.cardGeometry = getActiveCards()
+                        .filter(card => card !== chip)
+                        .map(card => ({ card, rect: card.getBoundingClientRect() }));
                 }
                 moveEvent.preventDefault();
                 moveEvent.stopPropagation();
-                updateTarget(moveEvent);
+                pendingMoveEvent = moveEvent;
+                if (!moveFrame) {
+                    moveFrame = requestAnimationFrame(() => {
+                        moveFrame = null;
+                        if (pendingMoveEvent) updateTarget(pendingMoveEvent);
+                        pendingMoveEvent = null;
+                    });
+                }
             };
 
             const onPointerUp = async upEvent => {
@@ -254,6 +272,10 @@ export async function renderActiveSidebar({
                 }
                 upEvent.preventDefault();
                 upEvent.stopPropagation();
+                if (moveFrame) {
+                    cancelAnimationFrame(moveFrame);
+                    moveFrame = null;
+                }
                 const target = updateTarget(upEvent) || dragState.lastTarget;
                 cleanup();
                 suppressActiveClickUntil = Date.now() + 250;

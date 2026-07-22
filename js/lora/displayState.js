@@ -11,6 +11,8 @@ export const LORA_DISPLAY_LIMITS = Object.freeze({
     sidebarMax: 720,
     visibleFolderMin: 1,
     visibleFolderMax: 25,
+    barsSizeScaleMin: 60,
+    barsSizeScaleMax: 160,
 });
 
 function normalizeChoice(value, allowed, fallback) {
@@ -45,6 +47,16 @@ export function normalizeVisiblePinnedFolderCount(value) {
     );
 }
 
+export function getLoraActiveCardControlScale(value) {
+    const thumbnailSize = clampInteger(
+        value,
+        LORA_DISPLAY_LIMITS.activeThumbnailMin,
+        LORA_DISPLAY_LIMITS.activeThumbnailMax,
+        96,
+    );
+    return Math.min(1.5, Math.max(1, thumbnailSize / 96));
+}
+
 export function normalizeLoraDisplayState(uiState = {}) {
     return {
         active_display_mode: normalizeLoraDisplayMode(uiState.active_display_mode),
@@ -69,6 +81,13 @@ export function normalizeLoraDisplayState(uiState = {}) {
             LORA_DISPLAY_LIMITS.sidebarMax,
             450,
         ),
+        bars_size_scale: clampInteger(
+            uiState.bars_size_scale,
+            LORA_DISPLAY_LIMITS.barsSizeScaleMin,
+            LORA_DISPLAY_LIMITS.barsSizeScaleMax,
+            100,
+        ),
+        move_active_loras_to_top: uiState.move_active_loras_to_top !== false,
         active_card_size_mode: uiState.active_card_size_mode === "large" ? "large" : "default",
         show_clip_weights: uiState.show_clip_weights !== false,
     };

@@ -6,12 +6,13 @@ import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/
 import {
     LORA_DISPLAY_LIMITS,
     clampInteger,
+    getLoraActiveCardControlScale,
     normalizeLoraContrastMode,
     normalizeLoraDisplayMode,
     normalizeLoraDisplayState,
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
-} from "./displayState.js?v=lora-refactor-20260712";
+} from "./displayState.js?v=active-card-controls-20260722";
 import { buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
 import { createLoraActiveStackController } from "./activeStackController.js?v=lora-active-stack-20260721-1";
 import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
@@ -21,7 +22,7 @@ import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-202
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=bottom-bar-search-20260718-1";
+import { getLoraStyles } from "./styles.js?v=active-card-controls-20260722";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=density-transform-20260714-1";
 
 export function createLoraGalleryLifecycle(app) {
@@ -242,6 +243,18 @@ const UnifiedLoraGalleryNode = {
                                                 <input class="lora-thumbnail-size-slider" type="range" min="112" max="260" step="1">
                                                 <span>+</span>
                                             </label>
+                                            <label class="lora-checkbox-option-label" title="Move selected LoRAs to the beginning of the loaded cards">
+                                                <input type="checkbox" class="lora-move-active-to-top-checkbox">
+                                                Move active LoRAs to top
+                                            </label>
+                                        </section>
+                                        <section class="lora-display-section">
+                                            <div class="lora-display-section-title">BAR SIZE</div>
+                                            <label class="lora-thumbnail-size-control lora-bars-size-control" title="Top and bottom bar size">
+                                                <span>-</span>
+                                                <input class="lora-bars-size-slider" type="range" min="60" max="160" step="1">
+                                                <span>+</span>
+                                            </label>
                                         </section>
                                         <section class="lora-display-section">
                                             <div class="lora-display-section-title">CONTRAST</div>
@@ -327,9 +340,11 @@ const UnifiedLoraGalleryNode = {
             const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
 
             let loraDisplayStateSaveTimer = null;
+            let loraDisplayStateSaveQueued = false;
+            let loraUiStateSaveChain = Promise.resolve();
             const persistLoraUiState = (extraState = {}) => {
                 this.loraUiState = { ...this.loraUiState, ...extraState };
-                return UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, {
+                const state = {
                     filter_tag: tagFilterInput.value,
                     filter_mode: tagFilterModeBtn.textContent,
                     filter_folder: folderFilterSelect.value,
@@ -339,12 +354,33 @@ const UnifiedLoraGalleryNode = {
                     visible_pinned_folder_count: this.loraUiState.visible_pinned_folder_count,
                     ...getLoraDisplayState(),
                     ...extraState,
-                });
+                };
+                // Serialize writes from this node so a slow earlier request cannot
+                // overwrite a newer in-memory state on the backend.
+                loraUiStateSaveChain = loraUiStateSaveChain
+                    .catch(() => {})
+                    .then(() => UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, state));
+                return loraUiStateSaveChain;
             };
 
             const queueLoraDisplayStateSave = () => {
                 if (loraDisplayStateSaveTimer) clearTimeout(loraDisplayStateSaveTimer);
-                loraDisplayStateSaveTimer = setTimeout(() => persistLoraUiState(), 250);
+                loraDisplayStateSaveQueued = true;
+                loraDisplayStateSaveTimer = setTimeout(() => {
+                    loraDisplayStateSaveTimer = null;
+                    if (!loraDisplayStateSaveQueued) return;
+                    loraDisplayStateSaveQueued = false;
+                    persistLoraUiState();
+                }, 250);
+            };
+            const flushLoraDisplayStateSave = () => {
+                if (loraDisplayStateSaveTimer) {
+                    clearTimeout(loraDisplayStateSaveTimer);
+                    loraDisplayStateSaveTimer = null;
+                }
+                if (!loraDisplayStateSaveQueued) return loraUiStateSaveChain;
+                loraDisplayStateSaveQueued = false;
+                return persistLoraUiState();
             };
 
             const syncDisplayOptionAvailability = () => {
@@ -374,11 +410,13 @@ const UnifiedLoraGalleryNode = {
                 const contrastSelect = widgetContainer.querySelector(".lora-card-contrast-select");
                 const sortSelect = widgetContainer.querySelector(".lora-sort-select");
                 const foldersSlider = widgetContainer.querySelector(".lora-visible-folders-slider");
+                const barsSlider = widgetContainer.querySelector(".lora-bars-size-slider");
                 if (activeModeSelect) activeModeSelect.value = state.active_display_mode;
                 if (cardsModeSelect) cardsModeSelect.value = state.cards_display_mode;
                 if (contrastSelect) contrastSelect.value = state.card_contrast_mode;
                 if (sortSelect) sortSelect.value = state.sort_mode;
                 if (foldersSlider) foldersSlider.value = getVisiblePinnedFolderCount();
+                if (barsSlider) barsSlider.value = state.bars_size_scale || 100;
                 const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
                 if (foldersCountVal) foldersCountVal.textContent = getVisiblePinnedFolderCount();
                 const largeCardsCheckbox = widgetContainer.querySelector(".lora-active-large-cards-checkbox");
@@ -388,6 +426,10 @@ const UnifiedLoraGalleryNode = {
                 const showClipWeightsCheckbox = widgetContainer.querySelector(".lora-show-clip-weights-checkbox");
                 if (showClipWeightsCheckbox) {
                     showClipWeightsCheckbox.checked = state.show_clip_weights;
+                }
+                const moveActiveToTopCheckbox = widgetContainer.querySelector(".lora-move-active-to-top-checkbox");
+                if (moveActiveToTopCheckbox) {
+                    moveActiveToTopCheckbox.checked = state.move_active_loras_to_top;
                 }
             };
 
@@ -406,7 +448,11 @@ const UnifiedLoraGalleryNode = {
                 mainContainer.style.setProperty("--lora-active-card-height", `${Math.round(state.active_thumbnail_size_px * 1.5)}px`);
                 mainContainer.style.setProperty("--lora-active-large-card-width", `${Math.round(state.active_thumbnail_size_px * 1.42)}px`);
                 mainContainer.style.setProperty("--lora-active-large-card-height", `${Math.round(state.active_thumbnail_size_px * 1.95)}px`);
+                const activeCardControlScale = getLoraActiveCardControlScale(state.active_thumbnail_size_px)
+                    * (state.active_card_size_mode === "large" ? 1.32 : 1);
+                mainContainer.style.setProperty("--lora-active-card-control-scale", activeCardControlScale.toFixed(3));
                 mainContainer.style.setProperty("--locallora-active-sidebar-width", `${state.active_sidebar_width}px`);
+                mainContainer.style.setProperty("--locallora-bar-scale", `${(state.bars_size_scale || 100) / 100}`);
                 const sidebarEl = widgetContainer.querySelector(".locallora-active-sidebar");
                 if (sidebarEl) {
                     sidebarEl.classList.toggle("large-mode", state.active_card_size_mode === "large");
@@ -467,8 +513,11 @@ const UnifiedLoraGalleryNode = {
                     ...getLoraDisplayState(),
                 };
                 this.loraUiState = { ...this.loraUiState, ...stateToSave };
-                await UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, stateToSave);
-                await fetchAndRender(false);
+                // The visual filter update does not depend on JSON durability.
+                // Start it now and let the coalesced persistence chain finish safely.
+                const save = persistLoraUiState(stateToSave);
+                const fetch = fetchAndRender(false);
+                await Promise.all([save, fetch]);
             };
 
             const folderController = createLoraFolderController({
@@ -526,9 +575,9 @@ const UnifiedLoraGalleryNode = {
                         this.setDirtyCanvas(true, true);
                     }, 0);
                 }
-                fetchAndRender(false);
                 renderSelectedList();
                 updateSelection();
+                syncGallerySelectionSoon();
                 updatePresetButtonText(null);
             };
 
@@ -543,33 +592,44 @@ const UnifiedLoraGalleryNode = {
             const updateSelection = () => {
                 persistSelectionData();
                 app.graph.setDirty(true);
-                syncGallerySelectionSoon();
                 this.setDirtyCanvas(true, true);
             };
 
-            const syncSelectedCardStyles = (promoteSelected = false) => {
+            let selectionSyncFrame = null;
+            const syncSelectedCardStyles = () => {
                 const selectedLoras = new Set(this.loraData.map(item => item.lora));
                 const cards = Array.from(galleryEl.querySelectorAll(".locallora-lora-card"));
                 cards.forEach(card => {
                     card.classList.toggle("selected-flow", selectedLoras.has(card.dataset.loraName));
                 });
 
-                if (!promoteSelected || selectedLoras.size === 0 || cards.length === 0) return;
-
                 const cardsByName = new Map(cards.map(card => [card.dataset.loraName, card]));
-                const selectedCards = this.loraData
-                    .map(item => cardsByName.get(item.lora))
-                    .filter(Boolean);
-                selectedCards.reverse().forEach(card => {
-                    galleryEl.insertBefore(card, galleryEl.firstElementChild);
+                const currentOrder = this.availableLoras.map(lora => lora.name);
+                const orderedNames = getLoraDisplayState().move_active_loras_to_top
+                    ? [...this.loraData.map(item => item.lora), ...currentOrder]
+                    : currentOrder;
+                const appendedNames = new Set();
+                let targetIndex = 0;
+                orderedNames.forEach(loraName => {
+                    if (appendedNames.has(loraName)) return;
+                    const card = cardsByName.get(loraName);
+                    if (!card) return;
+                    appendedNames.add(loraName);
+                    // Avoid re-appending already-correct cards, which preserves media
+                    // state and keeps selection/reorder work proportional to changes.
+                    if (galleryEl.children[targetIndex] !== card) {
+                        galleryEl.insertBefore(card, galleryEl.children[targetIndex] || null);
+                    }
+                    targetIndex += 1;
                 });
             };
 
             const syncGallerySelectionSoon = () => {
-                syncSelectedCardStyles(true);
-                requestAnimationFrame(() => {
-                    syncSelectedCardStyles(true);
-                    requestAnimationFrame(() => syncSelectedCardStyles(true));
+                if (selectionSyncFrame !== null) return;
+                selectionSyncFrame = requestAnimationFrame(() => {
+                    selectionSyncFrame = null;
+                    if (!widgetContainer.isConnected) return;
+                    syncSelectedCardStyles();
                 });
             };
 
@@ -606,7 +666,6 @@ const UnifiedLoraGalleryNode = {
                 activeStackCount,
                 mainContainer,
                 metadataEditor,
-                galleryEl,
                 uniqueId,
                 headerHeight: HEADER_HEIGHT,
                 getLoraDisplayState,
@@ -616,8 +675,7 @@ const UnifiedLoraGalleryNode = {
                 findGalleryCardByLoraName,
                 renderMetadataEditor: () => renderMetadataEditor(),
                 updateSelection,
-                fetchAndRender: (...args) => fetchAndRender(...args),
-                renderCurrentView: (...args) => renderCurrentView(...args),
+                syncGallerySelection: syncGallerySelectionSoon,
                 updatePresetButtonText,
             });
             const {
@@ -639,20 +697,7 @@ const UnifiedLoraGalleryNode = {
                 renderCardTags,
                 loadAllTags,
             });
-            const promoteSelectedLorasInCurrentPage = () => {
-                const selectedOrder = new Map(this.loraData.map((item, index) => [item.lora, index]));
-                const currentOrder = new Map(this.availableLoras.map((lora, index) => [lora.name, index]));
-                this.availableLoras = [...this.availableLoras].sort((a, b) => {
-                    const aSelected = selectedOrder.has(a.name);
-                    const bSelected = selectedOrder.has(b.name);
-                    if (aSelected && bSelected) return selectedOrder.get(a.name) - selectedOrder.get(b.name);
-                    if (aSelected) return -1;
-                    if (bSelected) return 1;
-                    return currentOrder.get(a.name) - currentOrder.get(b.name);
-                });
-            };
-
-            const toggleLoraSelectionFromElement = async (element, loraName) => {
+            const toggleLoraSelectionFromElement = (element, loraName) => {
                 const existingIndex = this.loraData.findIndex(item => item.lora === loraName);
                 const willSelect = existingIndex === -1;
                 if (existingIndex > -1) {
@@ -666,16 +711,10 @@ const UnifiedLoraGalleryNode = {
                 }
 
                 element.classList.toggle("selected-flow", willSelect);
-                promoteSelectedLorasInCurrentPage();
-                renderCurrentView(false);
-                syncGallerySelectionSoon();
-
                 renderSelectedList();
                 updateSelection();
-                updatePresetButtonText(null);
-                await fetchAndRender(false);
-                renderSelectedList();
                 syncGallerySelectionSoon();
+                updatePresetButtonText(null);
             };
 
             const bindMetadataEditButton = (element, editBtn) => {
@@ -711,8 +750,7 @@ const UnifiedLoraGalleryNode = {
 
             const renderGallery = (append = false) => {
                 if (!append) galleryEl.innerHTML = "";
-                const nameFilter = searchInput.value.toLowerCase();
-                const lorasToRender = this.availableLoras.filter(lora => lora.name.toLowerCase().includes(nameFilter));
+                const lorasToRender = this.availableLoras;
                 const existingCardNames = new Set(Array.from(galleryEl.querySelectorAll('.locallora-lora-card')).map(c => c.dataset.loraName));
 
                 lorasToRender.forEach(lora => {
@@ -756,7 +794,7 @@ const UnifiedLoraGalleryNode = {
                     if (lora.preview_type === 'video') {
                         const video = card.querySelector('video');
                         if (video) {
-                            card.addEventListener('mouseenter', () => video.play().catch(e => {}));
+                            card.addEventListener('mouseenter', () => video.play().catch(() => {}));
                             card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
                         }
                     }
@@ -769,6 +807,14 @@ const UnifiedLoraGalleryNode = {
                     bindMetadataEditButton(card, editBtn);
                 });
                 syncSelectedCardStyles();
+                reconcileNameSearch();
+            };
+
+            const reconcileNameSearch = () => {
+                const query = searchInput.value.trim().toLowerCase();
+                galleryEl.querySelectorAll(".locallora-lora-card").forEach(card => {
+                    card.hidden = Boolean(query && !card.dataset.loraName.toLowerCase().includes(query));
+                });
             };
 
             const renderCurrentView = (append = false) => {
@@ -787,8 +833,9 @@ const UnifiedLoraGalleryNode = {
                 const pageToFetch = append ? this.currentPage + 1 : 1;
                 if (append && pageToFetch > this.totalPages) return;
                 try {
-                    const selectedLoras = this.loraData.map(item => item.lora);
-                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, selectedLoras, 50, getLoraDisplayState().sort_mode); 
+                    // Keep availableLoras in the configured backend sort order. Active-card pinning is
+                    // deliberately a DOM-only concern so deselection can restore this stable order.
+                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, [], 50, getLoraDisplayState().sort_mode);
                     if (fetchSequence !== loraFetchSequence) return;
 
                     if (append) {
@@ -989,6 +1036,7 @@ const UnifiedLoraGalleryNode = {
                     sort_mode: "az",
                     active_thumbnail_size_px: 96,
                     thumbnail_size_px: 168,
+                    move_active_loras_to_top: true,
                     show_clip_weights: true,
                     folder_colors: {},
                     pinned_folders: [],
@@ -1038,9 +1086,8 @@ const UnifiedLoraGalleryNode = {
                     tagFilterModeBtn.style.backgroundColor = "#555";
                 }
                 
-                await loadAllTags();
-                await loadPresets();
-                await fetchAndRender(); 
+                // These requests are independent once UI state is known.
+                await Promise.all([loadAllTags(), loadPresets(), fetchAndRender()]);
 
                 let needs_refetch = false;
                 if (initialState.filter_folder && folderFilterSelect.querySelector(`option[value="${initialState.filter_folder}"]`)) {
@@ -1298,6 +1345,14 @@ const UnifiedLoraGalleryNode = {
                     this.setDirtyCanvas(true, true);
                 });
 
+                widgetContainer.querySelector(".lora-move-active-to-top-checkbox")?.addEventListener("change", async (event) => {
+                    this.loraUiState.move_active_loras_to_top = Boolean(event.target.checked);
+                    syncGallerySelectionSoon();
+                    await persistLoraUiState({
+                        move_active_loras_to_top: this.loraUiState.move_active_loras_to_top,
+                    });
+                });
+
                 widgetContainer.querySelector(".lora-card-contrast-select")?.addEventListener("change", (event) => {
                     this.loraUiState.card_contrast_mode = normalizeLoraContrastMode(event.target.value);
                     applyLoraDisplayState();
@@ -1316,6 +1371,17 @@ const UnifiedLoraGalleryNode = {
                     queueLoraDisplayStateSave();
                     this.setDirtyCanvas(true, true);
                 });
+                widgetContainer.querySelector(".lora-active-thumbnail-size-slider")?.addEventListener("change", async (event) => {
+                    if (event.target.disabled) return;
+                    this.loraUiState.active_thumbnail_size_px = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.activeThumbnailMin,
+                        LORA_DISPLAY_LIMITS.activeThumbnailMax,
+                        96,
+                    );
+                    applyLoraDisplayState();
+                    await flushLoraDisplayStateSave();
+                });
 
                 widgetContainer.querySelector(".lora-thumbnail-size-slider")?.addEventListener("input", (event) => {
                     if (event.target.disabled) return;
@@ -1327,6 +1393,38 @@ const UnifiedLoraGalleryNode = {
                     );
                     applyLoraDisplayState();
                     queueLoraDisplayStateSave();
+                });
+                widgetContainer.querySelector(".lora-thumbnail-size-slider")?.addEventListener("change", async (event) => {
+                    if (event.target.disabled) return;
+                    this.loraUiState.thumbnail_size_px = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.cardThumbnailMin,
+                        LORA_DISPLAY_LIMITS.cardThumbnailMax,
+                        168,
+                    );
+                    applyLoraDisplayState();
+                    await flushLoraDisplayStateSave();
+                });
+
+                widgetContainer.querySelector(".lora-bars-size-slider")?.addEventListener("input", (event) => {
+                    this.loraUiState.bars_size_scale = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.barsSizeScaleMin,
+                        LORA_DISPLAY_LIMITS.barsSizeScaleMax,
+                        100,
+                    );
+                    applyLoraDisplayState();
+                    queueLoraDisplayStateSave();
+                });
+                widgetContainer.querySelector(".lora-bars-size-slider")?.addEventListener("change", async (event) => {
+                    this.loraUiState.bars_size_scale = clampInteger(
+                        event.target.value,
+                        LORA_DISPLAY_LIMITS.barsSizeScaleMin,
+                        LORA_DISPLAY_LIMITS.barsSizeScaleMax,
+                        100,
+                    );
+                    applyLoraDisplayState();
+                    await flushLoraDisplayStateSave();
                 });
 
                 widgetContainer.querySelector(".lora-sort-select")?.addEventListener("change", async (event) => {
@@ -1408,9 +1506,19 @@ const UnifiedLoraGalleryNode = {
                 searchBtn.addEventListener("click", () => {
                     setNameSearchOpen(searchPopover.style.display === "none");
                 });
+                let nameSearchTimer = null;
+                const queueNameSearchReconciliation = (immediate = false) => {
+                    if (nameSearchTimer) clearTimeout(nameSearchTimer);
+                    const apply = () => {
+                        nameSearchTimer = null;
+                        reconcileNameSearch();
+                    };
+                    if (immediate) apply();
+                    else nameSearchTimer = setTimeout(apply, 120);
+                };
                 searchInput.addEventListener("input", () => {
                     searchBtn.classList.toggle("active", Boolean(searchInput.value));
-                    renderCurrentView(false);
+                    queueNameSearchReconciliation();
                 });
                 searchInput.addEventListener("keydown", (event) => {
                     if (event.key === "Escape") {
@@ -1421,7 +1529,7 @@ const UnifiedLoraGalleryNode = {
                 clearNameSearchBtn.addEventListener("click", () => {
                     searchInput.value = "";
                     searchBtn.classList.add("active");
-                    renderCurrentView(false);
+                    queueNameSearchReconciliation(true);
                     searchInput.focus();
                 });
                 tagFilterInput.addEventListener("keydown", (e) => { if(e.key === 'Enter') saveStateAndFetch(); });
@@ -1457,8 +1565,7 @@ const UnifiedLoraGalleryNode = {
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
                         widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
-                            openPicker.classList.remove("open");
-                            openPicker.closest(".locallora-lora-card, .locallora-lora-item")?.classList.remove("preset-open");
+                            openPicker._closeLoraPresetPopover?.();
                         });
                     }
                 });
@@ -1500,6 +1607,15 @@ const UnifiedLoraGalleryNode = {
                     if (loraDisplayStateSaveTimer) {
                         clearTimeout(loraDisplayStateSaveTimer);
                         loraDisplayStateSaveTimer = null;
+                    }
+                    loraDisplayStateSaveQueued = false;
+                    if (selectionSyncFrame !== null) {
+                        cancelAnimationFrame(selectionSyncFrame);
+                        selectionSyncFrame = null;
+                    }
+                    if (nameSearchTimer) {
+                        clearTimeout(nameSearchTimer);
+                        nameSearchTimer = null;
                     }
                     document.querySelectorAll(".lora-trigger-preset-popover-portal").forEach(popover => {
                         if (popover.dataset.loraPortalOwner !== uniqueId) return;

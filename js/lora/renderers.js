@@ -73,7 +73,7 @@ export function buildSelectedPreviewHtml(lora) {
     const emptyLoraImage = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     const previewUrl = lora.preview_url || emptyLoraImage;
     if (lora.preview_type === "video" && lora.preview_url) {
-        return `<video muted loop playsinline src="${escapeHtml(previewUrl)}"></video>`;
+        return `<video muted loop playsinline preload="metadata" src="${escapeHtml(previewUrl)}"></video>`;
     }
     return `<img src="${escapeHtml(previewUrl)}" loading="eager" decoding="async">`;
 }
@@ -141,7 +141,7 @@ export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, s
     const previewUrl = escapeHtml(lora.preview_url || "");
 
     if (lora.preview_type === 'video' && previewUrl) {
-        mediaHTML = `<video muted loop playsinline src="${previewUrl}"></video>`;
+        mediaHTML = `<video muted loop playsinline preload="metadata" src="${previewUrl}"></video>`;
     } else {
         mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
     }

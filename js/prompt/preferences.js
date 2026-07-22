@@ -1,4 +1,7 @@
 import {
+    BARS_SIZE_SCALE_DEFAULT,
+    BARS_SIZE_SCALE_MAX,
+    BARS_SIZE_SCALE_MIN,
     THUMBNAIL_SIZE_DEFAULT,
     THUMBNAIL_SIZE_LEGACY_PRESETS,
     THUMBNAIL_SIZE_MAX,
@@ -18,6 +21,7 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     thumbnail_size: "medium",
     thumbnail_size_px: THUMBNAIL_SIZE_DEFAULT,
     active_thumbnail_size_px: 110,
+    bars_size_scale: BARS_SIZE_SCALE_DEFAULT,
     library_tabs: ["most_used", "pinned"],
     pinned_categories: null,
     visible_pinned_category_count: 5,
@@ -74,6 +78,12 @@ export function getActiveThumbnailSizePx(uiPrefs = {}) {
     });
 }
 
+export function getBarsSizeScale(uiPrefs = {}) {
+    const raw = Number(uiPrefs?.bars_size_scale ?? BARS_SIZE_SCALE_DEFAULT);
+    if (!Number.isFinite(raw)) return BARS_SIZE_SCALE_DEFAULT;
+    return Math.max(BARS_SIZE_SCALE_MIN, Math.min(BARS_SIZE_SCALE_MAX, Math.round(raw)));
+}
+
 export function normalizeUiPrefs(uiPrefs = {}) {
     const source = uiPrefs && typeof uiPrefs === "object" ? uiPrefs : {};
     const hasCardsDisplayMode = Object.prototype.hasOwnProperty.call(source, "cards_display_mode");
@@ -95,6 +105,7 @@ export function normalizeUiPrefs(uiPrefs = {}) {
     merged.active_card_size_mode = source.active_card_size_mode === "large" ? "large" : "default";
     merged.thumbnail_size_px = getThumbnailSizePx(merged);
     merged.active_thumbnail_size_px = getActiveThumbnailSizePx(merged);
+    merged.bars_size_scale = getBarsSizeScale(merged);
 
     return merged;
 }

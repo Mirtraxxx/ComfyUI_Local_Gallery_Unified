@@ -28,6 +28,7 @@ export function createPromptGalleryController({
     persistPromptManualOrder,
     applyPromptManualOrderLocally,
     getActivePromptModels,
+    onPromptsLoaded = null,
     disposed = () => false,
 }) {
     let requestToken = 0;
@@ -99,6 +100,7 @@ export function createPromptGalleryController({
         if (disposed() || currentRequest !== requestToken) return;
 
         const prompts = data.prompts || [];
+        onPromptsLoaded?.(prompts);
         if (nodeInstance.uiPrefs?.promote_selected_prompts === false) {
             nodeInstance.availablePrompts = prompts;
         } else {

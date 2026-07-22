@@ -1,12 +1,12 @@
 import { api } from "../../../scripts/api.js";
 
-export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual") {
+export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual", requestOptions = {}) {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
     let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
     selectedPrompts.forEach((prompt) => {
         url += `&selected_prompts=${encodeURIComponent(prompt)}`;
     });
-    const response = await api.fetchApi(url);
+    const response = await api.fetchApi(url, requestOptions);
     return await response.json();
 }
 
@@ -45,6 +45,17 @@ export async function getCategorySummary() {
             : {},
         totalCount: Number.isFinite(data.total_count) ? data.total_count : null,
     };
+}
+
+export async function getPromptStats({ category, group = "all", search = "", sort = "count", page = 1, perPage = 100 } = {}) {
+    const params = new URLSearchParams({ group, search, sort, page: String(page), per_page: String(perPage) });
+    if (category !== null && category !== undefined) params.set("category", category);
+    const response = await api.fetchApi(`/localgalleryunified/prompt/get_prompt_stats?${params.toString()}`);
+    const result = await response.json();
+    if (!response.ok || result?.status === "error") {
+        throw new Error(result?.message || "Failed to load prompt stats");
+    }
+    return result;
 }
 
 export async function updateMetadata(promptId, data) {

@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=modal-surfaces-20260721-1";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-surface-host-20260721-1";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -49,6 +49,7 @@ export function createPromptWorkspaceActions({
     returnToGallery,
     renderLibraryShell,
     getLibrarySubnavHtml,
+    onPromptsLoaded = null,
 }) {
     async function showEditPromptDialog(prompt, onRefresh = null) {
         await openEditPromptDialog({
@@ -175,6 +176,7 @@ export function createPromptWorkspaceActions({
             setSortMode: setPromptSortMode,
             getManualOrder: scope => getPromptManualOrder(scope),
             persistManualOrder: persistPromptManualOrder,
+            onPromptsLoaded,
             ...(workspaceContainer ? {
                 workspaceContainer,
                 onClose,

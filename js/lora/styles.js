@@ -16,6 +16,7 @@ export function getLoraStyles(uniqueId) {
                         --lora-active-large-card-width: 136px;
                         --lora-active-large-card-height: 187px;
                         --lora-active-grid-gap: 10px;
+                        --lora-active-card-control-scale: 1;
                         display: flex;
                         flex-direction: column;
                         height: 100%;
@@ -1790,14 +1791,14 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn {
                         position: absolute;
-                        top: 6px;
-                        left: 6px;
+                        top: clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 10px);
+                        left: clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 10px);
                         z-index: 70;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 20px;
-                        height: 20px;
+                        width: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
+                        height: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
                         padding: 0;
                         border-radius: 6px;
                         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1817,14 +1818,14 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn svg {
-                        width: 12px;
-                        height: 12px;
+                        width: clamp(14px, calc(12px * var(--lora-active-card-control-scale)), 19px);
+                        height: clamp(14px, calc(12px * var(--lora-active-card-control-scale)), 19px);
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset {
                         position: absolute;
-                        top: 6px;
-                        right: 6px;
+                        top: clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 10px);
+                        right: clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 10px);
                         z-index: 70;
                         width: auto;
                     }
@@ -1842,8 +1843,8 @@ export function getLoraStyles(uniqueId) {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 20px;
-                        height: 20px;
+                        width: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
+                        height: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
                         padding: 0;
                         border-radius: 6px;
                         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1870,8 +1871,8 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
                         display: block;
-                        width: 12px;
-                        height: 12px;
+                        width: clamp(14px, calc(12px * var(--lora-active-card-control-scale)), 19px);
+                        height: clamp(14px, calc(12px * var(--lora-active-card-control-scale)), 19px);
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-trigger-preset-label,
@@ -1938,20 +1939,20 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule {
                         position: absolute;
-                        bottom: 32px;
+                        bottom: clamp(36px, calc(34px * var(--lora-active-card-control-scale)), 52px);
                         left: 50%;
                         right: auto;
                         transform: translateX(-50%);
                         width: max-content;
-                        max-width: calc(100% - 12px);
+                        max-width: calc(100% - clamp(12px, calc(12px * var(--lora-active-card-control-scale)), 20px));
                         z-index: 5;
                         display: flex;
                         flex-direction: row;
                         align-items: center;
                         justify-content: center;
-                        gap: 6px;
+                        gap: clamp(4px, calc(5px * var(--lora-active-card-control-scale)), 8px);
                         height: auto;
-                        padding: 4px 6px;
+                        padding: clamp(4px, calc(4px * var(--lora-active-card-control-scale)), 6px) clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 9px);
                         background: rgba(18, 22, 28, 0.75);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
@@ -1962,21 +1963,21 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule .lora-selected-toggle-pill {
-                        height: 20px;
-                        min-width: 32px;
-                        padding: 0 8px;
+                        height: clamp(26px, calc(20px * var(--lora-active-card-control-scale)), 32px);
+                        min-width: clamp(38px, calc(32px * var(--lora-active-card-control-scale)), 50px);
+                        padding: 0 clamp(8px, calc(8px * var(--lora-active-card-control-scale)), 12px);
                         border-radius: 20px;
                         border: 1px solid transparent;
-                        font-size: 9px;
-                        line-height: 18px;
+                        font-size: clamp(9px, calc(9px * var(--lora-active-card-control-scale)), 12px);
+                        line-height: 1;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.15);
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-overlay-capsule .lora-strength-chip {
-                        height: 20px;
-                        min-width: 28px;
-                        padding: 0 6px;
-                        font-size: 10px;
+                        height: clamp(26px, calc(20px * var(--lora-active-card-control-scale)), 32px);
+                        min-width: clamp(34px, calc(28px * var(--lora-active-card-control-scale)), 46px);
+                        padding: 0 clamp(7px, calc(6px * var(--lora-active-card-control-scale)), 10px);
+                        font-size: clamp(10px, calc(10px * var(--lora-active-card-control-scale)), 13px);
                         border-radius: 20px;
                         gap: 0;
                         background: rgba(20, 20, 20, 0.65);
@@ -1992,25 +1993,25 @@ export function getLoraStyles(uniqueId) {
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-name {
                         position: absolute;
-                        bottom: 6px;
+                        bottom: clamp(6px, calc(6px * var(--lora-active-card-control-scale)), 10px);
                         left: 50%;
                         right: auto;
                         transform: translateX(-50%);
                         width: max-content;
-                        max-width: calc(100% - 12px);
-                        height: 20px;
+                        max-width: calc(100% - clamp(12px, calc(12px * var(--lora-active-card-control-scale)), 20px));
+                        height: clamp(26px, calc(20px * var(--lora-active-card-control-scale)), 34px);
                         z-index: 4;
                         background: rgba(18, 22, 28, 0.78);
                         backdrop-filter: blur(12px) saturate(1.2);
                         -webkit-backdrop-filter: blur(12px) saturate(1.2);
                         border: 1px solid rgba(255, 255, 255, 0.08);
-                        border-radius: 8px;
+                        border-radius: clamp(8px, calc(8px * var(--lora-active-card-control-scale)), 11px);
                         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.2);
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 9px;
-                        padding: 0 8px;
+                        font-size: clamp(10px, calc(10px * var(--lora-active-card-control-scale)), 13px);
+                        padding: 0 clamp(8px, calc(8px * var(--lora-active-card-control-scale)), 12px);
                         box-sizing: border-box;
                         color: #e4e8eb;
                         pointer-events: none;
@@ -2189,31 +2190,11 @@ export function getLoraStyles(uniqueId) {
                         height: var(--lora-active-large-card-height) !important;
                     }
                     
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .lora-active-preview-btn {
-                        width: 29px !important;
-                        height: 29px !important;
-                        top: 10px !important;
-                        left: 10px !important;
-                        border-radius: 8px !important;
-                    }
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .lora-active-preview-btn svg {
-                        width: 14px !important;
-                        height: 14px !important;
-                    }
                     
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
                         display: block;
                     }
                     
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button {
-                        width: 29px !important;
-                        height: 29px !important;
-                        border-radius: 8px !important;
-                    }
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {
-                        width: 14px !important;
-                        height: 14px !important;
-                    }
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-preset .lora-trigger-preset-button .lora-trigger-preset-count {
                         top: -5px !important;
                         right: -5px !important;
@@ -2222,44 +2203,6 @@ export function getLoraStyles(uniqueId) {
                         font-size: 9px !important;
                     }
                     
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule {
-                        bottom: 44px !important;
-                        left: 50% !important;
-                        right: auto !important;
-                        transform: translateX(-50%) !important;
-                        width: max-content !important;
-                        max-width: calc(100% - 20px) !important;
-                        height: auto !important;
-                        padding: 4px 6px !important;
-                        border-radius: 12px !important;
-                        gap: 6px !important;
-                    }
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule .lora-selected-toggle-pill {
-                        height: 19px !important;
-                        min-width: 35px !important;
-                        font-size: 8px !important;
-                        line-height: 17px !important;
-                    }
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-active-overlay-capsule .lora-strength-chip {
-                        height: 19px !important;
-                        font-size: 9px !important;
-                        padding: 0 6px !important;
-                        border-radius: 5px !important;
-                    }
-                    
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-active-sidebar.large-mode .locallora-selected-name {
-                        bottom: 10px !important;
-                        left: 50% !important;
-                        right: auto !important;
-                        transform: translateX(-50%) !important;
-                        width: max-content !important;
-                        max-width: calc(100% - 20px) !important;
-                        height: 28px !important;
-                        border-radius: 8px !important;
-                        font-size: 11px !important;
-                        padding: 0 10px !important;
-                    }
-
                     /* --- Precision Contact Sheet visual system --- */
                     #${uniqueId} .locallora-container {
                         --contact-bg: #171816;
@@ -2443,6 +2386,36 @@ export function getLoraStyles(uniqueId) {
                         box-shadow: 0 8px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
                         backdrop-filter: none;
                         -webkit-backdrop-filter: none;
+                    }
+                    #${uniqueId} .lora-active-stack-btn,
+                    #${uniqueId} .lora-action-btn {
+                        width: calc(36px * var(--locallora-bar-scale, 1)) !important;
+                        height: calc(34px * var(--locallora-bar-scale, 1)) !important;
+                        min-width: calc(36px * var(--locallora-bar-scale, 1)) !important;
+                    }
+                    #${uniqueId} .lora-action-btn svg,
+                    #${uniqueId} .lora-active-stack-btn svg {
+                        width: calc(15px * var(--locallora-bar-scale, 1)) !important;
+                        height: calc(15px * var(--locallora-bar-scale, 1)) !important;
+                    }
+                    #${uniqueId} .lora-folder-pill,
+                    #${uniqueId} .lora-folder-chip {
+                        min-height: calc(34px * var(--locallora-bar-scale, 1)) !important;
+                        padding: 0 calc(11px * var(--locallora-bar-scale, 1)) !important;
+                        font-size: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                    }
+                    #${uniqueId} .lora-folder-pull-tab {
+                        width: calc(64px * var(--locallora-bar-scale, 1)) !important;
+                        height: calc(18px * var(--locallora-bar-scale, 1)) !important;
+                    }
+                    #${uniqueId} .lora-folder-pull-tab svg {
+                        width: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                        height: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                    }
+                    #${uniqueId} .folder-filter-select,
+                    #${uniqueId} .search-input {
+                        height: calc(34px * var(--locallora-bar-scale, 1)) !important;
+                        font-size: calc(11px * var(--locallora-bar-scale, 1)) !important;
                     }
                     @media (prefers-reduced-motion: reduce) {
                         #${uniqueId} .locallora-container *,

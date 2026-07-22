@@ -4,7 +4,10 @@ import {
     createPromptActionButton,
 } from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
-import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-bulk-editor-20260713-fix2";
+import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-surface-host-20260721-1";
+import { showWildcardStats } from "./wildcardStats.js?v=card-manager-surface-host-20260721-1";
+import { closePromptPreviews } from "./previews.js?v=card-manager-surface-host-20260721-1";
+import { closePromptContextMenus } from "./contextMenus.js?v=card-manager-surface-host-20260721-1";
 
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
@@ -33,17 +36,17 @@ function updateCategoryActionButtons(overlay, categoryValue) {
     const exportCategoryBtn = overlay.querySelector("#browse-export-category");
     const deleteCategoryBtn = overlay.querySelector("#browse-delete-category");
     if (renameCategoryBtn) {
-        renameCategoryBtn.style.display = categoryValue ? "block" : "none";
+        renameCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
     }
     if (exportCategoryBtn) {
-        exportCategoryBtn.style.display = categoryValue ? "block" : "none";
+        exportCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
     }
     if (deleteCategoryBtn) {
-        deleteCategoryBtn.style.display = categoryValue ? "block" : "none";
+        deleteCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
     }
 }
 
-function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, currentCategory = "" }) {
+function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, currentCategory = "", surfaceHost = null }) {
     return new Promise((resolve) => {
         const overlay = document.createElement("div");
         overlay.className = "localprompt-modal-overlay localprompt-bulk-move-overlay";
@@ -71,7 +74,7 @@ function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, c
                 </div>
             </div>
         `;
-        document.body.appendChild(overlay);
+        (surfaceHost?.isConnected ? surfaceHost : document.body).appendChild(overlay);
 
         const dialog = overlay.querySelector(".localprompt-bulk-move-dialog");
         const categorySelect = overlay.querySelector("#bulk-move-category");
@@ -187,6 +190,7 @@ export async function showCardManagerModal({
     getCategoryRoleColor,
     getSortMode = () => "manual",
     setSortMode = null,
+    onPromptsLoaded = null,
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
@@ -201,33 +205,39 @@ export async function showCardManagerModal({
     root.classList.add(`contrast-${contrastMode}`);
     root.innerHTML = `
         <div class="localprompt-modal localprompt-browse-page${isWorkspace ? " localprompt-workspace-page" : ""}">
-            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
-                <div class="localprompt-workspace-title">
-                    <h3><span class="localprompt-workspace-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>Cards</h3>
-                    ${isWorkspace ? "<p>Browse, search, pin, add, and manage prompt cards.</p>" : ""}
+            ${isWorkspace ? "" : `
+                <div class="localprompt-modal-header">
+                    <div class="localprompt-workspace-title">
+                        <h3><span class="localprompt-workspace-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>Cards</h3>
+                    </div>
+                    <button class="localprompt-modal-close" title="Close">x</button>
                 </div>
-                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-            </div>
+            `}
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="localprompt-browse-toolbar">
-                    <label class="localprompt-browse-search" aria-label="Search cards">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-                        <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
-                    </label>
-                    <select id="browse-category" class="localprompt-browse-select"></select>
-                    <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
-                        <option value="manual">Manual / stored order</option>
-                        <option value="newest">Newest first</option>
-                        <option value="oldest">Oldest first</option>
-                        <option value="az">A to Z</option>
-                        <option value="za">Z to A</option>
-                    </select>
-                    <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"></path></svg><span>Manage</span></button>
-                    <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
-                    <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category">Rename</button>
-                    <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt">Export TXT</button>
-                    <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-danger-btn" style="background: #5a3030; display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
+                    <div class="localprompt-browse-toolbar-row localprompt-browse-toolbar-row-primary">
+                        <label class="localprompt-browse-search" aria-label="Search cards">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                            <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
+                        </label>
+                        <select id="browse-category" class="localprompt-browse-select"></select>
+                        <button id="browse-stats" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Inspect prompt tag frequencies for the selected wildcard category">Stats</button>
+                        <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
+                    </div>
+                    <div class="localprompt-browse-toolbar-row localprompt-browse-toolbar-row-actions">
+                        <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
+                            <option value="manual">Manual / stored order</option>
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="az">A to Z</option>
+                            <option value="za">Z to A</option>
+                        </select>
+                        <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"></path></svg><span>Manage</span></button>
+                        <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"></path><path d="m14.5 6.5 3 3"></path></svg><span>Rename</span></button>
+                        <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg><span>Export TXT</span></button>
+                        <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-danger-btn" style="display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
+                    </div>
                 </div>
                 <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
@@ -256,6 +266,7 @@ export async function showCardManagerModal({
     const workspaceBody = root.querySelector(isWorkspace ? ".localprompt-workspace-body" : ".localprompt-modal-content");
     const filterInput = root.querySelector("#browse-filter");
     const categorySelect = root.querySelector("#browse-category");
+    const statsBtn = root.querySelector("#browse-stats");
     const sortSelect = root.querySelector("#browse-sort");
     const manageToggleBtn = root.querySelector("#browse-manage-toggle");
     const fullscreenToggleBtn = root.querySelector("#browse-fullscreen-toggle");
@@ -281,7 +292,9 @@ export async function showCardManagerModal({
     let upwardScrollDistance = 0;
     let suppressNextCardClick = false;
     let browseLoadSequence = 0;
+    let browseAbortController = null;
     let isFullscreen = false;
+    let surfaceHost = null;
     let forwardingLibraryNavigation = false;
     const originalParent = root.parentElement;
 
@@ -296,19 +309,42 @@ export async function showCardManagerModal({
         fullscreenToggleBtn.setAttribute("aria-pressed", String(isFullscreen));
     }
 
+    function getSurfaceHost() {
+        if (!isFullscreen) return null;
+        if (!surfaceHost?.isConnected) {
+            surfaceHost = document.createElement("div");
+            surfaceHost.className = "localprompt-card-manager-surface-host";
+            root.appendChild(surfaceHost);
+        }
+        return surfaceHost;
+    }
+
+    function restoreSurfaceHost() {
+        if (!surfaceHost) return;
+        Array.from(surfaceHost.children).forEach(surface => document.body.appendChild(surface));
+        surfaceHost.remove();
+        surfaceHost = null;
+    }
+
     function setFullscreen(nextState) {
         isFullscreen = Boolean(nextState);
         root.classList.toggle("localprompt-card-manager-fullscreen", isFullscreen);
         if (isFullscreen) {
             document.body.appendChild(root);
-        } else if (originalParent?.isConnected) {
-            originalParent.appendChild(root);
+            getSurfaceHost();
+        } else {
+            restoreSurfaceHost();
+            if (originalParent?.isConnected) originalParent.appendChild(root);
         }
         updateFullscreenButton();
     }
 
     function close() {
+        browseAbortController?.abort();
+        browseAbortController = null;
         document.removeEventListener("keydown", handleFullscreenKeydown);
+        closePromptPreviews();
+        closePromptContextMenus();
         if (isFullscreen) setFullscreen(false);
         closeSurface();
     }
@@ -431,13 +467,25 @@ export async function showCardManagerModal({
 
     async function loadBrowseGallery(page = 1) {
         const loadSequence = ++browseLoadSequence;
+        browseAbortController?.abort();
+        const requestController = new AbortController();
+        browseAbortController = requestController;
         const filter = filterInput.value;
         const category = categorySelect.value;
         const sortScope = { category };
         const sortMode = getSortMode(sortScope);
-        const data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, sortMode);
+        let data;
+        try {
+            data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, sortMode, {
+                signal: requestController.signal,
+            });
+        } catch (error) {
+            if (requestController.signal.aborted) return;
+            throw error;
+        }
         if (loadSequence !== browseLoadSequence) return;
         lastBrowseData = data;
+        onPromptsLoaded?.(data.prompts || []);
 
         currentPage = data.current_page || 1;
         totalPages = data.total_pages || 1;
@@ -512,7 +560,7 @@ export async function showCardManagerModal({
                 });
             });
 
-            attachInfoPopup(item, prompt);
+            attachInfoPopup(item, prompt, { getSurfaceHost });
 
             item.addEventListener("contextmenu", (event) => {
                 event.preventDefault();
@@ -520,7 +568,7 @@ export async function showCardManagerModal({
                     await loadBrowseCategoryOptions(categorySelect.value);
                     await loadBrowseGallery(currentPage);
                     refreshAllSections();
-                });
+                }, { surfaceHost: getSurfaceHost() });
             });
 
             grid.appendChild(item);
@@ -551,9 +599,17 @@ export async function showCardManagerModal({
         grid.querySelectorAll(".localprompt-gallery-item[data-prompt-id]").forEach(item => {
             if (bulkQuerySelection) bulkQuerySelection.exclusions.delete(item.dataset.promptId);
             else bulkSelectedPromptIds.add(item.dataset.promptId);
+            item.classList.add("bulk-selected");
         });
         updateBrowseBulkToolbar();
-        loadBrowseGallery(currentPage);
+    });
+
+    statsBtn?.addEventListener("click", () => {
+        showWildcardStats({
+            galleryNode,
+            category: categorySelect.value ? categorySelect.value : null,
+            surfaceHost: getSurfaceHost(),
+        });
     });
 
     selectAllResultsBtn?.addEventListener("click", () => {
@@ -615,6 +671,7 @@ export async function showCardManagerModal({
                     if (result?.missing_count) bulkStatus.textContent += ` ${result.missing_count} missing.`;
                 }
             },
+            surfaceHost: getSurfaceHost(),
         });
         updateBrowseBulkToolbar();
     }
@@ -630,6 +687,7 @@ export async function showCardManagerModal({
             counts: summary?.counts || {},
             selectedCount: getBulkSelectionCount(),
             currentCategory: categorySelect.value,
+            surfaceHost: getSurfaceHost(),
         });
         if (targetCategory === null) return;
 

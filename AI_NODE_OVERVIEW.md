@@ -89,7 +89,7 @@ The backend owns the canonical preference schema in `backend/Local_Prompt_Galler
 
 Prompt route groups:
 
-- Card listing/details/categories: `get_prompts`, `get_prompt`, `get_prompts_by_ids`, `get_categories`, `get_most_used`.
+- Card listing/details/categories: `get_prompts`, `get_prompt`, `get_prompts_by_ids`, `get_categories`, `get_prompt_stats`, `get_most_used`.
 - Card mutation: `create_prompt`, `create_prompt_from_output`, `update_metadata`, `bulk_edit`, `move_prompts_bulk`, `delete_prompt`, `delete_prompts_bulk`, `rename_category`, `delete_category`, `toggle_favorite`, `set_favorite_color`, `reset_usage_count`.
 - Media/wildcards/presets/preferences: `thumbnail/{prompt_id}`, `upload_thumbnail`, `assign_thumbnail`, `upload_wildcard_file`, `import_wildcard_file`, `export_wildcard_category`, `get_presets`, `save_preset`, `load_preset`, `delete_preset`, `get_ui_prefs`, `save_ui_prefs`, `get_or_create_prompts`.
 

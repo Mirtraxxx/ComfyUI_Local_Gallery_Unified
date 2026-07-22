@@ -250,6 +250,9 @@ export async function renderPromptBuilderDrawer({
     getManualOrder = () => [],
     persistManualOrder = null,
     getDisplayMode = () => nodeInstance.uiPrefs?.cards_display_mode || nodeInstance.uiPrefs?.display_mode || "thumbnails",
+    getCachedPrompts = null,
+    onPromptsLoaded = null,
+    invalidatePrompts = null,
     isRenderCurrent = () => true,
 }) {
     const container = widgetContainer.querySelector(`#${uniqueId}-library-chips`);
@@ -286,13 +289,17 @@ export async function renderPromptBuilderDrawer({
     }
 
     const maxCount = nodeInstance.uiPrefs.most_used_count || 10;
-    let prompts = await getLibraryDrawerPrompts({
+    const loadPrompts = () => getLibraryDrawerPrompts({
         galleryNode,
         tabName,
         maxCount,
         sortMode,
     });
+    let prompts = typeof getCachedPrompts === "function"
+        ? await getCachedPrompts({ tabName, maxCount, sortMode, load: loadPrompts })
+        : await loadPrompts();
     if (!isRenderCurrent()) return;
+    onPromptsLoaded?.(prompts);
     prompts = sortPromptsForDisplay(prompts, sortMode);
     if (sortMode === "manual") {
         prompts = sortPromptsByManualOrder(prompts, getManualOrder(tabName));
@@ -366,11 +373,15 @@ export async function renderPromptBuilderDrawer({
     let draggedPinnedId = null;
     let dragReordered = false;
     let selectedPointerDrag = null;
+    let pointerMoveFrame = null;
+    let pendingPointerMove = null;
 
     const getSelectedBuilderCards = () => getPromptBuilderCards().filter(card => card.classList.contains("selected"));
 
     const getSelectedSwapTarget = (dragState, clientX, clientY) => {
-        const cards = getSelectedBuilderCards().filter(card => card !== dragState.chip);
+        const cards = dragState.cardGeometry || getSelectedBuilderCards()
+            .filter(card => card !== dragState.chip)
+            .map(card => ({ card, rect: card.getBoundingClientRect() }));
         if (!cards.length) return null;
         const dragCenterX = clientX - dragState.pointerOffsetX;
         const dragCenterY = clientY - dragState.pointerOffsetY;
@@ -384,14 +395,12 @@ export async function renderPromptBuilderDrawer({
             return null;
         }
 
-        const directTarget = cards.find(card => {
-            const rect = card.getBoundingClientRect();
+        const directTarget = cards.find(({ rect }) => {
             return dragCenterX >= rect.left && dragCenterX <= rect.right && dragCenterY >= rect.top && dragCenterY <= rect.bottom;
         });
-        if (directTarget) return directTarget;
+        if (directTarget) return directTarget.card;
 
-        return cards.reduce((nearest, card) => {
-            const rect = card.getBoundingClientRect();
+        return cards.reduce((nearest, { card, rect }) => {
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
             const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
@@ -494,6 +503,7 @@ export async function renderPromptBuilderDrawer({
                 const result = await toggleFavorite(prompt.id);
                 if (result?.status === "ok") {
                     await syncPinnedOrderForFavorite(prompt.id, result.favorite);
+                    invalidatePrompts?.([prompt.id]);
                 }
                 rerenderLibraryDrawer(tabName);
             });
@@ -563,6 +573,7 @@ export async function renderPromptBuilderDrawer({
                     pointerOffsetY: event.clientY - (rect.top + rect.height / 2),
                     active: false,
                     lastTarget: null,
+                    cardGeometry: null,
                 };
                 chip.setPointerCapture?.(event.pointerId);
             });
@@ -648,11 +659,23 @@ export async function renderPromptBuilderDrawer({
                     selectedPointerDrag.active = true;
                     selectedPointerDrag.chip.classList.add("pinned-dragging");
                     suppressManualClickUntil = Date.now() + 200;
+                    selectedPointerDrag.cardGeometry = getSelectedBuilderCards()
+                        .filter(card => card !== selectedPointerDrag.chip)
+                        .map(card => ({ card, rect: card.getBoundingClientRect() }));
                 }
 
                 event.preventDefault();
                 event.stopPropagation();
-                updateSelectedPointerTarget(event);
+                pendingPointerMove = event;
+                if (!pointerMoveFrame) {
+                    pointerMoveFrame = requestAnimationFrame(() => {
+                        pointerMoveFrame = null;
+                        if (pendingPointerMove && selectedPointerDrag) {
+                            updateSelectedPointerTarget(pendingPointerMove);
+                        }
+                        pendingPointerMove = null;
+                    });
+                }
                 return;
             }
 
@@ -680,6 +703,10 @@ export async function renderPromptBuilderDrawer({
             if (selectedPointerDrag) {
                 if (event.pointerId !== selectedPointerDrag.pointerId) return;
                 const dragState = selectedPointerDrag;
+                if (pointerMoveFrame) {
+                    cancelAnimationFrame(pointerMoveFrame);
+                    pointerMoveFrame = null;
+                }
                 const targetCard = updateSelectedPointerTarget(event) || dragState.lastTarget;
                 clearSelectedPointerDrag();
 
@@ -741,6 +768,9 @@ export async function renderPromptBuilderDrawer({
 
         container.__localpromptBuilderManualOrderCleanup?.();
         container.__localpromptBuilderManualOrderCleanup = () => {
+            if (pointerMoveFrame) cancelAnimationFrame(pointerMoveFrame);
+            pointerMoveFrame = null;
+            pendingPointerMove = null;
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             window.removeEventListener("pointercancel", onPointerCancel);
