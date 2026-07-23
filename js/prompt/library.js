@@ -485,7 +485,7 @@ export async function renderPromptBuilderDrawer({
                     ${createManagedTextControlsHtml(selectedEntry)}
                 `;
             } else {
-                content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} ${safeName}`;
+                content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} <span class="localprompt-chip-label">${safeName}</span>`;
             }
             if (tabName === "most_used" || (prompt.usage_count > 0 && tabName !== "pinned")) {
                 content += ` <span class="usage-count">x${prompt.usage_count || 0}</span>`;
@@ -626,7 +626,16 @@ export async function renderPromptBuilderDrawer({
     });
 
     if (!isRenderCurrent()) return;
-    container.replaceChildren(nextContent);
+    if (displayMode === "thumbnails") {
+        // Keep the scroll owner separate from the responsive grid so its
+        // left-side scrollbar does not reverse the card's visual order.
+        const promptBuilderGrid = document.createElement("div");
+        promptBuilderGrid.className = "localprompt-prompt-builder-grid";
+        promptBuilderGrid.appendChild(nextContent);
+        container.replaceChildren(promptBuilderGrid);
+    } else {
+        container.replaceChildren(nextContent);
+    }
     container.dataset.renderedTab = tabName;
     container.dataset.renderedSortMode = sortMode;
 

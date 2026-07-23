@@ -181,8 +181,24 @@ export function getPromptReferenceUxStyles() {
 
             .localprompt-library-drawer .localprompt-chip-container {
                 gap: 12px;
-                grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+                /* Compact Prompt Builder chips remain a wrapping flex list. */
                 align-content: start;
+            }
+            .localprompt-library-drawer .localprompt-prompt-builder-grid {
+                display: grid;
+                width: 100%;
+                gap: 12px;
+                /* The saved thumbnail size is the column minimum. Fractional
+                   tracks distribute the remaining drawer width equally. */
+                grid-template-columns: repeat(auto-fill, minmax(min(var(--localprompt-thumb-width), 100%), 1fr));
+                align-content: start;
+                direction: ltr;
+            }
+            .localprompt-library-drawer .localprompt-prompt-builder-grid .localprompt-chip-thumb {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 100 / 146;
+                box-sizing: border-box;
             }
             .localprompt-gallery-grid {
                 --localprompt-card-manager-card-width: 150px;

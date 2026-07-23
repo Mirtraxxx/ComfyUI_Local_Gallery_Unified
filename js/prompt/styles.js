@@ -3004,6 +3004,18 @@ export function getPromptStyles(uniqueId) {
                         opacity: 1;
                         transform: translateY(0);
                     }
+                    .localprompt-library-drawer .localprompt-chip-label {
+                        display: inline-block;
+                        opacity: 0;
+                        transform: translateY(3px);
+                        transition: opacity 0.16s ease, transform 0.16s ease;
+                    }
+                    .localprompt-library-drawer .localprompt-chip:hover .localprompt-chip-label,
+                    .localprompt-library-drawer .localprompt-chip:focus-within .localprompt-chip-label,
+                    .localprompt-library-drawer .localprompt-chip.selected .localprompt-chip-label {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
                     .localprompt-inline-btn {
                         height: 26px;
                         border-radius: 0;
@@ -4720,23 +4732,23 @@ export function getPromptStyles(uniqueId) {
                     /* --- Card Contrast Themes --- */
 
                     /* Theme 1: Highlight Active (Dim Inactive cards when at least one card is active) */
-                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
-                        opacity: 0.65;
-                        filter: grayscale(35%);
+                    .contrast-dim-inactive .localprompt-library-drawer .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected) {
+                        opacity: 0.325;
+                        filter: grayscale(70%);
                     }
-                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
-                        opacity: 0.65;
-                        filter: grayscale(35%);
+                    .contrast-dim-inactive .localprompt-library-drawer .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected) {
+                        opacity: 0.325;
+                        filter: grayscale(70%);
                     }
                     .contrast-dim-inactive .localprompt-gallery-grid:has(.localprompt-gallery-item.selected) .localprompt-gallery-item:not(.selected) {
                         opacity: 0.65;
                         filter: grayscale(35%);
                     }
-                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
+                    .contrast-dim-inactive .localprompt-library-drawer .localprompt-chip-container:has(.localprompt-chip.selected) .localprompt-chip:not(.selected):hover {
                         opacity: 0.95;
                         filter: none;
                     }
-                    .contrast-dim-inactive .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
+                    .contrast-dim-inactive .localprompt-library-drawer .localprompt-chip-container:has(.localprompt-chip-thumb.selected) .localprompt-chip-thumb:not(.selected):hover {
                         opacity: 0.95;
                         filter: none;
                     }
@@ -4747,21 +4759,21 @@ export function getPromptStyles(uniqueId) {
                     }
 
                     /* Theme 2: Highlight Active/Hover (Dim by default, highlight on hover or selection) */
-                    .contrast-dim-by-default .localprompt-chip {
-                        opacity: 0.75;
-                        filter: grayscale(35%);
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip {
+                        opacity: 0.375;
+                        filter: grayscale(70%);
                     }
-                    .contrast-dim-by-default .localprompt-chip:hover,
-                    .contrast-dim-by-default .localprompt-chip.selected {
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip:hover,
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip.selected {
                         opacity: 1.0;
                         filter: none;
                     }
-                    .contrast-dim-by-default .localprompt-chip-thumb {
-                        opacity: 0.75;
-                        filter: grayscale(35%);
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip-thumb {
+                        opacity: 0.375;
+                        filter: grayscale(70%);
                     }
-                    .contrast-dim-by-default .localprompt-chip-thumb:hover,
-                    .contrast-dim-by-default .localprompt-chip-thumb.selected {
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip-thumb:hover,
+                    .contrast-dim-by-default .localprompt-library-drawer .localprompt-chip-thumb.selected {
                         opacity: 1.0;
                         filter: none;
                     }
@@ -5358,8 +5370,7 @@ export function getPromptStyles(uniqueId) {
                         background: transparent;
                         box-shadow: none;
                     }
-                    .localprompt-gallery-item .item-info,
-                    .localprompt-chip-thumb .thumb-label {
+                    .localprompt-gallery-item .item-info {
                         opacity: 1;
                         transform: none;
                         background: linear-gradient(180deg, transparent, rgba(12, 14, 12, 0.92));
@@ -5406,6 +5417,90 @@ export function getPromptStyles(uniqueId) {
                         min-height: calc(34px * var(--localprompt-bar-scale, 1)) !important;
                         padding: 0 calc(11px * var(--localprompt-bar-scale, 1)) !important;
                         font-size: calc(11px * var(--localprompt-bar-scale, 1)) !important;
+                    }
+                    /* Prompt Builder: a compact category rail and tactile card
+                       surface make scan, hover, and selected states distinct
+                       without changing the Card Manager or Active Stack. */
+                    .localprompt-pinned-category-strip {
+                        padding: 3px;
+                        border: 1px solid var(--contact-edge);
+                        border-radius: 7px;
+                        background: #171916;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+                    }
+                    .localprompt-pinned-category-pill {
+                        font-weight: 620;
+                        letter-spacing: 0.01em;
+                        transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease;
+                    }
+                    .localprompt-pinned-category-strip .localprompt-pinned-category-pill {
+                        border-radius: 5px;
+                    }
+                    .localprompt-pinned-category-strip .localprompt-pinned-category-pill:hover {
+                        transform: translateY(-1px);
+                    }
+                    .localprompt-pinned-category-strip .localprompt-pinned-category-pill.active {
+                        background: #31382d;
+                        border-color: rgba(184, 201, 174, 0.82);
+                        color: #f5f8f1;
+                        box-shadow: inset 0 -3px 0 var(--contact-prompt-bright), inset 0 0 0 1px rgba(255,255,255,0.055);
+                    }
+                    .localprompt-pinned-category-strip .localprompt-pinned-category-pill:focus-visible {
+                        outline: 2px solid var(--contact-prompt-bright);
+                        outline-offset: 2px;
+                    }
+                    .localprompt-library-pane .localprompt-library-drawer.active {
+                        padding: 12px 8px 16px 6px;
+                        background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 84px), #171916;
+                        border-top: 1px solid var(--contact-edge-strong);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), inset 0 14px 24px rgba(0,0,0,0.10);
+                    }
+                    .localprompt-library-drawer .localprompt-chip-container {
+                        gap: 12px;
+                        padding-block: 2px 6px;
+                    }
+                    .localprompt-library-drawer .localprompt-chip,
+                    .localprompt-library-drawer .localprompt-chip-thumb {
+                        border-radius: 7px;
+                        border-color: rgba(226, 232, 218, 0.15);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 5px 13px rgba(0,0,0,0.18);
+                        transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+                    }
+                    .localprompt-library-drawer .localprompt-chip:hover,
+                    .localprompt-library-drawer .localprompt-chip-thumb:hover {
+                        transform: translateY(-2px);
+                        border-color: rgba(184, 201, 174, 0.54);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), 0 9px 18px rgba(0,0,0,0.24);
+                    }
+                    .localprompt-library-drawer .localprompt-chip.selected,
+                    .localprompt-library-drawer .localprompt-chip-thumb.selected {
+                        background-color: #2b3427;
+                        border-color: var(--contact-prompt-bright);
+                        box-shadow: inset 0 0 0 1px rgba(226, 244, 216, 0.20), inset 3px 0 0 var(--contact-prompt-bright), 0 8px 18px rgba(0,0,0,0.22);
+                    }
+                    .localprompt-library-drawer .localprompt-chip:focus-within,
+                    .localprompt-library-drawer .localprompt-chip-thumb:focus-within {
+                        outline: 2px solid var(--contact-prompt-bright);
+                        outline-offset: 2px;
+                    }
+                    .localprompt-library-drawer .localprompt-chip-thumb .thumb-label {
+                        padding: 26px 8px 7px;
+                        color: #f5f8f1;
+                        font-size: max(10px, var(--localprompt-thumb-label-size));
+                        font-weight: 650;
+                        letter-spacing: 0.01em;
+                        text-align: left;
+                        background: linear-gradient(180deg, transparent, rgba(9, 12, 8, 0.92));
+                    }
+                    .localprompt-library-drawer .localprompt-chip .localprompt-chip-label {
+                        color: #eef2e9;
+                        font-weight: 620;
+                        letter-spacing: 0.01em;
+                    }
+                    .localprompt-library-drawer .localprompt-chip.pinned-drop-target,
+                    .localprompt-library-drawer .localprompt-chip-thumb.pinned-drop-target {
+                        border-color: var(--contact-prompt-bright) !important;
+                        box-shadow: inset 3px 0 0 var(--contact-prompt-bright), 0 0 0 1px rgba(184, 201, 174, 0.26);
                     }
                     .localprompt-active-side-tab-count {
                         font-size: calc(13px * var(--localprompt-bar-scale, 1)) !important;
