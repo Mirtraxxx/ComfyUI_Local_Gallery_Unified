@@ -1,5 +1,5 @@
 import { getPromptStyles } from "./styles.js?v=card-insights-20260722-13";
-import { getPromptReferenceUxStyles } from "./referenceUx.js?v=card-manager-size-settings-20260722-1";
+import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1";
 import {
     BARS_SIZE_SCALE_MAX,
     BARS_SIZE_SCALE_MIN,
@@ -17,7 +17,7 @@ export function getPromptTemplate(uniqueId) {
                     <div class="localprompt-workspace">
                         <div class="localprompt-top-row">
                             <div class="localprompt-toolbar">
-                                <button class="localprompt-active-side-tab empty" id="${uniqueId}-active-toggle" type="button" title="Active Prompts" aria-label="Active Prompts" aria-pressed="false">
+                                <button class="localprompt-active-side-tab empty" id="${uniqueId}-active-toggle" type="button" title="Active Stack" aria-label="Active Stack" aria-pressed="false">
                                     <span class="localprompt-active-side-tab-count" id="${uniqueId}-active-tab-count">0</span>
                                 </button>
                                 <div class="localprompt-pinned-categories" id="${uniqueId}-pinned-categories">
@@ -26,7 +26,7 @@ export function getPromptTemplate(uniqueId) {
                                             <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
                                         </div>
                                         <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
-                                            <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Meta Tags / Hidden Prompts" aria-label="Meta Tags / Hidden Prompts">
+                                            <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Hidden Prompts" aria-label="Hidden Prompts">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
                                             </button>
                                             <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
@@ -35,7 +35,7 @@ export function getPromptTemplate(uniqueId) {
                                                     <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
                                                 </div>
                                                 <div class="localprompt-dropdown-note" style="padding: 2px 0 6px; font-size: 9px; line-height: 1.3; color: rgba(225, 237, 245, 0.45);">
-                                                    Injected into output, hidden from Active Prompts.
+                                                    Injected into output and kept out of the Active Stack.
                                                 </div>
                                                 <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
                                                 <div class="localprompt-dropdown-divider"></div>
@@ -62,7 +62,7 @@ export function getPromptTemplate(uniqueId) {
                             <aside class="localprompt-active-sidebar" id="${uniqueId}-active-sidebar">
                                 <div class="localprompt-active-sidebar-header">
                                     <div class="localprompt-active-sidebar-title">
-                                        <span>Active</span>
+                                        <span>Active Stack</span>
                                         <span id="${uniqueId}-active-count">0 selected</span>
                                     </div>
                                     <button class="localprompt-btn localprompt-clear-btn" id="${uniqueId}-active-clear-btn" style="padding: 2px 6px; font-size: 9px; background: #4a2a2a; border-color: #6a3a3a;">Clear All</button>
@@ -81,7 +81,7 @@ export function getPromptTemplate(uniqueId) {
                     </div>
                     <!-- BOTTOM BAR -->
                     <div class="localprompt-bottom-bar localprompt-action-bar">
-                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-library-btn" title="Library" aria-label="Library">
+                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-library-btn" title="Library Workspace" aria-label="Library Workspace">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                         </button>
                         <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-from-last-output-btn" title="From Last Output" aria-label="From Last Output">

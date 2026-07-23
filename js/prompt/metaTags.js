@@ -106,8 +106,8 @@ export function createMetaTagsController({
         if (btn) {
             btn.classList.toggle("has-enabled", enabledCount > 0);
             btn.title = enabledCount > 0
-                ? `${enabledCount} hidden prompt${enabledCount === 1 ? "" : "s"} enabled`
-                : "Meta Tags";
+                ? `${enabledCount} Hidden Prompt${enabledCount === 1 ? "" : "s"} enabled`
+                : "Hidden Prompts";
         }
     }
 
@@ -120,7 +120,7 @@ export function createMetaTagsController({
         if (!nodeInstance.metaTags.length) {
             const empty = document.createElement("div");
             empty.className = "localprompt-meta-empty";
-            empty.textContent = "No hidden prompts yet.";
+            empty.textContent = "No Hidden Prompts yet.";
             list.appendChild(empty);
             return;
         }
@@ -133,9 +133,9 @@ export function createMetaTagsController({
                 <span class="localprompt-meta-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
                     <span></span><span></span><span></span><span></span><span></span><span></span>
                 </span>
-                <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle hidden prompt">${tag.enabled ? "ON" : "OFF"}</button>
-                <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden prompt" title="Hidden prompt text">${escapeHtml(tag.prompt_text)}</textarea>
-                <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete hidden prompt">x</button>
+                <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle Hidden Prompt">${tag.enabled ? "ON" : "OFF"}</button>
+                <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden Prompt" title="Hidden Prompt text">${escapeHtml(tag.prompt_text)}</textarea>
+                <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete Hidden Prompt">x</button>
             `;
 
             const toggleBtn = row.querySelector(".localprompt-meta-toggle");
@@ -170,7 +170,7 @@ export function createMetaTagsController({
                 flushMetaTags({ redrawCanvas: false, skipRender: true });
             });
             row.querySelector('[data-meta-action="delete"]')?.addEventListener("click", () => {
-                if (!confirmAction(`Delete hidden prompt "${tag.name || "Untitled"}"?`)) return;
+                if (!confirmAction(`Delete Hidden Prompt "${tag.name || "Untitled"}"?`)) return;
                 flushMetaTags({ redrawCanvas: false, skipRender: true });
                 nodeInstance.metaTags.splice(index, 1);
                 saveMetaTags({ immediate: true });

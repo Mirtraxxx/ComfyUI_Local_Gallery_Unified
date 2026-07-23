@@ -5398,6 +5398,28 @@ export function getPromptStyles(uniqueId) {
                         width: calc(11px * var(--localprompt-bar-scale, 1)) !important;
                         height: calc(11px * var(--localprompt-bar-scale, 1)) !important;
                     }
+                    .localprompt-container :is(button, input, select, textarea, [role="button"], [tabindex="0"]):focus-visible {
+                        outline: 2px solid var(--ux-focus);
+                        outline-offset: 2px;
+                    }
+                    .localprompt-container :is(
+                        .localprompt-btn,
+                        .localprompt-toolbar-button,
+                        .localprompt-active-side-tab,
+                        .localprompt-pinned-category-pill,
+                        .localprompt-library-tab,
+                        .localprompt-category-grid-button,
+                        .localprompt-favorite-toggle-btn,
+                        .localprompt-category-pull-tab,
+                        .managed-state-pill,
+                        .localprompt-meta-toggle,
+                        .localprompt-meta-action,
+                        .localprompt-meta-add-btn,
+                        .localprompt-active-row-thumb,
+                        .managed-weight-val
+                    ):not(:disabled):active {
+                        transform: translateY(1px);
+                    }
                     @media (prefers-reduced-motion: reduce) {
                         .localprompt-container *,
                         .localprompt-container *::before,

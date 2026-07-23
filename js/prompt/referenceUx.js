@@ -8,6 +8,8 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-container {
+                /* Prompt foundation tokens. Keep category colors per-category
+                   and favorite/danger states separate from selection feedback. */
                 --ux-bg: #08111a;
                 --ux-panel: #0c1621;
                 --ux-panel-raised: #101c28;
@@ -19,6 +21,22 @@ export function getPromptReferenceUxStyles() {
                 --ux-green-soft: rgba(85, 221, 125, 0.14);
                 --ux-blue: #62a9ff;
                 --ux-danger: #ef6262;
+                --ux-canvas: var(--ux-bg);
+                --ux-surface: var(--ux-panel);
+                --ux-surface-raised: var(--ux-panel-raised);
+                --ux-border: var(--ux-line);
+                --ux-border-strong: var(--ux-line-strong);
+                --ux-focus: #83c7ff;
+                --ux-selected: #69d888;
+                --ux-active: #87eaa1;
+                --ux-danger-surface: rgba(239, 98, 98, 0.14);
+                --ux-favorite: #ffd166;
+                /* Compact creator-tool shape and motion scale. */
+                --ux-radius-control: 6px;
+                --ux-radius-card: 8px;
+                --ux-radius-surface: 10px;
+                --ux-transition-fast: 140ms ease-out;
+                --ux-transition-standard: 180ms ease-out;
                 width: 125%;
                 height: 125% !important;
                 transform: scale(0.8);
@@ -65,12 +83,12 @@ export function getPromptReferenceUxStyles() {
                 height: 34px;
                 min-width: 36px;
                 padding: 0;
-                color: #d9e3ea;
-                background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012)), #0b151f;
-                border: 1px solid rgba(155, 186, 208, 0.19);
-                border-radius: 9px;
+                color: var(--ux-text);
+                background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012)), var(--ux-surface);
+                border: 1px solid var(--ux-border-strong);
+                border-radius: var(--ux-radius-control);
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 6px 16px rgba(0,0,0,0.15);
-                transition: border-color 0.17s ease, color 0.17s ease, background 0.17s ease, box-shadow 0.17s ease, transform 0.17s ease;
+                transition: border-color var(--ux-transition-fast), color var(--ux-transition-fast), background var(--ux-transition-fast), box-shadow var(--ux-transition-fast), transform var(--ux-transition-fast);
             }
 
             .localprompt-active-side-tab:hover,
@@ -88,10 +106,22 @@ export function getPromptReferenceUxStyles() {
             .localprompt-active-side-tab:not(.empty),
             .localprompt-bottom-bar .localprompt-icon-btn.active,
             .localprompt-bottom-bar .localprompt-icon-btn[aria-pressed="true"] {
-                color: #78ef96;
-                border-color: rgba(85, 221, 125, 0.54);
+                color: var(--ux-active);
+                border-color: var(--ux-selected);
                 background: linear-gradient(145deg, rgba(72,215,116,0.22), rgba(39,100,70,0.07)), #0b181b;
                 box-shadow: 0 0 18px rgba(61, 218, 110, 0.12), inset 0 0 0 1px rgba(255,255,255,0.025);
+            }
+
+            .localprompt-favorite-toggle-btn:hover,
+            .localprompt-favorite-toggle-btn.active {
+                color: var(--ux-favorite);
+                border-color: rgba(255, 209, 102, 0.54);
+            }
+
+            .localprompt-clear-btn:hover,
+            .localprompt-meta-action.localprompt-clear-btn:hover {
+                background: var(--ux-danger-surface) !important;
+                border-color: var(--ux-danger) !important;
             }
 
             .localprompt-active-side-tab-count {
@@ -109,7 +139,7 @@ export function getPromptReferenceUxStyles() {
                 background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)), #0b151f;
                 border: 1px solid rgba(156, 188, 211, 0.17);
                 border-left: 2px solid var(--category-color, rgba(156,188,211,0.28));
-                border-radius: 9px;
+                border-radius: var(--ux-radius-control);
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.025), 0 5px 13px rgba(0,0,0,0.14);
                 font-size: 11px;
                 font-weight: 520;
@@ -164,12 +194,12 @@ export function getPromptReferenceUxStyles() {
 
             .localprompt-chip-thumb,
             .localprompt-gallery-item {
-                border-radius: 12px;
-                background: #0c1721;
-                border: 1px solid rgba(150, 184, 207, 0.16);
+                border-radius: var(--ux-radius-card);
+                background: var(--ux-surface);
+                border: 1px solid var(--ux-border);
                 box-shadow: 0 9px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.02);
                 overflow: hidden;
-                transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+                transition: transform var(--ux-transition-standard), border-color var(--ux-transition-standard), box-shadow var(--ux-transition-standard), filter var(--ux-transition-standard);
             }
 
             .localprompt-chip-thumb:hover,
@@ -205,7 +235,7 @@ export function getPromptReferenceUxStyles() {
                     radial-gradient(circle at 10% 0%, rgba(75, 223, 121, 0.09), transparent 32%),
                     rgba(8, 18, 26, 0.97);
                 border: 1px solid rgba(92, 221, 132, 0.25);
-                border-radius: 13px;
+                border-radius: var(--ux-radius-surface);
                 box-shadow: 0 20px 46px rgba(0,0,0,0.42), 0 0 22px rgba(67, 214, 113, 0.07);
             }
 
