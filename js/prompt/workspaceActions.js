@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-surface-host-20260721-1";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=card-insights-20260722-13";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -7,7 +7,7 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=modal-surfaces-20260721-2";
+} from "./dialogs.js?v=card-insights-20260722-11";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
@@ -108,8 +108,8 @@ export function createPromptWorkspaceActions({
         });
     }
 
-    async function showExportDialog(initialCategory = "") {
-        await openExportDialog({ galleryNode, initialCategory });
+    async function showExportDialog(initialCategory = "", { surfaceHost = null } = {}) {
+        await openExportDialog({ galleryNode, initialCategory, surfaceHost });
     }
 
     async function showExportWorkspace(onClose = returnToGallery) {
@@ -162,6 +162,7 @@ export function createPromptWorkspaceActions({
             app,
             nodeInstance,
             galleryNode,
+            ownerId: uniqueId,
             saveSelectionData,
             loadCategories,
             refreshAllSections,

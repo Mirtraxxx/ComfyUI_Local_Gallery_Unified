@@ -661,6 +661,7 @@ UI_PREF_DEFAULTS = {
     "thumbnail_size": "medium",
     "thumbnail_size_px": 96,
     "active_thumbnail_size_px": 110,
+    "card_manager_card_size_px": 150,
     "bars_size_scale": 100,
     "pinned_categories": None,
     "visible_pinned_category_count": 5,
@@ -677,6 +678,7 @@ UI_PREF_DEFAULTS = {
     "meta_tags_button_side": "right",
     "wildcard_cycle_state": {},
     "last_created_category": "",
+    "card_insights_categories": [],
     "from_last_output_name_default": "time",
     "active_border_theme": "default",
     "active_border_custom_1": "#ff0000",
@@ -754,6 +756,9 @@ def _normalize_hex_color(value, fallback):
 def _normalize_dict(value):
     return value if isinstance(value, dict) else {}
 
+def _normalize_card_insights_categories(value):
+    return _normalize_str_list(value)
+
 UI_PREF_VALIDATORS = {
     "display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["display_mode"]),
     "cards_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["cards_display_mode"]),
@@ -764,6 +769,7 @@ UI_PREF_VALIDATORS = {
     "thumbnail_size": lambda value, prefs: _normalize_choice(value, {"small", "medium", "large"}, UI_PREF_DEFAULTS["thumbnail_size"]),
     "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 40, 320),
     "active_thumbnail_size_px": lambda value, prefs: _normalize_int(value, prefs.get("thumbnail_size_px", UI_PREF_DEFAULTS["active_thumbnail_size_px"]), 40, 320),
+    "card_manager_card_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["card_manager_card_size_px"], 100, 320),
     "bars_size_scale": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["bars_size_scale"], 60, 160),
     "pinned_categories": lambda value, prefs: _normalize_nullable_str_list(value),
     "visible_pinned_category_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["visible_pinned_category_count"], 1, 20),
@@ -780,6 +786,7 @@ UI_PREF_VALIDATORS = {
     "meta_tags_button_side": lambda value, prefs: _normalize_choice(value, {"left", "right"}, UI_PREF_DEFAULTS["meta_tags_button_side"]),
     "wildcard_cycle_state": lambda value, prefs: _normalize_dict(value),
     "last_created_category": lambda value, prefs: str(value or ""),
+    "card_insights_categories": lambda value, prefs: _normalize_card_insights_categories(value),
     "from_last_output_name_default": lambda value, prefs: _normalize_choice(value, {"time", "blank"}, UI_PREF_DEFAULTS["from_last_output_name_default"]),
     "active_border_theme": lambda value, prefs: _normalize_choice(value, ACTIVE_BORDER_THEMES, UI_PREF_DEFAULTS["active_border_theme"]),
     "active_border_custom_1": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_1"]),
@@ -947,6 +954,10 @@ async def get_prompts_endpoint(request):
         filter_name = request.query.get('filter_name', '')
         mode = request.query.get('mode', 'OR')
         category = request.query.get('category', '')
+        categories = list(dict.fromkeys(
+            str(value).strip() for value in request.query.getall('categories', [])
+            if str(value).strip()
+        ))
         sort_mode = request.query.get('sort', request.query.get('sort_mode', 'manual'))
 
         # Treat UI label as no filter
@@ -970,10 +981,19 @@ async def get_prompts_endpoint(request):
         metadata = load_metadata()
         indexes = get_metadata_indexes()
         prefs = load_ui_prefs()
-        manual_order_scope = get_prompt_manual_order_scope(category, favorites_only)
+        effective_category = category if not categories else (categories[0] if len(categories) == 1 else "")
+        manual_order_scope = get_prompt_manual_order_scope(effective_category, favorites_only)
         prompt_manual_orders = prefs.get("prompt_manual_orders", {})
         manual_order = prompt_manual_orders.get(manual_order_scope, []) if isinstance(prompt_manual_orders, dict) else []
-        if favorites_only:
+        if categories:
+            scoped_ids = set()
+            for scoped_category in categories:
+                scoped_ids.update(indexes.get("category_ids", {}).get(scoped_category, []))
+            candidate_ids = [prompt_id for prompt_id in metadata if prompt_id in scoped_ids]
+            if favorites_only:
+                favorite_ids = set(indexes.get("favorite_ids", []))
+                candidate_ids = [prompt_id for prompt_id in candidate_ids if prompt_id in favorite_ids]
+        elif favorites_only:
             candidate_ids = list(indexes.get("favorite_ids", []))
         elif category:
             candidate_ids = list(indexes.get("category_ids", {}).get(category, []))
@@ -1155,6 +1175,11 @@ async def get_prompt_stats_endpoint(request):
     try:
         category_supplied = "category" in request.query
         category = request.query.get("category", "") if category_supplied else None
+        categories = [str(value) for value in request.query.getall("categories", []) if str(value)]
+        # Compatibility with clients that send one comma-delimited value.
+        if len(categories) == 1 and "," in categories[0]:
+            categories = [value.strip() for value in categories[0].split(",") if value.strip()]
+        categories = list(dict.fromkeys(categories))
         group = request.query.get("group", "all")
         if group not in {"all", "characters", "franchises", "other"}:
             group = "all"
@@ -1166,11 +1191,11 @@ async def get_prompt_stats_endpoint(request):
         per_page = bounded_int(request.query.get("per_page", 100), 100, 20, 200)
 
         revision = metadata_revision()
-        cache_key = (revision, category)
+        cache_key = (revision, tuple(categories) if categories else category)
         aggregate = _prompt_stats_cache.get(cache_key)
         if aggregate is None:
             metadata = load_metadata()
-            aggregate = build_prompt_stats(metadata, category=category)
+            aggregate = build_prompt_stats(metadata, category=category, categories=categories or None)
             _prompt_stats_cache.clear()
             _prompt_stats_cache[cache_key] = aggregate
 
@@ -1184,8 +1209,9 @@ async def get_prompt_stats_endpoint(request):
         )
         return web.json_response({
             "status": "ok",
-            "scope": "category" if category_supplied else "all",
+            "scope": "categories" if categories else ("category" if category_supplied else "all"),
             "category": category,
+            "categories": categories,
             "group": group,
             **result,
         })
@@ -1247,6 +1273,14 @@ def _resolve_bulk_selection(metadata, selection):
 
     filter_name = str(selection.get("filter_name", "")).strip().casefold()
     category = str(selection.get("category", "")).strip()
+    categories = []
+    seen_categories = set()
+    for raw_category in selection.get("categories", []) if isinstance(selection.get("categories", []), list) else []:
+        normalized_category = str(raw_category or "").strip()
+        if normalized_category and normalized_category not in seen_categories:
+            categories.append(normalized_category)
+            seen_categories.add(normalized_category)
+    category_scope = set(categories)
     if category == "All Categories":
         category = ""
     favorites_only = bool(selection.get("favorites_only", False))
@@ -1258,6 +1292,8 @@ def _resolve_bulk_selection(metadata, selection):
         if prompt_id in excluded or not isinstance(prompt_data, dict):
             continue
         prompt_category = str(prompt_data.get("category", "") or "")
+        if category_scope and prompt_category not in category_scope:
+            continue
         if category and prompt_category != category:
             continue
         if uncategorized_only and prompt_category:

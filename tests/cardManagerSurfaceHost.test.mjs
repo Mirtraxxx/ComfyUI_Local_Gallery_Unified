@@ -16,6 +16,8 @@ test("Card Manager fullscreen mounts prompt portals under its surface host", asy
     assert.match(browseSource, /localprompt-card-manager-surface-host/);
     assert.match(browseSource, /attachInfoPopup\(item, prompt, \{ getSurfaceHost \}\)/);
     assert.match(browseSource, /surfaceHost: getSurfaceHost\(\)/);
+    assert.match(browseSource, /onExportCategory\(categoryToExport, \{ surfaceHost: getSurfaceHost\(\) \}\)/);
+    assert.match(browseSource, /root\.closest\("\.localprompt-card-insights-overlay"\) \|\| managementHost/);
     assert.match(previewsSource, /surfaceHost\?\.isConnected \? surfaceHost : document\.body/);
     assert.match(contextMenusSource, /surfaceHost\?\.isConnected \? surfaceHost : document\.body/);
 });

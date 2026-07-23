@@ -1,8 +1,8 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { setupUnifiedGalleryTabs } from "./tabs.js?v=compact-card-manager-20260721-3";
-import { createLoraGalleryLifecycle } from "./lora/ui.js?v=selection-envelope-v1-20260721";
-import { createPromptGalleryLifecycle } from "./prompt/ui.js?v=card-manager-surface-host-20260721-1";
+import { setupUnifiedGalleryTabs } from "./tabs.js?v=gallery-edge-stable-20260722-8";
+import { createLoraGalleryLifecycle } from "./lora/ui.js?v=lora-scrollbar-gutter-20260722-1";
+import { createPromptGalleryLifecycle } from "./prompt/ui.js?v=card-insights-20260722-13";
 
 const loraLifecycle = createLoraGalleryLifecycle(app);
 const promptLifecycle = createPromptGalleryLifecycle(app, api);

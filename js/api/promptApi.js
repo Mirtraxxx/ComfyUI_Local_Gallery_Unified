@@ -3,10 +3,18 @@ import { api } from "../../../scripts/api.js";
 export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual", requestOptions = {}) {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
     let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
+    const scopedCategories = Array.isArray(requestOptions?.categories)
+        ? [...new Set(requestOptions.categories.map(value => String(value || "").trim()).filter(Boolean))]
+        : [];
+    scopedCategories.forEach(value => {
+        url += `&categories=${encodeURIComponent(value)}`;
+    });
     selectedPrompts.forEach((prompt) => {
         url += `&selected_prompts=${encodeURIComponent(prompt)}`;
     });
-    const response = await api.fetchApi(url, requestOptions);
+    const fetchOptions = { ...requestOptions };
+    delete fetchOptions.categories;
+    const response = await api.fetchApi(url, fetchOptions);
     return await response.json();
 }
 
@@ -47,9 +55,12 @@ export async function getCategorySummary() {
     };
 }
 
-export async function getPromptStats({ category, group = "all", search = "", sort = "count", page = 1, perPage = 100 } = {}) {
+export async function getPromptStats({ category, categories = [], group = "all", search = "", sort = "count", page = 1, perPage = 100 } = {}) {
     const params = new URLSearchParams({ group, search, sort, page: String(page), per_page: String(perPage) });
     if (category !== null && category !== undefined) params.set("category", category);
+    if (Array.isArray(categories)) {
+        [...new Set(categories)].filter(Boolean).forEach(value => params.append("categories", value));
+    }
     const response = await api.fetchApi(`/localgalleryunified/prompt/get_prompt_stats?${params.toString()}`);
     const result = await response.json();
     if (!response.ok || result?.status === "error") {

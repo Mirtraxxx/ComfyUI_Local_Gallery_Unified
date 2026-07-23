@@ -27,7 +27,13 @@ export const THUMBNAIL_SIZE_LEGACY_PRESETS = {
     large: 115,
 };
 
+// Card Manager is a separate workspace from Prompt Builder. Its card density
+// deliberately has its own preference and limits.
+export const CARD_MANAGER_CARD_SIZE_MIN = 100;
+export const CARD_MANAGER_CARD_SIZE_MAX = 320;
+export const CARD_MANAGER_CARD_SIZE_DEFAULT = 150;
+export const CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT = 210;
+
 export const BARS_SIZE_SCALE_MIN = 60;
 export const BARS_SIZE_SCALE_MAX = 160;
 export const BARS_SIZE_SCALE_DEFAULT = 100;
-

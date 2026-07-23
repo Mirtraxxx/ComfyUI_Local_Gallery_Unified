@@ -70,6 +70,7 @@ export function createDialogPanel(width = 500, documentRef = globalThis.document
 
 export function createWorkspaceDialogSurface({
     workspaceContainer = null,
+    surfaceHost = null,
     onWorkspaceClose = null,
     onClose = null,
     width = 500,
@@ -79,7 +80,7 @@ export function createWorkspaceDialogSurface({
         const overlay = createCenteredOverlay(documentRef);
         const dialog = createDialogPanel(width, documentRef);
         overlay.appendChild(dialog);
-        documentRef.body.appendChild(overlay);
+        (surfaceHost?.isConnected ? surfaceHost : documentRef.body).appendChild(overlay);
         return { dialog, close: () => overlay.remove(), isWorkspace: false };
     }
 

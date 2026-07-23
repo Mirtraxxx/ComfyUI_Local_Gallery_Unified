@@ -53,6 +53,21 @@ test("dialog surface composes centered and workspace variants", () => {
     assert.equal(embedded.dialog.style.width, "520px");
 });
 
+test("dialog surface can mount above an existing connected surface", () => {
+    const body = createElement();
+    const surfaceHost = createElement();
+    surfaceHost.isConnected = true;
+    const centered = createWorkspaceDialogSurface({
+        width: 420,
+        surfaceHost,
+        documentRef: { body, createElement },
+    });
+
+    assert.equal(centered.isWorkspace, false);
+    assert.equal(body.children.length, 0);
+    assert.equal(surfaceHost.children.length, 1);
+});
+
 test("workspace surface closes once and backdrop binding ignores child clicks", () => {
     const workspace = createElement();
     let closes = 0;

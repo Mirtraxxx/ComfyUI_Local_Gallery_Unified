@@ -143,13 +143,22 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-library-drawer {
-                padding: 14px 16px 18px;
+                /* The Prompt Builder scroll owner is RTL only to place its
+                   scrollbar on the left. Keep the outer gutter compact while
+                   retaining room on the content edge. */
+                padding: 14px 10px 18px 4px;
             }
 
-            .localprompt-library-drawer .localprompt-chip-container,
-            .localprompt-gallery-grid {
+            .localprompt-library-drawer .localprompt-chip-container {
                 gap: 12px;
                 grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+                align-content: start;
+            }
+            .localprompt-gallery-grid {
+                --localprompt-card-manager-card-width: 150px;
+                --localprompt-card-manager-fullscreen-card-width: 210px;
+                gap: 12px;
+                grid-template-columns: repeat(auto-fill, minmax(min(var(--localprompt-card-manager-card-width), 100%), 1fr));
                 align-content: start;
             }
 
@@ -681,8 +690,27 @@ export function getPromptReferenceUxStyles() {
             .localprompt-browse-toolbar-row-primary .localprompt-browse-select { flex: 1.7 1 180px; }
             .localprompt-browse-toolbar-row-primary #browse-stats { flex: 0.45 1 62px; }
             .localprompt-browse-toolbar-row-primary #browse-fullscreen-toggle { flex: 0.65 1 96px; }
-            .localprompt-browse-toolbar-row-actions > * { flex: 1 1 100px; }
-            .localprompt-browse-toolbar-row-actions .localprompt-browse-sort-select { flex: 1.2 1 140px; }
+            .localprompt-browse-toolbar-row-actions {
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .localprompt-browse-toolbar-row-actions .localprompt-browse-sort-select {
+                flex: 1 1 160px;
+                min-width: 140px;
+            }
+            .localprompt-browse-toolbar-row-actions #browse-manage-toggle {
+                flex: 0 0 auto;
+                min-width: 82px;
+            }
+            .localprompt-browse-category-actions {
+                display: inline-flex;
+                align-items: center;
+                flex: 0 1 auto;
+                gap: 4px;
+                min-width: 0;
+                padding-left: 5px;
+                border-left: 1px solid rgba(143, 177, 200, 0.16);
+            }
 
             .localprompt-browse-search {
                 position: relative;
@@ -749,7 +777,10 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-browse-toolbar-row .localprompt-browse-toolbar-btn {
-                width: 100%;
+                width: auto;
+                min-height: 30px;
+                padding: 3px 8px !important;
+                font-size: 10px;
             }
 
             .localprompt-browse-toolbar-btn svg {
@@ -769,6 +800,108 @@ export function getPromptReferenceUxStyles() {
                 border-color: rgba(231, 78, 82, 0.42) !important;
             }
 
+            .localprompt-browse-toolbar-btn:focus-visible,
+            .localprompt-bulk-toolbar .localprompt-btn:focus-visible {
+                outline: 2px solid #79c5ff;
+                outline-offset: 2px;
+            }
+
+            .localprompt-bulk-toolbar {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                flex-wrap: wrap;
+                margin: 6px 0 8px;
+                padding: 4px 6px;
+                position: sticky;
+                top: 74px;
+                z-index: 39;
+                background: linear-gradient(135deg, rgba(25, 39, 48, 0.98), rgba(18, 30, 37, 0.98));
+                border: 1px solid rgba(88, 214, 106, 0.22);
+                border-radius: 7px;
+                box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+            }
+
+            .localprompt-bulk-summary {
+                flex: 0 0 auto;
+                min-height: 28px;
+                box-sizing: border-box;
+                padding: 6px 7px;
+                color: #e6f1eb;
+                background: rgba(109, 197, 132, 0.10);
+                border: 1px solid rgba(109, 197, 132, 0.2);
+                border-radius: 5px;
+                font-size: 10px;
+                font-weight: 650;
+                line-height: 1.35;
+                white-space: nowrap;
+            }
+
+            .localprompt-bulk-action-group {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                min-width: 0;
+            }
+
+            .localprompt-bulk-action-group + .localprompt-bulk-action-group {
+                padding-left: 5px;
+                border-left: 1px solid rgba(143, 177, 200, 0.14);
+            }
+
+            .localprompt-bulk-toolbar .localprompt-btn {
+                min-height: 30px;
+                padding: 3px 7px;
+                color: #dbe6eb;
+                background: rgba(255,255,255,0.045);
+                border-color: rgba(157, 190, 209, 0.18);
+                border-radius: 5px;
+                font-size: 10px;
+            }
+
+            .localprompt-bulk-toolbar .localprompt-btn:hover:not(:disabled) {
+                background: rgba(120, 171, 199, 0.14);
+                border-color: rgba(146, 201, 232, 0.36);
+            }
+
+            .localprompt-bulk-toolbar .localprompt-btn.primary {
+                color: #e7f8eb;
+                background: rgba(49, 126, 72, 0.58);
+                border-color: rgba(89, 194, 116, 0.48);
+            }
+
+            .localprompt-bulk-toolbar .localprompt-btn.primary:hover:not(:disabled) {
+                background: rgba(57, 148, 82, 0.68);
+            }
+
+            .localprompt-bulk-toolbar .localprompt-bulk-danger-btn {
+                color: #ffdada;
+                background: rgba(118, 47, 50, 0.46) !important;
+                border-color: rgba(229, 101, 105, 0.33) !important;
+            }
+
+            .localprompt-bulk-toolbar .localprompt-bulk-danger-btn:hover:not(:disabled) {
+                background: rgba(153, 53, 58, 0.62) !important;
+                border-color: rgba(240, 117, 120, 0.52) !important;
+            }
+
+            .localprompt-bulk-toolbar .localprompt-btn:disabled {
+                opacity: 0.48;
+                color: rgba(219, 230, 235, 0.66);
+            }
+
+            .localprompt-bulk-status:empty {
+                display: none;
+            }
+
+            .localprompt-bulk-status:not(:empty) {
+                flex: 1 0 100%;
+                min-height: 0;
+                padding: 1px 2px 0;
+                color: #a9dfb5;
+                font-size: 10px;
+            }
+
             .localprompt-browse-pagination-pill {
                 min-height: 28px;
                 padding: 3px 6px;
@@ -785,7 +918,10 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-library-shell .localprompt-browse-page .localprompt-workspace-body {
-                padding: 8px 10px 0;
+                /* This scroll owner is RTL for the left scrollbar. The left
+                   padding is therefore the gap between the scrollbar and the
+                   Card Manager content, not a normal outer inset. */
+                padding: 8px 10px 0 4px;
             }
 
             .localprompt-library-shell:has(.localprompt-browse-page) .localprompt-library-shell-content {
@@ -810,6 +946,7 @@ export function getPromptReferenceUxStyles() {
                 .localprompt-library-choice:nth-child(2) { border-right: 0; }
                 .localprompt-library-choice:nth-child(-n+2) { border-bottom: 1px solid rgba(143,174,196,0.10); }
                 .localprompt-browse-toolbar-row { gap: 4px; }
+                .localprompt-bulk-toolbar { top: 74px; }
             }
 
             @container (max-width: 620px) {
@@ -836,6 +973,24 @@ export function getPromptReferenceUxStyles() {
                     grid-template-columns: 1fr 1fr;
                 }
                 .localprompt-browse-toolbar-row-primary .localprompt-browse-search { grid-column: 1 / -1; }
+                .localprompt-browse-toolbar-row-actions #browse-category-actions {
+                    grid-column: 1 / -1;
+                    justify-content: flex-start;
+                    flex-wrap: wrap;
+                    padding-left: 0;
+                    border-left: 0;
+                }
+                .localprompt-bulk-toolbar {
+                    position: static;
+                    align-items: flex-start;
+                }
+                .localprompt-bulk-action-group {
+                    flex-wrap: wrap;
+                }
+                .localprompt-bulk-action-group + .localprompt-bulk-action-group {
+                    padding-left: 0;
+                    border-left: 0;
+                }
                 .localprompt-bottom-bar { padding-inline: 8px; gap: 6px; overflow-x: auto; }
             }
         </style>

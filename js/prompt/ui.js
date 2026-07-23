@@ -1,5 +1,5 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
-import * as promptApi from "../api/promptApi.js?v=prompt-performance-20260721-1";
+import * as promptApi from "../api/promptApi.js?v=card-insights-20260722-13";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -44,7 +44,7 @@ import {
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
-import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=prompt-display-preferences-20260712";
+import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=card-manager-size-settings-owner-20260722-1";
 import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
@@ -53,17 +53,17 @@ import {
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
 } from "./library.js?v=prompt-performance-20260721-1";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=modal-surfaces-20260721-1";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=prompt-settings-20260722-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=card-manager-surface-host-20260721-1";
+import { getPromptTemplate } from "./template.js?v=card-insights-20260722-13";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-surface-host-20260721-1";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-insights-20260722-13";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
-} from "./preferences.js?v=prefs-schema-20260611";
+} from "./preferences.js?v=card-manager-size-settings-20260722-1";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";

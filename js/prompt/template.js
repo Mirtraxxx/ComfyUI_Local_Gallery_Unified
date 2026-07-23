@@ -1,6 +1,13 @@
-import { getPromptStyles } from "./styles.js?v=card-manager-surface-host-20260721-1";
-import { getPromptReferenceUxStyles } from "./referenceUx.js?v=compact-card-manager-20260721-6";
-import { THUMBNAIL_SIZE_MIN, THUMBNAIL_SIZE_MAX, BARS_SIZE_SCALE_MIN, BARS_SIZE_SCALE_MAX } from "./constants.js";
+import { getPromptStyles } from "./styles.js?v=card-insights-20260722-13";
+import { getPromptReferenceUxStyles } from "./referenceUx.js?v=card-manager-size-settings-20260722-1";
+import {
+    BARS_SIZE_SCALE_MAX,
+    BARS_SIZE_SCALE_MIN,
+    CARD_MANAGER_CARD_SIZE_MAX,
+    CARD_MANAGER_CARD_SIZE_MIN,
+    THUMBNAIL_SIZE_MAX,
+    THUMBNAIL_SIZE_MIN,
+} from "./constants.js?v=card-manager-size-settings-20260722-1";
 
 export function getPromptTemplate(uniqueId) {
     return `
@@ -123,6 +130,15 @@ export function getPromptTemplate(uniqueId) {
                                             <input id="${uniqueId}-bars-size-slider" type="range" min="${BARS_SIZE_SCALE_MIN}" max="${BARS_SIZE_SCALE_MAX}" step="1">
                                             <span>+</span>
                                         </label>
+                                    </section>
+                                    <section class="localprompt-display-section">
+                                        <div class="localprompt-display-section-title">CARD MANAGER</div>
+                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-card-manager-size-control" title="Card Manager card size">
+                                            <span>-</span>
+                                            <input id="${uniqueId}-card-manager-size-slider" type="range" min="${CARD_MANAGER_CARD_SIZE_MIN}" max="${CARD_MANAGER_CARD_SIZE_MAX}" step="1" aria-label="Card Manager card size">
+                                            <span>+</span>
+                                        </label>
+                                        <button class="localprompt-display-reset-button" id="${uniqueId}-card-manager-size-reset" type="button">Reset card size</button>
                                     </section>
                                     <section class="localprompt-display-section">
                                         <div class="localprompt-display-section-title">CONTRAST</div>

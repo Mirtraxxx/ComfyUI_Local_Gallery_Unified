@@ -5,9 +5,14 @@ import {
 } from "./helpers.js?v=unified-icons-20260606";
 import { escapeHtml } from "../shared/dom.js";
 import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-surface-host-20260721-1";
-import { showWildcardStats } from "./wildcardStats.js?v=card-manager-surface-host-20260721-1";
+import { showWildcardStats } from "./wildcardStats.js?v=card-insights-20260722-13";
 import { closePromptPreviews } from "./previews.js?v=card-manager-surface-host-20260721-1";
 import { closePromptContextMenus } from "./contextMenus.js?v=card-manager-surface-host-20260721-1";
+import {
+    CARD_MANAGER_CARD_SIZE_DEFAULT,
+    CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT,
+} from "./constants.js?v=card-manager-size-settings-20260722-1";
+import { getCardManagerCardSizePx } from "./preferences.js?v=card-manager-size-settings-20260722-1";
 
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
@@ -32,17 +37,22 @@ function populateCategorySelect(categorySelect, categories, counts = {}, totalCo
 }
 
 function updateCategoryActionButtons(overlay, categoryValue) {
+    const categoryActions = overlay.querySelector("#browse-category-actions");
     const renameCategoryBtn = overlay.querySelector("#browse-rename-category");
     const exportCategoryBtn = overlay.querySelector("#browse-export-category");
     const deleteCategoryBtn = overlay.querySelector("#browse-delete-category");
+    const actionsVisible = overlay.dataset.cardManagementPanel === "true" && Boolean(categoryValue);
+    if (categoryActions) {
+        categoryActions.style.display = actionsVisible ? "inline-flex" : "none";
+    }
     if (renameCategoryBtn) {
-        renameCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
+        renameCategoryBtn.style.display = actionsVisible ? "inline-flex" : "none";
     }
     if (exportCategoryBtn) {
-        exportCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
+        exportCategoryBtn.style.display = actionsVisible ? "inline-flex" : "none";
     }
     if (deleteCategoryBtn) {
-        deleteCategoryBtn.style.display = categoryValue ? "inline-flex" : "none";
+        deleteCategoryBtn.style.display = actionsVisible ? "inline-flex" : "none";
     }
 }
 
@@ -155,8 +165,21 @@ function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, c
     });
 }
 
-function buildPromptCardHtml(prompt, hasPreview) {
+function buildPromptCardHtml(prompt, hasPreview, { management = false } = {}) {
     const safeName = escapeHtml(prompt.name);
+    const safeCategory = escapeHtml(prompt.category || "Uncategorized");
+    if (management) {
+        const safePromptText = escapeHtml(String(prompt.prompt_text || "").replace(/\s+/g, " ").trim());
+        return `
+            ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
+            <div class="item-info">
+                <div class="item-name" title="${safeName}">${safeName}</div>
+                <div class="item-category" title="${safeCategory}">${safeCategory}</div>
+                <div class="item-prompt-text" title="${safePromptText}">${safePromptText || "No prompt text"}</div>
+            </div>
+            ${createPromptActionButton({ icon: "star", className: `favorite-btn ${prompt.favorite ? "favorited" : ""}`, title: "Pin/Unpin", pressed: !!prompt.favorite })}
+        `;
+    }
     const previewHtml = hasPreview && prompt.preview_type === "video"
         ? `<video src="${escapeHtml(prompt.preview_url)}" muted playsinline preload="metadata" aria-label="${safeName}"></video>`
         : hasPreview
@@ -169,6 +192,7 @@ function buildPromptCardHtml(prompt, hasPreview) {
         </div>
         <div class="item-info">
             <div class="item-name" title="${safeName}">${safeName}</div>
+            ${management ? `<div class="item-category" title="${safeCategory}">${safeCategory}</div>` : ""}
         </div>
         ${createPromptActionButton({ icon: "star", className: `favorite-btn ${prompt.favorite ? "favorited" : ""}`, title: "Pin/Unpin", pressed: !!prompt.favorite })}
     `;
@@ -178,6 +202,7 @@ export async function showCardManagerModal({
     app,
     nodeInstance,
     galleryNode,
+    ownerId = "",
     saveSelectionData,
     loadCategories,
     refreshAllSections,
@@ -194,18 +219,30 @@ export async function showCardManagerModal({
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
+    managementHost = null,
+    managementCategories = [],
+    onManagementCategoriesChange = null,
 }) {
-    let browseManageMode = false;
+    const isEmbeddedManagement = !!managementHost;
+    let scopedManagementCategories = [...new Set(
+        (Array.isArray(managementCategories) ? managementCategories : [])
+            .map(value => String(value || "").trim())
+            .filter(Boolean),
+    )];
+    let browseManageMode = isEmbeddedManagement;
     const bulkSelectedPromptIds = new Set();
     let bulkQuerySelection = null;
     let lastBrowseData = null;
-    const surface = createBrowseSurface({ workspaceContainer, onClose });
+    const surface = isEmbeddedManagement
+        ? { root: managementHost, close: () => managementHost.replaceChildren(), isWorkspace: false }
+        : createBrowseSurface({ workspaceContainer, onClose });
     const { root, close: closeSurface, isWorkspace } = surface;
     const contrastMode = (nodeInstance?.uiPrefs?.card_contrast_mode || "off").replace(/_/g, "-");
     root.classList.add(`contrast-${contrastMode}`);
+    if (isEmbeddedManagement) root.dataset.cardManagementPanel = "true";
     root.innerHTML = `
-        <div class="localprompt-modal localprompt-browse-page${isWorkspace ? " localprompt-workspace-page" : ""}">
-            ${isWorkspace ? "" : `
+        <div class="localprompt-browse-page${isEmbeddedManagement ? " localprompt-card-management-panel" : ` localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}`} ">
+            ${isWorkspace || isEmbeddedManagement ? "" : `
                 <div class="localprompt-modal-header">
                     <div class="localprompt-workspace-title">
                         <h3><span class="localprompt-workspace-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>Cards</h3>
@@ -214,16 +251,21 @@ export async function showCardManagerModal({
                 </div>
             `}
             ${isWorkspace ? librarySubnavHtml : ""}
-            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
+            <div class="${isEmbeddedManagement ? "localprompt-card-management-scroll" : (isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content")}">
+                ${isEmbeddedManagement ? `<fieldset class="localprompt-management-category-scope">
+                    <legend>Categories</legend>
+                    <div class="localprompt-management-category-heading"><span>Choose any categories to manage together.</span><strong data-management-scope-summary>All categories</strong></div>
+                    <div data-management-category-options>Loading categories…</div>
+                </fieldset>` : ""}
                 <div class="localprompt-browse-toolbar">
                     <div class="localprompt-browse-toolbar-row localprompt-browse-toolbar-row-primary">
                         <label class="localprompt-browse-search" aria-label="Search cards">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
                             <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
                         </label>
-                        <select id="browse-category" class="localprompt-browse-select"></select>
-                        <button id="browse-stats" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Inspect prompt tag frequencies for the selected wildcard category">Stats</button>
-                        <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
+                        <select id="browse-category" class="localprompt-browse-select"${isEmbeddedManagement ? " hidden" : ""}></select>
+                        ${isEmbeddedManagement ? "" : `<button id="browse-stats" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Open stats and bulk management">Manage</button>`}
+                        ${isEmbeddedManagement ? "" : `<button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>`}
                     </div>
                     <div class="localprompt-browse-toolbar-row localprompt-browse-toolbar-row-actions">
                         <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
@@ -233,23 +275,30 @@ export async function showCardManagerModal({
                             <option value="az">A to Z</option>
                             <option value="za">Z to A</option>
                         </select>
-                        <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"></path></svg><span>Manage</span></button>
+                        ${isEmbeddedManagement ? `<div id="browse-category-actions" class="localprompt-browse-category-actions" role="group" aria-label="Selected category actions" style="display: none;">
                         <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"></path><path d="m14.5 6.5 3 3"></path></svg><span>Rename</span></button>
                         <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg><span>Export TXT</span></button>
                         <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-danger-btn" style="display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
+                        </div>` : ""}
                     </div>
                 </div>
-                <div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" style="display: none; margin-bottom: 12px;">
+                ${isEmbeddedManagement ? `<div id="browse-bulk-toolbar" class="localprompt-bulk-toolbar" role="toolbar" aria-label="Bulk card actions" style="display: none;">
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">0 selected</span>
+                    <div class="localprompt-bulk-action-group localprompt-bulk-selection-actions" role="group" aria-label="Selection actions">
                     <button id="browse-select-visible" class="localprompt-btn">Select page</button>
                     <button id="browse-select-all-results" class="localprompt-btn">Select all results</button>
+                    </div>
+                    <div class="localprompt-bulk-action-group localprompt-bulk-edit-actions" role="group" aria-label="Edit selected cards">
                     <button id="browse-edit-selected" class="localprompt-btn primary">Edit…</button>
                     <button id="browse-move-selected" class="localprompt-btn primary">Move to…</button>
                     <button id="browse-pin-selected" class="localprompt-btn">Pin/Unpin…</button>
+                    </div>
+                    <div class="localprompt-bulk-action-group localprompt-bulk-cleanup-actions" role="group" aria-label="Clear or delete selection">
                     <button id="browse-clear-selected" class="localprompt-btn">Clear Selection</button>
-                    <button id="browse-delete-selected" class="localprompt-btn localprompt-clear-btn" style="background: #6a3a3a; border-color: #8a4a4a;">Delete Selected</button>
+                    <button id="browse-delete-selected" class="localprompt-btn localprompt-clear-btn localprompt-bulk-danger-btn">Delete Selected</button>
+                    </div>
                     <span id="browse-bulk-status" class="localprompt-bulk-status" role="status" aria-live="polite"></span>
-                </div>
+                </div>` : ""}
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
             <div class="${isWorkspace ? "localprompt-workspace-footer " : ""}localprompt-browse-footer">
@@ -285,6 +334,11 @@ export async function showCardManagerModal({
     const nextBtn = root.querySelector("#browse-next");
     const pageInfo = root.querySelector("#browse-page-info");
 
+    if (ownerId) {
+        root.dataset.cardManagerOwner = String(ownerId);
+        grid.dataset.cardManagerOwner = String(ownerId);
+    }
+
     let currentPage = 1;
     let totalPages = 1;
     let lastScrollTop = 0;
@@ -298,6 +352,15 @@ export async function showCardManagerModal({
     let forwardingLibraryNavigation = false;
     const originalParent = root.parentElement;
 
+    function applySavedCardManagerCardSize() {
+        const size = getCardManagerCardSizePx(nodeInstance?.uiPrefs);
+        if (grid) {
+            grid.style.setProperty("--localprompt-card-manager-card-width", String(size) + "px");
+            const fullscreenSize = Math.round(size * CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT / CARD_MANAGER_CARD_SIZE_DEFAULT);
+            grid.style.setProperty("--localprompt-card-manager-fullscreen-card-width", String(fullscreenSize) + "px");
+        }
+    }
+
     function updateFullscreenButton() {
         if (!fullscreenToggleBtn) return;
         const label = fullscreenToggleBtn.querySelector("span");
@@ -310,6 +373,9 @@ export async function showCardManagerModal({
     }
 
     function getSurfaceHost() {
+        if (isEmbeddedManagement) {
+            return root.closest(".localprompt-card-insights-overlay") || managementHost;
+        }
         if (!isFullscreen) return null;
         if (!surfaceHost?.isConnected) {
             surfaceHost = document.createElement("div");
@@ -358,6 +424,7 @@ export async function showCardManagerModal({
 
     document.addEventListener("keydown", handleFullscreenKeydown);
     updateFullscreenButton();
+    applySavedCardManagerCardSize();
 
     if (isWorkspace) {
         root.addEventListener("click", (event) => {
@@ -382,6 +449,52 @@ export async function showCardManagerModal({
                 totalCount: null,
             };
         const categories = Array.isArray(summary?.categories) ? summary.categories : [];
+        if (isEmbeddedManagement) {
+            categorySelect.replaceChildren();
+            const allOption = document.createElement("option");
+            allOption.value = "";
+            allOption.textContent = "All Categories";
+            categorySelect.appendChild(allOption);
+            categories.forEach((category) => {
+                const option = document.createElement("option");
+                option.value = category;
+                option.textContent = `${category} (${Number(summary?.counts?.[category] || 0)})`;
+                categorySelect.appendChild(option);
+            });
+            scopedManagementCategories = scopedManagementCategories.filter(value => categories.includes(value));
+            categorySelect.value = scopedManagementCategories.length === 1 ? scopedManagementCategories[0] : "";
+
+            const optionsHost = root.querySelector("[data-management-category-options]");
+            const scopeSummary = root.querySelector("[data-management-scope-summary]");
+            if (scopeSummary) {
+                scopeSummary.textContent = scopedManagementCategories.length
+                    ? `${scopedManagementCategories.length} selected`
+                    : `All categories (${Number(summary?.totalCount || 0).toLocaleString()} cards)`;
+            }
+            if (optionsHost) {
+                optionsHost.innerHTML = `
+                    <label class="localprompt-management-category-all"><input type="checkbox" value="" ${scopedManagementCategories.length ? "" : "checked"}> <strong>All Categories</strong> <span>(${Number(summary?.totalCount || 0)})</span></label>
+                    ${categories.map(value => `<label><input type="checkbox" value="${escapeHtml(value)}" ${scopedManagementCategories.includes(value) ? "checked" : ""}> ${escapeHtml(value)} <span>(${Number(summary?.counts?.[value] || 0)})</span></label>`).join("")}
+                `;
+                optionsHost.querySelectorAll("input").forEach(input => input.addEventListener("change", async () => {
+                    if (!input.value && input.checked) {
+                        scopedManagementCategories = [];
+                    } else {
+                        scopedManagementCategories = Array.from(optionsHost.querySelectorAll('input[value]:checked'))
+                            .map(item => item.value)
+                            .filter(Boolean);
+                        if (!scopedManagementCategories.length) scopedManagementCategories = [];
+                    }
+                    clearBulkSelection();
+                    await onManagementCategoriesChange?.([...scopedManagementCategories]);
+                    await loadBrowseCategoryOptions();
+                    updateCategoryActionButtons(root, categorySelect.value);
+                    await loadBrowseGallery(1);
+                }));
+            }
+            updateCategoryActionButtons(root, categorySelect.value);
+            return;
+        }
         populateCategorySelect(
             categorySelect,
             categories,
@@ -424,6 +537,9 @@ export async function showCardManagerModal({
             manageToggleBtn.classList.toggle("active", browseManageMode);
             const manageLabel = manageToggleBtn.querySelector("span");
             if (manageLabel) manageLabel.textContent = browseManageMode ? "Done" : "Manage";
+            const manageTitle = browseManageMode ? "Exit bulk management" : "Manage cards in bulk";
+            manageToggleBtn.title = manageTitle;
+            manageToggleBtn.setAttribute("aria-label", manageTitle);
         }
         if (browseManageMode) {
             root.querySelector(".localprompt-browse-toolbar")?.classList.remove("toolbar-hidden");
@@ -454,6 +570,7 @@ export async function showCardManagerModal({
             type: "query",
             filter_name: bulkQuerySelection.filter_name,
             category: bulkQuerySelection.category,
+            categories: bulkQuerySelection.categories || [],
             favorites_only: !!bulkQuerySelection.favorites_only,
             uncategorized_only: !!bulkQuerySelection.uncategorized_only,
             exclusions: Array.from(bulkQuerySelection.exclusions),
@@ -472,12 +589,14 @@ export async function showCardManagerModal({
         browseAbortController = requestController;
         const filter = filterInput.value;
         const category = categorySelect.value;
+        const categories = isEmbeddedManagement && !category ? scopedManagementCategories : [];
         const sortScope = { category };
         const sortMode = getSortMode(sortScope);
         let data;
         try {
             data = await galleryNode.getPrompts(filter, "OR", page, [], category, false, 30, sortMode, {
                 signal: requestController.signal,
+                categories,
             });
         } catch (error) {
             if (requestController.signal.aborted) return;
@@ -507,6 +626,9 @@ export async function showCardManagerModal({
             }
             item.dataset.promptId = promptId;
             item.style.position = "relative";
+            item.tabIndex = 0;
+            item.setAttribute("role", "button");
+            item.setAttribute("aria-label", browseManageMode ? `Select ${prompt.name} for bulk management` : `Add ${prompt.name} to the Active Stack`);
 
             const roleColor = getCategoryRoleColor(prompt);
             if (roleColor) {
@@ -515,7 +637,7 @@ export async function showCardManagerModal({
             }
 
             const hasPreview = prompt.preview_type && prompt.preview_url;
-            item.innerHTML = buildPromptCardHtml(prompt, hasPreview);
+            item.innerHTML = buildPromptCardHtml(prompt, hasPreview, { management: isEmbeddedManagement });
 
             item.addEventListener("click", (event) => {
                 if (suppressNextCardClick) {
@@ -544,6 +666,11 @@ export async function showCardManagerModal({
                 }
                 addPromptToSelection(prompt);
                 item.classList.toggle("selected", nodeInstance.promptData.some(entry => String(entry.prompt_id) === promptId));
+            });
+            item.addEventListener("keydown", (event) => {
+                if (event.target !== item || !["Enter", " "].includes(event.key)) return;
+                event.preventDefault();
+                item.click();
             });
 
             item.querySelector(".favorite-btn").addEventListener("click", async (event) => {
@@ -604,13 +731,25 @@ export async function showCardManagerModal({
         updateBrowseBulkToolbar();
     });
 
-    statsBtn?.addEventListener("click", () => {
+    function openCardInsights() {
         showWildcardStats({
             galleryNode,
+            nodeInstance,
             category: categorySelect.value ? categorySelect.value : null,
             surfaceHost: getSurfaceHost(),
+            renderManagePanel: (host, { categories = [], onCategoriesChange = null } = {}) => showCardManagerModal({
+                app, nodeInstance, galleryNode, ownerId, saveSelectionData, loadCategories,
+                refreshAllSections, addPromptToSelection, syncPinnedOrderForFavorite,
+                attachInfoPopup, showContextMenu, renameCategoryWithPrompt, onExportCategory,
+                getCategoryRoleColor, getSortMode, setSortMode, onPromptsLoaded,
+                managementHost: host,
+                managementCategories: categories,
+                onManagementCategoriesChange: onCategoriesChange,
+            }),
         });
-    });
+    }
+
+    statsBtn?.addEventListener("click", openCardInsights);
 
     selectAllResultsBtn?.addEventListener("click", () => {
         const selectedCount = Number(lastBrowseData?.total_prompts || 0);
@@ -619,6 +758,7 @@ export async function showCardManagerModal({
         bulkQuerySelection = {
             filter_name: filterInput.value.trim(),
             category: categorySelect.value || "",
+            categories: isEmbeddedManagement && !categorySelect.value ? [...scopedManagementCategories] : [],
             favorites_only: false,
             uncategorized_only: false,
             exclusions: new Set(),
@@ -802,12 +942,17 @@ export async function showCardManagerModal({
             return;
         }
         if (typeof onExportCategory === "function") {
-            await onExportCategory(categoryToExport);
+            await onExportCategory(categoryToExport, { surfaceHost: getSurfaceHost() });
         }
     });
 
     root.querySelector("#browse-rename-category")?.addEventListener("click", async () => {
-        await renameCategoryWithPrompt(categorySelect.value, async (newCategory) => {
+        const previousCategory = categorySelect.value;
+        await renameCategoryWithPrompt(previousCategory, async (newCategory) => {
+            if (isEmbeddedManagement) {
+                scopedManagementCategories = scopedManagementCategories.map(value => value === previousCategory ? newCategory : value);
+                await onManagementCategoriesChange?.([...scopedManagementCategories]);
+            }
             await loadBrowseCategoryOptions(newCategory);
             updateCategoryActionButtons(root, categorySelect.value);
             await loadBrowseGallery(1);
@@ -838,6 +983,10 @@ export async function showCardManagerModal({
             const result = await galleryNode.deleteCategory(categoryToDelete);
             if (result.status === "ok") {
                 showAlert(result.message);
+                if (isEmbeddedManagement) {
+                    scopedManagementCategories = scopedManagementCategories.filter(value => value !== categoryToDelete);
+                    await onManagementCategoriesChange?.([...scopedManagementCategories]);
+                }
                 await loadBrowseCategoryOptions();
                 updateCategoryActionButtons(root, "");
                 await loadBrowseGallery(1);
@@ -852,6 +1001,10 @@ export async function showCardManagerModal({
     });
 
     await loadBrowseGallery(1);
+    return {
+        cleanup: close,
+        refresh: () => loadBrowseGallery(currentPage),
+    };
 }
 
 export const showBrowseModal = showCardManagerModal;

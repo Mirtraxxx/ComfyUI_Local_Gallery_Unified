@@ -1,9 +1,5 @@
 import { escapeHtml } from "../shared/dom.js";
 import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
-import {
-    getCardsDisplayMode,
-    normalizeDisplayMode,
-} from "./preferences.js?v=prefs-schema-20260611";
 
 function createSettingsSurface({ workspaceContainer, onClose }) {
     return createModalSurface({ workspaceContainer, onWorkspaceClose: onClose });
@@ -17,13 +13,9 @@ function populatePromptSourceSelect({
     saveNodeProperties,
     updatePromptSourceStatus,
 }) {
-    if (!sourceSelect || !app.graph) {
-        return;
-    }
+    if (!sourceSelect || !app.graph) return;
 
-    const allNodes = app.graph._nodes || [];
-    const textNodes = allNodes.filter(node => isShowTextNode(node) && node !== nodeInstance);
-
+    const textNodes = (app.graph._nodes || []).filter(node => isShowTextNode(node) && node !== nodeInstance);
     textNodes.forEach(node => {
         const option = document.createElement("option");
         option.value = node.id;
@@ -35,160 +27,198 @@ function populatePromptSourceSelect({
         sourceSelect.value = nodeInstance.properties.prompt_source_node_id;
     }
 
-    sourceSelect.addEventListener("change", (event) => {
-        const sourceId = event.target.value;
-        if (sourceId) {
-            const selectedNode = textNodes.find(node => String(node.id) === sourceId);
-            if (selectedNode) {
-                nodeInstance.properties.prompt_source_node_id = selectedNode.id;
-                nodeInstance.properties.prompt_source_node_title = selectedNode.title || selectedNode.type || `Node ${selectedNode.id}`;
-                saveNodeProperties();
-                updatePromptSourceStatus();
-                return;
-            }
-        }
-        nodeInstance.properties.prompt_source_node_id = null;
-        nodeInstance.properties.prompt_source_node_title = null;
+    sourceSelect.addEventListener("change", event => {
+        const selectedNode = textNodes.find(node => String(node.id) === event.target.value);
+        nodeInstance.properties.prompt_source_node_id = selectedNode?.id ?? null;
+        nodeInstance.properties.prompt_source_node_title = selectedNode
+            ? (selectedNode.title || selectedNode.type || `Node ${selectedNode.id}`)
+            : null;
         saveNodeProperties();
         updatePromptSourceStatus();
     });
 }
 
+function getCategoryPreviewColor(category, draftCategoryColors, getCategoryRoleColor, resetCategoryColors = null) {
+    if (resetCategoryColors?.has(category)) return "#6c757d";
+    return draftCategoryColors[category] || getCategoryRoleColor(category) || "#6c757d";
+}
+
+function createCategoryActionButton({ label, title, disabled = false, onClick, className = "" }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `localprompt-settings-icon-button ${className}`.trim();
+    button.textContent = label;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.disabled = disabled;
+    button.addEventListener("click", onClick);
+    return button;
+}
+
+function createPinnedCategoryRow({ category, index, total, color, onMove, onUnpin, onColor }) {
+    const row = document.createElement("div");
+    row.className = "localprompt-settings-category-row";
+
+    const colorButton = document.createElement("button");
+    colorButton.type = "button";
+    colorButton.className = "localprompt-settings-color-dot";
+    colorButton.style.setProperty("--settings-category-color", color);
+    colorButton.title = `Change ${category} color`;
+    colorButton.setAttribute("aria-label", `Change ${category} color`);
+    colorButton.addEventListener("click", event => onColor(event.currentTarget));
+
+    const label = document.createElement("span");
+    label.className = "localprompt-settings-category-name";
+    label.textContent = category;
+    label.title = category;
+
+    const controls = document.createElement("div");
+    controls.className = "localprompt-settings-category-actions";
+    controls.append(
+        createCategoryActionButton({
+            label: "\u2191",
+            title: `Move ${category} up`,
+            disabled: index === 0,
+            onClick: () => onMove(index, index - 1),
+        }),
+        createCategoryActionButton({
+            label: "\u2193",
+            title: `Move ${category} down`,
+            disabled: index === total - 1,
+            onClick: () => onMove(index, index + 1),
+        }),
+        createCategoryActionButton({
+            label: "\u00d7",
+            title: `Unpin ${category}`,
+            className: "is-danger",
+            onClick: onUnpin,
+        }),
+    );
+    row.append(colorButton, label, controls);
+    return row;
+}
+
+function createAvailableCategoryRow({ category, color, onPin, onColor }) {
+    const row = document.createElement("div");
+    row.className = "localprompt-settings-category-row is-available";
+
+    const colorButton = document.createElement("button");
+    colorButton.type = "button";
+    colorButton.className = "localprompt-settings-color-dot";
+    colorButton.style.setProperty("--settings-category-color", color);
+    colorButton.title = `Change ${category} color`;
+    colorButton.setAttribute("aria-label", `Change ${category} color`);
+    colorButton.addEventListener("click", event => onColor(event.currentTarget));
+
+    const label = document.createElement("span");
+    label.className = "localprompt-settings-category-name";
+    label.textContent = category;
+    label.title = category;
+
+    const pinButton = document.createElement("button");
+    pinButton.type = "button";
+    pinButton.className = "localprompt-btn localprompt-settings-pin-button";
+    pinButton.textContent = "Pin";
+    pinButton.title = `Pin ${category}`;
+    pinButton.addEventListener("click", onPin);
+    row.append(colorButton, label, pinButton);
+    return row;
+}
+
+function createCategoryColorCard({ category, color, isCustom, onClick }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "localprompt-settings-color-card";
+    button.title = `Choose color for ${category}`;
+    button.setAttribute("aria-label", `Choose color for ${category}`);
+    button.style.setProperty("--settings-category-color", color);
+    button.innerHTML = `
+        <span class="localprompt-settings-color-card-swatch" aria-hidden="true"></span>
+        <span class="localprompt-settings-color-card-name">${escapeHtml(category)}</span>
+        ${isCustom ? '<span class="localprompt-settings-color-card-state">Custom</span>' : '<span class="localprompt-settings-color-card-state">Auto</span>'}
+    `;
+    button.addEventListener("click", event => onClick(event.currentTarget));
+    return button;
+}
+
 function openCategoryColorPopover({
     anchor,
     category,
-    draftCategoryColors,
     palette,
-    getNearestPaletteColor,
+    draftCategoryColors,
+    resetCategoryColors,
     getCategoryRoleColor,
-    closeCategoryColorPopover,
-    renderCategoryTabOrderList,
-    setActiveCategoryColorPopover,
+    closePopover,
+    onColorChange,
+    onColorReset,
+    setActivePopover,
 }) {
-    closeCategoryColorPopover();
-    const currentColor = getNearestPaletteColor(
-        draftCategoryColors[category] || getCategoryRoleColor(category) || "#6c757d",
-        palette || []
+    closePopover();
+    const currentColor = getCategoryPreviewColor(
+        category,
+        draftCategoryColors,
+        getCategoryRoleColor,
+        resetCategoryColors,
     );
-    const rect = anchor.getBoundingClientRect();
+    const hasCustomColor = Boolean(draftCategoryColors[category]);
     const popover = document.createElement("div");
-    popover.style.cssText = `
-        position: fixed;
-        left: ${Math.max(8, rect.left)}px;
-        top: ${rect.bottom + 6}px;
-        z-index: 10002;
-        padding: 10px;
-        background: #161616;
-        border: 1px solid #444;
-        border-radius: 8px;
-        box-shadow: 0 10px 24px rgba(0,0,0,0.45);
-        display: grid;
-        grid-template-columns: repeat(5, 18px);
-        gap: 8px;
+    popover.className = "localprompt-settings-color-popover";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-label", `Color for ${category}`);
+    popover.innerHTML = `
+        <div class="localprompt-settings-color-popover-header">
+            <span>Color for ${escapeHtml(category)}</span>
+            <button type="button" class="localprompt-settings-popover-close" aria-label="Close color picker" title="Close">\u00d7</button>
+        </div>
+        <div class="localprompt-settings-palette" aria-label="Color palette"></div>
+        <label class="localprompt-settings-custom-color">
+            <span>Custom color</span>
+            <input type="color" value="${escapeHtml(currentColor)}" aria-label="Custom color for ${escapeHtml(category)}">
+        </label>
+        <button type="button" class="localprompt-settings-reset-color" ${hasCustomColor ? "" : "disabled"}>Use automatic color</button>
     `;
 
+    const paletteContainer = popover.querySelector(".localprompt-settings-palette");
     palette.forEach(color => {
         const swatch = document.createElement("button");
         swatch.type = "button";
+        swatch.className = "localprompt-settings-palette-swatch";
+        swatch.style.backgroundColor = color;
         swatch.title = color;
-        swatch.dataset.paletteColor = color;
-        swatch.style.cssText = `
-            width: 18px;
-            height: 18px;
-            padding: 0;
-            border-radius: 999px;
-            cursor: pointer;
-            background: ${color};
-            border: 2px solid ${color === currentColor ? "#f8f9fa" : "#2b2b2b"};
-            box-shadow: ${color === currentColor ? `0 0 0 1px ${color}` : "none"};
-        `;
+        swatch.setAttribute("aria-label", `Use ${color}`);
+        swatch.setAttribute("aria-pressed", String(color.toLowerCase() === currentColor.toLowerCase()));
         swatch.addEventListener("click", () => {
-            draftCategoryColors[category] = color;
-            closeCategoryColorPopover();
-            renderCategoryTabOrderList();
+            onColorChange(color);
+            closePopover();
         });
-        popover.appendChild(swatch);
+        paletteContainer.appendChild(swatch);
+    });
+
+    popover.querySelector(".localprompt-settings-popover-close")?.addEventListener("click", closePopover);
+    popover.querySelector("input[type=color]")?.addEventListener("change", event => {
+        onColorChange(event.target.value);
+        closePopover();
+    });
+    popover.querySelector(".localprompt-settings-reset-color")?.addEventListener("click", () => {
+        onColorReset();
+        closePopover();
     });
 
     document.body.appendChild(popover);
-    setActiveCategoryColorPopover(popover);
-
-    requestAnimationFrame(() => {
-        const popRect = popover.getBoundingClientRect();
-        if (popRect.right > window.innerWidth - 8) {
-            popover.style.left = `${Math.max(8, window.innerWidth - popRect.width - 8)}px`;
-        }
-        if (popRect.bottom > window.innerHeight - 8) {
-            popover.style.top = `${Math.max(8, rect.top - popRect.height - 6)}px`;
-        }
-    });
-
-    setTimeout(() => {
-        const closeHandler = (event) => {
-            if (!popover.contains(event.target) && event.target !== anchor) {
-                closeCategoryColorPopover();
-                document.removeEventListener("mousedown", closeHandler);
-            }
-        };
-        document.addEventListener("mousedown", closeHandler);
-    }, 0);
-}
-
-function createCategoryColorRow({
-    category,
-    roleColor,
-    openColorPopover,
-}) {
-    const row = document.createElement("div");
-    row.style.cssText = "display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;";
-    row.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-            <button type="button" data-category-color-trigger="${escapeHtml(category)}" style="width: 28px; height: 24px; padding: 0; border: 1px solid #444; background: #1a1a1a; border-radius: 6px; cursor: pointer; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;">
-                <span style="width: 14px; height: 14px; border-radius: 999px; background: ${roleColor}; border: 1px solid #111;"></span>
-            </button>
-            <span style="font-size: 11px; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(category)}</span>
-        </div>
-    `;
-    row.querySelector("[data-category-color-trigger]")?.addEventListener("click", (event) => {
-        openColorPopover(event.currentTarget, category);
-    });
-    return row;
-}
-
-function createPinnedCategoryManagerRow({
-    category,
-    roleColor,
-    buttons,
-}) {
-    const row = document.createElement("div");
-    row.style.cssText = "display: flex; align-items: center; gap: 6px; padding: 7px; background: #151515; border: 1px solid #333; border-radius: 6px;";
-    const label = document.createElement("div");
-    label.textContent = category;
-    label.title = category;
-    label.style.cssText = `
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: ${roleColor};
-        font-size: 11px;
-    `;
-    row.appendChild(label);
-
-    buttons.forEach(({ label: text, title, disabled, onClick }) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "localprompt-btn";
-        button.textContent = text;
-        button.title = title || text;
-        button.disabled = !!disabled;
-        button.style.cssText = "padding: 3px 7px; font-size: 10px;";
-        button.addEventListener("click", onClick);
-        row.appendChild(button);
-    });
-
-    return row;
+    const anchorRect = anchor.getBoundingClientRect();
+    const placePopover = () => {
+        const rect = popover.getBoundingClientRect();
+        const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - rect.width - 8));
+        const below = anchorRect.bottom + 8;
+        const top = below + rect.height <= window.innerHeight - 8
+            ? below
+            : Math.max(8, anchorRect.top - rect.height - 8);
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+    };
+    placePopover();
+    setActivePopover(popover, placePopover);
+    popover.querySelector(".localprompt-settings-popover-close")?.focus();
 }
 
 export async function showSettingsModal({
@@ -196,27 +226,15 @@ export async function showSettingsModal({
     app,
     nodeInstance,
     galleryNode,
-    getLibraryTabs,
-    getLibraryTabLayoutMode,
-    getThumbnailSizePx,
-    getActiveThumbnailSizePx,
     isShowTextNode,
     saveNodeProperties,
     updatePromptSourceStatus,
-    getNearestPaletteColor,
     getCategoryRoleColor,
-    applyThumbnailSizePreference,
-    applyLibraryTabLayoutPreference,
-    applyMetaTagsButtonSidePreference = null,
     renderLibraryBar,
     getActiveLibraryTab,
     renderLibraryDrawer,
     getPinnedCategories = null,
     savePinnedCategories = null,
-    applyAutoHideToolbarPreference = null,
-    applyActiveBorderThemePreference = null,
-    applyActiveSidebarPreference = null,
-    applyActiveThumbnailSizePreference = null,
     renderActiveSidebar = null,
     renderGallery = null,
     workspaceContainer = null,
@@ -224,128 +242,113 @@ export async function showSettingsModal({
 }) {
     const surface = createSettingsSurface({ workspaceContainer, onClose });
     const { root, close, isWorkspace } = surface;
-    const currentCategoryTabs = getLibraryTabs().filter(tab => !["active", "most_used", "pinned"].includes(tab));
-    const allCategories = await galleryNode.getCategories();
+    let allCategories = [];
+    let categoryLoadError = null;
+    try {
+        const loadedCategories = await galleryNode.getCategories();
+        allCategories = Array.isArray(loadedCategories) ? loadedCategories : [];
+    } catch (error) {
+        categoryLoadError = error;
+    }
+
     root.innerHTML = `
-        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page localprompt-settings-page" : ""}" style="width: 460px;">
+        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page localprompt-settings-page" : ""} localprompt-settings-modal">
             <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
                 <div class="localprompt-workspace-title">
-                    <h3>Settings</h3>
-                    ${isWorkspace ? "<p>Adjust prompt source, display, and category preferences.</p>" : ""}
+                    <h3>Prompt settings</h3>
+                    <p>Set the source, interaction preferences, and category strip.</p>
                 </div>
-                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
+                ${isWorkspace ? "" : '<button class="localprompt-modal-close" type="button" title="Close settings" aria-label="Close settings">\u00d7</button>'}
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
-                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px; padding: 12px; background: #1f1f1f; border: 1px solid #333; border-radius: 6px;">
-                    <div style="font-size: 12px; font-weight: 500; color: #ddd; margin-bottom: 8px;">Prompt Source Configuration</div>
-                    <select id="${uniqueId}-settings-prompt-source-select" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="">-- None Selected --</option>
-                    </select>
-                    <div id="${uniqueId}-prompt-source-status" style="font-size: 11px; color: #aaa; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No prompt source</div>
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
-                    <h4>Display</h4>
-                    <label style="display: block; font-size: 11px; color: #888; margin-bottom: 6px;">Display Mode</label>
-                    <select id="settings-display-mode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="compact">Text Only</option>
-                        <option value="thumbnails">With Thumbnails</option>
-                    </select>
-                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Most Used Count</label>
-                    <input type="number" id="settings-most-used-count" min="1" max="50" value="10" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
-                        <input type="checkbox" id="settings-auto-hide-toolbars">
-                        <span>Auto-hide bottom toolbar</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
-                        <input type="checkbox" id="settings-active-sidebar-hover-open">
-                        <span>Open Active overlay on hover</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
-                        <input type="checkbox" id="settings-promote-selected-prompts">
-                        <span>Push active cards to the top</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
-                        <input type="checkbox" id="settings-show-most-used">
-                        <span>Show Most Used tab</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #ddd; margin-top: 12px;">
-                        <input type="checkbox" id="settings-large-active-cards">
-                        <span>Large active thumbnail cards</span>
-                    </label>
-                    <div style="font-size: 10px; color: #777; margin-left: 20px; margin-top: 2px;">
-                        Only applies when Active display mode is set to "With Thumbnails".
+            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"} localprompt-settings-body">
+                <section class="localprompt-settings-section">
+                    <div class="localprompt-settings-section-heading">
+                        <h4>Prompt source</h4>
+                        <p>Optionally read prompt text from another text node in this workflow.</p>
                     </div>
-                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Hidden Prompts Button Side</label>
-                    <select id="settings-meta-tags-button-side" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="right">Right side</option>
-                        <option value="left">Left side</option>
+                    <label class="localprompt-settings-field-label" for="${uniqueId}-settings-prompt-source-select">Text node</label>
+                    <select id="${uniqueId}-settings-prompt-source-select" class="localprompt-settings-select">
+                        <option value="">No source selected</option>
                     </select>
+                    <div id="${uniqueId}-prompt-source-status" class="localprompt-settings-help" aria-live="polite">No prompt source</div>
+                </section>
 
-                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Active Border Glow Theme</label>
-                    <select id="settings-active-border-theme" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                        <option value="default">Classic Theme (Role/White)</option>
-                        <option value="cyberpunk">Cyberpunk (Magenta & Cyan)</option>
-                        <option value="sunset">Cosmic Sunset (Amber & Blue)</option>
-                        <option value="aurora">Aurora Borealis (Green & Violet)</option>
-                        <option value="ice">Electric Ice (Glacier Blue & Pink)</option>
-                        <option value="fire-ice">Fire & Ice (Crimson & Cyan)</option>
-                        <option value="golden-mint">Golden Mint (Gold & Mint Green)</option>
-                        <option value="rainbow-sync">Rainbow Cycle (Synchronized)</option>
-                        <option value="rainbow-split">Rainbow Cycle (Split Spectrum)</option>
-                        <option value="custom">Custom Colors...</option>
-                    </select>
-                    <div id="settings-active-border-custom-colors" style="display: none; align-items: center; gap: 12px; margin-top: 8px;">
-                        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
-                            <label style="font-size: 10px; color: #aaa; white-space: nowrap;">Dot 1:</label>
-                            <input type="color" id="settings-active-border-custom-1" style="width: 100%; height: 28px; padding: 2px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
-                        </div>
-                        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
-                            <label style="font-size: 10px; color: #aaa; white-space: nowrap;">Dot 2:</label>
-                            <input type="color" id="settings-active-border-custom-2" style="width: 100%; height: 28px; padding: 2px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; cursor: pointer;">
+                <section class="localprompt-settings-section">
+                    <div class="localprompt-settings-section-heading">
+                        <h4>Prompt behavior</h4>
+                        <p>Display size, contrast, and card sorting stay in the sliders button on the prompt toolbar.</p>
+                    </div>
+                    <div class="localprompt-settings-behavior-grid">
+                        <label class="localprompt-settings-number-field">
+                            <span>Most Used cards</span>
+                            <input type="number" id="settings-most-used-count" min="1" max="50" inputmode="numeric">
+                            <small>How many cards the Most Used view can show.</small>
+                        </label>
+                        <div class="localprompt-settings-toggle-list">
+                            <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-show-most-used"><span>Show the Most Used category</span></label>
+                            <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-promote-selected-prompts"><span>Keep selected cards at the top</span></label>
+                            <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-active-sidebar-hover-open"><span>Open the Active Stack on hover</span></label>
+                            <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-auto-hide-toolbars"><span>Auto-hide the bottom toolbar</span></label>
                         </div>
                     </div>
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 16px;">
-                    <h4>Categories</h4>
-                    <div style="font-size: 10px; color: #777; margin-bottom: 10px;">Manage which categories appear in the top row. Extra categories appear in the inline pull-tab drawer under the pinned row.</div>
-                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Visible pinned categories</label>
-                    <input type="number" id="settings-visible-pinned-category-count" min="1" max="20" value="5" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px;">
-                    <label style="display: block; font-size: 11px; color: #888; margin: 12px 0 6px;">Category Colors</label>
-                    <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Drag category tabs directly on the node to reorder them.</div>
-                    <div id="settings-category-order-list" style="max-height: 180px; overflow-y: auto; padding: 10px; background: #151515; border: 1px solid #333; border-radius: 6px;"></div>
-                    <div style="height: 1px; background: #333; margin: 14px 0;"></div>
-                    <h4 style="margin-top: 0;">Pinned Categories</h4>
-                    <div style="font-size: 10px; color: #777; margin-bottom: 8px;">Pinned categories appear in the top row in this order.</div>
-                    <div id="settings-pinned-category-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;"></div>
-                    <h4 style="margin-top: 0;">Available Categories</h4>
-                    <div id="settings-available-category-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
-                </div>
+                </section>
+
+                <section class="localprompt-settings-section">
+                    <div class="localprompt-settings-section-heading">
+                        <h4>Category strip</h4>
+                        <p>Pin categories for fast access, then place the most important ones first. Arrow buttons work with keyboard and mouse.</p>
+                    </div>
+                    <label class="localprompt-settings-number-field localprompt-settings-visible-count">
+                        <span>Categories visible in the top row</span>
+                        <input type="number" id="settings-visible-pinned-category-count" min="1" max="20" inputmode="numeric">
+                        <small>Additional pinned categories remain available from the pull-out row.</small>
+                    </label>
+                    <div class="localprompt-settings-category-columns">
+                        <div class="localprompt-settings-category-panel">
+                            <div class="localprompt-settings-list-heading"><strong>Pinned</strong><span id="settings-pinned-category-count"></span></div>
+                            <div id="settings-pinned-category-list" class="localprompt-settings-category-list" aria-label="Pinned categories"></div>
+                        </div>
+                        <div class="localprompt-settings-category-panel">
+                            <div class="localprompt-settings-list-heading"><strong>Available</strong><span id="settings-available-category-count"></span></div>
+                            <div id="settings-available-category-list" class="localprompt-settings-category-list" aria-label="Available categories"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="localprompt-settings-section">
+                    <div class="localprompt-settings-section-heading">
+                        <h4>Category colors</h4>
+                        <p>Choose a palette color or a custom color. Automatic colors use the neutral gallery treatment.</p>
+                    </div>
+                    <div id="settings-category-color-list" class="localprompt-settings-color-list" aria-label="Category colors"></div>
+                </section>
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="${isWorkspace ? "" : "padding: 0 16px 16px;"}">
-                <button id="settings-save" class="localprompt-btn active" style="padding: 10px 16px;">Save Settings</button>
+            <div class="${isWorkspace ? "localprompt-workspace-footer" : "localprompt-settings-modal-footer"}">
+                <span id="settings-save-status" class="localprompt-settings-save-status" aria-live="polite"></span>
+                <button id="settings-save" type="button" class="localprompt-btn active localprompt-settings-save">Save changes</button>
             </div>
         </div>
     `;
 
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
-    const displayModeSelect = root.querySelector("#settings-display-mode");
+    const sourceSelect = root.querySelector(`#${uniqueId}-settings-prompt-source-select`);
     const mostUsedCountInput = root.querySelector("#settings-most-used-count");
-    const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
-    const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
-    const promoteSelectedPromptsInput = root.querySelector("#settings-promote-selected-prompts");
     const showMostUsedInput = root.querySelector("#settings-show-most-used");
-    const metaTagsButtonSideSelect = root.querySelector("#settings-meta-tags-button-side");
+    const promoteSelectedPromptsInput = root.querySelector("#settings-promote-selected-prompts");
+    const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
+    const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
     const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
-    const activeBorderThemeSelect = root.querySelector("#settings-active-border-theme");
-    const activeBorderCustomColorsDiv = root.querySelector("#settings-active-border-custom-colors");
-    const activeBorderCustom1Input = root.querySelector("#settings-active-border-custom-1");
-    const activeBorderCustom2Input = root.querySelector("#settings-active-border-custom-2");
-    const largeActiveCardsInput = root.querySelector("#settings-large-active-cards");
-    const saveBtn = root.querySelector("#settings-save");
+    const pinnedCategoryList = root.querySelector("#settings-pinned-category-list");
+    const availableCategoryList = root.querySelector("#settings-available-category-list");
+    const categoryColorList = root.querySelector("#settings-category-color-list");
+    const pinnedCount = root.querySelector("#settings-pinned-category-count");
+    const availableCount = root.querySelector("#settings-available-category-count");
+    const saveButton = root.querySelector("#settings-save");
+    const saveStatus = root.querySelector("#settings-save-status");
     const palette = galleryNode.CATEGORY_ROLE_PALETTE || [];
 
     populatePromptSourceSelect({
-        sourceSelect: root.querySelector(`#${uniqueId}-settings-prompt-source-select`),
+        sourceSelect,
         app,
         nodeInstance,
         isShowTextNode,
@@ -354,236 +357,211 @@ export async function showSettingsModal({
     });
     updatePromptSourceStatus();
 
-    displayModeSelect.value = getCardsDisplayMode(nodeInstance.uiPrefs);
-    mostUsedCountInput.value = nodeInstance.uiPrefs.most_used_count || 10;
-    if (autoHideToolbarsInput) autoHideToolbarsInput.checked = nodeInstance.uiPrefs.auto_hide_toolbars === true;
-    if (activeSidebarHoverOpenInput) activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs.active_sidebar_hover_open !== false;
-    if (promoteSelectedPromptsInput) promoteSelectedPromptsInput.checked = nodeInstance.uiPrefs.promote_selected_prompts !== false;
-    if (showMostUsedInput) showMostUsedInput.checked = nodeInstance.uiPrefs.show_most_used !== false;
-    if (largeActiveCardsInput) largeActiveCardsInput.checked = nodeInstance.uiPrefs.active_card_size_mode === "large";
-    if (metaTagsButtonSideSelect) {
-        metaTagsButtonSideSelect.value = nodeInstance.uiPrefs.meta_tags_button_side === "left" ? "left" : "right";
-    }
-    visiblePinnedCountInput.value = Math.max(1, Math.min(20, parseInt(nodeInstance.uiPrefs.visible_pinned_category_count, 10) || 5));
+    mostUsedCountInput.value = Math.max(1, Math.min(50, Number.parseInt(nodeInstance.uiPrefs?.most_used_count, 10) || 10));
+    showMostUsedInput.checked = nodeInstance.uiPrefs?.show_most_used !== false;
+    promoteSelectedPromptsInput.checked = nodeInstance.uiPrefs?.promote_selected_prompts !== false;
+    activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs?.active_sidebar_hover_open !== false;
+    autoHideToolbarsInput.checked = nodeInstance.uiPrefs?.auto_hide_toolbars === true;
+    visiblePinnedCountInput.value = Math.max(1, Math.min(20, Number.parseInt(nodeInstance.uiPrefs?.visible_pinned_category_count, 10) || 5));
 
-    if (activeBorderThemeSelect) {
-        activeBorderThemeSelect.value = nodeInstance.uiPrefs.active_border_theme || "default";
-        activeBorderThemeSelect.addEventListener("change", () => {
-            if (activeBorderCustomColorsDiv) {
-                activeBorderCustomColorsDiv.style.display = activeBorderThemeSelect.value === "custom" ? "flex" : "none";
-            }
-        });
-    }
-    if (activeBorderCustom1Input) {
-        activeBorderCustom1Input.value = nodeInstance.uiPrefs.active_border_custom_1 || "#ff0000";
-    }
-    if (activeBorderCustom2Input) {
-        activeBorderCustom2Input.value = nodeInstance.uiPrefs.active_border_custom_2 || "#0000ff";
-    }
-    if (activeBorderCustomColorsDiv && activeBorderThemeSelect) {
-        activeBorderCustomColorsDiv.style.display = activeBorderThemeSelect.value === "custom" ? "flex" : "none";
-    }
-
-    const orderList = root.querySelector("#settings-category-order-list");
-    const pinnedCategoryList = root.querySelector("#settings-pinned-category-list");
-    const availableCategoryList = root.querySelector("#settings-available-category-list");
-    const draftCategoryColors = {
-        ...(nodeInstance.uiPrefs.category_colors || {})
-    };
+    const draftCategoryColors = { ...(nodeInstance.uiPrefs?.category_colors || {}) };
+    const resetCategoryColors = new Set();
     let draftPinnedCategories = typeof getPinnedCategories === "function"
         ? getPinnedCategories(allCategories)
         : (Array.isArray(nodeInstance.uiPrefs?.pinned_categories) ? [...nodeInstance.uiPrefs.pinned_categories] : []);
     draftPinnedCategories = [...new Set(draftPinnedCategories.filter(category => allCategories.includes(category)))];
-    let activeCategoryColorPopover = null;
 
-    const closeCategoryColorPopover = () => {
-        if (activeCategoryColorPopover) {
-            activeCategoryColorPopover.remove();
-            activeCategoryColorPopover = null;
-        }
+    let activeColorPopover = null;
+    let removePopoverListeners = null;
+    const closeColorPopover = () => {
+        activeColorPopover?.remove();
+        activeColorPopover = null;
+        removePopoverListeners?.();
+        removePopoverListeners = null;
+    };
+    const setActiveColorPopover = (popover, placePopover) => {
+        activeColorPopover = popover;
+        const onPointerDown = event => {
+            if (!popover.contains(event.target)) closeColorPopover();
+        };
+        const onKeyDown = event => {
+            if (event.key === "Escape") closeColorPopover();
+        };
+        const onResize = () => placePopover();
+        window.addEventListener("pointerdown", onPointerDown, true);
+        window.addEventListener("keydown", onKeyDown);
+        window.addEventListener("resize", onResize);
+        removePopoverListeners = () => {
+            window.removeEventListener("pointerdown", onPointerDown, true);
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener("resize", onResize);
+        };
     };
 
-    const renderCategoryTabOrderList = () => {
-        if (!orderList) return;
-        if (!currentCategoryTabs.length) {
-            orderList.innerHTML = '<div style="font-size: 11px; color: #666;">No category tabs added yet.</div>';
-            return;
-        }
-        orderList.innerHTML = "";
-        currentCategoryTabs.forEach(category => {
-            const roleColor = getNearestPaletteColor(
-                draftCategoryColors[category] || getCategoryRoleColor(category) || "#6c757d",
-                palette
-            );
-            orderList.appendChild(createCategoryColorRow({
-                category,
-                roleColor,
-                openColorPopover: (anchor, categoryName) => {
-                    openCategoryColorPopover({
-                        anchor,
-                        category: categoryName,
-                        draftCategoryColors,
-                        palette,
-                        getNearestPaletteColor,
-                        getCategoryRoleColor,
-                        closeCategoryColorPopover,
-                        renderCategoryTabOrderList,
-                        setActiveCategoryColorPopover: popover => {
-                            activeCategoryColorPopover = popover;
-                        },
-                    });
-                },
-            }));
-        });
+    const colorForCategory = category => getCategoryPreviewColor(
+        category,
+        draftCategoryColors,
+        getCategoryRoleColor,
+        resetCategoryColors,
+    );
+    const orderedCategories = () => {
+        const pinnedSet = new Set(draftPinnedCategories);
+        return [...draftPinnedCategories, ...allCategories.filter(category => !pinnedSet.has(category))];
     };
-    renderCategoryTabOrderList();
+    const openColorPicker = (anchor, category) => openCategoryColorPopover({
+        anchor,
+        category,
+        palette,
+        draftCategoryColors,
+        resetCategoryColors,
+        getCategoryRoleColor,
+        closePopover: closeColorPopover,
+        onColorChange: color => {
+            draftCategoryColors[category] = color;
+            resetCategoryColors.delete(category);
+            renderCategoryLists();
+            renderCategoryColors();
+        },
+        onColorReset: () => {
+            delete draftCategoryColors[category];
+            resetCategoryColors.add(category);
+            renderCategoryLists();
+            renderCategoryColors();
+        },
+        setActivePopover: setActiveColorPopover,
+    });
 
-    const renderPinnedCategoryManager = () => {
+    const renderCategoryLists = () => {
         if (!pinnedCategoryList || !availableCategoryList) return;
-        const categoryColor = category => getNearestPaletteColor(
-            draftCategoryColors[category] || getCategoryRoleColor(category) || "#aaa",
-            palette
-        );
-
-        pinnedCategoryList.innerHTML = "";
-        availableCategoryList.innerHTML = "";
-
-        if (!draftPinnedCategories.length) {
-            pinnedCategoryList.innerHTML = '<div style="font-size: 11px; color: #666; padding: 8px;">No pinned categories.</div>';
-        }
-
-        draftPinnedCategories.forEach((category, index) => {
-            pinnedCategoryList.appendChild(createPinnedCategoryManagerRow({
-                category,
-                roleColor: categoryColor(category),
-                buttons: [
-                    {
-                        label: "↑",
-                        title: "Move up",
-                        disabled: index === 0,
-                        onClick: () => {
-                            if (index === 0) return;
-                            [draftPinnedCategories[index - 1], draftPinnedCategories[index]] = [draftPinnedCategories[index], draftPinnedCategories[index - 1]];
-                            renderPinnedCategoryManager();
-                        },
-                    },
-                    {
-                        label: "↓",
-                        title: "Move down",
-                        disabled: index === draftPinnedCategories.length - 1,
-                        onClick: () => {
-                            if (index >= draftPinnedCategories.length - 1) return;
-                            [draftPinnedCategories[index + 1], draftPinnedCategories[index]] = [draftPinnedCategories[index], draftPinnedCategories[index + 1]];
-                            renderPinnedCategoryManager();
-                        },
-                    },
-                    {
-                        label: "Unpin",
-                        onClick: () => {
-                            draftPinnedCategories = draftPinnedCategories.filter(item => item !== category);
-                            renderPinnedCategoryManager();
-                        },
-                    },
-                ],
-            }));
-        });
-
+        pinnedCategoryList.replaceChildren();
+        availableCategoryList.replaceChildren();
         const pinnedSet = new Set(draftPinnedCategories);
         const availableCategories = allCategories.filter(category => !pinnedSet.has(category));
-        if (!availableCategories.length) {
-            availableCategoryList.innerHTML = '<div style="font-size: 11px; color: #666; padding: 8px;">All categories are pinned.</div>';
+        pinnedCount.textContent = `${draftPinnedCategories.length} pinned`;
+        availableCount.textContent = `${availableCategories.length} available`;
+
+        if (categoryLoadError) {
+            pinnedCategoryList.innerHTML = '<p class="localprompt-settings-empty-state">Could not load categories. Close settings and try again.</p>';
+            availableCategoryList.replaceChildren();
             return;
         }
-
-        availableCategories.forEach(category => {
-            availableCategoryList.appendChild(createPinnedCategoryManagerRow({
+        if (!allCategories.length) {
+            pinnedCategoryList.innerHTML = '<p class="localprompt-settings-empty-state">Create a card category to organize it here.</p>';
+            availableCategoryList.replaceChildren();
+            return;
+        }
+        if (!draftPinnedCategories.length) {
+            pinnedCategoryList.innerHTML = '<p class="localprompt-settings-empty-state">No categories pinned yet.</p>';
+        }
+        draftPinnedCategories.forEach((category, index) => {
+            pinnedCategoryList.appendChild(createPinnedCategoryRow({
                 category,
-                roleColor: categoryColor(category),
-                buttons: [
-                    {
-                        label: "Pin",
-                        onClick: () => {
-                            draftPinnedCategories = [...draftPinnedCategories, category];
-                            renderPinnedCategoryManager();
-                        },
-                    },
-                ],
+                index,
+                total: draftPinnedCategories.length,
+                color: colorForCategory(category),
+                onMove: (from, to) => {
+                    if (to < 0 || to >= draftPinnedCategories.length) return;
+                    [draftPinnedCategories[from], draftPinnedCategories[to]] = [draftPinnedCategories[to], draftPinnedCategories[from]];
+                    renderCategoryLists();
+                    renderCategoryColors();
+                },
+                onUnpin: () => {
+                    draftPinnedCategories = draftPinnedCategories.filter(item => item !== category);
+                    renderCategoryLists();
+                    renderCategoryColors();
+                },
+                onColor: anchor => openColorPicker(anchor, category),
+            }));
+        });
+        if (!availableCategories.length) {
+            availableCategoryList.innerHTML = '<p class="localprompt-settings-empty-state">Every category is pinned.</p>';
+        }
+        availableCategories.forEach(category => {
+            availableCategoryList.appendChild(createAvailableCategoryRow({
+                category,
+                color: colorForCategory(category),
+                onPin: () => {
+                    draftPinnedCategories = [...draftPinnedCategories, category];
+                    renderCategoryLists();
+                    renderCategoryColors();
+                },
+                onColor: anchor => openColorPicker(anchor, category),
             }));
         });
     };
-    renderPinnedCategoryManager();
 
-    closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) bindBackdropClose(root, close);
-
-    saveBtn.addEventListener("click", async () => {
-        const categoryColors = {
-            ...(nodeInstance.uiPrefs.category_colors || {})
-        };
-        currentCategoryTabs.forEach(category => {
-            if (draftCategoryColors[category]) {
-                categoryColors[category] = draftCategoryColors[category];
-            }
+    const renderCategoryColors = () => {
+        if (!categoryColorList) return;
+        categoryColorList.replaceChildren();
+        if (categoryLoadError) {
+            categoryColorList.innerHTML = '<p class="localprompt-settings-empty-state">Category colors are unavailable until categories load.</p>';
+            return;
+        }
+        if (!allCategories.length) {
+            categoryColorList.innerHTML = '<p class="localprompt-settings-empty-state">No categories yet.</p>';
+            return;
+        }
+        orderedCategories().forEach(category => {
+            categoryColorList.appendChild(createCategoryColorCard({
+                category,
+                color: colorForCategory(category),
+                isCustom: Boolean(draftCategoryColors[category]),
+                onClick: anchor => openColorPicker(anchor, category),
+            }));
         });
-        const cardsDisplayMode = normalizeDisplayMode(displayModeSelect.value, "thumbnails");
+    };
+
+    renderCategoryLists();
+    renderCategoryColors();
+    closeBtn?.addEventListener("click", () => {
+        closeColorPopover();
+        close();
+    });
+    if (!isWorkspace) bindBackdropClose(root, () => {
+        closeColorPopover();
+        close();
+    });
+
+    saveButton.addEventListener("click", async () => {
+        if (categoryLoadError) {
+            saveStatus.textContent = "Categories could not be loaded, so nothing was saved.";
+            return;
+        }
+        const categoryColors = { ...(nodeInstance.uiPrefs?.category_colors || {}), ...draftCategoryColors };
+        resetCategoryColors.forEach(category => delete categoryColors[category]);
+        const mostUsedCount = Math.max(1, Math.min(50, Number.parseInt(mostUsedCountInput.value, 10) || 10));
+        const visiblePinnedCount = Math.max(1, Math.min(20, Number.parseInt(visiblePinnedCountInput.value, 10) || 5));
         const newPrefs = {
             ...nodeInstance.uiPrefs,
-            display_mode: cardsDisplayMode,
-            cards_display_mode: cardsDisplayMode,
-            most_used_count: parseInt(mostUsedCountInput.value) || 10,
-            auto_hide_toolbars: autoHideToolbarsInput?.checked === true,
-            active_sidebar_hover_open: activeSidebarHoverOpenInput?.checked !== false,
-            promote_selected_prompts: promoteSelectedPromptsInput?.checked !== false,
-            show_most_used: showMostUsedInput?.checked !== false,
-            meta_tags_button_side: metaTagsButtonSideSelect?.value === "left" ? "left" : "right",
-            visible_pinned_category_count: Math.max(1, Math.min(20, parseInt(visiblePinnedCountInput.value, 10) || 5)),
-            active_border_theme: activeBorderThemeSelect?.value || "default",
-            active_border_custom_1: activeBorderCustom1Input?.value || "#ff0000",
-            active_border_custom_2: activeBorderCustom2Input?.value || "#0000ff",
-            active_card_size_mode: largeActiveCardsInput?.checked ? "large" : "default",
-            library_tab_layout: getLibraryTabLayoutMode(),
-            thumbnail_size_px: getThumbnailSizePx(),
-            active_thumbnail_size_px: getActiveThumbnailSizePx(),
-            library_tabs: ["active", "most_used", "pinned", ...currentCategoryTabs],
+            most_used_count: mostUsedCount,
+            show_most_used: showMostUsedInput.checked,
+            promote_selected_prompts: promoteSelectedPromptsInput.checked,
+            active_sidebar_hover_open: activeSidebarHoverOpenInput.checked,
+            auto_hide_toolbars: autoHideToolbarsInput.checked,
+            visible_pinned_category_count: visiblePinnedCount,
             pinned_categories: draftPinnedCategories,
-            category_colors: categoryColors
+            category_colors: categoryColors,
         };
-        await galleryNode.saveUiPrefs(newPrefs);
-        nodeInstance.uiPrefs = newPrefs;
-        if (typeof savePinnedCategories === "function") {
-            await savePinnedCategories(draftPinnedCategories);
-        }
-        applyThumbnailSizePreference();
-        applyLibraryTabLayoutPreference();
-        if (typeof applyMetaTagsButtonSidePreference === "function") {
-            applyMetaTagsButtonSidePreference();
-        }
-        if (typeof applyAutoHideToolbarPreference === "function") {
-            applyAutoHideToolbarPreference();
-        }
-        if (typeof applyActiveBorderThemePreference === "function") {
-            applyActiveBorderThemePreference();
-        }
-        if (typeof applyActiveSidebarPreference === "function") {
-            applyActiveSidebarPreference();
-        }
-        if (typeof applyActiveThumbnailSizePreference === "function") {
-            applyActiveThumbnailSizePreference();
-        }
-        if (typeof renderActiveSidebar === "function") {
-            await renderActiveSidebar();
-        }
-        if (typeof renderGallery === "function") {
-            renderGallery();
-        }
-        await renderLibraryBar();
 
-        const activeLibraryTab = getActiveLibraryTab();
-        if (activeLibraryTab) {
-            await renderLibraryDrawer(activeLibraryTab);
+        saveButton.disabled = true;
+        saveStatus.textContent = "Saving...";
+        try {
+            await galleryNode.saveUiPrefs(newPrefs);
+            nodeInstance.uiPrefs = newPrefs;
+            if (typeof savePinnedCategories === "function") {
+                await savePinnedCategories(draftPinnedCategories);
+            }
+            await renderLibraryBar();
+            const activeLibraryTab = getActiveLibraryTab();
+            if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
+            if (typeof renderActiveSidebar === "function") await renderActiveSidebar();
+            if (typeof renderGallery === "function") renderGallery();
+            closeColorPopover();
+            close();
+        } catch (error) {
+            console.error("Local Prompt Gallery: failed to save settings", error);
+            saveStatus.textContent = "Could not save changes. Please try again.";
+            saveButton.disabled = false;
         }
-
-        closeCategoryColorPopover();
-        close();
     });
 }

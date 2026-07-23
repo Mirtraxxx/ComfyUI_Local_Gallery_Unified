@@ -118,7 +118,9 @@ export function getLoraReferenceUxStyles(uniqueId) {
             }
             #${uniqueId} .locallora-gallery {
                 gap: 12px;
-                padding: 14px 16px 18px;
+                /* The browser keeps its native right-side scrollbar. Limit the
+                   adjacent content inset to a deliberate, compact clearance. */
+                padding: 14px 4px 18px 16px;
                 background: transparent;
                 scrollbar-color: rgba(132, 151, 169, 0.4) transparent;
             }

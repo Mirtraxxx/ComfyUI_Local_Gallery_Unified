@@ -50,6 +50,13 @@ class PromptStatsTests(unittest.TestCase):
         category_aggregate = build_prompt_stats(metadata, category="b")
         self.assertEqual(category_aggregate["card_count"], 2)
 
+        union_aggregate = build_prompt_stats(metadata, categories=["a", "b"])
+        self.assertEqual(union_aggregate["card_count"], 3)
+        self.assertEqual(
+            query_prompt_stats(union_aggregate, search="solo", per_page=100)["entries"][0]["categories"],
+            [{"category": "b", "count": 2}, {"category": "a", "count": 1}],
+        )
+
     def test_artist_qualifiers_are_not_reported_as_characters_or_franchises(self):
         metadata = {
             "one": {"category": "Artists", "prompt_text": r"by yuu \(pixiv\)"},

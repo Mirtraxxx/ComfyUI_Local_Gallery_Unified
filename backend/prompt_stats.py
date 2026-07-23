@@ -87,16 +87,21 @@ def _record_tag(stats, group, label, category):
     entry["categories"][category] += 1
 
 
-def build_prompt_stats(metadata, category=None):
-    """Aggregate distinct-per-card prompt tag usage for a category or all cards."""
+def build_prompt_stats(metadata, category=None, categories=None):
+    """Aggregate distinct-per-card prompt tag usage for one, many, or all categories."""
     stats = {group: {} for group in ("all", "characters", "franchises", "other")}
     card_count = 0
+    category_scope = None
+    if categories is not None:
+        category_scope = {str(value or "") for value in categories}
 
     for prompt_data in metadata.values():
         if not isinstance(prompt_data, dict):
             continue
         card_category = str(prompt_data.get("category", "") or "")
-        if category is not None and card_category != category:
+        if category_scope is not None and card_category not in category_scope:
+            continue
+        if category_scope is None and category is not None and card_category != category:
             continue
         card_count += 1
         per_card = {group: {} for group in stats}

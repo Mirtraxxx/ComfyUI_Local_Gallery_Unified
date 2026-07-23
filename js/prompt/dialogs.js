@@ -4,7 +4,7 @@ import {
     createCenteredOverlay,
     createDialogPanel,
     createWorkspaceDialogSurface,
-} from "../shared/modalSurfaces.js";
+} from "../shared/modalSurfaces.js?v=card-insights-20260722-11";
 import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
@@ -312,11 +312,13 @@ export async function showExportDialog({
     galleryNode,
     initialCategory = "",
     workspaceContainer = null,
+    surfaceHost = null,
     onClose = null,
     librarySubnavHtml = "",
 }) {
     const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
         workspaceContainer,
+        surfaceHost,
         onClose,
         width: 450,
     });
