@@ -11,6 +11,7 @@ import hashlib
 import uuid
 import shutil
 import time
+import math
 from contextlib import AbstractContextManager
 
 try:
@@ -101,16 +102,19 @@ def _consume_pending_usage_locked(snapshot):
 class MetadataTransaction(AbstractContextManager):
     """Serialize one prompt metadata load/modify/save operation.
 
-    The transaction owns the JSON lock for its entire lifetime and includes a
-    snapshot of deferred usage counts before yielding mutable metadata.  A
-    caller must call :meth:`commit` after making a mutation; leaving without a
-    commit performs no write.  Pending usage is consumed only after the save
-    succeeds, so a failed mutation cannot lose execution counts.
+    The transaction owns the JSON lock for its entire lifetime and normally
+    includes a snapshot of deferred usage counts before yielding mutable
+    metadata.  Name-only mutations can opt out of that merge so they preserve
+    usage metadata exactly. A caller must call :meth:`commit` after making a
+    mutation; leaving without a commit performs no write. Pending usage is
+    consumed only after a merged snapshot saves successfully, so a failed
+    mutation cannot lose execution counts.
     """
 
-    def __init__(self):
+    def __init__(self, include_pending_usage=True):
         self.metadata = None
         self._pending_snapshot = None
+        self._include_pending_usage = include_pending_usage
         self._committed = False
 
     def __enter__(self):
@@ -120,7 +124,7 @@ class MetadataTransaction(AbstractContextManager):
             # full deep copy is significant for large metadata libraries while
             # retaining the transaction's all-or-nothing cache visibility.
             self.metadata = _load_metadata_from_disk_locked(update_cache=False)
-            self._pending_snapshot = dict(_pending_usage)
+            self._pending_snapshot = dict(_pending_usage) if self._include_pending_usage else {}
             _apply_pending_usage_locked(self.metadata, self._pending_snapshot)
             return self
         except Exception:
@@ -568,6 +572,42 @@ def sort_prompt_ids_for_display(metadata, prompt_ids, sort_mode="manual", manual
     if sort_mode in ("oldest", "oldest_first"):
         return sorted(prompt_ids, key=lambda prompt_id: (_prompt_created_at_value(prompt_id, metadata.get(prompt_id, {})), prompt_id))
     return apply_manual_prompt_order(prompt_ids, manual_order)
+
+
+def _wildcard_order_sort_value(prompt_data):
+    """Return a finite wildcard import order, or None when it is unavailable."""
+    value = prompt_data.get("wildcard_order")
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric_value if math.isfinite(numeric_value) else None
+
+
+def build_sequential_rename_plan(metadata, prompt_ids):
+    """Build zero-padded names in wildcard import order for explicit card IDs.
+
+    Cards with a valid ``wildcard_order`` are placed first. Remaining cards use
+    their stable creation timestamp and ID as a deterministic fallback.
+    """
+    def sort_key(prompt_id):
+        prompt_data = metadata[prompt_id]
+        wildcard_order = _wildcard_order_sort_value(prompt_data)
+        created_at = _prompt_created_at_value(prompt_id, prompt_data)
+        if not math.isfinite(created_at):
+            created_at = 0
+        return (
+            wildcard_order is None,
+            wildcard_order if wildcard_order is not None else 0,
+            created_at,
+            prompt_id,
+        )
+
+    ordered_ids = sorted(prompt_ids, key=sort_key)
+    width = max(3, len(str(len(ordered_ids))))
+    return [(prompt_id, str(index).zfill(width)) for index, prompt_id in enumerate(ordered_ids, start=1)]
 
 def build_metadata_indexes(metadata):
     category_ids = {}
@@ -1309,6 +1349,91 @@ def _resolve_bulk_selection(metadata, selection):
     return resolved
 
 
+def _sequential_rename_selection_from_request(data):
+    """Validate an explicit-ID or complete query-selection snapshot."""
+    if not isinstance(data, dict):
+        raise ValueError("Request body must be a JSON object")
+
+    has_prompt_ids = "prompt_ids" in data
+    has_selection = "selection" in data
+    if has_prompt_ids == has_selection:
+        raise ValueError("Provide exactly one of prompt_ids or selection")
+
+    if has_prompt_ids:
+        raw_prompt_ids = data.get("prompt_ids")
+        if not isinstance(raw_prompt_ids, list) or not raw_prompt_ids:
+            raise ValueError("prompt_ids must be a non-empty list of card IDs")
+        prompt_ids = []
+        seen_ids = set()
+        for raw_prompt_id in raw_prompt_ids:
+            if not isinstance(raw_prompt_id, str):
+                raise ValueError("prompt_ids must contain only non-empty string card IDs")
+            prompt_id = raw_prompt_id.strip()
+            if not prompt_id or prompt_id in seen_ids:
+                raise ValueError("prompt_ids must contain unique non-empty card IDs")
+            prompt_ids.append(prompt_id)
+            seen_ids.add(prompt_id)
+        return {"type": "ids", "ids": prompt_ids}
+
+    selection = data.get("selection")
+    if not isinstance(selection, dict) or selection.get("type") != "query":
+        raise ValueError("selection must be a query selection object")
+
+    required_fields = {
+        "type", "filter_name", "category", "categories",
+        "favorites_only", "uncategorized_only", "exclusions",
+    }
+    missing_fields = required_fields - set(selection)
+    unknown_fields = set(selection) - required_fields
+    if missing_fields:
+        raise ValueError(f"Query selection is missing {sorted(missing_fields)[0]}")
+    if unknown_fields:
+        raise ValueError(f"Query selection contains unsupported field {sorted(unknown_fields)[0]}")
+    if not isinstance(selection["filter_name"], str) or not isinstance(selection["category"], str):
+        raise ValueError("Query filter_name and category must be strings")
+    if not isinstance(selection["favorites_only"], bool) or not isinstance(selection["uncategorized_only"], bool):
+        raise ValueError("Query selection flags must be booleans")
+
+    categories = selection["categories"]
+    exclusions = selection["exclusions"]
+    if not isinstance(categories, list) or any(not isinstance(value, str) or not value.strip() for value in categories):
+        raise ValueError("Query categories must contain only non-empty strings")
+    if not isinstance(exclusions, list) or any(not isinstance(value, str) or not value.strip() for value in exclusions):
+        raise ValueError("Query exclusions must contain only non-empty string card IDs")
+
+    normalized_categories = [value.strip() for value in categories]
+    normalized_exclusions = [value.strip() for value in exclusions]
+    if len(set(normalized_categories)) != len(normalized_categories):
+        raise ValueError("Query categories must be unique")
+    if len(set(normalized_exclusions)) != len(normalized_exclusions):
+        raise ValueError("Query exclusions must be unique")
+
+    category = selection["category"].strip()
+    if category and normalized_categories:
+        raise ValueError("Query selection cannot combine category and categories")
+    if selection["uncategorized_only"] and (category or normalized_categories):
+        raise ValueError("Uncategorized query selection cannot include category filters")
+
+    return {
+        "type": "query",
+        "filter_name": selection["filter_name"].strip(),
+        "category": category,
+        "categories": normalized_categories,
+        "favorites_only": selection["favorites_only"],
+        "uncategorized_only": selection["uncategorized_only"],
+        "exclusions": normalized_exclusions,
+    }
+
+
+def resolve_sequential_rename_ids(metadata, data):
+    """Resolve the validated selection through the authoritative bulk resolver."""
+    selection = _sequential_rename_selection_from_request(data)
+    prompt_ids = _resolve_bulk_selection(metadata, selection)
+    if not prompt_ids:
+        raise ValueError("The selected cards no longer match any results")
+    return prompt_ids
+
+
 def _normalize_bulk_operations(raw_operations):
     if not isinstance(raw_operations, dict) or not raw_operations:
         raise ValueError("At least one operation is required")
@@ -1531,6 +1656,97 @@ async def bulk_edit_endpoint(request):
         return web.json_response({"status": "error", "message": str(error)}, status=400)
     except Exception as error:
         print(f"Error in bulk edit: {error}")
+        return web.json_response({"status": "error", "message": str(error)}, status=500)
+
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/rename_prompts_sequential")
+async def rename_prompts_sequential_endpoint(request):
+    """Preview or atomically rename selected cards to 001, 002, ... ."""
+    try:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({
+                "status": "error",
+                "message": "Request body must be valid JSON",
+            }, status=400)
+        preview = data.get("preview", True) if isinstance(data, dict) else True
+        if not isinstance(preview, bool):
+            raise ValueError("preview must be a boolean")
+        active_prompt_ids = _normalize_bulk_ids(data.get("active_prompt_ids", []))
+
+        if preview:
+            metadata = load_metadata()
+            prompt_ids = resolve_sequential_rename_ids(metadata, data)
+            missing_ids = [prompt_id for prompt_id in prompt_ids if not isinstance(metadata.get(prompt_id), dict)]
+            if missing_ids:
+                return web.json_response({
+                    "status": "error",
+                    "message": "One or more selected cards no longer exist",
+                    "missing_ids": missing_ids[:100],
+                }, status=404)
+            return web.json_response({
+                "status": "ok",
+                "preview": True,
+                "revision": metadata_revision(),
+                "selected_count": len(prompt_ids),
+                "ordering": "wildcard_order first; remaining cards by created time and card ID",
+            })
+
+        base_revision = str(data.get("base_revision", "")).strip()
+        if not base_revision:
+            raise ValueError("base_revision is required when applying a sequential rename")
+
+        # Do not fold deferred execution usage into this name-only mutation.
+        # Those counts remain queued for their normal flush path.
+        with MetadataTransaction(include_pending_usage=False) as transaction:
+            current_revision = metadata_revision()
+            if base_revision != current_revision:
+                return web.json_response({
+                    "status": "conflict",
+                    "message": "The card library changed after confirmation. Review the selection and try again.",
+                    "revision": current_revision,
+                }, status=409)
+
+            metadata = transaction.metadata
+            prompt_ids = resolve_sequential_rename_ids(metadata, data)
+            missing_ids = [prompt_id for prompt_id in prompt_ids if not isinstance(metadata.get(prompt_id), dict)]
+            if missing_ids:
+                return web.json_response({
+                    "status": "error",
+                    "message": "One or more selected cards no longer exist",
+                    "missing_ids": missing_ids[:100],
+                }, status=404)
+
+            rename_plan = build_sequential_rename_plan(metadata, prompt_ids)
+            renamed_count = 0
+            for prompt_id, name in rename_plan:
+                if metadata[prompt_id].get("name") != name:
+                    metadata[prompt_id]["name"] = name
+                    renamed_count += 1
+            if renamed_count:
+                transaction.commit()
+
+            active_prompts = []
+            for prompt_id in active_prompt_ids:
+                prompt_data = metadata.get(prompt_id)
+                if isinstance(prompt_data, dict):
+                    active_prompts.append(prompt_response(prompt_id, prompt_data, include_usage=True))
+            result_revision = metadata_revision()
+
+        return web.json_response({
+            "status": "ok",
+            "preview": False,
+            "revision": result_revision,
+            "selected_count": len(prompt_ids),
+            "renamed_count": renamed_count,
+            "active_prompts": active_prompts,
+            "ordering": "wildcard_order first; remaining cards by created time and card ID",
+        })
+    except ValueError as error:
+        return web.json_response({"status": "error", "message": str(error)}, status=400)
+    except Exception as error:
+        print(f"Error renaming prompts sequentially: {error}")
         return web.json_response({"status": "error", "message": str(error)}, status=500)
 
 
@@ -2663,8 +2879,22 @@ class LocalPromptGallery:
             prompt_id = item.get('prompt_id')
             weight = item.get('weight', 1.0)
             prompt_text = ""
+            workflow_override = item.get('prompt_text_override')
+            if isinstance(workflow_override, str):
+                workflow_override = workflow_override.strip()
+            else:
+                workflow_override = ""
 
-            if prompt_id in metadata:
+            if workflow_override:
+                # A selection can carry a workflow-local text override.  It is
+                # intentionally kept out of card metadata so editing a card in
+                # one workflow never changes the stored library card or other
+                # workflows that use it.  A live source card still counts as
+                # used even when its workflow instance supplies different text.
+                prompt_text = workflow_override
+                if prompt_id in metadata:
+                    used_prompt_ids.append(prompt_id)
+            elif prompt_id in metadata:
                 prompt_text = metadata[prompt_id].get('prompt_text', '')
                 if prompt_text:
                     used_prompt_ids.append(prompt_id)  # Track usage

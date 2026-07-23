@@ -291,6 +291,7 @@ export async function showCardManagerModal({
                     <div class="localprompt-bulk-action-group localprompt-bulk-edit-actions" role="group" aria-label="Edit selected cards">
                     <button id="browse-edit-selected" class="localprompt-btn primary">Edit…</button>
                     <button id="browse-move-selected" class="localprompt-btn primary">Move to…</button>
+                    <button id="browse-rename-sequential" class="localprompt-btn primary" title="Rename selected cards 001, 002, 003 in wildcard import order">Rename Sequentially</button>
                     <button id="browse-pin-selected" class="localprompt-btn">Pin/Unpin…</button>
                     </div>
                     <div class="localprompt-bulk-action-group localprompt-bulk-cleanup-actions" role="group" aria-label="Clear or delete selection">
@@ -325,6 +326,7 @@ export async function showCardManagerModal({
     const selectAllResultsBtn = root.querySelector("#browse-select-all-results");
     const editSelectedBtn = root.querySelector("#browse-edit-selected");
     const moveSelectedBtn = root.querySelector("#browse-move-selected");
+    const renameSequentialBtn = root.querySelector("#browse-rename-sequential");
     const pinSelectedBtn = root.querySelector("#browse-pin-selected");
     const clearSelectedBtn = root.querySelector("#browse-clear-selected");
     const deleteSelectedBtn = root.querySelector("#browse-delete-selected");
@@ -548,6 +550,10 @@ export async function showCardManagerModal({
         if (clearSelectedBtn) clearSelectedBtn.disabled = selectedCount === 0;
         if (editSelectedBtn) editSelectedBtn.disabled = selectedCount === 0;
         if (moveSelectedBtn) moveSelectedBtn.disabled = selectedCount === 0;
+        if (renameSequentialBtn) {
+            renameSequentialBtn.disabled = selectedCount === 0;
+            renameSequentialBtn.title = "Rename selected cards 001, 002, 003 in wildcard import order";
+        }
         if (pinSelectedBtn) pinSelectedBtn.disabled = selectedCount === 0;
         if (deleteSelectedBtn) {
             deleteSelectedBtn.disabled = selectedCount === 0 || !!bulkQuerySelection;
@@ -575,6 +581,25 @@ export async function showCardManagerModal({
             uncategorized_only: !!bulkQuerySelection.uncategorized_only,
             exclusions: Array.from(bulkQuerySelection.exclusions),
         };
+    }
+
+    function describeBulkSelection(selection) {
+        if (selection.type !== "query") return "the explicitly selected cards";
+        const parts = [];
+        if (selection.category) {
+            parts.push(`category “${selection.category}”`);
+        } else if (selection.categories.length === 1) {
+            parts.push(`category “${selection.categories[0]}”`);
+        } else if (selection.categories.length > 1) {
+            parts.push(`${selection.categories.length} selected categories`);
+        } else {
+            parts.push("all categories");
+        }
+        if (selection.filter_name) parts.push(`search “${selection.filter_name}”`);
+        if (selection.exclusions.length) {
+            parts.push(`${selection.exclusions.length} manually excluded`);
+        }
+        return parts.join(" · ");
     }
 
     function clearBulkSelection() {
@@ -818,6 +843,70 @@ export async function showCardManagerModal({
 
     editSelectedBtn?.addEventListener("click", openBulkEdit);
     pinSelectedBtn?.addEventListener("click", openBulkEdit);
+
+    renameSequentialBtn?.addEventListener("click", async () => {
+        if (getBulkSelectionCount() === 0) return;
+        const selection = getBulkSelectionDescriptor();
+        const isQuerySelection = selection.type === "query";
+        const activePromptIds = nodeInstance.promptData.map(entry => String(entry.prompt_id));
+        renameSequentialBtn.disabled = true;
+        try {
+            const preview = await galleryNode.renamePromptsSequential(selection, {
+                preview: true,
+                activePromptIds,
+            });
+            const selectedCount = Number(preview.selected_count || 0);
+            if (!selectedCount) throw new Error("No cards match the current selection.");
+
+            const queryNotice = isQuerySelection
+                ? `This affects all current results, including cards not loaded on this page.\nScope: ${describeBulkSelection(selection)}\n\n`
+                : "This affects only the explicitly selected cards.\n\n";
+            const confirmed = confirmAction(
+                `Rename ${selectedCount} card${selectedCount === 1 ? "" : "s"} sequentially?\n\n` +
+                queryNotice +
+                "Names will become 001, 002, 003, and so on. Cards with a valid wildcard import order are numbered first. Cards without one follow in stable creation and card-ID order.\n\n" +
+                "Only card names change; prompt text and all other card metadata stay the same."
+            );
+            if (!confirmed) return;
+
+            const result = await galleryNode.renamePromptsSequential(selection, {
+                preview: false,
+                baseRevision: preview.revision,
+                activePromptIds,
+            });
+            const activeById = new Map(
+                (result.active_prompts || []).map(prompt => [String(prompt.id), prompt])
+            );
+            let selectionChanged = false;
+            nodeInstance.promptData.forEach(entry => {
+                const prompt = activeById.get(String(entry.prompt_id));
+                if (!prompt) return;
+                Object.assign(entry, {
+                    name: prompt.name,
+                    prompt_text: prompt.prompt_text,
+                    category: prompt.category,
+                });
+                selectionChanged = true;
+            });
+            if (selectionChanged) saveSelectionData({ redrawCanvas: false });
+
+            clearBulkSelection();
+            await loadCategories();
+            await loadBrowseCategoryOptions(categorySelect.value);
+            await loadBrowseGallery(1);
+            await refreshAllSections();
+            if (bulkStatus) {
+                const renamedCount = Number(result.renamed_count || 0);
+                bulkStatus.textContent = renamedCount
+                    ? `${renamedCount} card${renamedCount === 1 ? "" : "s"} renamed sequentially.`
+                    : "Selected card names were already sequential.";
+            }
+        } catch (error) {
+            if (bulkStatus) bulkStatus.textContent = error.message || "Sequential rename failed.";
+        } finally {
+            updateBrowseBulkToolbar();
+        }
+    });
 
     moveSelectedBtn?.addEventListener("click", async () => {
         if (getBulkSelectionCount() === 0) return;

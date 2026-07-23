@@ -5,6 +5,125 @@
  * pointer/long-press timers, and async category fetches are generation-guarded
  * so a late response cannot repaint a newer strip.
  */
+export const CATEGORY_OVERFLOW_MIN_HEIGHT = 120;
+export const CATEGORY_OVERFLOW_VIEWPORT_GUTTER = 24;
+
+export function clampCategoryOverflowHeight(
+    requestedHeight,
+    panelTop,
+    viewportHeight,
+    minHeight = CATEGORY_OVERFLOW_MIN_HEIGHT,
+    viewportGutter = CATEGORY_OVERFLOW_VIEWPORT_GUTTER,
+    scale = 1,
+) {
+    const safeMinimum = Math.max(0, Number(minHeight) || 0);
+    const safeScale = Math.max(0.01, Number(scale) || 1);
+    const availableHeight = Math.max(
+        safeMinimum,
+        (
+            (Number(viewportHeight) || 0)
+            - (Number(panelTop) || 0)
+            - Math.max(0, Number(viewportGutter) || 0)
+        ) / safeScale,
+    );
+    return Math.min(availableHeight, Math.max(safeMinimum, Number(requestedHeight) || safeMinimum));
+}
+
+export function setupCategoryOverflowResize(widgetContainer, uniqueId) {
+    const panel = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
+    const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
+    if (!panel || !pullTab) return () => {};
+
+    let resizeState = null;
+    let customHeight = null;
+    let suppressNextClick = false;
+
+    const setPanelHeight = height => {
+        customHeight = height;
+        panel.style.setProperty("--localprompt-category-overflow-height", `${Math.round(height)}px`);
+        pullTab.setAttribute("aria-valuenow", String(Math.round(height)));
+    };
+
+    const getPanelScale = panelRect => {
+        const layoutHeight = panel.offsetHeight;
+        if (!layoutHeight || !panelRect.height) return 1;
+        return panelRect.height / layoutHeight;
+    };
+
+    const clampToViewport = requestedHeight => {
+        const panelRect = panel.getBoundingClientRect();
+        return clampCategoryOverflowHeight(
+            requestedHeight,
+            panelRect.top,
+            globalThis.window?.innerHeight ?? requestedHeight,
+            CATEGORY_OVERFLOW_MIN_HEIGHT,
+            CATEGORY_OVERFLOW_VIEWPORT_GUTTER,
+            getPanelScale(panelRect),
+        );
+    };
+
+    const finishResize = event => {
+        if (!resizeState || (event.pointerId !== undefined && event.pointerId !== resizeState.pointerId)) return;
+        const didDrag = resizeState.didDrag;
+        resizeState = null;
+        panel.classList.remove("is-resizing");
+        pullTab.classList.remove("is-resizing");
+        if (didDrag) suppressNextClick = true;
+    };
+
+    const onPointerDown = event => {
+        if (event.button !== 0 || pullTab.getAttribute("aria-expanded") !== "true") return;
+        const panelRect = panel.getBoundingClientRect();
+        resizeState = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startHeight: panel.offsetHeight || panelRect.height,
+            scale: getPanelScale(panelRect),
+            didDrag: false,
+        };
+        pullTab.setPointerCapture?.(event.pointerId);
+    };
+
+    const onPointerMove = event => {
+        if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+        const delta = event.clientY - resizeState.startY;
+        if (!resizeState.didDrag && Math.abs(delta) < 4) return;
+        resizeState.didDrag = true;
+        event.preventDefault();
+        panel.classList.add("is-resizing");
+        pullTab.classList.add("is-resizing");
+        setPanelHeight(clampToViewport(resizeState.startHeight + (delta / resizeState.scale)));
+    };
+
+    const onClickCapture = event => {
+        if (!suppressNextClick) return;
+        suppressNextClick = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    };
+
+    const onWindowResize = () => {
+        if (customHeight === null) return;
+        setPanelHeight(clampToViewport(customHeight));
+    };
+
+    pullTab.addEventListener("pointerdown", onPointerDown);
+    pullTab.addEventListener("pointermove", onPointerMove);
+    pullTab.addEventListener("pointerup", finishResize);
+    pullTab.addEventListener("pointercancel", finishResize);
+    pullTab.addEventListener("click", onClickCapture, true);
+    globalThis.window?.addEventListener("resize", onWindowResize);
+
+    return () => {
+        pullTab.removeEventListener("pointerdown", onPointerDown);
+        pullTab.removeEventListener("pointermove", onPointerMove);
+        pullTab.removeEventListener("pointerup", finishResize);
+        pullTab.removeEventListener("pointercancel", finishResize);
+        pullTab.removeEventListener("click", onClickCapture, true);
+        globalThis.window?.removeEventListener("resize", onWindowResize);
+    };
+}
+
 export function createPromptCategoryStripController({
     widgetContainer,
     uniqueId,
@@ -33,6 +152,7 @@ export function createPromptCategoryStripController({
     let openGeneration = 0;
     const longPressTimers = new Set();
     let disposed = false;
+    const disposeOverflowResize = setupCategoryOverflowResize(widgetContainer, uniqueId);
 
     function isCurrent(generation) {
         return !disposed && generation === renderGeneration;
@@ -183,6 +303,15 @@ export function createPromptCategoryStripController({
         if (pullTab) {
             pullTab.style.display = "flex";
             pullTab.setAttribute("aria-expanded", String(getCategoryOverflowOpen()));
+            pullTab.setAttribute(
+                "aria-label",
+                getCategoryOverflowOpen()
+                    ? "Resize category list or click to hide categories"
+                    : "Show all categories",
+            );
+            pullTab.title = getCategoryOverflowOpen()
+                ? "Drag to resize. Click to hide categories."
+                : "Show all categories";
         }
         overflowContainer.classList.toggle("open", getCategoryOverflowOpen());
         hiddenCategories.forEach(category => {
@@ -209,6 +338,7 @@ export function createPromptCategoryStripController({
         renderGeneration += 1;
         openGeneration += 1;
         clearLongPressTimers();
+        disposeOverflowResize();
     }
 
     return {

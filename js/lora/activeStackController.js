@@ -403,9 +403,9 @@ export function createLoraActiveStackController({
     };
 
     return {
-        hydrateSelectedLoraInfo: () => hydrateSelectedLoraInfo(
+        hydrateSelectedLoraInfo: (availableLoras = nodeInstance.availableLoras) => hydrateSelectedLoraInfo(
             nodeInstance.loraData,
-            nodeInstance.availableLoras,
+            availableLoras,
         ),
         renderSelectedList,
         repaintLoraOrder,

@@ -6,7 +6,7 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
-} from "./helpers.js?v=unified-icons-20260606";
+} from "./helpers.js?v=workflow-edit-icon-20260723-1";
 import { escapeHtml } from "../shared/dom.js";
 
 export function getActiveSidebarWidth({ nodeInstance }) {
@@ -296,6 +296,128 @@ export async function renderActiveSidebar({
         });
     };
 
+    const bindWorkflowTextEditor = (chip, prompt, selectedEntry) => {
+        const isThumbnail = displayMode === "thumbnails";
+        const getOverride = () => {
+            const value = selectedEntry?.prompt_text_override;
+            return typeof value === "string" ? value.trim() : "";
+        };
+        const getCardText = () => String(prompt?.prompt_text || "");
+        const hasOverride = () => Boolean(getOverride());
+
+        const controlHost = chip.querySelector(".localprompt-active-controls, .managed-card-controls") || chip;
+        let editButton;
+        if (isThumbnail) {
+            controlHost.insertAdjacentHTML("beforeend", createPromptActionButton({
+                icon: "edit",
+                className: "localprompt-workflow-edit-button localprompt-inline-btn",
+                title: "Edit for this workflow",
+            }));
+            editButton = controlHost.lastElementChild;
+        } else {
+            editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.className = "localprompt-workflow-edit-button";
+            editButton.textContent = "Edit";
+            editButton.title = "Edit for this workflow";
+            editButton.setAttribute("aria-label", "Edit for this workflow");
+            controlHost.appendChild(editButton);
+        }
+        editButton.dataset.workflowAction = "edit";
+
+        let editedBadge = null;
+        if (!isThumbnail) {
+            editedBadge = document.createElement("span");
+            editedBadge.className = "localprompt-workflow-edited-badge";
+            editedBadge.textContent = "Edited";
+            editedBadge.hidden = !hasOverride();
+            const badgeHost = chip.querySelector(".localprompt-active-main") || chip;
+            badgeHost.appendChild(editedBadge);
+        }
+
+        const editor = document.createElement("div");
+        editor.className = "localprompt-workflow-editor";
+        editor.hidden = true;
+
+        const editorLabel = document.createElement("label");
+        editorLabel.className = "localprompt-workflow-editor-label";
+        editorLabel.textContent = "Workflow-only prompt text";
+        const textArea = document.createElement("textarea");
+        textArea.className = "localprompt-workflow-editor-text";
+        textArea.rows = 3;
+        textArea.spellcheck = false;
+        textArea.value = getOverride() || getCardText();
+        editorLabel.appendChild(textArea);
+
+        const editorActions = document.createElement("div");
+        editorActions.className = "localprompt-workflow-editor-actions";
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "localprompt-workflow-close-button";
+        closeButton.dataset.workflowAction = "close";
+        closeButton.textContent = "Done";
+        editorActions.appendChild(closeButton);
+        const revertButton = document.createElement("button");
+        revertButton.type = "button";
+        revertButton.className = "localprompt-workflow-revert-button";
+        revertButton.dataset.workflowAction = "revert";
+        revertButton.textContent = "Revert to card text";
+        revertButton.hidden = !hasOverride();
+        editorActions.appendChild(revertButton);
+        editor.append(editorLabel, editorActions);
+        chip.appendChild(editor);
+
+        const syncEditedState = () => {
+            const edited = hasOverride();
+            chip.classList.toggle("localprompt-workflow-edited", edited);
+            editButton.classList.toggle("is-edited", edited);
+            const editLabel = edited ? "Edit for this workflow (edited)" : "Edit for this workflow";
+            editButton.title = editLabel;
+            editButton.setAttribute("aria-label", editLabel);
+            if (editedBadge) editedBadge.hidden = !edited;
+            revertButton.hidden = !edited;
+        };
+
+        syncEditedState();
+
+        const saveOverride = (value) => {
+            const normalized = String(value || "").trim();
+            if (normalized) {
+                selectedEntry.prompt_text_override = normalized;
+            } else {
+                delete selectedEntry.prompt_text_override;
+            }
+            saveSelectionData({ redrawCanvas: false });
+            syncEditedState();
+        };
+
+        editButton.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            editor.hidden = !editor.hidden;
+            if (!editor.hidden) {
+                textArea.value = getOverride() || getCardText();
+                textArea.focus();
+                textArea.select();
+            }
+        });
+        textArea.addEventListener("input", event => {
+            saveOverride(event.target.value);
+        });
+        closeButton.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            editor.hidden = true;
+        });
+        revertButton.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            delete selectedEntry.prompt_text_override;
+            saveSelectionData();
+            renderPrompts();
+        });
+    };
+
     prompts.forEach(prompt => {
         const selectedEntry = getSelectedPromptEntry(prompt.id);
         if (!selectedEntry) return;
@@ -358,10 +480,11 @@ export async function renderActiveSidebar({
         chip.dataset.promptId = promptId;
         applyCategoryRoleStyling(chip, prompt, { soften: true });
         bindPinnedManagedControls(chip, prompt);
+        bindWorkflowTextEditor(chip, prompt, selectedEntry);
         bindActivePointerSwap(chip, promptId);
         chip.addEventListener("click", (event) => {
             if (suppressActiveClickUntil > Date.now()) return;
-            if (event.target.closest("[data-managed-action], .managed-weight-val, .localprompt-info-btn")) return;
+            if (event.target.closest("[data-managed-action], [data-workflow-action], .managed-weight-val, .localprompt-info-btn, button, input, select, textarea, a")) return;
             addPromptToSelection(prompt);
         });
         attachInfoPopup(chip, prompt);

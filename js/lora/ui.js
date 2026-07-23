@@ -823,6 +823,49 @@ const UnifiedLoraGalleryNode = {
 
             let loraFetchSequence = 0;
             let pendingFetchAfterLoad = null;
+            const activeLoraInfoHydratedNames = new Set();
+
+            const markHydratedActiveLoraNames = (loras) => {
+                const loraNames = new Set(loras.map(lora => lora.name));
+                this.loraData.forEach(item => {
+                    if (loraNames.has(item.lora)) activeLoraInfoHydratedNames.add(item.lora);
+                });
+            };
+
+            const hydrateMissingActiveLoraInfo = async () => {
+                const availableNames = new Set(this.availableLoras.map(lora => lora.name));
+                const loraNames = [...new Set(this.loraData
+                    .map(item => item.lora)
+                    .filter(name => name && !availableNames.has(name) && !activeLoraInfoHydratedNames.has(name)))];
+                if (!loraNames.length) return;
+
+                // The browser request must retain its filters, order, and pagination. Fetch only
+                // missing Active Stack metadata separately, because workflow selection persistence
+                // intentionally omits preview fields.
+                const loraInfoChunks = [];
+                for (let index = 0; index < loraNames.length; index += 200) {
+                    loraInfoChunks.push(loraNames.slice(index, index + 200));
+                }
+                const responses = await Promise.all(loraInfoChunks.map(async names => {
+                    const data = await loraApi.getLoras(
+                        "",
+                        "OR",
+                        "",
+                        1,
+                        names,
+                        names.length,
+                        getLoraDisplayState().sort_mode,
+                    );
+                    return { names, loras: data.loras || [] };
+                }));
+                responses.forEach(({ names, loras }) => {
+                    hydrateSelectedLoraInfo(loras);
+                    const returnedNames = new Set(loras.map(lora => lora.name));
+                    names.forEach(name => {
+                        if (returnedNames.has(name)) activeLoraInfoHydratedNames.add(name);
+                    });
+                });
+            };
             
             const fetchAndRender = async (append = false) => {
                 if (this.isLoading) {
@@ -833,8 +876,7 @@ const UnifiedLoraGalleryNode = {
                 const pageToFetch = append ? this.currentPage + 1 : 1;
                 if (append && pageToFetch > this.totalPages) return;
                 try {
-                    // Keep availableLoras in the configured backend sort order. Active-card pinning is
-                    // deliberately a DOM-only concern so deselection can restore this stable order.
+                    // Keep browser sorting and pagination independent from the Active Stack.
                     const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, [], 50, getLoraDisplayState().sort_mode);
                     if (fetchSequence !== loraFetchSequence) return;
 
@@ -847,6 +889,12 @@ const UnifiedLoraGalleryNode = {
                         galleryEl.scrollTop = 0;
                     }
                     hydrateSelectedLoraInfo();
+                    markHydratedActiveLoraNames(this.availableLoras);
+                    try {
+                        await hydrateMissingActiveLoraInfo();
+                    } catch (error) {
+                        console.error("LocalLoraGallery: Failed to hydrate Active Stack metadata:", error);
+                    }
                     renderCurrentView(append);
                 } catch (error) {
                     console.error("LocalLoraGallery: Keeping the current gallery after a refresh failure:", error);

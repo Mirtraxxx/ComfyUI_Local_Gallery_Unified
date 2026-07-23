@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=prompt-builder-caption-scrim-20260723-1";
+import { getPromptStyles } from "./styles.js?v=category-overflow-resize-20260723-1";
 import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1";
 import {
     BARS_SIZE_SCALE_MAX,
@@ -50,7 +50,7 @@ export function getPromptTemplate(uniqueId) {
                                         <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
                                             <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                         </div>
-                                        <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" title="Show all categories">
+                                        <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" aria-label="Show all categories" title="Show all categories. Drag when open to resize.">
                                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                         </button>
                                     </div>

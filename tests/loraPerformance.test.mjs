@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const uiSource = await readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8");
+const activeStackControllerSource = await readFile(new URL("../js/lora/activeStackController.js", import.meta.url), "utf8");
 const rendererSource = await readFile(new URL("../js/lora/renderers.js", import.meta.url), "utf8");
 const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
 
@@ -32,6 +33,19 @@ test("selection and name search reconcile existing cards instead of rebuilding o
 test("initial data requests are parallel and preset cleanup uses the close hook", () => {
     assert.match(uiSource, /Promise\.all\(\[loadAllTags\(\), loadPresets\(\), fetchAndRender\(\)\]\)/);
     assert.match(uiSource, /openPicker\._closeLoraPresetPopover\?\.\(\)/);
+});
+
+test("workflow reload hydrates missing Active Stack metadata without changing browser pagination", () => {
+    assert.match(uiSource, /const activeLoraInfoHydratedNames = new Set\(\);/);
+    assert.match(uiSource, /markHydratedActiveLoraNames\(this\.availableLoras\);/);
+    assert.match(uiSource, /loraApi\.getLoras\(\s*"",\s*"OR",\s*"",\s*1,\s*names,\s*names\.length,/);
+    assert.match(uiSource, /for \(let index = 0; index < loraNames\.length; index \+= 200\)/);
+    assert.match(uiSource, /hydrateSelectedLoraInfo\(loras\);/);
+    assert.match(uiSource, /const returnedNames = new Set\(loras\.map\(lora => lora\.name\)\);/);
+    assert.match(uiSource, /if \(returnedNames\.has\(name\)\) activeLoraInfoHydratedNames\.add\(name\);/);
+    assert.match(uiSource, /getLoras\.call\(this, tagFilterInput\.value, tagFilterModeBtn\.textContent, folderFilterSelect\.value, pageToFetch, \[\], 50, getLoraDisplayState\(\)\.sort_mode\)/);
+    assert.match(activeStackControllerSource, /hydrateSelectedLoraInfo: \(availableLoras = nodeInstance\.availableLoras\) => hydrateSelectedLoraInfo\(/);
+    assert.match(uiSource, /Failed to hydrate Active Stack metadata/);
 });
 
 test("browser video previews render their source immediately and inventory has explicit invalidation", () => {

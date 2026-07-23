@@ -137,6 +137,34 @@ export async function movePromptsBulk(promptIds, category = "") {
     return result;
 }
 
+export async function renamePromptsSequential(selection, {
+    preview = true,
+    baseRevision = null,
+    activePromptIds = [],
+} = {}) {
+    const body = Array.isArray(selection) || selection?.type === "ids"
+        ? { prompt_ids: Array.isArray(selection) ? selection : selection.ids }
+        : { selection };
+    const response = await api.fetchApi("/localgalleryunified/prompt/rename_prompts_sequential", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            ...body,
+            preview,
+            base_revision: baseRevision,
+            active_prompt_ids: activePromptIds,
+        }),
+    });
+    const result = await response.json();
+    if (!response.ok || result?.status === "error" || result?.status === "conflict") {
+        const error = new Error(result?.message || "Failed to rename cards sequentially");
+        error.status = response.status;
+        error.result = result;
+        throw error;
+    }
+    return result;
+}
+
 export async function bulkEdit(selection, operations, {
     preview = true,
     baseRevision = null,

@@ -42,7 +42,7 @@ import {
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
 } from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
-import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
+import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-resize-20260723-1";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
 import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
@@ -55,7 +55,7 @@ import {
 } from "./library.js?v=prompt-performance-20260721-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prompt-settings-20260722-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=prompt-builder-caption-scrim-20260723-1";
+import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
@@ -207,6 +207,15 @@ const UnifiedPromptGalleryNode = {
         } catch (e) {
             console.error("LocalPromptGallery: Failed to bulk move prompts", e);
             return { status: "error", message: e.toString() };
+        }
+    },
+
+    async renamePromptsSequential(selection, options = {}) {
+        try {
+            return await promptApi.renamePromptsSequential(selection, options);
+        } catch (e) {
+            console.error("LocalPromptGallery: Failed to rename prompts sequentially", e);
+            throw e;
         }
     },
 
@@ -1979,10 +1988,6 @@ const UnifiedPromptGalleryNode = {
                     tab.classList.toggle("empty", count === 0);
                     tab.title = count === 0 ? "Active Prompts (empty)" : `${count} active prompt${count === 1 ? "" : "s"}`;
                     tab.setAttribute("aria-label", tab.title);
-                }
-                if (count === 0 && isActiveSidebarOpen()) {
-                    clearActiveSidebarOpenTimer();
-                    setActiveSidebarHoverOpen(false);
                 }
             }
 
