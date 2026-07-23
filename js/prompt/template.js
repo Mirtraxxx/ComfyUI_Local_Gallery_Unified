@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=active-stack-responsive-20260723-1";
+import { getPromptStyles } from "./styles.js?v=active-stack-slider-20260723-2";
 import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1";
 import {
     BARS_SIZE_SCALE_MAX,

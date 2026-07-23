@@ -12,7 +12,12 @@ test("Active Stack thumbnail mode uses a dedicated responsive grid", async () =>
     ]);
 
     assert.match(activeSidebar, /container\.classList\.toggle\("localprompt-active-thumbnail-grid", displayMode === "thumbnails"\);/);
-    assert.match(styles, /\.localprompt-active-sidebar \.localprompt-chip-container\.localprompt-active-thumbnail-grid \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: repeat\(auto-fit, minmax\(min\(var\(--localprompt-thumb-width\), 100%\), 1fr\)\);/);
+    const activeGridRule = styles.match(/\.localprompt-active-sidebar \.localprompt-chip-container\.localprompt-active-thumbnail-grid \{[\s\S]*?\n\s*\}/)?.[0];
+    assert.ok(activeGridRule, "missing Active Stack thumbnail grid rule");
+    assert.match(activeGridRule, /display: grid;/);
+    assert.match(activeGridRule, /grid-template-columns: repeat\(auto-fit, minmax\(min\(var\(--localprompt-thumb-width\), 100%\), min\(var\(--localprompt-thumb-width\), 100%\)\)\);/);
+    assert.match(activeGridRule, /justify-content: center;/);
+    assert.doesNotMatch(activeGridRule, /1fr/);
     assert.match(styles, /\.localprompt-active-sidebar \.localprompt-chip-container\.localprompt-active-thumbnail-grid \.localprompt-chip-thumb\.pinned-managed \{[\s\S]*?width: 100%;[\s\S]*?height: auto;[\s\S]*?aspect-ratio: 100 \/ 146;/);
 });
 
