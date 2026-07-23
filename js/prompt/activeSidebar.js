@@ -124,6 +124,7 @@ export async function renderActiveSidebar({
     const displayMode = getDisplayMode() === "thumbnails" ? "thumbnails" : "compact";
     container.classList.toggle("active-compact-mode", displayMode === "compact");
     container.classList.toggle("active-thumbnail-mode", displayMode === "thumbnails");
+    container.classList.toggle("localprompt-active-thumbnail-grid", displayMode === "thumbnails");
     const isLargeMode = nodeInstance.uiPrefs?.active_card_size_mode === "large" && displayMode === "thumbnails";
     container.classList.toggle("active-large-mode", isLargeMode);
 

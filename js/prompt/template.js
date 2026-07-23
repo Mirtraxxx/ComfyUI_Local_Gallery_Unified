@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=card-insights-20260722-13";
+import { getPromptStyles } from "./styles.js?v=active-stack-responsive-20260723-1";
 import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1";
 import {
     BARS_SIZE_SCALE_MAX,

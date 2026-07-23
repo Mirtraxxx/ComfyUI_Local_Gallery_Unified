@@ -620,18 +620,20 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-meta-text {
                         min-width: 0;
                         width: 100%;
+                        height: 24px;
                         background: rgba(10, 12, 16, 0.5);
                         color: #e0e0e0;
                         border: 1px solid rgba(255, 255, 255, 0.10);
                         border-radius: 5px;
                         font-size: 11px;
-                        padding: 5px 8px;
+                        line-height: 16px;
+                        padding: 3px 8px;
                         box-sizing: border-box;
+                        align-self: center;
                         transition: border-color 0.15s, background 0.15s;
                         resize: none;
                         min-height: 24px;
                         max-height: 110px;
-                        line-height: 1.35;
                         overflow: hidden;
                     }
                     .localprompt-meta-text::placeholder {
@@ -896,6 +898,24 @@ export function getPromptStyles(uniqueId) {
                         align-items: flex-start;
                         justify-content: center;
                         gap: 8px;
+                    }
+                    /* Active Stack thumbnails use the saved size as a minimum
+                       column width, then fill the sidebar with equal tracks. */
+                    .localprompt-active-sidebar .localprompt-chip-container.localprompt-active-thumbnail-grid {
+                        display: grid;
+                        width: 100%;
+                        grid-template-columns: repeat(auto-fit, minmax(min(var(--localprompt-thumb-width), 100%), 1fr));
+                        align-content: start;
+                        align-items: start;
+                        justify-content: stretch;
+                        gap: 8px;
+                    }
+                    .localprompt-active-sidebar .localprompt-chip-container.localprompt-active-thumbnail-grid .localprompt-chip-thumb.pinned-managed {
+                        width: 100%;
+                        height: auto;
+                        min-width: 0;
+                        aspect-ratio: 100 / 146;
+                        box-sizing: border-box;
                     }
                     .localprompt-active-sidebar .managed-thumb-media {
                         cursor: pointer;
