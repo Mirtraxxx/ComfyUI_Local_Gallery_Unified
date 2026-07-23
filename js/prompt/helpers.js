@@ -111,6 +111,40 @@ export function clampThumbnailSize(rawSize, fallbackSize, minSize, maxSize) {
     return Math.max(minSize, Math.min(maxSize, normalizedSize));
 }
 
+// The Prompt UI deliberately lays out at 125% and is scaled back to 80% so
+// controls remain usable inside a ComfyUI node. DOM client widths are already
+// in that unscaled layout space; this factor is only for the node-size fallback
+// used before a surface has been measured.
+export const PROMPT_LAYOUT_NODE_WIDTH_FACTOR = 1.25;
+
+export function getResponsiveThumbnailSizeBounds({
+    availableWidth,
+    nodeWidth,
+    minSize,
+    maxSize,
+    horizontalPadding = 0,
+} = {}) {
+    const measuredWidth = Number(availableWidth);
+    const fallbackNodeWidth = Number(nodeWidth);
+    const layoutWidth = Number.isFinite(measuredWidth) && measuredWidth > 0
+        ? measuredWidth
+        : (Number.isFinite(fallbackNodeWidth) && fallbackNodeWidth > 0
+            ? fallbackNodeWidth * PROMPT_LAYOUT_NODE_WIDTH_FACTOR
+            : 0);
+    const safeMin = Math.max(1, Math.round(Number(minSize) || 1));
+    const safeMax = Math.max(safeMin, Math.round(Number(maxSize) || safeMin));
+
+    // A zero width means the drawer/sidebar is hidden. Keep the global range
+    // until it can be measured instead of collapsing its slider prematurely.
+    if (layoutWidth <= 0) return { min: safeMin, max: safeMax };
+
+    const usableWidth = Math.max(0, Math.floor(layoutWidth - Math.max(0, Number(horizontalPadding) || 0)));
+    return {
+        min: safeMin,
+        max: Math.max(safeMin, Math.min(safeMax, usableWidth)),
+    };
+}
+
 export function getThumbnailSizePx(uiPrefs, { legacyPresets, defaultSize, minSize, maxSize }) {
     const legacySize = uiPrefs?.thumbnail_size;
     const fallbackSize = legacyPresets[legacySize] || defaultSize;

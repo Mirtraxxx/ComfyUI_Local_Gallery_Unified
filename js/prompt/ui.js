@@ -44,7 +44,7 @@ import {
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=prompt-category-strip-20260712";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
-import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=card-manager-size-settings-owner-20260722-1";
+import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
 import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,

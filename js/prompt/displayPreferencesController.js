@@ -7,8 +7,16 @@ import {
     getThumbnailSizePx as resolveThumbnailSizePx,
     normalizeDisplayMode,
 } from "./preferences.js?v=card-manager-size-settings-20260722-1";
-import { CARD_MANAGER_CARD_SIZE_DEFAULT, CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT } from "./constants.js?v=card-manager-size-settings-20260722-1";
-import { getThumbnailVariables } from "./helpers.js?v=unified-icons-20260606";
+import {
+    CARD_MANAGER_CARD_SIZE_DEFAULT,
+    CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT,
+    THUMBNAIL_SIZE_MAX,
+    THUMBNAIL_SIZE_MIN,
+} from "./constants.js?v=card-manager-size-settings-20260722-1";
+import {
+    getResponsiveThumbnailSizeBounds,
+    getThumbnailVariables,
+} from "./helpers.js?v=responsive-thumbnail-bounds-20260723-1";
 
 /** Owns Prompt Builder, Card Manager, and Active Stack display preferences and controls. */
 export function createDisplayPreferencesController({
@@ -23,6 +31,8 @@ export function createDisplayPreferencesController({
     bindMainSortSelect,
 }) {
     let thumbnailSizeSaveTimer = null;
+    let responsiveSizingFrame = null;
+    let responsiveSizingObserver = null;
     let disposed = false;
 
     function getThumbnailSizePx() { return resolveThumbnailSizePx(nodeInstance.uiPrefs); }
@@ -37,6 +47,46 @@ export function createDisplayPreferencesController({
         target.style.setProperty('--localprompt-thumb-height', `${variables.height}px`);
         target.style.setProperty('--localprompt-thumb-width', `${variables.width}px`);
         target.style.setProperty('--localprompt-thumb-label-size', `${variables.label}px`);
+    }
+
+    function getActiveThumbnailBounds() {
+        const grid = widgetContainer.querySelector(`#${uniqueId}-active-chips`);
+        return getResponsiveThumbnailSizeBounds({
+            availableWidth: grid?.clientWidth,
+            nodeWidth: nodeInstance.size?.[0],
+            minSize: THUMBNAIL_SIZE_MIN,
+            maxSize: THUMBNAIL_SIZE_MAX,
+        });
+    }
+
+    function getEffectiveThumbnailSize(sizePx, bounds) {
+        return Math.max(bounds.min, Math.min(bounds.max, sizePx));
+    }
+
+    function syncResponsiveThumbnailBounds() {
+        const activeBounds = getActiveThumbnailBounds();
+        const activeSize = getEffectiveThumbnailSize(getActiveThumbnailSizePx(), activeBounds);
+        const activeSlider = widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`);
+
+        if (activeSlider) {
+            activeSlider.min = String(activeBounds.min);
+            activeSlider.max = String(activeBounds.max);
+            activeSlider.value = String(activeSize);
+        }
+
+        // Keep the persisted size as the user's preferred size. The effective
+        // CSS value is capped only while the node/surface is constrained, so a
+        // later resize can restore the saved size without another preference write.
+        const activeSidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
+        if (activeSidebar) applyThumbnailVariables(activeSidebar, activeSize);
+    }
+
+    function scheduleResponsiveThumbnailBoundsSync() {
+        if (disposed || responsiveSizingFrame != null) return;
+        responsiveSizingFrame = requestAnimationFrame(() => {
+            responsiveSizingFrame = null;
+            syncResponsiveThumbnailBounds();
+        });
     }
 
     function syncDisplayOptionAvailability() {
@@ -70,7 +120,7 @@ export function createDisplayPreferencesController({
         const cardModeSelect = widgetContainer.querySelector(`#${uniqueId}-cards-display-mode`);
         const activeModeSelect = widgetContainer.querySelector(`#${uniqueId}-active-display-mode`);
         if (cardSlider) cardSlider.value = String(getThumbnailSizePx());
-        if (activeSlider) activeSlider.value = String(getActiveThumbnailSizePx());
+        syncResponsiveThumbnailBounds();
         if (barsSlider) barsSlider.value = String(getBarsSizeScale());
         if (cardManagerSlider) cardManagerSlider.value = String(getCardManagerCardSizePx());
         if (cardModeSelect) cardModeSelect.value = getCardsDisplayMode();
@@ -88,8 +138,7 @@ export function createDisplayPreferencesController({
 
     function applyActiveThumbnailSizePreference(sizePx = getActiveThumbnailSizePx()) {
         nodeInstance.uiPrefs.active_thumbnail_size_px = sizePx;
-        const activeSidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
-        if (activeSidebar) applyThumbnailVariables(activeSidebar, sizePx);
+        syncResponsiveThumbnailBounds();
         syncThumbnailSizeSliders();
     }
 
@@ -173,7 +222,7 @@ export function createDisplayPreferencesController({
             });
         }
         if (activeSlider) {
-            activeSlider.value = String(getActiveThumbnailSizePx());
+            syncResponsiveThumbnailBounds();
             activeSlider.addEventListener('input', () => {
                 if (activeSlider.disabled) return;
                 applyActiveThumbnailSizePreference(Number(activeSlider.value));
@@ -243,7 +292,15 @@ export function createDisplayPreferencesController({
             });
         }
         bindMainSortSelect();
+        if (typeof ResizeObserver === "function") {
+            responsiveSizingObserver = new ResizeObserver(scheduleResponsiveThumbnailBoundsSync);
+            [
+                widgetContainer,
+                widgetContainer.querySelector(`#${uniqueId}-active-sidebar`),
+            ].filter(Boolean).forEach(target => responsiveSizingObserver.observe(target));
+        }
         applyBarsSizeScalePreference();
+        scheduleResponsiveThumbnailBoundsSync();
         syncDisplayOptionAvailability();
     }
 
@@ -251,6 +308,10 @@ export function createDisplayPreferencesController({
         disposed = true;
         if (thumbnailSizeSaveTimer) clearTimeout(thumbnailSizeSaveTimer);
         thumbnailSizeSaveTimer = null;
+        if (responsiveSizingFrame != null) cancelAnimationFrame(responsiveSizingFrame);
+        responsiveSizingFrame = null;
+        responsiveSizingObserver?.disconnect();
+        responsiveSizingObserver = null;
     }
 
     return {
@@ -261,6 +322,7 @@ export function createDisplayPreferencesController({
         getActiveDisplayMode,
         getCardsDisplayMode,
         syncThumbnailSizeSliders,
+        syncResponsiveThumbnailBounds,
         syncDisplayOptionAvailability,
         applyThumbnailSizePreference,
         applyActiveThumbnailSizePreference,

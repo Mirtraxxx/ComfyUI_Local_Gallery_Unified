@@ -899,16 +899,15 @@ export function getPromptStyles(uniqueId) {
                         justify-content: center;
                         gap: 8px;
                     }
-                    /* Active Stack thumbnails keep their saved size so the
-                       slider remains meaningful; cap one oversized card to
-                       the sidebar width and center incomplete rows. */
+                    /* Match Prompt Builder: the slider sets a column minimum,
+                       then fractional tracks pack each row across the
+                       currently available sidebar width. */
                     .localprompt-active-sidebar .localprompt-chip-container.localprompt-active-thumbnail-grid {
                         display: grid;
                         width: 100%;
-                        grid-template-columns: repeat(auto-fit, minmax(min(var(--localprompt-thumb-width), 100%), min(var(--localprompt-thumb-width), 100%)));
+                        grid-template-columns: repeat(auto-fill, minmax(min(var(--localprompt-thumb-width), 100%), 1fr));
                         align-content: start;
                         align-items: start;
-                        justify-content: center;
                         gap: 8px;
                     }
                     .localprompt-active-sidebar .localprompt-chip-container.localprompt-active-thumbnail-grid .localprompt-chip-thumb.pinned-managed {
