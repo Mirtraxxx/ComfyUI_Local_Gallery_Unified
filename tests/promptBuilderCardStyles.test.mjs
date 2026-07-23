@@ -16,6 +16,17 @@ test("Prompt Builder card titles reveal only for hover, focus, and selection", a
     assert.doesNotMatch(styles, /\.localprompt-gallery-item \.item-info,[\s\S]*?\.localprompt-chip-thumb \.thumb-label \{[\s\S]*?opacity: 1;/);
 });
 
+test("Prompt Builder thumbnail captions stay compact without an opaque label bar", async () => {
+    const styles = await readFile(stylesUrl, "utf8");
+    const captionRule = styles.match(/\.localprompt-library-drawer \.localprompt-chip-thumb \.thumb-label \{[\s\S]*?\n\s*\}/)?.[0];
+
+    assert.ok(captionRule, "missing Prompt Builder thumbnail caption rule");
+    assert.match(captionRule, /padding: 8px 8px 4px;/);
+    assert.match(captionRule, /background: linear-gradient\(180deg, rgba\(15, 20, 15, 0\) 0%, rgba\(15, 20, 15, 0\.32\) 42%, rgba\(15, 20, 15, 0\.62\) 100%\);/);
+    assert.doesNotMatch(captionRule, /0\.92|backdrop-filter|border:|box-shadow/);
+    assert.match(styles, /\.localprompt-chip-thumb \.thumb-label \{[\s\S]*?white-space: nowrap;[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
+});
+
 test("Prompt Builder contrast modes dim only builder cards at half their former opacity", async () => {
     const styles = await readFile(stylesUrl, "utf8");
 

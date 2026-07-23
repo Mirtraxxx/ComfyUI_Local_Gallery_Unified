@@ -55,7 +55,7 @@ import {
 } from "./library.js?v=prompt-performance-20260721-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=prompt-settings-20260722-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=prompt-builder-visible-upgrade-20260723-1";
+import { getPromptTemplate } from "./template.js?v=prompt-builder-caption-scrim-20260723-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";

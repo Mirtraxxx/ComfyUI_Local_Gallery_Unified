@@ -5484,13 +5484,13 @@ export function getPromptStyles(uniqueId) {
                         outline-offset: 2px;
                     }
                     .localprompt-library-drawer .localprompt-chip-thumb .thumb-label {
-                        padding: 26px 8px 7px;
+                        padding: 8px 8px 4px;
                         color: #f5f8f1;
                         font-size: max(10px, var(--localprompt-thumb-label-size));
                         font-weight: 650;
                         letter-spacing: 0.01em;
                         text-align: left;
-                        background: linear-gradient(180deg, transparent, rgba(9, 12, 8, 0.92));
+                        background: linear-gradient(180deg, rgba(15, 20, 15, 0) 0%, rgba(15, 20, 15, 0.32) 42%, rgba(15, 20, 15, 0.62) 100%);
                     }
                     .localprompt-library-drawer .localprompt-chip .localprompt-chip-label {
                         color: #eef2e9;
