@@ -785,7 +785,8 @@ export function getLoraStyles(uniqueId) {
                     
                     #${uniqueId} .locallora-lora-card:hover .locallora-lora-card-info,
                     #${uniqueId} .locallora-lora-card:focus-within .locallora-lora-card-info,
-                    #${uniqueId} .locallora-lora-card.selected-flow .locallora-lora-card-info {
+                    #${uniqueId} .locallora-lora-card.selected-flow .locallora-lora-card-info,
+                    #${uniqueId} .locallora-lora-card.selected-edit .locallora-lora-card-info {
                         opacity: 1;
                         transform: translateY(0);
                         pointer-events: auto;
@@ -853,12 +854,25 @@ export function getLoraStyles(uniqueId) {
                         cursor: pointer;
                         transition: all 0.16s ease;
                         opacity: 0;
+                        pointer-events: none;
                         text-decoration: none;
                         z-index: 10;
                     }
+
+                    /* Thumbnail browser: ~2x action buttons for easier targeting */
+                    #${uniqueId} .locallora-container.cards-mode-thumbnails .card-btn {
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
                     
-                    #${uniqueId} .locallora-lora-card:hover .card-btn {
+                    #${uniqueId} .locallora-lora-card:hover .card-btn,
+                    #${uniqueId} .locallora-lora-card:focus-within .card-btn,
+                    #${uniqueId} .locallora-lora-card.selected-flow .card-btn,
+                    #${uniqueId} .locallora-lora-card.selected-edit .card-btn {
                         opacity: 0.82;
+                        pointer-events: auto;
                     }
                     
                     #${uniqueId} .card-btn:hover {
@@ -873,9 +887,21 @@ export function getLoraStyles(uniqueId) {
                         stroke: currentColor;
                         display: block;
                     }
+
+                    #${uniqueId} .locallora-container.cards-mode-thumbnails .card-btn svg {
+                        width: 24px;
+                        height: 24px;
+                    }
                     
+                    /* Top-right stack: Civitai link, then edit metadata below it */
                     #${uniqueId} .lora-card-link-btn { top: 4px; right: 4px; }
-                    #${uniqueId} .edit-tags-btn { bottom: 4px; right: 4px; }
+                    #${uniqueId} .edit-tags-btn { top: 4px; right: 4px; }
+                    #${uniqueId} .locallora-lora-card:has(.lora-card-link-btn) .edit-tags-btn {
+                        top: calc(4px + 24px + 4px);
+                    }
+                    #${uniqueId} .locallora-container.cards-mode-thumbnails .locallora-lora-card:has(.lora-card-link-btn) .edit-tags-btn {
+                        top: calc(4px + 44px + 4px);
+                    }
                     #${uniqueId} .sync-civitai-btn { top: 4px; left: 4px; }
                     #${uniqueId} .sync-civitai-btn.loading { animation: spin 1s linear infinite; pointer-events: none; background-color: #ff7a00; }
                     #${uniqueId} .sync-civitai-btn.error { background-color: #8e2f38; border-color: #c85a64; color: #fff; }
@@ -1201,8 +1227,16 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .locallora-container.cards-mode-compact .edit-tags-btn {
+                        top: auto;
                         bottom: 4px;
                         right: 4px;
+                    }
+                    #${uniqueId} .locallora-container.cards-mode-compact .locallora-lora-card:has(.lora-card-link-btn) .edit-tags-btn {
+                        top: auto;
+                    }
+                    #${uniqueId} .locallora-container.cards-mode-compact .card-btn {
+                        opacity: 0.82;
+                        pointer-events: auto;
                     }
 
                     /* --- Card Contrast Themes --- */
@@ -2336,8 +2370,7 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .locallora-lora-card-info {
                         padding: 32px 8px 8px;
                         background: linear-gradient(180deg, transparent, rgba(12, 14, 12, 0.94));
-                        opacity: 1;
-                        transform: none;
+                        /* Keep default hidden; reveal only on hover / focus / selection */
                     }
                     #${uniqueId} .lora-card-tags .tag {
                         background: rgba(184, 135, 99, 0.14);

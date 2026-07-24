@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=category-overflow-resize-20260723-1";
+import { getPromptStyles } from "./styles.js?v=prompt-card-actions-2x-20260724-1";
 import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1";
 import {
     BARS_SIZE_SCALE_MAX,

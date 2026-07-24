@@ -23,7 +23,7 @@ import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-202
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4";
+import { getLoraStyles } from "./styles.js?v=lora-card-actions-reveal-20260724-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=lora-scrollbar-gutter-20260722-1";
 
 export function createLoraGalleryLifecycle(app) {

@@ -2993,6 +2993,17 @@ export function getPromptStyles(uniqueId) {
                         line-height: 1;
                         padding: 0;
                     }
+                    /* Prompt Builder + gallery thumbnail cards: ~2x action buttons */
+                    .localprompt-chip-thumb .localprompt-info-btn,
+                    .localprompt-chip-thumb .localprompt-favorite-star,
+                    .localprompt-chip-thumb .chip-pin-btn,
+                    .localprompt-gallery-item .localprompt-info-btn,
+                    .localprompt-gallery-item .favorite-btn {
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                    }
                     .localprompt-info-btn svg,
                     .localprompt-favorite-star svg,
                     .localprompt-gallery-item .favorite-btn svg,
@@ -3000,6 +3011,14 @@ export function getPromptStyles(uniqueId) {
                         width: 14px;
                         height: 14px;
                         stroke: currentColor;
+                    }
+                    .localprompt-chip-thumb .localprompt-info-btn svg,
+                    .localprompt-chip-thumb .localprompt-favorite-star svg,
+                    .localprompt-chip-thumb .chip-pin-btn svg,
+                    .localprompt-gallery-item .localprompt-info-btn svg,
+                    .localprompt-gallery-item .favorite-btn svg {
+                        width: 24px;
+                        height: 24px;
                     }
                     .localprompt-info-btn:hover,
                     .localprompt-favorite-star:hover,
