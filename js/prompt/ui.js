@@ -1989,6 +1989,10 @@ const UnifiedPromptGalleryNode = {
                     tab.title = count === 0 ? "Active Prompts (empty)" : `${count} active prompt${count === 1 ? "" : "s"}`;
                     tab.setAttribute("aria-label", tab.title);
                 }
+                if (count === 0 && isActiveSidebarOpen()) {
+                    clearActiveSidebarOpenTimer();
+                    setActiveSidebarHoverOpen(false);
+                }
             }
 
             function syncActivePromptCounts() {
@@ -2893,8 +2897,12 @@ const UnifiedPromptGalleryNode = {
                 // Close active sidebar on "focus change" — clicking anywhere else on the node
                 widgetContainer.addEventListener('click', (e) => {
                     if (!isActiveSidebarOpen()) return;
-                    const clickedInsideSidebar = activeSidebarEl?.contains(e.target);
-                    const clickedInsideToggle = activeSideTab?.contains(e.target);
+                    // Card removal can synchronously rerender and detach e.target
+                    // before this delegated handler runs. The event path retains
+                    // the original ancestry through that DOM update.
+                    const eventPath = typeof e.composedPath === "function" ? e.composedPath() : [];
+                    const clickedInsideSidebar = eventPath.includes(activeSidebarEl) || activeSidebarEl?.contains(e.target);
+                    const clickedInsideToggle = eventPath.includes(activeSideTab) || activeSideTab?.contains(e.target);
                     if (!clickedInsideSidebar && !clickedInsideToggle) {
                         clearActiveSidebarOpenTimer();
                         clearActiveSidebarCloseTimer();
