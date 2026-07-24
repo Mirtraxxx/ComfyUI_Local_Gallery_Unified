@@ -20,7 +20,8 @@ test("Prompt Builder visible upgrade scopes hierarchy and card states away from 
     assert.match(builderUpgrade, /\.localprompt-pinned-category-strip \{[\s\S]*?border-radius: 7px;[\s\S]*?background: #171916;/);
     assert.match(builderUpgrade, /\.localprompt-pinned-category-strip \.localprompt-pinned-category-pill \{[\s\S]*?border-radius: 5px;/);
     assert.match(builderUpgrade, /\.localprompt-pinned-category-strip \.localprompt-pinned-category-pill\.active \{[\s\S]*?background: #31382d;[\s\S]*?inset 0 -3px 0 var\(--contact-prompt-bright\)/);
-    assert.match(builderUpgrade, /\.localprompt-library-pane \.localprompt-library-drawer\.active \{[\s\S]*?border-top: 1px solid var\(--contact-edge-strong\);/);
+    assert.match(builderUpgrade, /\.localprompt-library-pane \.localprompt-library-drawer\.active \{[\s\S]*?padding: 12px 8px 0 6px;[\s\S]*?border-top: 1px solid var\(--contact-edge-strong\);/);
+    assert.match(builderUpgrade, /\.localprompt-library-drawer \.localprompt-chip-container \{[\s\S]*?padding-block: 2px 0;/);
     assert.match(builderUpgrade, /\.localprompt-library-drawer \.localprompt-chip\.selected,[\s\S]*?\.localprompt-library-drawer \.localprompt-chip-thumb\.selected \{[\s\S]*?border-color: var\(--contact-prompt-bright\);/);
     assert.match(builderUpgrade, /\.localprompt-library-drawer \.localprompt-chip-thumb \.thumb-label \{[\s\S]*?font-weight: 650;[\s\S]*?text-align: left;/);
     assert.doesNotMatch(builderUpgrade, /\.localprompt-gallery-item/);

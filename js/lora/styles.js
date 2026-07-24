@@ -466,7 +466,7 @@ export function getLoraStyles(uniqueId) {
                         background-color: #121212;
                         padding: 12px;
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(var(--lora-card-min-width), 1fr));
+                        grid-template-columns: repeat(auto-fill, minmax(min(var(--lora-card-min-width), 100%), 1fr));
                         gap: 10px;
                         align-content: start;
                         scrollbar-width: thin;
@@ -715,7 +715,9 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.cards-mode-thumbnails .locallora-lora-card {
-                        height: var(--lora-card-thumb-size);
+                        width: 100%;
+                        height: var(--lora-card-responsive-height, var(--lora-card-thumb-size));
+                        box-sizing: border-box;
                     }
                     
                     #${uniqueId} .locallora-lora-card.preset-open,

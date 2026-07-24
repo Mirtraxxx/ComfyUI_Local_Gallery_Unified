@@ -5611,14 +5611,14 @@ export function getPromptStyles(uniqueId) {
                         outline-offset: 2px;
                     }
                     .localprompt-library-pane .localprompt-library-drawer.active {
-                        padding: 12px 8px 16px 6px;
+                        padding: 12px 8px 0 6px;
                         background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 84px), #171916;
                         border-top: 1px solid var(--contact-edge-strong);
                         box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), inset 0 14px 24px rgba(0,0,0,0.10);
                     }
                     .localprompt-library-drawer .localprompt-chip-container {
                         gap: 12px;
-                        padding-block: 2px 6px;
+                        padding-block: 2px 0;
                     }
                     .localprompt-library-drawer .localprompt-chip,
                     .localprompt-library-drawer .localprompt-chip-thumb {

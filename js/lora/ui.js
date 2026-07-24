@@ -14,6 +14,7 @@ import {
     normalizeVisiblePinnedFolderCount,
 } from "./displayState.js?v=active-card-controls-20260722";
 import { buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
+import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js?v=lora-stepped-browser-cards-20260724-1";
 import { createLoraActiveStackController } from "./activeStackController.js?v=lora-active-stack-20260721-1";
 import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
@@ -22,7 +23,7 @@ import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-202
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-scrollbar-gutter-20260722-1";
+import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=lora-scrollbar-gutter-20260722-1";
 
 export function createLoraGalleryLifecycle(app) {
@@ -338,6 +339,30 @@ const UnifiedLoraGalleryNode = {
                 this.loraUiState?.visible_pinned_folder_count,
             );
             const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
+            let browserCardLayoutFrame = null;
+            let browserCardLayoutObserver = null;
+
+            const syncBrowserCardLayout = () => {
+                browserCardLayoutFrame = null;
+                const state = getLoraDisplayState();
+                const galleryStyles = getComputedStyle(galleryEl);
+                const layout = getResponsiveLoraBrowserCardLayout({
+                    availableWidth: galleryEl.clientWidth,
+                    minimumCardWidth: Math.max(118, Math.round(state.thumbnail_size_px * 0.78)),
+                    gap: parseFloat(galleryStyles.columnGap) || 0,
+                    paddingInline:
+                        (parseFloat(galleryStyles.paddingLeft) || 0)
+                        + (parseFloat(galleryStyles.paddingRight) || 0),
+                });
+                if (!layout) return;
+                galleryEl.style.setProperty("--lora-card-responsive-height", `${layout.cardHeight}px`);
+                galleryEl.dataset.responsiveColumns = String(layout.columns);
+            };
+
+            const scheduleBrowserCardLayout = () => {
+                if (browserCardLayoutFrame != null) return;
+                browserCardLayoutFrame = requestAnimationFrame(syncBrowserCardLayout);
+            };
 
             let loraDisplayStateSaveTimer = null;
             let loraDisplayStateSaveQueued = false;
@@ -410,12 +435,16 @@ const UnifiedLoraGalleryNode = {
                 const contrastSelect = widgetContainer.querySelector(".lora-card-contrast-select");
                 const sortSelect = widgetContainer.querySelector(".lora-sort-select");
                 const foldersSlider = widgetContainer.querySelector(".lora-visible-folders-slider");
+                const activeThumbnailSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
+                const cardThumbnailSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
                 const barsSlider = widgetContainer.querySelector(".lora-bars-size-slider");
                 if (activeModeSelect) activeModeSelect.value = state.active_display_mode;
                 if (cardsModeSelect) cardsModeSelect.value = state.cards_display_mode;
                 if (contrastSelect) contrastSelect.value = state.card_contrast_mode;
                 if (sortSelect) sortSelect.value = state.sort_mode;
                 if (foldersSlider) foldersSlider.value = getVisiblePinnedFolderCount();
+                if (activeThumbnailSlider) activeThumbnailSlider.value = state.active_thumbnail_size_px;
+                if (cardThumbnailSlider) cardThumbnailSlider.value = state.thumbnail_size_px;
                 if (barsSlider) barsSlider.value = state.bars_size_scale || 100;
                 const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
                 if (foldersCountVal) foldersCountVal.textContent = getVisiblePinnedFolderCount();
@@ -457,6 +486,7 @@ const UnifiedLoraGalleryNode = {
                 if (sidebarEl) {
                     sidebarEl.classList.toggle("large-mode", state.active_card_size_mode === "large");
                 }
+                scheduleBrowserCardLayout();
                 syncDisplayOptionControls();
             };
 
@@ -1661,6 +1691,12 @@ const UnifiedLoraGalleryNode = {
                         cancelAnimationFrame(selectionSyncFrame);
                         selectionSyncFrame = null;
                     }
+                    if (browserCardLayoutFrame !== null) {
+                        cancelAnimationFrame(browserCardLayoutFrame);
+                        browserCardLayoutFrame = null;
+                    }
+                    browserCardLayoutObserver?.disconnect();
+                    browserCardLayoutObserver = null;
                     if (nameSearchTimer) {
                         clearTimeout(nameSearchTimer);
                         nameSearchTimer = null;
@@ -1687,6 +1723,11 @@ const UnifiedLoraGalleryNode = {
             };
 
             bindEventListeners();
+            if (typeof ResizeObserver === "function") {
+                browserCardLayoutObserver = new ResizeObserver(scheduleBrowserCardLayout);
+                browserCardLayoutObserver.observe(galleryEl);
+            }
+            scheduleBrowserCardLayout();
             setTimeout(() => this.initializeNode(), 1);
 
             return result;

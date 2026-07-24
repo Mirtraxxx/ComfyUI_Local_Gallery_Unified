@@ -1,39 +1,75 @@
-# Project Instructions
+# Agent Guide
 
-Before editing this repo, read these docs first:
+## Project
 
-1. `PROMPT_UI_TERMINOLOGY.md`
-2. `LORA_UI_TERMINOLOGY.md`
-3. `AI_NODE_OVERVIEW.md`
-4. `REFACTOR_REMAINING.md` when planning cleanup or refactors
+- One primary ComfyUI node: `LocalGalleryPromptLora` (`Local Gallery: Prompt + LoRA`).
+- The node applies selected LoRAs, builds the visible prompt, then appends enabled hidden prompts.
+- Backend entrypoints: `Local_Gallery_Unified.py`, `backend/Local_Prompt_Gallery.py`, and
+  `backend/Local_Lora_Gallery.py`.
+- Frontend entrypoint: `js/Local_Gallery_Unified.js`; Prompt and LoRA tabs are coordinated by
+  `js/prompt/ui.js` and `js/lora/ui.js`.
+- Prefer the smallest feature-owning module. Keep refactors feature- or bug-driven.
 
-## AI Orientation
+## Non-Negotiable Contracts
 
-- This package exposes one primary ComfyUI node, `LocalGalleryPromptLora`, with Prompt and LoRA tabs inside the same node.
-- Prompt work and LoRA work use different product terms. Read the matching terminology doc before changing either UI.
-- Unified frontend code should stay on `/localgalleryunified/prompt/*` and `/localgalleryunified/lora/*`; old standalone route families are compatibility context only.
-- `data/prompt_gallery/` and `data/lora_gallery/` are runtime user data. Back them up before migrations, merges, or destructive cleanup.
-- `js/prompt/ui.js` and `js/lora/ui.js` are coordinators with many nested callbacks. Prefer finding the smaller owner module before editing behavior.
+- Unified frontend routes must use `/localgalleryunified/prompt/*` or
+  `/localgalleryunified/lora/*`. Do not add calls to legacy `/localpromptgallery/*` or
+  `/localloragallery/*` routes.
+- `data/prompt_gallery/` and `data/lora_gallery/` contain user/runtime data. Back them up before
+  migrations, merges, or destructive cleanup.
+- Preserve DOM ids/classes, API fields, preference keys, hidden widget names, and saved JSON shapes
+  unless the task explicitly includes a compatibility migration.
+- Compatibility-sensitive widgets include `prompt_selection_data`, `prompt_meta_tags`,
+  `lora_selection_data`, `wildcard_categories`, `active_tab`,
+  `prompt_gallery_unique_id_widget`, and `lora_gallery_unique_id_widget`.
+- Selection readers accept legacy raw arrays and versioned `{ "version": 1, "items": [] }`
+  envelopes. Do not break either form.
+- Bundled Prompt and LoRA routes register unconditionally. Bundled standalone node mappings are
+  exposed only when the matching legacy sibling installation is absent; preserve this behavior.
 
-## Prompt UI Naming
+## Prompt UI Map
 
-Identify the product area before editing prompt UI:
+Confirm the visible surface before editing; several card UIs look alike.
 
-- Prompt Builder: category card picker used for normal prompt building. Current code mostly lives in `js/prompt/library.js` and uses `.localprompt-chip` / `.localprompt-chip-thumb`.
-- Card Manager: browse/manage workspace for stored cards and categories. Current code mostly lives in `js/prompt/browse.js` and uses `.localprompt-gallery-item`.
-- Active Stack: selected prompt sidebar. Current code lives in `js/prompt/activeSidebar.js`.
-- Hidden Prompts: prompt text injected outside the visible active stack. Current code lives in `js/prompt/metaTags.js`.
+- **Prompt Builder** — normal category card picker: `js/prompt/library.js`,
+  `.localprompt-chip`, `.localprompt-chip-thumb`.
+- **Card Manager** — browse/manage stored cards: `js/prompt/browse.js`,
+  `.localprompt-gallery-item`.
+- **Active Stack** — selected prompt sidebar: `js/prompt/activeSidebar.js` and
+  `js/prompt/activeStackController.js`.
+- **Hidden Prompts** — injected text outside the visible stack: `js/prompt/metaTags.js`.
+- **Library Workspace** — management shell/navigation: `js/prompt/workspace.js`.
+- `library` in older code usually means **Prompt Builder**, while `browse` usually means
+  **Card Manager**.
+- `js/prompt/gallery.js` is a separate older renderer path; verify that it is actually the surface
+  being changed.
+- Avoid native HTML drag/drop in card surfaces because ComfyUI may treat drops as workflow imports.
 
-Do not assume code terms match product terms. In particular, `library` usually means Prompt Builder, not Card Manager.
+## LoRA UI Map
 
-## Route And Data Rules
+- **LoRA Browser** — discovery/filtering: `js/lora/ui.js` plus focused browser, folder, metadata,
+  preset, and Civitai modules.
+- **LoRA Stack** — selected LoRAs: `js/lora/activeStackController.js` and
+  `js/lora/activeStackState.js`.
+- State widgets: `js/lora/stateWidgets.js`; pure markup helpers: `js/lora/renderers.js`;
+  API wrapper: `js/api/loraApi.js`.
+- `lora_selection_data` items depend on fields including `lora`, `on`, `strength`,
+  `strength_clip`, `selected_preset`, `selected_presets`, and `stack_trigger_presets`.
+- Browser-only preview/metadata fields should not be persisted into the compact selection payload.
+- `view_mode` is legacy compatibility state. Current display controls use `cards_display_mode` and
+  `active_display_mode`.
 
-- Unified frontend code should call `/localgalleryunified/prompt/*` and `/localgalleryunified/lora/*`.
-- Do not add new Unified frontend calls to `/localpromptgallery/*` or `/localloragallery/*`.
-- Runtime prompt/LoRA data lives under `data/`; back it up before migrations or merges.
+## Verification
 
-## Editing Guidance
+Run checks proportional to the change:
 
-- Keep prompt-side refactors feature or bug driven.
-- Avoid renaming DOM ids, CSS classes, persisted preference keys, hidden widget names, or API fields unless doing a dedicated compatibility pass.
-- When touching visually similar card UIs, verify whether the change targets Prompt Builder, Card Manager, Active Stack, or an older renderer path before editing.
+```powershell
+node --check <changed-js-files>
+node --test tests\*.test.mjs
+python -m py_compile Local_Gallery_Unified.py __init__.py backend\Local_Prompt_Gallery.py backend\Local_Lora_Gallery.py
+python -m unittest discover -s tests -p 'test_*.py'
+git diff --check
+```
+
+Restart ComfyUI after Python/backend changes. For UI changes, smoke-test the exact surface changed,
+workflow reload, and preference persistence after `F5`.

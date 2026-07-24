@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { setupUnifiedGalleryTabs } from "./tabs.js?v=gallery-edge-stable-20260722-8";
-import { createLoraGalleryLifecycle } from "./lora/ui.js?v=lora-scrollbar-gutter-20260722-4";
+import { createLoraGalleryLifecycle } from "./lora/ui.js?v=lora-stepped-browser-cards-20260724-4";
 import { createPromptGalleryLifecycle } from "./prompt/ui.js?v=card-insights-20260722-13";
 
 const loraLifecycle = createLoraGalleryLifecycle(app);
