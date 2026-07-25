@@ -73,14 +73,20 @@ export function getLoraReferenceUxStyles(uniqueId) {
                 border-top: 0;
                 border-radius: 0 0 7px 7px;
                 box-shadow: 0 3px 8px rgba(0,0,0,0.22);
-                transform: translateX(-50%);
+                /* Keep translateY hidden/revealed states from styles.js */
+                transform: translateX(-50%) translateY(-3px);
+            }
+            #${uniqueId} .lora-folder-nav:hover .lora-folder-pull-tab,
+            #${uniqueId} .lora-folder-nav:focus-within .lora-folder-pull-tab,
+            #${uniqueId} .lora-folder-pull-tab.open,
+            #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
+                transform: translateX(-50%) translateY(0);
             }
             #${uniqueId} .lora-folder-pull-tab:hover {
                 color: #72e994;
                 background: #0b1821;
                 border-color: rgba(85, 221, 125, 0.34);
                 box-shadow: 0 4px 12px rgba(0,0,0,0.26), 0 0 14px rgba(69,218,116,0.08);
-                transform: translateX(-50%);
             }
             #${uniqueId} .lora-active-stack-btn:not(.empty),
             #${uniqueId} .lora-action-btn.active,

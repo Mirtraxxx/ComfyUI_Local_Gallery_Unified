@@ -42,7 +42,7 @@ import {
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
 } from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
-import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-resize-20260723-1";
+import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-height-persist-20260724-1";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
 import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
@@ -63,7 +63,7 @@ import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-insig
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
-} from "./preferences.js?v=card-manager-size-settings-20260722-1";
+} from "./preferences.js?v=category-overflow-height-persist-20260724-1";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
@@ -1431,6 +1431,16 @@ const UnifiedPromptGalleryNode = {
                 setActiveLibraryTab: value => { activeLibraryTab = value; },
                 getCategoryOverflowOpen: () => categoryOverflowOpen,
                 setCategoryOverflowOpen: value => { categoryOverflowOpen = !!value; },
+                getCategoryOverflowHeight: () => node_instance.uiPrefs?.category_overflow_height,
+                persistCategoryOverflowHeight: height => {
+                    const nextHeight = Math.round(Number(height));
+                    if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
+                    if (node_instance.uiPrefs.category_overflow_height === nextHeight) return;
+                    node_instance.uiPrefs.category_overflow_height = nextHeight;
+                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs).catch(error => {
+                        console.warn("LocalPromptGallery: Failed to save category overflow height", error);
+                    });
+                },
                 getSuppressCategoryClickUntil: () => suppressCategoryClickUntil,
                 setSuppressCategoryClickUntil: value => { suppressCategoryClickUntil = value; },
                 setCategoryDragState: value => { categoryDragState = value; },

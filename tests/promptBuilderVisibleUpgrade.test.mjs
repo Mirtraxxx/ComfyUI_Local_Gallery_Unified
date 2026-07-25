@@ -28,6 +28,6 @@ test("Prompt Builder visible upgrade scopes hierarchy and card states away from 
     assert.doesNotMatch(builderUpgrade, /\.localprompt-active-sidebar/);
     assert.match(referenceUx, /\.localprompt-pinned-category-pill\.active,[\s\S]*?background: linear-gradient/);
     assert.ok(template.indexOf("${getPromptStyles(uniqueId)}") < template.indexOf("${getPromptReferenceUxStyles()}"));
-    assert.match(template, /\.\/styles\.js\?v=prompt-card-actions-2x-20260724-1/);
+    assert.match(template, /\.\/styles\.js\?v=category-pull-tab-hover-20260724-1/);
     assert.match(ui, /\.\/template\.js\?v=category-overflow-resize-20260723-1/);
 });

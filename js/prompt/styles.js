@@ -74,12 +74,30 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-pinned-categories {
                         --category-pull-tab-center-offset: 19px;
                         --category-pull-tab-edge-offset: 8px;
+                        position: relative;
                         display: flex;
                         align-items: center;
                         gap: 6px;
                         flex: 1 1 auto;
                         min-width: 0;
                         overflow: visible;
+                    }
+
+                    /* Invisible hover bridge so the tongue stays reachable without blocking cards idle */
+                    .localprompt-pinned-categories::after {
+                        content: '';
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: 100%;
+                        height: 22px;
+                        z-index: 999;
+                        pointer-events: none;
+                    }
+                    .localprompt-pinned-categories:hover::after,
+                    .localprompt-pinned-categories:focus-within::after,
+                    .localprompt-pinned-categories:has(.localprompt-category-pull-tab[aria-expanded="true"])::after {
+                        pointer-events: auto;
                     }
                     .localprompt-pinned-first-row {
                         display: flex;
@@ -129,11 +147,21 @@ export function getPromptStyles(uniqueId) {
                         border-top: none;
                         border-radius: 0 0 8px 8px;
                         cursor: pointer;
-                        opacity: 1;
+                        opacity: 0;
                         color: #c5d6e2;
                         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.04);
-                        pointer-events: auto;
+                        pointer-events: none;
+                        transform: translateY(-3px);
                         transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+                    }
+
+                    /* Reveal pull-tab only while hovering the category strip (or while overflow is open) */
+                    .localprompt-pinned-categories:hover .localprompt-category-pull-tab,
+                    .localprompt-pinned-categories:focus-within .localprompt-category-pull-tab,
+                    .localprompt-category-pull-tab[aria-expanded="true"] {
+                        opacity: 1;
+                        pointer-events: auto;
+                        transform: translateY(0);
                     }
                     .localprompt-category-pull-tab svg {
                         width: 11px;

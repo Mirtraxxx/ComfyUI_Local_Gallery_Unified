@@ -726,6 +726,7 @@ UI_PREF_DEFAULTS = {
     "promote_selected_prompts": True,
     "card_contrast_mode": "off",
     "active_card_size_mode": "default",
+    "category_overflow_height": 250,
 }
 
 DISPLAY_MODES = {"compact", "thumbnails"}
@@ -834,6 +835,7 @@ UI_PREF_VALIDATORS = {
     "promote_selected_prompts": lambda value, prefs: bool(value),
     "card_contrast_mode": lambda value, prefs: _normalize_choice(value, CARD_CONTRAST_MODES, UI_PREF_DEFAULTS["card_contrast_mode"]),
     "active_card_size_mode": lambda value, prefs: _normalize_choice(value, {"default", "large"}, UI_PREF_DEFAULTS["active_card_size_mode"]),
+    "category_overflow_height": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["category_overflow_height"], 120, 900),
 }
 
 def normalize_ui_prefs(raw_prefs):

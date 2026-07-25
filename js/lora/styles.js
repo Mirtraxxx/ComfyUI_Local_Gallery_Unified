@@ -279,8 +279,27 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-folder-nav {
                         --lora-folder-pull-tab-center-offset: 19px;
                         --lora-folder-pull-tab-edge-offset: 8px;
+                        position: relative;
                         flex: 1 1 auto;
                         min-width: 0;
+                    }
+
+                    /* Invisible hover bridge so the tongue stays reachable without blocking cards idle */
+                    #${uniqueId} .lora-folder-nav::after {
+                        content: '';
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: 100%;
+                        height: 22px;
+                        z-index: 4199;
+                        pointer-events: none;
+                    }
+                    #${uniqueId} .lora-folder-nav:hover::after,
+                    #${uniqueId} .lora-folder-nav:focus-within::after,
+                    #${uniqueId} .lora-folder-nav:has(.lora-folder-pull-tab[aria-expanded="true"])::after,
+                    #${uniqueId} .lora-folder-nav:has(.lora-folder-pull-tab.open)::after {
+                        pointer-events: auto;
                     }
                     
                     #${uniqueId} .lora-folder-first-row {
@@ -407,7 +426,7 @@ export function getLoraStyles(uniqueId) {
                         top: 100%;
                         margin-top: -1px;
                         left: 50%;
-                        transform: translateX(-50%);
+                        transform: translateX(-50%) translateY(-3px);
                         z-index: 4201;
                         width: 60px;
                         height: 16px;
@@ -417,11 +436,21 @@ export function getLoraStyles(uniqueId) {
                         border-top: none;
                         border-radius: 0 0 6px 6px;
                         cursor: pointer;
-                        opacity: 1;
+                        opacity: 0;
                         color: #aaa;
                         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                        pointer-events: none;
+                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+                    }
+
+                    /* Reveal pull-tab only while hovering the folder strip (or while overflow is open) */
+                    #${uniqueId} .lora-folder-nav:hover .lora-folder-pull-tab,
+                    #${uniqueId} .lora-folder-nav:focus-within .lora-folder-pull-tab,
+                    #${uniqueId} .lora-folder-pull-tab.open,
+                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
+                        opacity: 1;
                         pointer-events: auto;
-                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+                        transform: translateX(-50%) translateY(0);
                     }
                     #${uniqueId} .lora-folder-pull-tab svg {
                         width: 10px;

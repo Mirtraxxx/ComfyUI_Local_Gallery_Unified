@@ -29,10 +29,13 @@ export function clampCategoryOverflowHeight(
     return Math.min(availableHeight, Math.max(safeMinimum, Number(requestedHeight) || safeMinimum));
 }
 
-export function setupCategoryOverflowResize(widgetContainer, uniqueId) {
+export function setupCategoryOverflowResize(widgetContainer, uniqueId, options = {}) {
     const panel = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
     const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
     if (!panel || !pullTab) return () => {};
+
+    const getStoredHeight = typeof options.getStoredHeight === "function" ? options.getStoredHeight : null;
+    const onHeightCommit = typeof options.onHeightCommit === "function" ? options.onHeightCommit : null;
 
     let resizeState = null;
     let customHeight = null;
@@ -68,7 +71,16 @@ export function setupCategoryOverflowResize(widgetContainer, uniqueId) {
         resizeState = null;
         panel.classList.remove("is-resizing");
         pullTab.classList.remove("is-resizing");
-        if (didDrag) suppressNextClick = true;
+        if (didDrag) {
+            suppressNextClick = true;
+            if (customHeight != null) {
+                try {
+                    onHeightCommit?.(Math.round(customHeight));
+                } catch (error) {
+                    console.warn("LocalPromptGallery: Failed to persist category overflow height", error);
+                }
+            }
+        }
     };
 
     const onPointerDown = event => {
@@ -107,6 +119,11 @@ export function setupCategoryOverflowResize(widgetContainer, uniqueId) {
         setPanelHeight(clampToViewport(customHeight));
     };
 
+    const storedHeight = Number(getStoredHeight?.());
+    if (Number.isFinite(storedHeight) && storedHeight > 0) {
+        setPanelHeight(Math.max(CATEGORY_OVERFLOW_MIN_HEIGHT, Math.round(storedHeight)));
+    }
+
     pullTab.addEventListener("pointerdown", onPointerDown);
     pullTab.addEventListener("pointermove", onPointerMove);
     pullTab.addEventListener("pointerup", finishResize);
@@ -135,6 +152,8 @@ export function createPromptCategoryStripController({
     setActiveLibraryTab,
     getCategoryOverflowOpen,
     setCategoryOverflowOpen,
+    getCategoryOverflowHeight,
+    persistCategoryOverflowHeight,
     getSuppressCategoryClickUntil,
     setSuppressCategoryClickUntil,
     setCategoryDragState,
@@ -152,7 +171,10 @@ export function createPromptCategoryStripController({
     let openGeneration = 0;
     const longPressTimers = new Set();
     let disposed = false;
-    const disposeOverflowResize = setupCategoryOverflowResize(widgetContainer, uniqueId);
+    const disposeOverflowResize = setupCategoryOverflowResize(widgetContainer, uniqueId, {
+        getStoredHeight: () => getCategoryOverflowHeight?.(),
+        onHeightCommit: height => persistCategoryOverflowHeight?.(height),
+    });
 
     function isCurrent(generation) {
         return !disposed && generation === renderGeneration;

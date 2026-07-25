@@ -122,9 +122,14 @@ test("dragging a scaled ComfyUI node tracks pointer distance and suppresses the 
     const fakeWindow = new FakeElement();
     fakeWindow.innerHeight = 900;
     globalThis.window = fakeWindow;
+    const committedHeights = [];
 
     try {
-        const dispose = setupCategoryOverflowResize(widgetContainer, "test");
+        const dispose = setupCategoryOverflowResize(widgetContainer, "test", {
+            getStoredHeight: () => 320,
+            onHeightCommit: height => committedHeights.push(height),
+        });
+        assert.equal(panel.style.values.get("--localprompt-category-overflow-height"), "320px");
         pullTab.dispatch("pointerdown", { clientY: 400 });
         pullTab.dispatch("pointermove", { clientY: 500 });
         pullTab.dispatch("pointerup", { clientY: 500 });
@@ -132,6 +137,7 @@ test("dragging a scaled ComfyUI node tracks pointer distance and suppresses the 
 
         assert.equal(pullTab.capturedPointerId, 7);
         assert.equal(panel.style.values.get("--localprompt-category-overflow-height"), "450px");
+        assert.deepEqual(committedHeights, [450]);
         assert.equal(trailingClick.defaultPrevented, true);
         assert.equal(trailingClick.immediatePropagationStopped, true);
         assert.equal(panel.classes.has("is-resizing"), false);
@@ -140,4 +146,20 @@ test("dragging a scaled ComfyUI node tracks pointer distance and suppresses the 
         if (previousWindow === undefined) delete globalThis.window;
         else globalThis.window = previousWindow;
     }
+});
+
+test("category overflow height is stored in prompt UI prefs for F5 restore", async () => {
+    const [controller, preferences, backend] = await Promise.all([
+        readFile(controllerUrl, "utf8"),
+        readFile(new URL("../js/prompt/preferences.js", import.meta.url), "utf8"),
+        readFile(new URL("../backend/Local_Prompt_Gallery.py", import.meta.url), "utf8"),
+    ]);
+
+    assert.match(preferences, /category_overflow_height:\s*250/);
+    assert.match(preferences, /normalizeCategoryOverflowHeight/);
+    assert.match(controller, /getStoredHeight/);
+    assert.match(controller, /onHeightCommit/);
+    assert.match(controller, /persistCategoryOverflowHeight/);
+    assert.match(backend, /"category_overflow_height":\s*250/);
+    assert.match(backend, /"category_overflow_height":\s*lambda value, prefs: _normalize_int\(value, UI_PREF_DEFAULTS\["category_overflow_height"\], 120, 900\)/);
 });
