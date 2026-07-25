@@ -7,7 +7,7 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=card-insights-20260722-11";
+} from "./dialogs.js?v=from-last-output-new-category-20260724-1";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
@@ -70,6 +70,7 @@ export function createPromptWorkspaceActions({
             getPromptSourceNode,
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
+            loadCategories,
         });
     }
 
@@ -81,6 +82,7 @@ export function createPromptWorkspaceActions({
             getPromptSourceNode,
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
+            loadCategories,
             workspaceContainer: host,
             onClose: returnToGallery,
         });

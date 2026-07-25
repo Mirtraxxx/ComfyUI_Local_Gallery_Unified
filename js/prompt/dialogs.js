@@ -576,12 +576,15 @@ export async function showImportDialog({
     });
 }
 
+const FROM_LAST_OUTPUT_NEW_CATEGORY = "__new_category__";
+
 export async function showFromLastOutputDialog({
     galleryNode,
     nodeInstance,
     getPromptSourceNode,
     insertPromptIntoCurrentGallery,
     loadPromptsForGallery,
+    loadCategories = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -622,6 +625,7 @@ export async function showFromLastOutputDialog({
 
     const categoryOptions = ['<option value="">Uncategorized</option>']
         .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
+        .concat([`<option value="${FROM_LAST_OUTPUT_NEW_CATEGORY}">+ New category…</option>`])
         .join("");
 
     dialog.innerHTML = `
@@ -659,6 +663,10 @@ export async function showFromLastOutputDialog({
                             </select>
                         </div>
                     </div>
+                    <div id="from-last-output-new-category-row" hidden style="margin-top: 10px;">
+                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="from-last-output-new-category">New category name</label>
+                        <input type="text" id="from-last-output-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                    </div>
                 </div>
             </div>
             <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-prompt-section" : ""}" style="margin-bottom: 8px;">
@@ -678,15 +686,38 @@ export async function showFromLastOutputDialog({
     const nameInput = dialog.querySelector("#from-last-output-name");
     const nameDefaultSelect = dialog.querySelector("#from-last-output-name-default");
     const categorySelect = dialog.querySelector("#from-last-output-category");
+    const newCategoryRow = dialog.querySelector("#from-last-output-new-category-row");
+    const newCategoryInput = dialog.querySelector("#from-last-output-new-category");
     const promptTextarea = dialog.querySelector("#from-last-output-prompt");
     const cancelBtn = dialog.querySelector("#from-last-output-cancel");
     const saveBtn = dialog.querySelector("#from-last-output-save");
 
     promptTextarea.value = capturedPromptText;
 
-    if (nodeInstance.uiPrefs?.last_created_category) {
-        categorySelect.value = nodeInstance.uiPrefs.last_created_category;
+    function isCreatingNewCategory() {
+        return categorySelect.value === FROM_LAST_OUTPUT_NEW_CATEGORY;
     }
+
+    function getSelectedCategory() {
+        if (isCreatingNewCategory()) return newCategoryInput.value.trim();
+        return categorySelect.value;
+    }
+
+    function updateNewCategoryRow() {
+        const isNew = isCreatingNewCategory();
+        newCategoryRow.hidden = !isNew;
+        if (isNew) {
+            newCategoryInput.focus();
+        }
+    }
+
+    const lastCreated = nodeInstance.uiPrefs?.last_created_category;
+    if (lastCreated && categories.includes(lastCreated)) {
+        categorySelect.value = lastCreated;
+    }
+
+    updateNewCategoryRow();
+    categorySelect.addEventListener("change", updateNewCategoryRow);
 
     dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
     cancelBtn.addEventListener("click", close);
@@ -702,10 +733,16 @@ export async function showFromLastOutputDialog({
     saveBtn.addEventListener("click", async () => {
         const promptText = promptTextarea.value.trim();
         const name = nameInput.value.trim() || promptText;
-        const category = categorySelect.value;
+        const creatingNewCategory = isCreatingNewCategory();
+        const category = getSelectedCategory();
 
         if (!promptText) {
             showAlert("Prompt text is empty.");
+            return;
+        }
+        if (creatingNewCategory && !category) {
+            showAlert("Enter a name for the new category.");
+            newCategoryInput.focus();
             return;
         }
 
@@ -730,6 +767,14 @@ export async function showFromLastOutputDialog({
             });
 
             close();
+            // Refresh categories when a brand-new label may have been introduced.
+            if (creatingNewCategory || (category && !categories.includes(category))) {
+                try {
+                    await loadCategories?.();
+                } catch (error) {
+                    console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
+                }
+            }
             if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
                 await loadPromptsForGallery(1);
             }
