@@ -1472,6 +1472,7 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-trigger-preset-button {
+                        position: relative;
                         width: 100%;
                         min-width: 0;
                         height: 24px;
@@ -1487,6 +1488,12 @@ export function getLoraStyles(uniqueId) {
                         font-size: 10px;
                         font-weight: 700;
                         cursor: pointer;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-button.has-selection {
+                        border-color: rgba(16, 199, 145, 0.72);
+                        background: rgba(16, 92, 74, 0.48);
+                        color: #eafff7;
                     }
                     
                     #${uniqueId} .lora-trigger-preset-button:hover,
@@ -1905,6 +1912,7 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button {
+                        position: relative;
                         display: flex;
                         align-items: center;
                         justify-content: center;
@@ -1919,7 +1927,7 @@ export function getLoraStyles(uniqueId) {
                         color: #fff;
                         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
                         cursor: pointer;
-                        transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+                        transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button:hover {
@@ -1929,9 +1937,12 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-picker.has-selection .lora-trigger-preset-button,
-                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-picker.stacking .lora-trigger-preset-button {
-                        background: rgba(16, 92, 74, 0.72);
-                        border-color: rgba(67, 231, 182, 0.78);
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-picker.stacking .lora-trigger-preset-button,
+                    #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button.has-selection {
+                        background: rgba(16, 92, 74, 0.82);
+                        border-color: rgba(67, 231, 182, 0.92);
+                        box-shadow: 0 0 0 1px rgba(67, 231, 182, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+                        color: #eafff7;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .locallora-selected-preset .lora-trigger-preset-button .lora-preset-tag-icon {

@@ -8,6 +8,18 @@ const RUNTIME_ONLY_SELECTION_FIELDS = Object.freeze([
     "download_url",
 ]);
 
+/** Resolve selected trigger preset names from a selection item (stack or single). */
+export function getSelectedTriggerPresetNames(item) {
+    if (!item || typeof item !== "object") return [];
+    if (Array.isArray(item.selected_presets) && item.selected_presets.length > 0) {
+        return item.selected_presets.filter(name => typeof name === "string" && name);
+    }
+    if (typeof item.selected_preset === "string" && item.selected_preset) {
+        return [item.selected_preset];
+    }
+    return [];
+}
+
 export function toSerializableLoraSelection(items) {
     return items.map(item => {
         const selectionFields = { ...item };

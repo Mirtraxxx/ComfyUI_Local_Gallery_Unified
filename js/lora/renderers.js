@@ -1,11 +1,9 @@
 import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js?v=url-safety-20260712";
+import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-fix-20260724-1";
 import { formatLoraWeight } from "./weights.js";
 
 function getSelectedPresetNames(selectionItem) {
-    if (Array.isArray(selectionItem?.selected_presets)) {
-        return selectionItem.selected_presets.filter(Boolean);
-    }
-    return selectionItem?.selected_preset ? [selectionItem.selected_preset] : [];
+    return getSelectedTriggerPresetNames(selectionItem);
 }
 
 export function buildLoraPresetControlsHtml(lora, selectionItem = null) {

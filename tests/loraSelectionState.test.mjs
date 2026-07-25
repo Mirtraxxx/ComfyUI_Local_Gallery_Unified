@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { importModuleSource } from "./importModuleSource.mjs";
 
-const { toSerializableLoraSelection } = await importModuleSource(
+const { toSerializableLoraSelection, getSelectedTriggerPresetNames } = await importModuleSource(
     new URL("../js/lora/selectionState.js", import.meta.url),
 );
 const { buildLoraSelectionEntry } = await importModuleSource(
@@ -87,4 +87,25 @@ test("selection entry construction keeps metadata and selected trigger presets",
         selected_presets: ["portrait", "lighting"],
         selected_preset: "",
     });
+});
+
+test("getSelectedTriggerPresetNames prefers non-empty selected_presets and falls back to selected_preset", () => {
+    assert.deepEqual(getSelectedTriggerPresetNames({
+        selected_presets: ["portrait", "lighting"],
+        selected_preset: "ignored",
+    }), ["portrait", "lighting"]);
+
+    assert.deepEqual(getSelectedTriggerPresetNames({
+        selected_presets: [],
+        selected_preset: "portrait",
+    }), ["portrait"]);
+
+    assert.deepEqual(getSelectedTriggerPresetNames({
+        selected_preset: "portrait",
+    }), ["portrait"]);
+
+    assert.deepEqual(getSelectedTriggerPresetNames({
+        selected_presets: ["", null],
+        selected_preset: "",
+    }), []);
 });

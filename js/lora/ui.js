@@ -20,10 +20,10 @@ import { createLoraMetadataController } from "./metadataEditor.js?v=repository-r
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
 import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712";
 import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
-import { toSerializableLoraSelection } from "./selectionState.js?v=lora-refactor-20260712";
+import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-fix-20260724-1";
+import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-fix-20260724-1";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=folder-pull-tab-hover-20260724-1";
+import { getLoraStyles } from "./styles.js?v=lora-trigger-preset-fix-20260724-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=folder-pull-tab-hover-20260724-1";
 
 export function createLoraGalleryLifecycle(app) {
@@ -576,8 +576,20 @@ const UnifiedLoraGalleryNode = {
                 const serializableData = toSerializableLoraSelection(this.loraData);
                 const selectionJson = writeSelectionArray(serializableData);
                 this.setProperty("lora_selection_data", selectionJson);
+                if (this.properties) this.properties.lora_selection_data = selectionJson;
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
-                if (widget) widget.value = selectionJson;
+                if (widget) {
+                    widget.value = selectionJson;
+                    // Comfy serializes right before queue; always emit live in-memory selection
+                    // so trigger presets chosen moments earlier are included.
+                    widget.serializeValue = () => {
+                        const live = toSerializableLoraSelection(this.loraData || []);
+                        const liveJson = writeSelectionArray(live);
+                        if (this.properties) this.properties.lora_selection_data = liveJson;
+                        widget.value = liveJson;
+                        return liveJson;
+                    };
+                }
                 return serializableData;
             };
 
@@ -1634,14 +1646,23 @@ const UnifiedLoraGalleryNode = {
                     if (searchPopover && !searchAnchor.contains(e.target)) {
                         setNameSearchOpen(false);
                     }
-                    if (!e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId}-active-sidebar`)) {
+                    const hitPortaledPresetMenu = Boolean(
+                        e.target.closest?.(".lora-trigger-preset-popover-portal"),
+                    );
+                    if (
+                        !hitPortaledPresetMenu
+                        && !e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId}-active-sidebar`)
+                    ) {
                         closeActiveStack();
                     }
                     if (!e.target.closest?.(`#${uniqueId} .lora-folder-nav`)) {
                         folderController.overflowOpen = false;
                         renderFolderPills();
                     }
-                    if (!e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)) {
+                    if (
+                        !hitPortaledPresetMenu
+                        && !e.target.closest?.(`#${uniqueId} .lora-trigger-preset-picker`)
+                    ) {
                         widgetContainer.querySelectorAll(".lora-trigger-preset-picker.open").forEach(openPicker => {
                             openPicker._closeLoraPresetPopover?.();
                         });

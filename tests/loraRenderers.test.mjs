@@ -7,9 +7,12 @@ async function importLoraRenderers() {
     const domUrl = `data:text/javascript;base64,${Buffer.from(domSource).toString("base64")}`;
     const weightSource = await readFile(new URL("../js/lora/weights.js", import.meta.url), "utf8");
     const weightUrl = `data:text/javascript;base64,${Buffer.from(weightSource).toString("base64")}`;
+    const selectionStateSource = await readFile(new URL("../js/lora/selectionState.js", import.meta.url), "utf8");
+    const selectionStateUrl = `data:text/javascript;base64,${Buffer.from(selectionStateSource).toString("base64")}`;
     const rendererSource = await readFile(new URL("../js/lora/renderers.js", import.meta.url), "utf8");
     const selfContainedSource = rendererSource
         .replace("../shared/dom.js?v=url-safety-20260712", domUrl)
+        .replace(/\.\/selectionState\.js\?v=[^"]+/, selectionStateUrl)
         .replace("./weights.js", weightUrl);
     return import(`data:text/javascript;base64,${Buffer.from(selfContainedSource).toString("base64")}`);
 }

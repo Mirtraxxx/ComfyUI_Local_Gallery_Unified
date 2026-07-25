@@ -20,7 +20,8 @@ export function buildLoraSelectionEntry({ element, loraName, lora = null }) {
     const stackPresetCheckbox = element.querySelector('.lora-card-preset-stack-checkbox');
     if (presetSelect && stackPresetCheckbox?.checked) {
         const selectedPresets = Array.from(element.querySelectorAll('.lora-card-preset-check:checked'))
-            .map(checkbox => checkbox.value);
+            .map(checkbox => checkbox.value)
+            .filter(Boolean);
         if (selectedPresets.length > 0) {
             entry.stack_trigger_presets = true;
             entry.selected_presets = selectedPresets;
@@ -28,6 +29,7 @@ export function buildLoraSelectionEntry({ element, loraName, lora = null }) {
         }
     } else if (presetSelect && presetSelect.value) {
         entry.selected_preset = presetSelect.value;
+        entry.selected_presets = [presetSelect.value];
     }
 
     return entry;

@@ -1,5 +1,5 @@
 import { buildSelectedLoraItemHtml } from "./renderers.js?v=repository-review-20260712";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-refactor-20260712";
+import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-fix-20260724-1";
 import { hydrateSelectedLoraInfo, swapSelectedLoras } from "./activeStackState.js";
 import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 
@@ -266,6 +266,13 @@ export function createLoraActiveStackController({
                 widgetContainer,
                 uniqueId,
                 updateSelection,
+                onPresetApplied: ({ stacking }) => {
+                    // Rebuild the active item after a single-preset pick so the
+                    // tag button shows the selected state from source data.
+                    if (!stacking) {
+                        renderSelectedList();
+                    }
+                },
             });
 
             if (!isCompact) {

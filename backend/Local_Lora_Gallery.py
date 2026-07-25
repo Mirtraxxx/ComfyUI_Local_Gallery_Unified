@@ -778,11 +778,16 @@ class BaseLoraGallery:
     def _get_selected_trigger_preset_names(config):
         selected_presets = config.get('selected_presets')
         if isinstance(selected_presets, list):
-            return [name for name in selected_presets if isinstance(name, str) and name]
+            names = [name for name in selected_presets if isinstance(name, str) and name]
+            # Empty list must fall through to selected_preset (single-select path).
+            if names:
+                return names
 
         selected_preset = config.get('selected_preset')
-        if selected_preset:
+        if isinstance(selected_preset, str) and selected_preset:
             return [selected_preset]
+        if selected_preset and not isinstance(selected_preset, (list, dict)):
+            return [str(selected_preset)]
 
         return []
 
