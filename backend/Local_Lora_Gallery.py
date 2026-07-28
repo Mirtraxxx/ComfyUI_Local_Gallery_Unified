@@ -46,6 +46,7 @@ DATA_DIR = os.path.abspath(os.path.join(NODE_DIR, "..", "data", "lora_gallery"))
 METADATA_FILE = os.path.join(DATA_DIR, "lora_gallery_metadata.json")
 UI_STATE_FILE = os.path.join(DATA_DIR, "lora_gallery_ui_state.json")
 PRESETS_FILE = os.path.join(DATA_DIR, "lora_gallery_presets.json")
+PREVIEW_BACKUP_DIR = os.path.join(DATA_DIR, "preview_backups")
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi']
 IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 CIVITAI_API_BASE_URL = "https://civitai.com"
@@ -310,7 +311,11 @@ def get_lora_preview_asset_info(lora_name):
             preview_filename = os.path.basename(preview_path)
             encoded_lora_name = urllib.parse.quote_plus(lora_name)
             encoded_filename = urllib.parse.quote_plus(preview_filename)
-            url = f"/localgalleryunified/lora/preview?filename={encoded_filename}&lora_name={encoded_lora_name}"
+            preview_revision = os.stat(preview_path).st_mtime_ns
+            url = (
+                f"/localgalleryunified/lora/preview?filename={encoded_filename}"
+                f"&lora_name={encoded_lora_name}&v={preview_revision}"
+            )
             
             preview_type = "none"
             if ext.lower() in VIDEO_EXTENSIONS:
@@ -321,6 +326,91 @@ def get_lora_preview_asset_info(lora_name):
             return url, preview_type
 
     return None, "none"
+
+def resolve_comfy_preview_source(filename, subfolder='', folder_type='output'):
+    """Resolve a Comfy output while keeping the request inside output or temp."""
+    filename = os.path.basename(str(filename or ''))
+    subfolder = os.path.normpath(str(subfolder or ''))
+    if not filename or os.path.isabs(subfolder) or subfolder.startswith(".."):
+        raise ValueError("Invalid source path")
+
+    base_dir = (
+        folder_paths.get_temp_directory()
+        if folder_type == 'temp'
+        else folder_paths.get_output_directory()
+    )
+    base_dir_abs = os.path.abspath(base_dir)
+    source_path = os.path.abspath(os.path.join(base_dir_abs, subfolder, filename))
+    if os.path.commonpath([base_dir_abs, source_path]) != base_dir_abs:
+        raise ValueError("Invalid source path")
+
+    if not os.path.exists(source_path):
+        source_path = os.path.abspath(os.path.join(base_dir_abs, filename))
+        if not os.path.exists(source_path):
+            raise FileNotFoundError(f"Source file not found at {source_path}")
+
+    return source_path, filename
+
+def assign_lora_preview_file(lora_name, filename, subfolder='', folder_type='output'):
+    """Copy the latest Comfy result beside a LoRA and back up replaced previews."""
+    lora_full_path = folder_paths.get_full_path("loras", lora_name)
+    if not lora_full_path:
+        raise KeyError(f"LoRA not found: {lora_name}")
+
+    source_path, resolved_filename = resolve_comfy_preview_source(
+        filename,
+        subfolder,
+        folder_type,
+    )
+    extension = os.path.splitext(resolved_filename)[1].lower()
+    if extension in IMAGE_EXTENSIONS:
+        preview_type = "image"
+    elif extension in VIDEO_EXTENSIONS:
+        preview_type = "video"
+    else:
+        raise ValueError(f"Unsupported file type: {extension or '(none)'}")
+
+    preview_base, _ = os.path.splitext(lora_full_path)
+    target_path = preview_base + extension
+    existing_paths = [
+        preview_base + candidate_extension
+        for candidate_extension in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS
+        if os.path.exists(preview_base + candidate_extension)
+    ]
+    temp_target = None
+    moved_backups = []
+    try:
+        with tempfile.NamedTemporaryFile(
+            "wb",
+            dir=os.path.dirname(lora_full_path),
+            delete=False,
+        ) as temp_file:
+            temp_target = temp_file.name
+            with open(source_path, "rb") as source_file:
+                shutil.copyfileobj(source_file, temp_file)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        timestamp = time.strftime("%Y%m%d-%H%M%S") + f"-{int((time.time() % 1) * 1000):03d}"
+        os.makedirs(PREVIEW_BACKUP_DIR, exist_ok=True)
+        for index, existing_path in enumerate(existing_paths):
+            backup_name = f"{timestamp}-{index}-{os.path.basename(existing_path)}"
+            backup_path = os.path.join(PREVIEW_BACKUP_DIR, backup_name)
+            shutil.move(existing_path, backup_path)
+            moved_backups.append((existing_path, backup_path))
+
+        os.replace(temp_target, target_path)
+        temp_target = None
+        invalidate_lora_inventory()
+        preview_url, _ = get_lora_preview_asset_info(lora_name)
+        return preview_url, preview_type
+    except Exception:
+        if temp_target and os.path.exists(temp_target):
+            os.remove(temp_target)
+        for original_path, backup_path in reversed(moved_backups):
+            if os.path.exists(backup_path) and not os.path.exists(original_path):
+                shutil.move(backup_path, original_path)
+        raise
 
 def _lora_root_signature(roots):
     return tuple((os.path.normcase(os.path.abspath(root)), _file_signature(root)) for root in roots)
@@ -683,6 +773,43 @@ async def get_preview_image(request):
             
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
+
+@server.PromptServer.instance.routes.post("/localgalleryunified/lora/assign_thumbnail")
+async def assign_lora_thumbnail(request):
+    try:
+        data = await request.json()
+        lora_name = data.get("lora_name")
+        filename = data.get("filename")
+        subfolder = data.get("subfolder", "")
+        folder_type = data.get("type", "output")
+
+        if not lora_name or not filename:
+            return web.json_response(
+                {"status": "error", "message": "Missing LoRA name or output filename"},
+                status=400,
+            )
+
+        try:
+            preview_url, preview_type = await asyncio.to_thread(
+                assign_lora_preview_file,
+                lora_name,
+                filename,
+                subfolder,
+                folder_type,
+            )
+        except KeyError as error:
+            return web.json_response({"status": "error", "message": str(error)}, status=404)
+        except (ValueError, FileNotFoundError) as error:
+            return web.json_response({"status": "error", "message": str(error)}, status=400)
+
+        return web.json_response({
+            "status": "ok",
+            "preview_url": preview_url,
+            "preview_type": preview_type,
+        })
+    except Exception as e:
+        print(f"Error assigning LoRA thumbnail: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.post("/localgalleryunified/lora/set_ui_state")
 async def set_ui_state(request):

@@ -1,4 +1,4 @@
-import { getPromptStyles } from "./styles.js?v=category-pull-tab-hover-20260724-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3";
+import { getPromptStyles } from "./styles.js?v=category-pull-tab-hover-20260724-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2";
 import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1&card-manager=compact-align-20260727-3";
 import {
     BARS_SIZE_SCALE_MAX,

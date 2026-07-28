@@ -119,10 +119,13 @@ export function setupCategoryOverflowResize(widgetContainer, uniqueId, options =
         setPanelHeight(clampToViewport(customHeight));
     };
 
-    const storedHeight = Number(getStoredHeight?.());
-    if (Number.isFinite(storedHeight) && storedHeight > 0) {
+    const applyStoredHeight = () => {
+        const storedHeight = Number(getStoredHeight?.());
+        if (!Number.isFinite(storedHeight) || storedHeight <= 0) return;
         setPanelHeight(Math.max(CATEGORY_OVERFLOW_MIN_HEIGHT, Math.round(storedHeight)));
-    }
+    };
+
+    applyStoredHeight();
 
     pullTab.addEventListener("pointerdown", onPointerDown);
     pullTab.addEventListener("pointermove", onPointerMove);
@@ -131,7 +134,7 @@ export function setupCategoryOverflowResize(widgetContainer, uniqueId, options =
     pullTab.addEventListener("click", onClickCapture, true);
     globalThis.window?.addEventListener("resize", onWindowResize);
 
-    return () => {
+    const dispose = () => {
         pullTab.removeEventListener("pointerdown", onPointerDown);
         pullTab.removeEventListener("pointermove", onPointerMove);
         pullTab.removeEventListener("pointerup", finishResize);
@@ -139,6 +142,8 @@ export function setupCategoryOverflowResize(widgetContainer, uniqueId, options =
         pullTab.removeEventListener("click", onClickCapture, true);
         globalThis.window?.removeEventListener("resize", onWindowResize);
     };
+    dispose.applyStoredHeight = applyStoredHeight;
+    return dispose;
 }
 
 export function createPromptCategoryStripController({
@@ -306,6 +311,9 @@ export function createPromptCategoryStripController({
         const chipsContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow-chips`);
         const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
         if (!overflowContainer || !chipsContainer) return;
+        // The controller is created before async UI/workflow preferences finish
+        // loading. Re-apply here so F5 restores the late-loaded saved height.
+        disposeOverflowResize.applyStoredHeight?.();
         const categories = await getCachedCategories();
         if (!isCurrent(generation)) return;
         const pinnedCategories = await ensurePinnedCategoriesInitialized(categories);

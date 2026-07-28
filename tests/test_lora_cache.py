@@ -74,6 +74,43 @@ class LoraInventoryCacheTests(unittest.TestCase):
             self.assertEqual(self.backend.load_execution_metadata(), {"version": 2})
             self.assertEqual(load.call_count, 2)
 
+    def test_last_output_replaces_preview_and_preserves_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_directory = os.path.join(directory, "output")
+            lora_directory = os.path.join(directory, "loras")
+            backup_directory = os.path.join(directory, "backups")
+            os.makedirs(output_directory)
+            os.makedirs(lora_directory)
+            os.makedirs(backup_directory)
+
+            lora_path = os.path.join(lora_directory, "example.safetensors")
+            old_preview_path = os.path.join(lora_directory, "example.jpg")
+            new_output_path = os.path.join(output_directory, "latest.png")
+            with open(lora_path, "wb") as handle:
+                handle.write(b"lora")
+            with open(old_preview_path, "wb") as handle:
+                handle.write(b"old preview")
+            with open(new_output_path, "wb") as handle:
+                handle.write(b"new preview")
+
+            with patch.object(self.backend.folder_paths, "get_full_path", return_value=lora_path), \
+                 patch.object(self.backend.folder_paths, "get_output_directory", return_value=output_directory, create=True), \
+                 patch.object(self.backend, "PREVIEW_BACKUP_DIR", backup_directory):
+                preview_url, preview_type = self.backend.assign_lora_preview_file(
+                    "example.safetensors",
+                    "latest.png",
+                )
+
+            new_preview_path = os.path.join(lora_directory, "example.png")
+            self.assertEqual(preview_type, "image")
+            self.assertIn("/localgalleryunified/lora/preview?", preview_url)
+            with open(new_preview_path, "rb") as handle:
+                self.assertEqual(handle.read(), b"new preview")
+            self.assertFalse(os.path.exists(old_preview_path))
+            backup_names = os.listdir(backup_directory)
+            self.assertEqual(len(backup_names), 1)
+            self.assertTrue(backup_names[0].endswith("-example.jpg"))
+
 
 if __name__ == "__main__":
     unittest.main()

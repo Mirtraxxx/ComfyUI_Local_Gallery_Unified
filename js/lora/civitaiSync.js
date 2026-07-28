@@ -7,8 +7,6 @@ export async function syncLoraWithCivitai({
     card,
     nodeInstance,
     loraIconSvg,
-    renderCardTags,
-    loadAllTags,
 }) {
         const syncBtn = card.querySelector('.sync-civitai-btn');
          syncBtn.innerHTML = loraIconSvg.sync;
@@ -52,8 +50,6 @@ export async function syncLoraWithCivitai({
                 }
                 card.dataset.triggerWords = trigger_words || '';
                 card.dataset.downloadUrl = download_url || '';
-                card.dataset.tags = (tags || []).join(',');
-
                 const oldLinkBtn = card.querySelector('.lora-card-link-btn');
                 if(oldLinkBtn) oldLinkBtn.remove();
                 const safeDownloadUrl = sanitizeHttpUrl(download_url);
@@ -70,8 +66,6 @@ export async function syncLoraWithCivitai({
                     card.prepend(linkBtn);
                 }
 
-                renderCardTags(card);
-                await loadAllTags();
             } else {
                throw new Error(result.message || 'Sync failed');
             }

@@ -57,3 +57,16 @@ test("LoRA thumbnail cards use larger action buttons with edit stacked under the
     );
     assert.doesNotMatch(styles, /\.edit-tags-btn \{ bottom: 4px; right: 4px; \}/);
 });
+
+test("LoRA Active Stack preview uses the LoRA Browser action treatment", async () => {
+    const styles = await readFile(stylesUrl, "utf8");
+
+    assert.match(
+        styles,
+        /\.active-mode-thumbnails \.lora-active-preview-btn \{[\s\S]*?border-radius: 4px;[\s\S]*?border: 1px solid var\(--contact-edge-strong\);[\s\S]*?background: rgba\(20, 21, 19, 0\.88\);[\s\S]*?color: white;/,
+    );
+    assert.match(
+        styles,
+        /\.active-mode-thumbnails \.lora-active-preview-btn:hover \{[\s\S]*?background: #30332e;[\s\S]*?border-color: rgba\(184, 135, 99, 0\.52\);[\s\S]*?color: white;/,
+    );
+});

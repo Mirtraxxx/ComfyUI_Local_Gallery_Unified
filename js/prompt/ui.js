@@ -42,10 +42,10 @@ import {
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
 } from "./activeSidebar.js?v=active-stack-swap-reorder-20260617&media=prompt-video-20260726-1";
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
-import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-height-persist-20260724-1";
+import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-height-restore-20260728-1";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
-import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
+import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1&icons=builder-match-20260728-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
@@ -55,7 +55,7 @@ import {
 } from "./library.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=workflow-profile-v1-20260725-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3";
+import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";

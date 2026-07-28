@@ -56,6 +56,19 @@ export async function updateMetadata(loraName, data) {
     });
 }
 
+export async function assignThumbnail(loraName, lastOutput) {
+    return await fetchJson("/localgalleryunified/lora/assign_thumbnail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            lora_name: loraName,
+            filename: lastOutput?.filename,
+            subfolder: lastOutput?.subfolder || "",
+            type: lastOutput?.type || "output",
+        }),
+    });
+}
+
 export async function setUiState(nodeId, galleryId, state) {
     return await fetchJson("/localgalleryunified/lora/set_ui_state", {
         method: "POST",
@@ -74,10 +87,6 @@ export async function syncCivitai(loraName) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lora_name: loraName }),
     });
-}
-
-export async function getAllTags() {
-    return await fetchJson("/localgalleryunified/lora/get_all_tags");
 }
 
 export async function getPresets() {

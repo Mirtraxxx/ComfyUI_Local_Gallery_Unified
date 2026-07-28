@@ -123,13 +123,17 @@ test("dragging a scaled ComfyUI node tracks pointer distance and suppresses the 
     fakeWindow.innerHeight = 900;
     globalThis.window = fakeWindow;
     const committedHeights = [];
+    let storedHeight = 320;
 
     try {
         const dispose = setupCategoryOverflowResize(widgetContainer, "test", {
-            getStoredHeight: () => 320,
+            getStoredHeight: () => storedHeight,
             onHeightCommit: height => committedHeights.push(height),
         });
         assert.equal(panel.style.values.get("--localprompt-category-overflow-height"), "320px");
+        storedHeight = 360;
+        dispose.applyStoredHeight();
+        assert.equal(panel.style.values.get("--localprompt-category-overflow-height"), "360px");
         pullTab.dispatch("pointerdown", { clientY: 400 });
         pullTab.dispatch("pointermove", { clientY: 500 });
         pullTab.dispatch("pointerup", { clientY: 500 });
@@ -160,6 +164,7 @@ test("category overflow height is stored in prompt UI prefs for F5 restore", asy
     assert.match(controller, /getStoredHeight/);
     assert.match(controller, /onHeightCommit/);
     assert.match(controller, /persistCategoryOverflowHeight/);
+    assert.match(controller, /disposeOverflowResize\.applyStoredHeight\?\.\(\)/);
     assert.match(backend, /"category_overflow_height":\s*250/);
     assert.match(backend, /"category_overflow_height":\s*lambda value, prefs: _normalize_int\(value, UI_PREF_DEFAULTS\["category_overflow_height"\], 120, 900\)/);
 });

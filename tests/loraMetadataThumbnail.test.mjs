@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const uiSource = await readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8");
+const metadataEditorSource = await readFile(new URL("../js/lora/metadataEditor.js", import.meta.url), "utf8");
+const apiSource = await readFile(new URL("../js/api/loraApi.js", import.meta.url), "utf8");
+const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
+const stylesSource = await readFile(new URL("../js/lora/styles.js", import.meta.url), "utf8");
+
+test("LoRA details editor exposes latest-result thumbnail assignment", () => {
+    assert.match(uiSource, /class="use-last-output-thumbnail-btn"/);
+    assert.match(uiSource, /api\.addEventListener\("executed"/);
+    assert.match(apiSource, /\/localgalleryunified\/lora\/assign_thumbnail/);
+    assert.match(backendSource, /routes\.post\("\/localgalleryunified\/lora\/assign_thumbnail"\)/);
+    assert.match(backendSource, /PREVIEW_BACKUP_DIR/);
+});
+
+test("LoRA tag controls are removed while backend metadata compatibility remains", () => {
+    assert.doesNotMatch(uiSource, /tag-editor|tag-filter|Select Tags|Custom tags/);
+    assert.doesNotMatch(apiSource, /getAllTags/);
+    assert.match(backendSource, /data\.get\("tags"\)/);
+    assert.match(backendSource, /\/localgalleryunified\/lora\/get_all_tags/);
+});
+
+test("LoRA details editor has responsive grouped layout and disabled thumbnail state", () => {
+    assert.match(stylesSource, /\.locallora-metadata-editor \{[\s\S]*?position: absolute;[\s\S]*?top: calc\(100% \+ 7px\);/);
+    assert.match(stylesSource, /max-height: 320px/);
+    assert.match(stylesSource, /\.lora-metadata-editor-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+    assert.match(stylesSource, /\.use-last-output-thumbnail-btn:disabled/);
+    assert.match(stylesSource, /@container \(max-width: 620px\) \{[\s\S]*?\.lora-metadata-editor-grid \{[\s\S]*?grid-template-columns: 1fr/);
+});
+
+test("LoRA details editor has explicit close and compact optional presets", () => {
+    assert.match(uiSource, /class="lora-metadata-editor-close"[\s\S]*?aria-label="Close LoRA details"/);
+    assert.match(metadataEditorSource, /metadataEditorCloseBtn\.addEventListener\("click"[\s\S]*?onClose\(\)/);
+    assert.match(uiSource, /class="lora-trigger-preset-editor-toggle"[\s\S]*?aria-expanded="false"/);
+    assert.match(uiSource, /class="lora-trigger-preset-content" hidden/);
+    assert.match(metadataEditorSource, /setPresetEditorExpanded\(presetEntries\.length > 0\)/);
+    assert.match(stylesSource, /\.add-trigger-preset-btn \{[\s\S]*?font-size: 10px;[\s\S]*?line-height: 1\.2;/);
+});

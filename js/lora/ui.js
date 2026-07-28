@@ -1,5 +1,6 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import * as loraApi from "../api/loraApi.js";
+import { api } from "../../../scripts/api.js";
+import * as loraApi from "../api/loraApi.js?v=lora-metadata-thumbnail-20260728-2";
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
@@ -17,17 +18,17 @@ import {
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
 } from "./displayState.js?v=active-card-controls-20260722";
-import { buildLoraCardHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1";
+import { buildLoraCardHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1&metadata=no-tags-20260728-1";
 import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js?v=lora-stepped-browser-cards-20260724-1";
 import { createLoraActiveStackController } from "./activeStackController.js?v=lora-trigger-preset-feedback-20260726-2";
-import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
+import { createLoraMetadataController } from "./metadataEditor.js?v=lora-metadata-thumbnail-20260728-3";
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
-import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712";
+import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712&metadata=no-tags-20260728-1";
 import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4&compare=lora-compare-mode-20260727-1&profile=workflow-v1-20260725-1&preset=lora-trigger-preset-feedback-20260726-2";
+import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4&compare=lora-compare-mark-20260728-1&profile=workflow-v1-20260725-1&preset=lora-trigger-preset-feedback-20260726-2&metadata=lora-thumbnail-20260728-4&icons=browser-active-match-20260728-1";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=folder-pull-tab-hover-20260724-1";
 
 export function createLoraGalleryLifecycle(app) {
@@ -36,6 +37,7 @@ const UnifiedLoraGalleryNode = {
     isLoading: false,
     currentPage: 1,
     totalPages: 1,
+    lastOutput: null,
     
     async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], per_page = 50, sort_mode = "az") {
         this.isLoading = true;
@@ -131,45 +133,54 @@ const UnifiedLoraGalleryNode = {
                                 <button class="toggle-gallery-btn" title="Toggle Gallery">Hide Gallery</button>
                             </div>
                             
-                            <div class="locallora-metadata-editor">
-                                <div class="locallora-controls-row">
-                                    <label style="font-size:12px;">Edit Tags (<span class="selected-count">0</span>):</label>
-                                    <div class="tag-editor-list lora-card-tags" style="flex-grow:1;"></div>
-                                    <input type="text" class="tag-editor-input" placeholder="Add tag..." style="width: 100px;">
+                            <div class="locallora-metadata-editor" aria-label="LoRA details editor">
+                                <div class="lora-metadata-editor-header">
+                                    <div class="lora-metadata-editor-heading">
+                                        <strong class="lora-metadata-editor-title">Selected LoRA</strong>
+                                        <span class="lora-metadata-editor-selection"><span class="selected-count">0</span><span class="lora-metadata-editor-selection-label"> selected</span></span>
+                                    </div>
+                                    <div class="lora-metadata-editor-actions">
+                                        <div class="lora-thumbnail-editor-action">
+                                            <button class="use-last-output-thumbnail-btn" type="button" disabled>
+                                                <span class="lora-thumbnail-action-icon" aria-hidden="true">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.6-4.6a2 2 0 0 1 2.8 0L16 16"></path><path d="M14 14l1.6-1.6a2 2 0 0 1 2.8 0L21 15"></path><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle></svg>
+                                                </span>
+                                                <span class="lora-thumbnail-action-label">Use last result</span>
+                                            </button>
+                                            <span class="lora-thumbnail-action-status" aria-live="polite"></span>
+                                        </div>
+                                        <button class="lora-metadata-editor-close" type="button" aria-label="Close LoRA details" title="Close">×</button>
+                                    </div>
                                 </div>
-                                <div class="locallora-controls-row trigger-editor-row" style="display:none;">
-                                    <label style="font-size:12px;">Triggers:</label>
-                                    <input type="text" class="trigger-editor-input" placeholder="Enter trigger words..." style="flex-grow: 1;">
+                                <div class="lora-metadata-editor-grid">
+                                    <label class="lora-metadata-field trigger-editor-row" style="display:none;">
+                                        <span>Trigger words</span>
+                                        <input type="text" class="trigger-editor-input" placeholder="Words added when this LoRA is used">
+                                    </label>
+                                    <label class="lora-metadata-field url-editor-row" style="display:none;">
+                                        <span>Source URL</span>
+                                        <input type="text" class="url-editor-input" placeholder="Civitai or download page">
+                                    </label>
                                 </div>
-                                <div class="locallora-controls-row url-editor-row" style="display:none;">
-                                    <label style="font-size:12px;">URL:</label>
-                                    <input type="text" class="url-editor-input" placeholder="Enter download URL..." style="flex-grow: 1;">
-                                </div>
-                                <div class="locallora-controls-row trigger-preset-editor-row" style="display:none; flex-direction: column; align-items: stretch; gap: 4px;">
-                                    <label style="font-size:12px;">Trigger Presets:</label>
-                                    <div class="trigger-preset-list" style="display: flex; flex-direction: column; gap: 2px;"></div>
-                                    <div style="display: flex; gap: 4px;">
-                                        <input type="text" class="trigger-preset-name-input" placeholder="Name..." style="width: 80px;">
-                                        <input type="text" class="trigger-preset-value-input" placeholder="Triggers..." style="flex-grow: 1;">
-                                        <button class="add-trigger-preset-btn" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; border: 1px solid #555; background: #333; color: #ccc; cursor: pointer;">Add</button>
+                                <div class="lora-metadata-field trigger-preset-editor-row" style="display:none;">
+                                    <button class="lora-trigger-preset-editor-toggle" type="button" aria-expanded="false">
+                                        <span class="lora-metadata-field-label">
+                                            <span>Trigger presets <span class="lora-trigger-preset-count"></span></span>
+                                            <small>Alternate trigger word sets</small>
+                                        </span>
+                                        <span class="lora-trigger-preset-toggle-icon" aria-hidden="true">⌄</span>
+                                    </button>
+                                    <div class="lora-trigger-preset-content" hidden>
+                                        <div class="trigger-preset-list"></div>
+                                        <div class="lora-trigger-preset-form">
+                                            <input type="text" class="trigger-preset-name-input" placeholder="Preset name">
+                                            <input type="text" class="trigger-preset-value-input" placeholder="Trigger words">
+                                            <button class="add-trigger-preset-btn" type="button">Add preset</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
-                                <button class="tag-filter-mode-btn" title="Click to switch filter mode">OR</button>
-                                <div class="tag-filter-input-wrapper">
-                                    <input type="text" class="tag-filter-input" placeholder="Filter by Tag...">
-                                    <button class="clear-tag-filter-btn" title="Clear Tag Filter">x</button>
-                                </div>
-                                <div class="locallora-multiselect-tag">
-                                    <div class="locallora-multiselect-tag-display">
-                                        Select Tags
-                                        <span class="locallora-multiselect-arrow">v</span>
-                                    </div>
-                                    <div class="locallora-multiselect-tag-dropdown"></div>
-                                </div>
-                            </div>
                             <select class="folder-filter-select">
                                 <option value="">All Folders</option>
                             </select>
@@ -195,6 +206,13 @@ const UnifiedLoraGalleryNode = {
                         <div class="locallora-bottom-bar">
                             <div class="lora-execution-controls">
                                 <button class="lora-execution-mode-btn" type="button" data-mode="stack" title="Stack enabled LoRAs onto one model">
+                                    <span class="lora-execution-mode-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="4" width="7" height="16" rx="1.5"></rect>
+                                            <rect x="14" y="4" width="7" height="16" rx="1.5"></rect>
+                                            <path d="M10 9h4M10 15h4"></path>
+                                        </svg>
+                                    </span>
                                     <span class="lora-execution-mode-label">Stack</span>
                                 </button>
                                 <label class="lora-compare-strengths-control" title="Comma-separated strengths used for every selected LoRA" hidden>
@@ -308,8 +326,6 @@ const UnifiedLoraGalleryNode = {
             const galleryEl = widgetContainer.querySelector(".locallora-gallery");
             const searchInput = widgetContainer.querySelector(".search-input");
             const metadataEditor = widgetContainer.querySelector(".locallora-metadata-editor");
-            const tagEditorList = widgetContainer.querySelector(".tag-editor-list");
-            const tagEditorInput = widgetContainer.querySelector(".tag-editor-input");
             const triggerEditorRow = widgetContainer.querySelector(".trigger-editor-row");
             const triggerEditorInput = widgetContainer.querySelector(".trigger-editor-input");
             const urlEditorRow = widgetContainer.querySelector(".url-editor-row");
@@ -319,16 +335,19 @@ const UnifiedLoraGalleryNode = {
             const triggerPresetNameInput = widgetContainer.querySelector(".trigger-preset-name-input");
             const triggerPresetValueInput = widgetContainer.querySelector(".trigger-preset-value-input");
             const addTriggerPresetBtn = widgetContainer.querySelector(".add-trigger-preset-btn");
-            const tagFilterInput = widgetContainer.querySelector(".tag-filter-input");
-            const multiSelectTagContainer = widgetContainer.querySelector(".locallora-multiselect-tag");
-            const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".locallora-multiselect-tag-display");
-            const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".locallora-multiselect-tag-dropdown");
-            const tagFilterModeBtn = widgetContainer.querySelector(".tag-filter-mode-btn");
             const toggleGalleryBtn = widgetContainer.querySelector(".toggle-gallery-btn");
             const activeStackBtn = widgetContainer.querySelector(".lora-active-stack-btn");
             const activeStackCount = widgetContainer.querySelector(".lora-active-stack-count");
             const selectedCountEl = widgetContainer.querySelector(".selected-count");
-            const clearTagFilterBtn = widgetContainer.querySelector(".clear-tag-filter-btn");
+            const metadataEditorSelectionLabel = widgetContainer.querySelector(".lora-metadata-editor-selection-label");
+            const metadataEditorTitle = widgetContainer.querySelector(".lora-metadata-editor-title");
+            const metadataEditorCloseBtn = widgetContainer.querySelector(".lora-metadata-editor-close");
+            const useLastOutputThumbnailBtn = widgetContainer.querySelector(".use-last-output-thumbnail-btn");
+            const thumbnailActionLabel = widgetContainer.querySelector(".lora-thumbnail-action-label");
+            const thumbnailActionStatus = widgetContainer.querySelector(".lora-thumbnail-action-status");
+            const triggerPresetToggleBtn = widgetContainer.querySelector(".lora-trigger-preset-editor-toggle");
+            const triggerPresetContent = widgetContainer.querySelector(".lora-trigger-preset-content");
+            const triggerPresetCount = widgetContainer.querySelector(".lora-trigger-preset-count");
             const folderFilterSelect = widgetContainer.querySelector(".folder-filter-select");
             const folderStrip = widgetContainer.querySelector(".lora-folder-strip");
             const folderOverflow = widgetContainer.querySelector(".lora-folder-overflow");
@@ -405,8 +424,6 @@ const UnifiedLoraGalleryNode = {
             const persistLoraUiState = (extraState = {}) => {
                 this.loraUiState = { ...this.loraUiState, ...extraState };
                 const state = {
-                    filter_tag: tagFilterInput.value,
-                    filter_mode: tagFilterModeBtn.textContent,
                     filter_folder: folderFilterSelect.value,
                     folder_colors: this.loraUiState.folder_colors,
                     pinned_folders: this.loraUiState.pinned_folders,
@@ -571,8 +588,6 @@ const UnifiedLoraGalleryNode = {
 
             const saveStateAndFetch = async () => {
                 const stateToSave = {
-                    filter_tag: tagFilterInput.value,
-                    filter_mode: tagFilterModeBtn.textContent,
                     filter_folder: folderFilterSelect.value,
                     folder_colors: this.loraUiState.folder_colors,
                     pinned_folders: this.loraUiState.pinned_folders,
@@ -784,8 +799,6 @@ const UnifiedLoraGalleryNode = {
                 card,
                 nodeInstance: this,
                 loraIconSvg,
-                renderCardTags,
-                loadAllTags,
             });
             const toggleLoraSelectionFromElement = (element, loraName) => {
                 const existingIndex = this.loraData.findIndex(item => item.lora === loraName);
@@ -850,7 +863,6 @@ const UnifiedLoraGalleryNode = {
                     const card = document.createElement("div");
                     card.className = `locallora-lora-card${isSelectedLora ? " selected-flow" : ""}`;
                     card.dataset.loraName = lora.name;
-                    card.dataset.tags = lora.tags.join(',');
                     card.dataset.triggerWords = lora.trigger_words;
                     card.dataset.downloadUrl = lora.download_url;
                     card.title = lora.name;
@@ -879,8 +891,6 @@ const UnifiedLoraGalleryNode = {
 
                     if (isSelectedForEditing) card.classList.add("selected-edit");
 
-                    renderCardTags(card);
-                    
                     if (lora.preview_type === 'video') {
                         const video = card.querySelector('video');
                         if (video) {
@@ -967,7 +977,7 @@ const UnifiedLoraGalleryNode = {
                 if (append && pageToFetch > this.totalPages) return;
                 try {
                     // Keep browser sorting and pagination independent from the Active Stack.
-                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, tagFilterInput.value, tagFilterModeBtn.textContent, folderFilterSelect.value, pageToFetch, [], 50, getLoraDisplayState().sort_mode);
+                    const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, "", "OR", folderFilterSelect.value, pageToFetch, [], 50, getLoraDisplayState().sort_mode);
                     if (fetchSequence !== loraFetchSequence) return;
 
                     if (append) {
@@ -995,30 +1005,6 @@ const UnifiedLoraGalleryNode = {
                         fetchAndRender(nextAppend);
                     }
                 }
-            };
-
-            const handleTagSelectionChange = () => {
-                const selectedTags = Array.from(multiSelectTagDropdown.querySelectorAll('input:checked')).map(cb => cb.value);
-                tagFilterInput.value = selectedTags.join(',');
-                saveStateAndFetch();
-            };
-
-            const loadAllTags = async () => {
-                try {
-                    const data = await loraApi.getAllTags();
-                    multiSelectTagDropdown.innerHTML = '';
-                    if (data.tags) {
-                        data.tags.forEach(tag => {
-                            const label = document.createElement('label');
-                            const checkbox = document.createElement('input');
-                            checkbox.type = 'checkbox';
-                            checkbox.value = tag;
-                            checkbox.addEventListener('change', handleTagSelectionChange);
-                            label.append(checkbox, ` ${tag}`);
-                            multiSelectTagDropdown.appendChild(label);
-                        });
-                    }
-                } catch(e) { console.error("LocalLoraGallery: Failed to load all tags:", e); }
             };
 
             let foldersRendered = false;
@@ -1138,35 +1124,42 @@ const UnifiedLoraGalleryNode = {
                 } catch (e) { console.error("LocalLoraGallery: Failed to load presets", e); }
             };
 
-            const { getEditingLorasData, renderMetadataEditor, renderCardTags } = createLoraMetadataController({
+            const { getEditingLorasData, renderMetadataEditor } = createLoraMetadataController({
                 nodeInstance: this,
                 metadataEditor,
                 selectedCountEl,
-                tagEditorList,
+                metadataEditorSelectionLabel,
+                metadataEditorTitle,
+                metadataEditorCloseBtn,
+                useLastOutputThumbnailBtn,
+                thumbnailActionLabel,
+                thumbnailActionStatus,
                 triggerEditorInput,
                 triggerEditorRow,
                 urlEditorInput,
                 urlEditorRow,
                 triggerPresetEditorRow,
+                triggerPresetToggleBtn,
+                triggerPresetContent,
+                triggerPresetCount,
                 triggerPresetList,
                 triggerPresetNameInput,
                 triggerPresetValueInput,
                 addTriggerPresetBtn,
-                tagFilterInput,
                 getLoraMetadataByName,
                 updateCachedLoraMetadata,
                 findGalleryCardByLoraName,
                 updateMetadata: (...args) => UnifiedLoraGalleryNode.updateMetadata(...args),
-                loadAllTags,
+                getLastOutput: () => UnifiedLoraGalleryNode.lastOutput,
+                assignThumbnail: (...args) => loraApi.assignThumbnail(...args),
                 renderCurrentView,
                 renderSelectedList,
                 fetchAndRender,
+                onClose: clearMetadataEditing,
             });
             this.initializeNode = async () => {
                 let initialState = { 
                     is_collapsed: false, 
-                    filter_tag: "",
-                    filter_mode: "OR",
                     filter_folder: "",
                     active_display_mode: "thumbnails",
                     cards_display_mode: "thumbnails",
@@ -1230,17 +1223,8 @@ const UnifiedLoraGalleryNode = {
 
                 persistSelectionData();
 
-                tagFilterInput.value = initialState.filter_tag;
-                if (initialState.filter_mode === "AND") {
-                    tagFilterModeBtn.textContent = "AND";
-                    tagFilterModeBtn.style.backgroundColor = "#D97706";
-                } else {
-                    tagFilterModeBtn.textContent = "OR";
-                    tagFilterModeBtn.style.backgroundColor = "#555";
-                }
-                
                 // These requests are independent once UI state is known.
-                await Promise.all([loadAllTags(), loadPresets(), fetchAndRender()]);
+                await Promise.all([loadPresets(), fetchAndRender()]);
 
                 let needs_refetch = false;
                 if (initialState.filter_folder && folderFilterSelect.querySelector(`option[value="${initialState.filter_folder}"]`)) {
@@ -1250,11 +1234,6 @@ const UnifiedLoraGalleryNode = {
                         needs_refetch = true;
                     }
                 }
-
-                const selectedTags = new Set(initialState.filter_tag.split(',').filter(Boolean));
-                multiSelectTagDropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                    cb.checked = selectedTags.has(cb.value);
-                });
 
                 renderSelectedList();
                 
@@ -1292,13 +1271,16 @@ const UnifiedLoraGalleryNode = {
                 });
 
                 globalListeners.listen(document, "keydown", (e) => {
-                    if (e.key === "Escape") {
-                        if (this.selectedLoraNamesForEditing.size > 0) {
-                            document.querySelectorAll(`#${uniqueId} .locallora-lora-card.selected-edit`).forEach(c => c.classList.remove("selected-edit"));
-                            this.selectedLoraNamesForEditing.clear();
-                            renderMetadataEditor();
-                        }
+                    if (e.key === "Escape" && metadataEditor.classList.contains("visible")) {
+                        clearMetadataEditing();
                     }
+                });
+
+                globalListeners.listen(document, "pointerdown", (event) => {
+                    if (!metadataEditor.classList.contains("visible")) return;
+                    if (metadataEditor.contains(event.target)) return;
+                    if (event.target.closest?.(`#${uniqueId} .edit-tags-btn, #${uniqueId} .lora-active-preview-btn`)) return;
+                    clearMetadataEditing();
                 });
 
                 addTriggerPresetBtn.addEventListener("click", async (e) => {
@@ -1319,7 +1301,7 @@ const UnifiedLoraGalleryNode = {
                     updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
                     triggerPresetNameInput.value = "";
                     triggerPresetValueInput.value = "";
-                    addTriggerPresetBtn.textContent = "Add";
+                    addTriggerPresetBtn.textContent = "Add preset";
                     renderMetadataEditor();
                     renderCurrentView();
                     renderSelectedList();
@@ -1394,43 +1376,6 @@ const UnifiedLoraGalleryNode = {
                     }
                 });
                 
-                tagEditorInput.addEventListener("keydown", async (e) => {
-                    if (e.key === 'Enter' && tagEditorInput.value.trim()) {
-                        e.preventDefault();
-                        const newTag = tagEditorInput.value.trim();
-                        if (newTag) {
-                            const editingLoras = getEditingLorasData();
-                            const updatePromises = editingLoras.map(async (lora) => {
-                                const loraName = lora.name;
-                                const tags = [...lora.tags];
-                                
-                                if (!tags.includes(newTag)) {
-                                    tags.push(newTag);
-                                    await UnifiedLoraGalleryNode.updateMetadata(loraName, { tags: tags });
-
-                                    updateCachedLoraMetadata(loraName, { tags: [...tags] });
-
-                                    const card = findGalleryCardByLoraName(loraName);
-                                    if (card) {
-                                        card.dataset.tags = tags.join(',');
-                                        renderCardTags(card);
-                                    }
-                                }
-                            });
-                            await Promise.all(updatePromises);
-                            await loadAllTags();
-                            renderMetadataEditor();
-                            e.target.value = "";
-                        }
-                    }
-                });
-
-                clearTagFilterBtn.addEventListener("click", () => {
-                    tagFilterInput.value = "";
-                    multiSelectTagDropdown.querySelectorAll('input:checked').forEach(cb => cb.checked = false);
-                    saveStateAndFetch();
-                });
-
                 widgetContainer.querySelector(".clear-all-btn").addEventListener("click", clearAllLoras);
                 
                 folderFilterSelect.addEventListener("change", () => {
@@ -1443,17 +1388,6 @@ const UnifiedLoraGalleryNode = {
                     folderController.toggleOverflow();
                     renderFolderPills();
                 });
-                tagFilterModeBtn.addEventListener("click", () => {
-                    if (tagFilterModeBtn.textContent === "OR") {
-                        tagFilterModeBtn.textContent = "AND";
-                        tagFilterModeBtn.style.backgroundColor = "#D97706";
-                    } else {
-                        tagFilterModeBtn.textContent = "OR";
-                        tagFilterModeBtn.style.backgroundColor = "#555";
-                    }
-                    saveStateAndFetch();
-                });
-              
                 savePresetBtn.addEventListener("click", async () => {
                     const presetName = prompt("Enter a name for this preset:", "");
                     if (presetName && this.loraData.length > 0) {
@@ -1697,20 +1631,7 @@ const UnifiedLoraGalleryNode = {
                     queueNameSearchReconciliation(true);
                     searchInput.focus();
                 });
-                tagFilterInput.addEventListener("keydown", (e) => { if(e.key === 'Enter') saveStateAndFetch(); });
-                
-                const arrow = multiSelectTagContainer.querySelector('.locallora-multiselect-arrow');
-                multiSelectTagDisplay.addEventListener('click', () => {
-                    const isVisible = multiSelectTagDropdown.style.display === 'block';
-                    multiSelectTagDropdown.style.display = isVisible ? 'none' : 'block';
-                    arrow.classList.toggle('open', !isVisible);
-                });
-
                 globalListeners.listen(document, 'click', (e) => {
-                    if (!multiSelectTagContainer.contains(e.target)) {
-                        multiSelectTagDropdown.style.display = 'none';
-                        arrow.classList.remove('open');
-                    }
                     if (presetDropdown && !loadPresetBtn.contains(e.target) && !presetDropdown.contains(e.target)) {
                        presetDropdown.style.display = 'none';
                     }
@@ -1834,6 +1755,31 @@ const UnifiedLoraGalleryNode = {
 return {
     async beforeRegisterNodeDef(nodeType, nodeData) {
         UnifiedLoraGalleryNode.setup(nodeType, nodeData);
+    },
+    async setup() {
+        api.addEventListener("executed", (event) => {
+            const output = event.detail?.output || {};
+            const results = output.images?.length ? output.images : output.gifs;
+            if (!results?.length) return;
+
+            const last = results[results.length - 1];
+            if (!last?.filename) return;
+            UnifiedLoraGalleryNode.lastOutput = {
+                filename: last.filename,
+                subfolder: last.subfolder || "",
+                type: last.type || "output",
+            };
+
+            document.querySelectorAll(".use-last-output-thumbnail-btn").forEach((button) => {
+                if (button.dataset.selectionEligible !== "true") return;
+                button.disabled = false;
+                const status = button.closest(".lora-thumbnail-editor-action")
+                    ?.querySelector(".lora-thumbnail-action-status");
+                if (status) status.textContent = "Ready to use the latest result";
+                button.title = "Use the latest generated image";
+                status?.classList.remove("is-visible");
+            });
+        });
     },
 };
 }

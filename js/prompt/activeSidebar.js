@@ -310,12 +310,12 @@ export async function renderActiveSidebar({
         const controlHost = chip.querySelector(".localprompt-active-controls, .managed-card-controls") || chip;
         let editButton;
         if (isThumbnail) {
-            controlHost.insertAdjacentHTML("beforeend", createPromptActionButton({
+            chip.insertAdjacentHTML("beforeend", createPromptActionButton({
                 icon: "edit",
                 className: "localprompt-workflow-edit-button localprompt-inline-btn",
                 title: "Edit for this workflow",
             }));
-            editButton = controlHost.lastElementChild;
+            editButton = chip.lastElementChild;
         } else {
             editButton = document.createElement("button");
             editButton.type = "button";

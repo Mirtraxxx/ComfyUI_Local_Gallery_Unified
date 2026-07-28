@@ -154,7 +154,6 @@ export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, s
         <div class="locallora-lora-card-info">
             <p>${escapeHtml(lora.name)}</p>
             <div class="lora-card-triggers" title="${escapeHtml(lora.trigger_words)}">${escapeHtml(lora.trigger_words || 'No triggers')}</div>
-            <div class="lora-card-tags"></div>
         </div>
         <button type="button" class="card-btn edit-tags-btn" title="Edit LoRA metadata" aria-label="Edit LoRA metadata">${svgs.edit || ""}</button>
     `;

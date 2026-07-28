@@ -31,7 +31,8 @@ test("selection and name search reconcile existing cards instead of rebuilding o
 });
 
 test("initial data requests are parallel and preset cleanup uses the close hook", () => {
-    assert.match(uiSource, /Promise\.all\(\[loadAllTags\(\), loadPresets\(\), fetchAndRender\(\)\]\)/);
+    assert.match(uiSource, /Promise\.all\(\[loadPresets\(\), fetchAndRender\(\)\]\)/);
+    assert.doesNotMatch(uiSource, /loadAllTags|getAllTags|tagFilterInput|tagFilterModeBtn/);
     assert.match(uiSource, /openPicker\._closeLoraPresetPopover\?\.\(\)/);
 });
 
@@ -43,7 +44,7 @@ test("workflow reload hydrates missing Active Stack metadata without changing br
     assert.match(uiSource, /hydrateSelectedLoraInfo\(loras\);/);
     assert.match(uiSource, /const returnedNames = new Set\(loras\.map\(lora => lora\.name\)\);/);
     assert.match(uiSource, /if \(returnedNames\.has\(name\)\) activeLoraInfoHydratedNames\.add\(name\);/);
-    assert.match(uiSource, /getLoras\.call\(this, tagFilterInput\.value, tagFilterModeBtn\.textContent, folderFilterSelect\.value, pageToFetch, \[\], 50, getLoraDisplayState\(\)\.sort_mode\)/);
+    assert.match(uiSource, /getLoras\.call\(this, "", "OR", folderFilterSelect\.value, pageToFetch, \[\], 50, getLoraDisplayState\(\)\.sort_mode\)/);
     assert.match(activeStackControllerSource, /hydrateSelectedLoraInfo: \(availableLoras = nodeInstance\.availableLoras\) => hydrateSelectedLoraInfo\(/);
     assert.match(uiSource, /Failed to hydrate Active Stack metadata/);
 });

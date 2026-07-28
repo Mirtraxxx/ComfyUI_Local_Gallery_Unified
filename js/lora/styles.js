@@ -547,6 +547,10 @@ export function getLoraStyles(uniqueId) {
                         height: 28px;
                         min-width: 68px;
                         padding: 0 10px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 5px;
                         border: 1px solid rgba(255, 255, 255, 0.15);
                         border-radius: 6px;
                         background: #181c20;
@@ -560,6 +564,23 @@ export function getLoraStyles(uniqueId) {
                         border-color: rgba(184, 135, 99, 0.72);
                         background: #302923;
                         color: #f0d4bd;
+                    }
+
+                    #${uniqueId} .lora-execution-mode-icon {
+                        display: none;
+                        width: 14px;
+                        height: 14px;
+                        flex: 0 0 14px;
+                    }
+
+                    #${uniqueId} .lora-execution-mode-btn.compare .lora-execution-mode-icon {
+                        display: inline-flex;
+                    }
+
+                    #${uniqueId} .lora-execution-mode-icon svg {
+                        width: 100%;
+                        height: 100%;
+                        stroke: currentColor;
                     }
 
                     #${uniqueId} .lora-compare-strengths-control {
@@ -902,28 +923,6 @@ export function getLoraStyles(uniqueId) {
                         min-height: 13px;
                     }
                     
-                    #${uniqueId} .lora-card-tags {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 3px;
-                        padding-top: 2px;
-                    }
-                    
-                    #${uniqueId} .lora-card-tags .tag {
-                        background: rgba(255, 122, 0, 0.22);
-                        border: 1px solid rgba(255, 122, 0, 0.32);
-                        color: #ffd8b3;
-                        padding: 1px 5px;
-                        font-size: 10px;
-                        border-radius: 999px;
-                        cursor: pointer;
-                    }
-                    
-                    #${uniqueId} .lora-card-tags .tag:hover {
-                        background: rgba(255, 122, 0, 0.4);
-                        color: #fff;
-                    }
-                    
                     /* --- Card Action Buttons --- */
                     #${uniqueId} .card-btn {
                         position: absolute;
@@ -996,24 +995,321 @@ export function getLoraStyles(uniqueId) {
                     /* --- Metadata Editor --- */
                     #${uniqueId} .locallora-metadata-editor {
                         display: none;
+                        position: absolute;
+                        top: calc(100% + 7px);
+                        right: 10px;
+                        z-index: 180;
+                        width: min(720px, calc(100% - 20px));
+                        max-height: 320px;
                         flex-direction: column;
-                        gap: 5px;
-                        padding: 8px;
-                        background: #151515;
-                        border: 1px solid #333;
-                        border-radius: 8px;
-                        margin-top: 6px;
+                        gap: 9px;
+                        padding: 10px;
+                        box-sizing: border-box;
+                        background: rgba(8, 18, 26, 0.97);
+                        border: 1px solid rgba(147, 177, 199, 0.18);
+                        border-radius: 10px;
+                        margin: 0;
+                        overflow-x: hidden;
+                        overflow-y: auto;
+                        transform-origin: top right;
                     }
                     
                     #${uniqueId} .locallora-metadata-editor.visible {
                         display: flex;
+                        animation: loraMetadataPopoverIn 0.14s ease-out;
+                    }
+
+                    @keyframes loraMetadataPopoverIn {
+                        from { opacity: 0; transform: translateY(-5px) scaleY(0.97); }
+                        to { opacity: 1; transform: translateY(0) scaleY(1); }
                     }
                     
-                    #${uniqueId} .tag-editor-list .tag .remove-tag {
-                        margin-left: 4px;
-                        color: #fdd;
+                    #${uniqueId} .lora-metadata-editor-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 10px;
+                        padding-bottom: 8px;
+                        border-bottom: 1px solid rgba(147, 177, 199, 0.14);
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-heading {
+                        display: grid;
+                        min-width: 0;
+                        gap: 2px;
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-selection {
+                        color: rgba(183, 200, 211, 0.68);
+                        font-size: 9px;
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-title {
+                        overflow: hidden;
+                        color: #eef4f7;
+                        font-size: 12px;
+                        font-weight: 650;
+                        line-height: 1.25;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-actions {
+                        display: flex;
+                        align-items: flex-start;
+                        flex: 0 0 auto;
+                        gap: 6px;
+                    }
+
+                    #${uniqueId} .lora-thumbnail-editor-action {
+                        display: grid;
+                        justify-items: end;
+                        flex: 0 0 auto;
+                        gap: 4px;
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 7px;
+                        min-height: 30px;
+                        padding: 5px 9px;
+                        color: #dce6eb;
+                        background: rgba(130, 151, 164, 0.14);
+                        border: 1px solid rgba(147, 177, 199, 0.18);
+                        border-radius: 8px;
+                        box-shadow: none;
                         cursor: pointer;
-                        font-weight: bold;
+                        font-size: 10px;
+                        font-weight: 650;
+                        white-space: nowrap;
+                        transition: transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn:hover:not(:disabled) {
+                        background: rgba(130, 151, 164, 0.22);
+                        border-color: rgba(177, 201, 217, 0.34);
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn:active:not(:disabled) {
+                        transform: translateY(1px);
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn:disabled {
+                        color: rgba(214, 225, 231, 0.42);
+                        background: rgba(130, 151, 164, 0.12);
+                        border-color: rgba(147, 177, 199, 0.14);
+                        box-shadow: none;
+                        cursor: default;
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn.success {
+                        color: #07120d;
+                        background: #74d895;
+                        border-color: rgba(150, 240, 179, 0.68);
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-close {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 30px;
+                        height: 30px;
+                        min-width: 30px;
+                        padding: 0;
+                        color: rgba(220, 230, 235, 0.72);
+                        background: rgba(130, 151, 164, 0.10);
+                        border: 1px solid rgba(147, 177, 199, 0.16);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font: 500 18px/1 sans-serif;
+                        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-close:hover {
+                        color: #eef4f7;
+                        background: rgba(130, 151, 164, 0.20);
+                        border-color: rgba(177, 201, 217, 0.32);
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-close:active {
+                        transform: translateY(1px);
+                    }
+
+                    #${uniqueId} .use-last-output-thumbnail-btn:focus-visible,
+                    #${uniqueId} .lora-metadata-editor-close:focus-visible,
+                    #${uniqueId} .lora-trigger-preset-editor-toggle:focus-visible,
+                    #${uniqueId} .add-trigger-preset-btn:focus-visible {
+                        outline: 2px solid rgba(177, 201, 217, 0.72);
+                        outline-offset: 2px;
+                    }
+
+                    #${uniqueId} .lora-thumbnail-action-icon,
+                    #${uniqueId} .lora-thumbnail-action-icon svg {
+                        display: block;
+                        width: 13px;
+                        height: 13px;
+                    }
+
+                    #${uniqueId} .lora-thumbnail-action-status {
+                        display: none;
+                        max-width: 170px;
+                        overflow: hidden;
+                        color: rgba(199, 214, 223, 0.76);
+                        font-size: 9px;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+
+                    #${uniqueId} .lora-thumbnail-action-status.is-visible {
+                        display: block;
+                    }
+
+                    #${uniqueId} .lora-metadata-editor-grid {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                        gap: 8px;
+                    }
+
+                    #${uniqueId} .lora-metadata-field {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 4px;
+                        min-width: 0;
+                    }
+
+                    #${uniqueId} .lora-metadata-field > span,
+                    #${uniqueId} .lora-metadata-field-label > span {
+                        color: #dce6eb;
+                        font-size: 10px;
+                        font-weight: 650;
+                    }
+
+                    #${uniqueId} .lora-metadata-field > small,
+                    #${uniqueId} .lora-metadata-field-label > small {
+                        color: rgba(199, 214, 223, 0.72);
+                        font-size: 8px;
+                        line-height: 1.35;
+                    }
+
+                    #${uniqueId} .lora-metadata-field-label {
+                        display: grid;
+                        gap: 2px;
+                    }
+
+                    #${uniqueId} .trigger-preset-editor-row {
+                        padding-top: 8px;
+                        border-top: 1px solid rgba(147, 177, 199, 0.12);
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-editor-toggle {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        width: 100%;
+                        min-height: 30px;
+                        padding: 3px 6px;
+                        color: inherit;
+                        background: transparent;
+                        border: 0;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        text-align: left;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-editor-toggle:hover {
+                        background: rgba(130, 151, 164, 0.08);
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-count {
+                        color: rgba(199, 214, 223, 0.62);
+                        font-size: 9px;
+                        font-weight: 500;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-toggle-icon {
+                        color: rgba(199, 214, 223, 0.66);
+                        font-size: 15px;
+                        line-height: 1;
+                        transition: transform 0.14s ease;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-editor-toggle[aria-expanded="true"] .lora-trigger-preset-toggle-icon {
+                        transform: rotate(180deg);
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-content {
+                        display: grid;
+                        gap: 5px;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-content[hidden] {
+                        display: none;
+                    }
+
+                    #${uniqueId} .trigger-preset-list {
+                        display: grid;
+                        gap: 4px;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-form {
+                        display: grid;
+                        grid-template-columns: minmax(90px, 0.35fr) minmax(0, 1fr) auto;
+                        gap: 5px;
+                    }
+
+                    #${uniqueId} .add-trigger-preset-btn {
+                        min-height: 32px;
+                        padding: 5px 9px;
+                        color: #dce6eb;
+                        background: rgba(130, 151, 164, 0.14);
+                        border: 1px solid rgba(147, 177, 199, 0.18);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-family: inherit;
+                        font-size: 10px;
+                        font-weight: 650;
+                        line-height: 1.2;
+                        white-space: nowrap;
+                    }
+
+                    #${uniqueId} .locallora-metadata-editor input[type="text"] {
+                        min-height: 32px;
+                        padding: 5px 8px;
+                        border-radius: 8px;
+                        font-size: 10px;
+                    }
+
+                    @media (prefers-reduced-motion: reduce) {
+                        #${uniqueId} .locallora-metadata-editor.visible {
+                            animation: none;
+                        }
+                    }
+
+                    @container (max-width: 620px) {
+                        #${uniqueId} .locallora-metadata-editor {
+                            right: 8px;
+                            width: calc(100% - 16px);
+                            max-height: 280px;
+                        }
+                        #${uniqueId} .lora-metadata-editor-header {
+                            align-items: center;
+                        }
+                        #${uniqueId} .lora-thumbnail-editor-action {
+                            justify-items: end;
+                        }
+                        #${uniqueId} .lora-thumbnail-action-status {
+                            max-width: none;
+                        }
+                        #${uniqueId} .lora-metadata-editor-grid {
+                            grid-template-columns: 1fr;
+                        }
+                        #${uniqueId} .lora-trigger-preset-form {
+                            grid-template-columns: 1fr;
+                        }
                     }
 
                     /* --- Active Sidebar Items --- */
@@ -1307,7 +1603,6 @@ export function getLoraStyles(uniqueId) {
                         background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015));
                     }
                     
-                    #${uniqueId} .locallora-container.cards-mode-compact .lora-card-tags,
                     #${uniqueId} .locallora-container.cards-mode-compact .lora-trigger-preset-picker {
                         display: none;
                     }
@@ -1357,109 +1652,6 @@ export function getLoraStyles(uniqueId) {
                         padding: 4px;
                         border-radius: 4px;
                         font-size: 11px;
-                    }
-                    
-                    #${uniqueId} .tag-filter-mode-btn {
-                        padding: 4px 8px;
-                        background-color: #555;
-                        color: #fff;
-                        border: 1px solid #666;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        flex-shrink: 0;
-                        font-size: 11px;
-                    }
-                    
-                    #${uniqueId} .tag-filter-mode-btn:hover {
-                        background-color: #666;
-                    }
-                    
-                    #${uniqueId} .tag-filter-input-wrapper {
-                        display: flex;
-                        flex-grow: 1;
-                        position: relative;
-                        align-items: center;
-                    }
-                    
-                    #${uniqueId} .tag-filter-input-wrapper input {
-                        flex-grow: 1;
-                    }
-                    
-                    #${uniqueId} .clear-tag-filter-btn {
-                        background: none;
-                        border: none;
-                        color: #ccc;
-                        cursor: pointer;
-                        position: absolute;
-                        right: 4px;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        display: none;
-                    }
-                    
-                    #${uniqueId} .tag-filter-input-wrapper input:not(:placeholder-shown) + .clear-tag-filter-btn {
-                        display: block;
-                    }
-                    
-                    /* --- Multi-Select Dropdown --- */
-                    #${uniqueId} .locallora-multiselect-tag {
-                        position: relative;
-                        flex-grow: 1;
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-tag-display {
-                        background-color: #333;
-                        color: #ccc;
-                        border: 1px solid #555;
-                        border-radius: 4px;
-                        padding: 4px;
-                        font-size: 10px;
-                        height: 23px;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        flex-wrap: wrap;
-                        gap: 4px;
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-arrow {
-                        position: absolute;
-                        right: 8px;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        transition: transform 0.2s ease-in-out;
-                        font-size: 10px;
-                        pointer-events: none;
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-arrow.open {
-                        transform: translateY(-50%) rotate(180deg);
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-tag-dropdown {
-                        display: none;
-                        position: absolute;
-                        top: 100%;
-                        left: 0;
-                        right: 0;
-                        background-color: #222;
-                        border: 1px solid #555;
-                        border-top: none;
-                        max-height: 200px;
-                        overflow-y: auto;
-                        z-index: 10;
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-tag-dropdown label {
-                        display: block;
-                        padding: 4px 8px;
-                        cursor: pointer;
-                        font-size: 12px;
-                        color: #ccc;
-                    }
-                    
-                    #${uniqueId} .locallora-multiselect-tag-dropdown label:hover {
-                        background-color: #444;
                     }
                     
                     /* --- Preset Picker Options --- */
@@ -1953,21 +2145,19 @@ export function getLoraStyles(uniqueId) {
                         width: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
                         height: clamp(26px, calc(22px * var(--lora-active-card-control-scale)), 36px);
                         padding: 0;
-                        border-radius: 6px;
-                        border: 1px solid rgba(255, 255, 255, 0.15);
-                        background: rgba(255, 255, 255, 0.08);
-                        backdrop-filter: blur(12px) saturate(1.2);
-                        -webkit-backdrop-filter: blur(12px) saturate(1.2);
-                        color: #111820;
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+                        border-radius: 4px;
+                        border: 1px solid var(--contact-edge-strong);
+                        background: rgba(20, 21, 19, 0.88);
+                        color: white;
+                        box-shadow: none;
                         cursor: pointer;
-                        transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+                        transition: all 0.16s ease;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn:hover {
-                        background: rgba(255, 255, 255, 0.18);
-                        border-color: rgba(255, 255, 255, 0.3);
-                        color: #111820;
+                        background: #30332e;
+                        border-color: rgba(184, 135, 99, 0.52);
+                        color: white;
                     }
 
                     #${uniqueId} .locallora-container.active-mode-thumbnails .lora-active-preview-btn svg {
@@ -2492,16 +2682,6 @@ export function getLoraStyles(uniqueId) {
                         padding: 32px 8px 8px;
                         background: linear-gradient(180deg, transparent, rgba(12, 14, 12, 0.94));
                         /* Keep default hidden; reveal only on hover / focus / selection */
-                    }
-                    #${uniqueId} .lora-card-tags .tag {
-                        background: rgba(184, 135, 99, 0.14);
-                        border-color: rgba(184, 135, 99, 0.26);
-                        border-radius: 3px;
-                        color: #d8c0ad;
-                    }
-                    #${uniqueId} .lora-card-tags .tag:hover {
-                        background: rgba(184, 135, 99, 0.24);
-                        border-color: rgba(212, 170, 135, 0.42);
                     }
                     #${uniqueId} .card-btn {
                         background: rgba(20, 21, 19, 0.88);

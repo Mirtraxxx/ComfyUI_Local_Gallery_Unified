@@ -3,33 +3,56 @@ export function createLoraMetadataController({
     nodeInstance,
     metadataEditor,
     selectedCountEl,
-    tagEditorList,
+    metadataEditorSelectionLabel,
+    metadataEditorTitle,
+    metadataEditorCloseBtn,
+    useLastOutputThumbnailBtn,
+    thumbnailActionLabel,
+    thumbnailActionStatus,
     triggerEditorInput,
     triggerEditorRow,
     urlEditorInput,
     urlEditorRow,
     triggerPresetEditorRow,
+    triggerPresetToggleBtn,
+    triggerPresetContent,
+    triggerPresetCount,
     triggerPresetList,
     triggerPresetNameInput,
     triggerPresetValueInput,
     addTriggerPresetBtn,
-    tagFilterInput,
     getLoraMetadataByName,
     updateCachedLoraMetadata,
     findGalleryCardByLoraName,
     updateMetadata,
-    loadAllTags,
+    getLastOutput,
+    assignThumbnail,
     renderCurrentView,
     renderSelectedList,
     fetchAndRender,
+    onClose,
 }) {
+    let thumbnailAssignmentInProgress = false;
+    let thumbnailFeedbackTimer = null;
+    let presetEditorLoraName = null;
+
+    const setThumbnailStatus = (message, { visible = false } = {}) => {
+        thumbnailActionStatus.textContent = message;
+        thumbnailActionStatus.classList.toggle("is-visible", visible);
+        useLastOutputThumbnailBtn.title = message;
+    };
+
+    const setPresetEditorExpanded = (expanded) => {
+        triggerPresetToggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        triggerPresetContent.hidden = !expanded;
+    };
+
     const getEditingLorasData = () => {
         if (nodeInstance.activeEditingLoraName) {
             const loraData = getLoraMetadataByName(nodeInstance.activeEditingLoraName);
             if (loraData) {
                 return [{
                     name: loraData.name || loraData.lora,
-                    tags: loraData.tags || [],
                     trigger_words: loraData.trigger_words || "",
                     download_url: loraData.download_url || "",
                     trigger_presets: loraData.trigger_presets || {}
@@ -41,7 +64,6 @@ export function createLoraMetadataController({
             const card = findGalleryCardByLoraName(loraName);
             return {
                 name: loraName,
-                tags: card?.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : (loraData.tags || []),
                 trigger_words: card?.dataset.triggerWords || loraData.trigger_words || "",
                 download_url: card?.dataset.downloadUrl || loraData.download_url || "",
                 trigger_presets: loraData.trigger_presets || {}
@@ -51,42 +73,25 @@ export function createLoraMetadataController({
      const renderMetadataEditor = () => {
         const editingLoras = getEditingLorasData();
         selectedCountEl.textContent = editingLoras.length;
+        selectedCountEl.hidden = editingLoras.length === 1;
+        metadataEditorSelectionLabel.textContent = editingLoras.length === 1 ? "LoRA details" : " selected";
+        metadataEditorTitle.textContent = editingLoras.length === 1
+            ? editingLoras[0].name.split(/[\\/]/).pop().replace(/\.safetensors$/i, "")
+            : `${editingLoras.length} LoRAs selected`;
+        const thumbnailEligible = editingLoras.length === 1;
+        useLastOutputThumbnailBtn.dataset.selectionEligible = thumbnailEligible ? "true" : "false";
+        useLastOutputThumbnailBtn.disabled = (
+            !thumbnailEligible
+            || !getLastOutput()?.filename
+            || thumbnailAssignmentInProgress
+        );
+        setThumbnailStatus(!thumbnailEligible
+            ? "Select one LoRA to change its thumbnail"
+            : (getLastOutput()?.filename ? "Use the latest generated image" : "Generate an image first"));
          if (editingLoras.length === 0) {
             metadataEditor.classList.remove("visible");
             return;
         }
-         tagEditorList.innerHTML = "";
-        const allTags = editingLoras.map(lora => lora.tags);
-        const commonTags = allTags.reduce((a, b) => a.filter(c => b.includes(c)), allTags[0] || []);
-
-        commonTags.forEach(tag => {
-            const tagEl = document.createElement("span");
-            tagEl.className = "tag";
-            tagEl.textContent = tag;
-            const removeEl = document.createElement("span");
-            removeEl.className = "remove-tag";
-            removeEl.textContent = "x";
-            removeEl.onclick = async (e) => {
-                e.stopPropagation();
-                const updatePromises = editingLoras.map(async (lora) => {
-                    const loraName = lora.name;
-                    const newTags = lora.tags.filter(t => t !== tag);
-
-                    await updateMetadata(loraName, { tags: newTags });
-                     updateCachedLoraMetadata(loraName, { tags: newTags });
-                     const card = findGalleryCardByLoraName(loraName);
-                    if (card) {
-                        card.dataset.tags = newTags.join(',');
-                        renderCardTags(card);
-                    }
-                });
-                await Promise.all(updatePromises);
-                await loadAllTags();
-                renderMetadataEditor();
-            };
-            tagEl.appendChild(removeEl);
-            tagEditorList.appendChild(tagEl);
-        });
          if (editingLoras.length === 1) {
             const singleLora = editingLoras[0];
             triggerEditorInput.value = singleLora.trigger_words || "";
@@ -101,7 +106,13 @@ export function createLoraMetadataController({
                 const loraInDataSource = getLoraMetadataByName(loraName);
                 if (!loraInDataSource) return;
                 const presets = loraInDataSource.trigger_presets || {};
-                for (const [pName, pVal] of Object.entries(presets)) {
+                const presetEntries = Object.entries(presets);
+                triggerPresetCount.textContent = presetEntries.length ? `(${presetEntries.length})` : "";
+                if (presetEditorLoraName !== loraName) {
+                    presetEditorLoraName = loraName;
+                    setPresetEditorExpanded(presetEntries.length > 0);
+                }
+                for (const [pName, pVal] of presetEntries) {
                     const row = document.createElement("div");
                     row.style.display = "flex";
                     row.style.gap = "4px";
@@ -172,22 +183,56 @@ export function createLoraMetadataController({
          metadataEditor.classList.add("visible");
     };
 
-    const renderCardTags = (card) => {
-        const tagContainer = card.querySelector(".lora-card-tags");
-        tagContainer.innerHTML = "";
-        const tags = card.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : [];
-        tags.forEach(tag => {
-            const tagEl = document.createElement("span");
-            tagEl.className = "tag";
-            tagEl.textContent = tag;
-            tagEl.addEventListener("click", (e) => {
-                e.stopPropagation();
-                tagFilterInput.value = tag;
-                fetchAndRender();
-            });
-            tagContainer.appendChild(tagEl);
-        });
-    };
+    metadataEditorCloseBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+    });
 
-    return { getEditingLorasData, renderMetadataEditor, renderCardTags };
+    triggerPresetToggleBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setPresetEditorExpanded(triggerPresetToggleBtn.getAttribute("aria-expanded") !== "true");
+    });
+
+    useLastOutputThumbnailBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const editingLoras = getEditingLorasData();
+        const lastOutput = getLastOutput();
+        if (editingLoras.length !== 1 || !lastOutput?.filename || thumbnailAssignmentInProgress) return;
+
+        thumbnailAssignmentInProgress = true;
+        useLastOutputThumbnailBtn.disabled = true;
+        useLastOutputThumbnailBtn.classList.add("loading");
+        thumbnailActionLabel.textContent = "Saving";
+        setThumbnailStatus("Saving thumbnail...", { visible: true });
+        try {
+            const loraName = editingLoras[0].name;
+            const result = await assignThumbnail(loraName, lastOutput);
+            updateCachedLoraMetadata(loraName, {
+                preview_url: result.preview_url,
+                preview_type: result.preview_type,
+            });
+            useLastOutputThumbnailBtn.classList.add("success");
+            setThumbnailStatus("Thumbnail updated", { visible: true });
+            clearTimeout(thumbnailFeedbackTimer);
+            thumbnailFeedbackTimer = setTimeout(() => {
+                useLastOutputThumbnailBtn.classList.remove("success");
+                thumbnailActionStatus.classList.remove("is-visible");
+            }, 1200);
+            await fetchAndRender();
+            renderSelectedList();
+        } catch (error) {
+            console.error("LocalLoraGallery: Failed to assign thumbnail", error);
+            setThumbnailStatus(error?.message || "Could not update thumbnail", { visible: true });
+        } finally {
+            thumbnailAssignmentInProgress = false;
+            useLastOutputThumbnailBtn.classList.remove("loading");
+            useLastOutputThumbnailBtn.disabled = !getLastOutput()?.filename;
+            thumbnailActionLabel.textContent = "Use last result";
+        }
+    });
+
+    return { getEditingLorasData, renderMetadataEditor };
 }
