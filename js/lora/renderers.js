@@ -1,5 +1,5 @@
 import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js?v=url-safety-20260712";
-import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-fix-20260724-1";
+import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
 import { formatLoraWeight } from "./weights.js";
 
 function getSelectedPresetNames(selectionItem) {
@@ -28,7 +28,7 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
         </label>`)
         .join("");
     const optionButtonsHtml = presetNames
-        .map((presetName) => `<button type="button" class="lora-trigger-preset-option${selectedPresetNames.includes(presetName) ? " selected" : ""}" data-preset-name="${escapeHtml(presetName)}" title="${escapeHtml(triggerPresets[presetName] || "")}">
+        .map((presetName) => `<button type="button" class="lora-trigger-preset-option${selectedPresetNames.includes(presetName) ? " selected" : ""}" data-preset-name="${escapeHtml(presetName)}" title="${escapeHtml(triggerPresets[presetName] || "")}" aria-pressed="${selectedPresetNames.includes(presetName) ? "true" : "false"}">
             <span class="lora-trigger-preset-option-name">${escapeHtml(presetName)}</span>
             <span class="lora-trigger-preset-option-preview">${escapeHtml(triggerPresets[presetName] || "")}</span>
         </button>`)
@@ -36,7 +36,7 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
     const showSearch = presetNames.length > 6;
     const tagSvg = `<svg class="lora-preset-tag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>`;
 
-    return `<div class="lora-trigger-preset-picker${isStacking ? " stacking" : ""}">
+    return `<div class="lora-trigger-preset-picker${isStacking ? " stacking" : ""}${selectedPresetNames.length ? " has-selection" : ""}">
     <select class="lora-card-preset-select" aria-hidden="true" tabindex="-1">
         <option value=""${selectedPresetName ? "" : " selected"}>Default Triggers</option>
         ${optionsHtml}
@@ -44,7 +44,7 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
     <div class="lora-card-preset-checklist">
         ${checklistHtml}
     </div>
-    <button type="button" class="lora-trigger-preset-button" title="Choose trigger preset" aria-label="Choose trigger preset" aria-pressed="${selectedPresetNames.length ? "true" : "false"}">
+    <button type="button" class="lora-trigger-preset-button${selectedPresetNames.length ? " has-selection" : ""}" title="${selectedPresetNames.length ? `Trigger preset: ${escapeHtml(selectedLabel)}` : "Choose trigger preset"}" aria-label="${selectedPresetNames.length ? `Trigger preset: ${escapeHtml(selectedLabel)}` : "Choose trigger preset"}" aria-pressed="${selectedPresetNames.length ? "true" : "false"}">
         ${tagSvg}
         <span class="lora-trigger-preset-label">${escapeHtml(selectedLabel)}</span>
         <span class="lora-trigger-preset-count">${selectedPresetNames.length ? (isStacking ? selectedPresetNames.length : 1) : ""}</span>
@@ -53,7 +53,7 @@ export function buildLoraPresetControlsHtml(lora, selectionItem = null) {
     <div class="lora-trigger-preset-popover">
         ${showSearch ? '<input type="text" class="lora-trigger-preset-search" placeholder="Find preset...">' : ""}
         <div class="lora-trigger-preset-options">
-            <button type="button" class="lora-trigger-preset-option${selectedPresetNames.length ? "" : " selected"}" data-preset-name="">
+            <button type="button" class="lora-trigger-preset-option${selectedPresetNames.length ? "" : " selected"}" data-preset-name="" aria-pressed="${selectedPresetNames.length ? "false" : "true"}">
                 <span class="lora-trigger-preset-option-name">Default Triggers</span>
                 <span class="lora-trigger-preset-option-preview">${escapeHtml(lora?.trigger_words || "")}</span>
             </button>

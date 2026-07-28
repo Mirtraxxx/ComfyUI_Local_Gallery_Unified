@@ -40,26 +40,26 @@ import {
 import {
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
-} from "./activeSidebar.js?v=active-stack-swap-reorder-20260617";
+} from "./activeSidebar.js?v=active-stack-swap-reorder-20260617&media=prompt-video-20260726-1";
 import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
 import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-height-persist-20260724-1";
 import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
 import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
-import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1";
+import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=prompt-performance-20260721-1";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=prompt-settings-20260722-1";
+} from "./library.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
+import { showSettingsModal as openSettingsModal } from "./settings.js?v=workflow-profile-v1-20260725-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1";
+import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
 import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-insights-20260722-13";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-compact-align-20260727-3";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -67,6 +67,11 @@ import {
 import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
+import {
+    getWorkflowProfileStatus,
+    readWorkflowProfileSection,
+    writeWorkflowProfileSection,
+} from "../shared/workflowProfile.js?v=workflow-profile-v1-20260725-1";
 
 export function createPromptGalleryLifecycle(app, api) {
 const UnifiedPromptGalleryNode = {
@@ -318,8 +323,11 @@ const UnifiedPromptGalleryNode = {
         }
     },
 
-    async saveUiPrefs(prefs) {
+    async saveUiPrefs(prefs, nodeInstance = null) {
         try {
+            if (typeof nodeInstance?.persistPromptUiPrefs === "function") {
+                return await nodeInstance.persistPromptUiPrefs(prefs);
+            }
             return await promptApi.saveUiPrefs(prefs);
         } catch (e) {
             console.error("LocalPromptGallery: Failed to save UI prefs", e);
@@ -809,6 +817,7 @@ const UnifiedPromptGalleryNode = {
                     renderLibraryDrawer,
                     getPinnedCategories,
                     savePinnedCategories,
+                    getWorkflowProfileStatus: () => getWorkflowProfileStatus(node_instance),
                     workspaceContainer: host,
                     onClose: returnToGallery,
                 });
@@ -1437,7 +1446,7 @@ const UnifiedPromptGalleryNode = {
                     if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
                     if (node_instance.uiPrefs.category_overflow_height === nextHeight) return;
                     node_instance.uiPrefs.category_overflow_height = nextHeight;
-                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs).catch(error => {
+                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance).catch(error => {
                         console.warn("LocalPromptGallery: Failed to save category overflow height", error);
                     });
                 },
@@ -1468,8 +1477,13 @@ const UnifiedPromptGalleryNode = {
 
             async function saveUiPrefs() {
                 node_instance.uiPrefs.library_tabs = getLibraryTabs();
-                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance);
             }
+            node_instance.persistPromptUiPrefs = async prefs => {
+                node_instance.uiPrefs = mergeUiPrefs(node_instance.uiPrefs, prefs);
+                writeWorkflowProfileSection(node_instance, "prompt_ui", node_instance.uiPrefs);
+                return { status: "ok", scope: "workflow" };
+            };
 
             activeStackController = createActiveStackController({
                 widgetContainer,
@@ -1519,7 +1533,7 @@ const UnifiedPromptGalleryNode = {
                 const utilityTabs = currentTabs.filter(tab => !nextCategoryOrder.includes(tab));
                 const nextTabs = [...utilityTabs, ...nextCategoryOrder];
                 node_instance.uiPrefs.library_tabs = nextTabs;
-                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance);
             }
 
             function showCategoryPillContextMenu(e, category, isCurrentlyPinned) {
@@ -1966,7 +1980,7 @@ const UnifiedPromptGalleryNode = {
                             option.addEventListener('click', async () => {
                                 currentTabs.push(cat);
                                 node_instance.uiPrefs.library_tabs = currentTabs;
-                                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+                                await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance);
                                 dropdown.remove();
                                 renderLibraryBar();
                             });
@@ -2111,7 +2125,7 @@ const UnifiedPromptGalleryNode = {
                     },
                     saveLibraryTabs: async tabs => {
                         node_instance.uiPrefs.library_tabs = tabs;
-                        await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs);
+                        await UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance);
                     },
                     applyLibraryTabLayoutPreference,
                     applyLibraryTabRoleStyling,
@@ -2767,11 +2781,18 @@ const UnifiedPromptGalleryNode = {
 
                 // Load UI preferences and initialize
                 (async () => {
-                    // Load UI preferences
+                    // Existing workflows without an embedded profile inherit the
+                    // former global preferences once. From then on this workflow's
+                    // node owns an independent snapshot.
+                    const globalPrefs = await UnifiedPromptGalleryNode.getUiPrefs();
+                    const workflowPrefs = readWorkflowProfileSection(node_instance, "prompt_ui");
                     node_instance.uiPrefs = mergeUiPrefs(
                         node_instance.uiPrefs,
-                        await UnifiedPromptGalleryNode.getUiPrefs()
+                        globalPrefs
                     );
+                    if (workflowPrefs) {
+                        node_instance.uiPrefs = mergeUiPrefs(node_instance.uiPrefs, workflowPrefs);
+                    }
                     node_instance.uiPrefs.active_sidebar_open = false;
                     node_instance.uiPrefs.active_display_mode = getActiveDisplayMode();
                     node_instance.uiPrefs.cards_display_mode = getCardsDisplayMode();
@@ -2779,6 +2800,7 @@ const UnifiedPromptGalleryNode = {
                         node_instance.uiPrefs.active_sidebar_width = node_instance.properties.active_sidebar_width;
                     }
                     node_instance.uiPrefs.library_tabs = getLibraryTabs();
+                    writeWorkflowProfileSection(node_instance, "prompt_ui", node_instance.uiPrefs);
                     if (activeLibraryTab === 'active') {
                         activeLibraryTab = null;
                     }

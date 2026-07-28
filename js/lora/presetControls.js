@@ -2,7 +2,7 @@
  * Binds trigger-preset controls for either a browser card or an active-stack item.
  * The node owns selection persistence; this module owns only the preset interaction state.
  */
-import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-fix-20260724-1";
+import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
 
 export function setupLoraPresetControls(
     element,
@@ -33,9 +33,10 @@ export function setupLoraPresetControls(
         return null;
     };
 
+    // The active-stack popover is moved to document.body while open, so it is
+    // no longer a descendant of either the picker or the selected LoRA item.
     const getOptionButtons = () => Array.from(
-        picker?.querySelectorAll(".lora-trigger-preset-option")
-        || element.querySelectorAll(".lora-trigger-preset-option"),
+        pickerPopover?.querySelectorAll(".lora-trigger-preset-option") || [],
     );
 
     const existingItem = getSelectionItem();
@@ -132,6 +133,7 @@ export function setupLoraPresetControls(
                 ? Boolean(presetName) && selectedPresetNames.includes(presetName)
                 : presetName === (selectedPresetNames[0] || "");
             option.classList.toggle("selected", isSelected);
+            option.setAttribute("aria-pressed", String(isSelected));
         });
     };
 
@@ -167,12 +169,19 @@ export function setupLoraPresetControls(
                 }
                 delete item.stack_trigger_presets;
             }
-            updateSelection?.();
+            // Reflect the choice before persistence/rerender callbacks. A host API
+            // compatibility error must not leave the picker looking unchanged.
+            syncPresetPickerUi(normalized, stacking);
+            try {
+                updateSelection?.();
+            } catch (error) {
+                console.error("LocalLoraGallery: Failed to persist trigger preset selection", error);
+            }
             onPresetApplied?.({ item, selectedPresets: normalized, stacking });
         } else {
             console.warn("LocalLoraGallery: Could not find selection item for trigger preset", loraName);
+            syncPresetPickerUi(normalized, stacking);
         }
-        syncPresetPickerUi(normalized, stacking);
     };
 
     presetSelect.addEventListener("click", (event) => event.stopPropagation());

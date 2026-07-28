@@ -1,4 +1,6 @@
 import {
+    bindPromptPreviewVideo,
+    buildPromptPreviewMediaHtml,
     clampActiveSidebarWidth as clampActiveSidebarWidthToBounds,
     createPinnedManagedControlsHtml,
     createPromptActionButton,
@@ -6,7 +8,7 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
-} from "./helpers.js?v=workflow-edit-icon-20260723-1";
+} from "./helpers.js?v=workflow-edit-icon-20260723-1&media=prompt-video-20260726-1";
 import { escapeHtml } from "../shared/dom.js";
 
 export function getActiveSidebarWidth({ nodeInstance }) {
@@ -428,9 +430,8 @@ export async function renderActiveSidebar({
         if (displayMode === "thumbnails") {
             const safeName = escapeHtml(prompt.name || "");
             const safeCategory = escapeHtml(prompt.category || "");
-            const previewHtml = prompt.preview_url
-                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
-                : `
+            const previewMediaHtml = buildPromptPreviewMediaHtml(prompt);
+            const previewHtml = previewMediaHtml || `
                     <div class="managed-thumb-placeholder">
                         <div class="managed-placeholder-icon">#</div>
                         ${safeCategory ? `<div class="managed-placeholder-category">${safeCategory}</div>` : ""}
@@ -438,7 +439,7 @@ export async function renderActiveSidebar({
                     </div>
                 `;
             chip = document.createElement("div");
-            chip.className = `localprompt-chip-thumb selected pinned-managed${prompt.preview_url ? "" : " no-thumb"}`;
+            chip.className = `localprompt-chip-thumb selected pinned-managed${previewMediaHtml ? "" : " no-thumb"}`;
             chip.innerHTML = `
                 ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                 <div class="managed-thumb-media" tabindex="-1">
@@ -447,16 +448,15 @@ export async function renderActiveSidebar({
                 </div>
                 ${createPinnedManagedControlsHtml(selectedEntry)}
             `;
-            const chipImage = chip.querySelector("img");
-            if (chipImage) chipImage.draggable = false;
+            const chipMedia = chip.querySelector("img, video");
+            if (chipMedia) chipMedia.draggable = false;
         } else {
             const safeName = escapeHtml(prompt.name || "");
             const safeCategory = escapeHtml(prompt.category || "");
             const { weight, isOn } = getManagedPromptState(selectedEntry);
             const formattedWeight = formatWeight(weight);
-            const previewHtml = prompt.preview_url
-                ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
-                : `<div class="localprompt-active-row-thumb-placeholder">${safeCategory || "#"}</div>`;
+            const previewHtml = buildPromptPreviewMediaHtml(prompt)
+                || `<div class="localprompt-active-row-thumb-placeholder">${safeCategory || "#"}</div>`;
             chip = document.createElement("div");
             chip.className = "localprompt-active-row selected";
             chip.innerHTML = `
@@ -472,10 +472,11 @@ export async function renderActiveSidebar({
                     </div>
                 </div>
             `;
-            const rowImage = chip.querySelector("img");
-            if (rowImage) rowImage.draggable = false;
+            const rowMedia = chip.querySelector("img, video");
+            if (rowMedia) rowMedia.draggable = false;
         }
 
+        bindPromptPreviewVideo(chip);
         chip.draggable = false;
         chip.dataset.promptId = promptId;
         applyCategoryRoleStyling(chip, prompt, { soften: true });

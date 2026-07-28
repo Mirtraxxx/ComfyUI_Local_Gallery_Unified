@@ -90,7 +90,7 @@ export async function showAddPromptDialog({
 
                 if (result.status === "ok") {
                     nodeInstance.uiPrefs.last_created_category = category;
-                    await galleryNode.saveUiPrefs(nodeInstance.uiPrefs);
+                    await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
 
                     overlay.remove();
                     await loadCategories();
@@ -725,7 +725,7 @@ export async function showFromLastOutputDialog({
         const mode = nameDefaultSelect.value === "blank" ? "blank" : "time";
         nodeInstance.uiPrefs.from_last_output_name_default = mode;
         nameInput.value = mode === "blank" ? "" : timeCardName;
-        galleryNode.saveUiPrefs(nodeInstance.uiPrefs).catch(error => {
+        galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance).catch(error => {
             console.warn("LocalPromptGallery: Failed to save from last output name default", error);
         });
     });
@@ -762,7 +762,7 @@ export async function showFromLastOutputDialog({
 
             nodeInstance.uiPrefs.last_created_category = category;
             nodeInstance.uiPrefs.from_last_output_name_default = nameDefaultSelect.value === "blank" ? "blank" : "time";
-            galleryNode.saveUiPrefs(nodeInstance.uiPrefs).catch(error => {
+            galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance).catch(error => {
                 console.warn("LocalPromptGallery: Failed to save last created category", error);
             });
 

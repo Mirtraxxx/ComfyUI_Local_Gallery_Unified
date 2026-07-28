@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-insights-20260722-13";
+import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-compact-align-20260727-3";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -7,7 +7,7 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=from-last-output-new-category-20260724-1";
+} from "./dialogs.js?v=from-last-output-new-category-20260724-1&profile=workflow-v1-20260725-1";
 import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator

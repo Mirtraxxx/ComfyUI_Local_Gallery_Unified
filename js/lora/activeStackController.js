@@ -1,5 +1,5 @@
-import { buildSelectedLoraItemHtml } from "./renderers.js?v=repository-review-20260712";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-fix-20260724-1";
+import { buildSelectedLoraItemHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1";
+import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
 import { hydrateSelectedLoraInfo, swapSelectedLoras } from "./activeStackState.js";
 import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
 

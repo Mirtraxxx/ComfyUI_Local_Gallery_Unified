@@ -535,6 +535,63 @@ export function getLoraStyles(uniqueId) {
                         flex-shrink: 0;
                         overflow: visible;
                     }
+
+                    #${uniqueId} .lora-execution-controls {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        flex: 0 0 auto;
+                    }
+
+                    #${uniqueId} .lora-execution-mode-btn {
+                        height: 28px;
+                        min-width: 68px;
+                        padding: 0 10px;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 6px;
+                        background: #181c20;
+                        color: #d9dde0;
+                        font-size: 11px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    }
+
+                    #${uniqueId} .lora-execution-mode-btn.compare {
+                        border-color: rgba(184, 135, 99, 0.72);
+                        background: #302923;
+                        color: #f0d4bd;
+                    }
+
+                    #${uniqueId} .lora-compare-strengths-control {
+                        height: 28px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 5px;
+                        padding: 0 7px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        border-radius: 6px;
+                        background: rgba(0, 0, 0, 0.16);
+                        color: #aeb5b9;
+                        font-size: 10px;
+                    }
+
+                    #${uniqueId} .lora-compare-strengths-control[hidden] {
+                        display: none;
+                    }
+
+                    #${uniqueId} .lora-compare-strengths-input {
+                        width: 82px;
+                        min-width: 0;
+                        height: 20px;
+                        padding: 1px 5px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.14);
+                        border-radius: 4px;
+                        background: #111416;
+                        color: #eceff1;
+                        font-size: 10px;
+                    }
                     
                     #${uniqueId} .lora-action-btn {
                         position: relative;
@@ -1578,13 +1635,14 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-trigger-preset-option {
+                        position: relative;
                         width: 100%;
                         min-width: 0;
                         display: grid;
                         grid-template-columns: minmax(72px, 0.65fr) minmax(0, 1fr);
                         gap: 8px;
                         align-items: center;
-                        padding: 6px 7px;
+                        padding: 6px 27px 6px 7px;
                         border: 1px solid transparent;
                         border-radius: 7px;
                         background: transparent;
@@ -1598,9 +1656,20 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-trigger-preset-option.selected {
-                        background: rgba(16, 199, 145, 0.18);
-                        border-color: rgba(67, 231, 182, 0.42);
+                        background: rgba(16, 199, 145, 0.3);
+                        border-color: rgba(67, 231, 182, 0.78);
                         color: #fff;
+                    }
+
+                    #${uniqueId} .lora-trigger-preset-option.selected::after {
+                        content: "✓";
+                        position: absolute;
+                        right: 8px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: #76f0c8;
+                        font-size: 13px;
+                        font-weight: 900;
                     }
                     
                     #${uniqueId} .lora-trigger-preset-option-name,
@@ -1702,13 +1771,14 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     .lora-trigger-preset-popover-portal .lora-trigger-preset-option {
+                        position: relative;
                         width: 100%;
                         min-width: 0;
                         display: grid;
                         grid-template-columns: minmax(72px, 0.65fr) minmax(0, 1fr);
                         gap: 8px;
                         align-items: center;
-                        padding: 6px 7px;
+                        padding: 6px 27px 6px 7px;
                         border: 1px solid transparent;
                         border-radius: 7px;
                         background: transparent;
@@ -1728,9 +1798,20 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     .lora-trigger-preset-popover-portal .lora-trigger-preset-option.selected {
-                        background: rgba(16, 199, 145, 0.18);
-                        border-color: rgba(67, 231, 182, 0.42);
+                        background: rgba(16, 199, 145, 0.3);
+                        border-color: rgba(67, 231, 182, 0.78);
                         color: #fff;
+                    }
+
+                    .lora-trigger-preset-popover-portal .lora-trigger-preset-option.selected::after {
+                        content: "✓";
+                        position: absolute;
+                        right: 8px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: #76f0c8;
+                        font-size: 13px;
+                        font-weight: 900;
                     }
 
                     .lora-trigger-preset-popover-portal .lora-trigger-preset-option-name,

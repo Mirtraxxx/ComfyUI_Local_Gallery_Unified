@@ -14,6 +14,8 @@ except ImportError:
 class LocalGalleryPromptLora:
     _LORA_CACHE_KEY = None
     _LORA_CACHE_VALUE = None
+    _LORA_COMPARE_CACHE_KEY = None
+    _LORA_COMPARE_CACHE_VALUE = None
 
     @staticmethod
     def _has_wildcard_categories(wildcard_categories):
@@ -47,8 +49,9 @@ class LocalGalleryPromptLora:
             },
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING")
-    RETURN_NAMES = ("MODEL", "CLIP", "lora_trigger_words", "combined_prompt")
+    RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("MODEL", "CLIP", "lora_trigger_words", "combined_prompt", "lora_variant_metadata")
+    OUTPUT_IS_LIST = (True, True, True, False, True)
     FUNCTION = "process"
     CATEGORY = "Asset Gallery"
 
@@ -79,6 +82,20 @@ class LocalGalleryPromptLora:
                 pass
         return ""
 
+    @staticmethod
+    def _get_lora_execution_options(lora_selection_data, mode="stack", strengths="1.0"):
+        try:
+            parsed = json.loads(lora_selection_data or "[]") if isinstance(lora_selection_data, str) else None
+        except (TypeError, ValueError, json.JSONDecodeError):
+            parsed = None
+        execution = parsed.get("execution") if isinstance(parsed, dict) else None
+        if isinstance(execution, dict):
+            mode = execution.get("mode", mode)
+            strengths = execution.get("strengths", strengths)
+        normalized_mode = "compare" if str(mode or "").strip().lower() == "compare" else "stack"
+        normalized_strengths = str(strengths or "1.0").strip() or "1.0"
+        return normalized_mode, normalized_strengths
+
     @classmethod
     def _get_cached_lora_outputs(cls, model, clip, lora_cls, lora_selection_data):
         lora_signature = cls._get_lora_model_signature(lora_cls, lora_selection_data)
@@ -99,12 +116,38 @@ class LocalGalleryPromptLora:
         return model_out, clip_out, lora_trigger_words
 
     @classmethod
+    def _get_cached_lora_compare_outputs(
+        cls,
+        model,
+        clip,
+        lora_cls,
+        lora_selection_data,
+        lora_compare_strengths,
+    ):
+        lora_signature = cls._get_lora_change_signature(lora_cls, lora_selection_data)
+        cache_key = (id(model), id(clip), lora_signature, str(lora_compare_strengths or "1.0"))
+        if cls._LORA_COMPARE_CACHE_KEY == cache_key and cls._LORA_COMPARE_CACHE_VALUE is not None:
+            return cls._LORA_COMPARE_CACHE_VALUE
+
+        outputs = lora_cls().load_loras_independently(
+            model,
+            clip,
+            lora_selection_data or "[]",
+            lora_compare_strengths or "1.0",
+        )
+        cls._LORA_COMPARE_CACHE_KEY = cache_key
+        cls._LORA_COMPARE_CACHE_VALUE = outputs
+        return outputs
+
+    @classmethod
     def IS_CHANGED(
         cls,
         model,
         clip,
         seed=0,
         lora_selection_data="[]",
+        lora_execution_mode="stack",
+        lora_compare_strengths="1.0",
         prompt_selection_data="[]",
         prompt_meta_tags="[]",
         wildcard_categories="",
@@ -115,12 +158,19 @@ class LocalGalleryPromptLora:
         active_tab="prompt",
         **kwargs,
     ):
+        lora_execution_mode, lora_compare_strengths = cls._get_lora_execution_options(
+            lora_selection_data,
+            lora_execution_mode,
+            lora_compare_strengths,
+        )
         lora_changed = cls._get_lora_change_signature(LocalLoraGallery, lora_selection_data)
         uses_wildcards = (wildcard_mode or "off") != "off" and cls._has_wildcard_categories(wildcard_categories)
 
         return json.dumps(
             {
                 "lora": lora_changed,
+                "lora_execution_mode": lora_execution_mode,
+                "lora_compare_strengths": lora_compare_strengths,
                 "prompt": prompt_selection_data,
                 "prompt_meta_tags": prompt_meta_tags,
                 "wildcard_categories": wildcard_categories,
@@ -164,6 +214,8 @@ class LocalGalleryPromptLora:
         clip,
         seed=0,
         lora_selection_data="[]",
+        lora_execution_mode="stack",
+        lora_compare_strengths="1.0",
         prompt_selection_data="[]",
         prompt_meta_tags="[]",
         wildcard_categories="",
@@ -176,12 +228,30 @@ class LocalGalleryPromptLora:
     ):
         prompt_node = LocalPromptGallery()
 
-        model_out, clip_out, lora_trigger_words = self._get_cached_lora_outputs(
-            model,
-            clip,
-            LocalLoraGallery,
-            lora_selection_data or "[]",
+        execution_mode, lora_compare_strengths = self._get_lora_execution_options(
+            lora_selection_data,
+            lora_execution_mode,
+            lora_compare_strengths,
         )
+        if execution_mode == "compare":
+            models_out, clips_out, trigger_words_out, variant_metadata = self._get_cached_lora_compare_outputs(
+                model,
+                clip,
+                LocalLoraGallery,
+                lora_selection_data or "[]",
+                lora_compare_strengths or "1.0",
+            )
+        else:
+            model_out, clip_out, lora_trigger_words = self._get_cached_lora_outputs(
+                model,
+                clip,
+                LocalLoraGallery,
+                lora_selection_data or "[]",
+            )
+            models_out = [model_out]
+            clips_out = [clip_out]
+            trigger_words_out = [lora_trigger_words]
+            variant_metadata = ["stack"]
 
         prompt_result = prompt_node.process(
             seed=seed,
@@ -211,7 +281,7 @@ class LocalGalleryPromptLora:
                 "text": [combined_prompt],
                 "wildcard_prompt_ids": list(dict.fromkeys(wildcard_prompt_ids)),
             },
-            "result": (model_out, clip_out, lora_trigger_words, combined_prompt),
+            "result": (models_out, clips_out, trigger_words_out, combined_prompt, variant_metadata),
         }
 
 

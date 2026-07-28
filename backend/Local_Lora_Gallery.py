@@ -916,6 +916,96 @@ class LocalLoraGallery(BaseLoraGallery):
     FUNCTION = "load_loras"
     CATEGORY = "📜Asset Gallery/Loras"
 
+    @staticmethod
+    def _parse_compare_strengths(strengths):
+        if isinstance(strengths, (list, tuple)):
+            raw_values = strengths
+        else:
+            raw_values = str(strengths or "").split(",")
+
+        parsed = []
+        for value in raw_values:
+            text = str(value).strip()
+            if not text:
+                continue
+            try:
+                strength = float(text)
+            except (TypeError, ValueError):
+                continue
+            if strength != strength or strength in (float("inf"), float("-inf")):
+                continue
+            parsed.append(strength)
+        return parsed or [1.0]
+
+    def load_loras_independently(self, model, clip, selection_data="[]", strengths="1.0"):
+        """Build independent base-model variants for every enabled LoRA/strength pair."""
+        lora_configs = self._parse_selection_data(selection_data)
+        compare_strengths = self._parse_compare_strengths(strengths)
+        all_metadata = load_execution_metadata()
+        nunchaku_model_type = self._get_nunchaku_model_type(model)
+
+        if nunchaku_model_type == 'flux':
+            loader_instance = NunchakuFluxLoraLoader()
+            print("LocalLoraGallery: Using NunchakuFluxLoraLoader for comparison.")
+        elif nunchaku_model_type == 'qwen':
+            loader_instance = NunchakuQwenLoraLoader()
+            print("LocalLoraGallery: Using NunchakuQwenImageLoraLoader for comparison.")
+        else:
+            loader_instance = LoraLoader()
+            print("LocalLoraGallery: Using standard LoraLoader for comparison.")
+
+        models_output = []
+        clips_output = []
+        trigger_words_output = []
+        metadata_output = []
+        enabled_count = 0
+
+        for config in lora_configs:
+            if not isinstance(config, dict) or not config.get('on', True) or not config.get('lora'):
+                continue
+
+            enabled_count += 1
+            lora_name = config['lora']
+            lora_full_path = folder_paths.get_full_path("loras", lora_name)
+            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+            if metadata_changed:
+                save_metadata(all_metadata)
+            triggers = self._get_trigger_words_for_config(lora_meta, config)
+            metadata_name = os.path.splitext(os.path.basename(lora_name))[0]
+
+            for strength in compare_strengths:
+                try:
+                    # Every variant deliberately starts from the original inputs.
+                    if nunchaku_model_type in ['flux', 'qwen']:
+                        (variant_model,) = loader_instance.load_lora(model, lora_name, strength)
+                        variant_clip = clip
+                    else:
+                        variant_model, variant_clip = loader_instance.load_lora(
+                            model,
+                            clip,
+                            lora_name,
+                            strength,
+                            strength,
+                        )
+
+                    models_output.append(variant_model)
+                    clips_output.append(variant_clip)
+                    trigger_words_output.append(triggers)
+                    metadata_output.append(f"{metadata_name}_strength_{strength:g}")
+                except Exception as e:
+                    print(
+                        f"LocalLoraGallery: Failed comparison variant "
+                        f"'{lora_name}' at strength {strength:g}: {e}"
+                    )
+
+        if not models_output:
+            if enabled_count:
+                raise ValueError("LocalLoraGallery: No LoRA comparison variants could be loaded.")
+            return ([model], [clip], [""], ["base_model"])
+
+        print(f"LocalLoraGallery: Built {len(models_output)} independent comparison variants.")
+        return (models_output, clips_output, trigger_words_output, metadata_output)
+
     def load_loras(self, model, clip, unique_id, selection_data="[]", **kwargs):
         lora_configs = self._parse_selection_data(selection_data)
 

@@ -338,22 +338,45 @@ export function createPromptActionButton({
 
 export function buildPromptPreviewMediaHtml(prompt, { wrapperClass = "", noPreviewText = "", autoplay = false } = {}) {
     if (prompt?.preview_type === "image" && prompt.preview_url) {
-        const imageHtml = `<img src="${escapeHtml(prompt.preview_url)}" alt="${escapeHtml(prompt.name || "")}">`;
+        const imageHtml = `<img src="${escapeHtml(prompt.preview_url)}" alt="${escapeHtml(prompt.name || "")}" loading="lazy" decoding="async">`;
         return wrapperClass ? `<div class="${wrapperClass}">${imageHtml}</div>` : imageHtml;
     }
 
     if (prompt?.preview_type === "video" && prompt.preview_url) {
         const autoplayAttrs = autoplay ? " autoplay" : "";
-        const videoHtml = `<video src="${escapeHtml(prompt.preview_url)}" loop muted${autoplayAttrs}></video>`;
+        const videoHtml = `<video src="${escapeHtml(prompt.preview_url)}" loop muted playsinline preload="metadata"${autoplayAttrs} aria-label="${escapeHtml(prompt.name || "")}"></video>`;
         return wrapperClass ? `<div class="${wrapperClass}">${videoHtml}</div>` : videoHtml;
     }
 
     return wrapperClass ? `<div class="${wrapperClass} no-preview">${noPreviewText}</div>` : "";
 }
 
+export function bindPromptPreviewVideo(element) {
+    const video = element?.querySelector?.("video");
+    if (!video) return;
+
+    const play = () => {
+        const playResult = video.play();
+        playResult?.catch?.(() => {});
+    };
+    const reset = () => {
+        video.pause();
+        try {
+            video.currentTime = 0;
+        } catch {
+            // Some browsers reject seeking until video metadata is available.
+        }
+    };
+
+    element.addEventListener("mouseenter", play);
+    element.addEventListener("mouseleave", reset);
+    element.addEventListener("focusin", play);
+    element.addEventListener("focusout", reset);
+}
+
 export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
     const mediaHtml = prompt?.preview_url && prompt?.preview_type
-        ? `<button class="preview-media-button${prompt.preview_type === "image" ? " image-preview" : ""}" type="button" data-preview-action="expand-image" title="Expand image">${buildPromptPreviewMediaHtml(prompt, { autoplay: true })}</button>`
+        ? `<button class="preview-media-button${prompt.preview_type === "image" ? " image-preview" : ""}" type="button" data-preview-action="expand-image" title="Expand ${prompt.preview_type === "video" ? "video" : "image"}">${buildPromptPreviewMediaHtml(prompt, { autoplay: true })}</button>`
         : "";
     const previewPills = [];
     if (prompt.category) {

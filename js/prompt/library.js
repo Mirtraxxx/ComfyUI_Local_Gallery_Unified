@@ -1,9 +1,11 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import {
+    bindPromptPreviewVideo,
+    buildPromptPreviewMediaHtml,
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     createPromptActionButton,
-} from "./helpers.js?v=unified-icons-20260606";
+} from "./helpers.js?v=unified-icons-20260606&media=prompt-video-20260726-1";
 import { escapeHtml } from "../shared/dom.js";
 
 // Product term: Prompt Builder. Historical code names still use "library"
@@ -434,9 +436,9 @@ export async function renderPromptBuilderDrawer({
         const isGlobalPinned = prompt.favorite;
         const selectedEntry = isSelected ? getSelectedPromptEntry(prompt.id) : null;
         const safeName = escapeHtml(prompt.name || "");
-        const safePreviewUrl = escapeHtml(prompt.preview_url || "");
+        const previewMediaHtml = buildPromptPreviewMediaHtml(prompt);
 
-        if (displayMode === "thumbnails" && prompt.preview_url) {
+        if (displayMode === "thumbnails" && previewMediaHtml) {
             chip = document.createElement("div");
             chip.className = `localprompt-chip-thumb ${isSelected ? "selected" : ""}`;
 
@@ -451,7 +453,7 @@ export async function renderPromptBuilderDrawer({
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
                     <div class="managed-thumb-media">
-                        <img src="${safePreviewUrl}" alt="${safeName}" loading="lazy" decoding="async">
+                        ${previewMediaHtml}
                     </div>
                     ${createPinnedManagedControlsHtml(selectedEntry)}
                     <span class="thumb-label">${safeName}</span>
@@ -459,13 +461,14 @@ export async function renderPromptBuilderDrawer({
             } else {
                 content += `
                     ${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })}
-                    <img src="${safePreviewUrl}" alt="${safeName}" loading="lazy" decoding="async">
+                    ${previewMediaHtml}
                     <span class="thumb-label">${safeName}</span>
                 `;
             }
             chip.innerHTML = content;
-            const chipImage = chip.querySelector("img");
-            if (chipImage) chipImage.draggable = false;
+            const chipMedia = chip.querySelector("img, video");
+            if (chipMedia) chipMedia.draggable = false;
+            bindPromptPreviewVideo(chip);
             applyCategoryRoleStyling(chip, prompt, { soften: isSelected });
             chip.removeAttribute("title");
         } else {

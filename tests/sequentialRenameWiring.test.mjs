@@ -7,7 +7,7 @@ const promptApiUrl = new URL("../js/api/promptApi.js", import.meta.url);
 const promptUiUrl = new URL("../js/prompt/ui.js", import.meta.url);
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
 
-test("Card Insights management exposes an explicit sequential rename action", async () => {
+test("Card Manager selection mode exposes an explicit sequential rename action", async () => {
     const [backend, api, ui, browse] = await Promise.all([
         readFile(backendUrl, "utf8"),
         readFile(promptApiUrl, "utf8"),

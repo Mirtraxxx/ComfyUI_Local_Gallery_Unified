@@ -237,6 +237,7 @@ export async function showSettingsModal({
     savePinnedCategories = null,
     renderActiveSidebar = null,
     renderGallery = null,
+    getWorkflowProfileStatus = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -250,6 +251,14 @@ export async function showSettingsModal({
     } catch (error) {
         categoryLoadError = error;
     }
+    const workflowProfileStatus = typeof getWorkflowProfileStatus === "function"
+        ? getWorkflowProfileStatus()
+        : { version: 1, prompt: false, lora: false };
+    const profileParts = [
+        workflowProfileStatus.prompt ? "Prompt" : null,
+        workflowProfileStatus.lora ? "LoRA" : null,
+    ].filter(Boolean);
+    const profileCoverage = profileParts.length ? profileParts.join(" + ") : "initializing";
 
     root.innerHTML = `
         <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page localprompt-settings-page" : ""} localprompt-settings-modal">
@@ -261,6 +270,17 @@ export async function showSettingsModal({
                 ${isWorkspace ? "" : '<button class="localprompt-modal-close" type="button" title="Close settings" aria-label="Close settings">\u00d7</button>'}
             </div>
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"} localprompt-settings-body">
+                <section class="localprompt-settings-section localprompt-workflow-profile-section">
+                    <div class="localprompt-settings-section-heading">
+                        <h4>Workflow profile</h4>
+                        <p>Gallery layout and browsing preferences are stored inside this node. Copied workflows inherit the starting layout, then remain independent when saved.</p>
+                    </div>
+                    <div class="localprompt-workflow-profile-status">
+                        <span class="localprompt-workflow-profile-badge">Workflow local</span>
+                        <span>${escapeHtml(profileCoverage)} settings · profile v${Number(workflowProfileStatus.version) || 1}</span>
+                    </div>
+                </section>
+
                 <section class="localprompt-settings-section">
                     <div class="localprompt-settings-section-heading">
                         <h4>Prompt source</h4>
@@ -546,7 +566,7 @@ export async function showSettingsModal({
         saveButton.disabled = true;
         saveStatus.textContent = "Saving...";
         try {
-            await galleryNode.saveUiPrefs(newPrefs);
+            await galleryNode.saveUiPrefs(newPrefs, nodeInstance);
             nodeInstance.uiPrefs = newPrefs;
             if (typeof savePinnedCategories === "function") {
                 await savePinnedCategories(draftPinnedCategories);

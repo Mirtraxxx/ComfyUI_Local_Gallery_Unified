@@ -712,30 +712,57 @@ export function getPromptReferenceUxStyles() {
                 display: flex;
                 flex-direction: column;
                 align-items: stretch;
-                gap: 5px;
+                gap: 0;
+                box-sizing: border-box;
                 max-height: none;
-                margin-bottom: 6px;
-                padding: 0;
+                margin-bottom: 4px;
+                padding: 5px 6px;
                 overflow: visible;
-                background: transparent;
-                border: 0;
-                border-radius: 0;
-                box-shadow: none;
-                backdrop-filter: none;
+                background: rgba(10, 18, 24, 0.98);
+                border: 1px solid rgba(143, 177, 200, 0.17);
+                border-radius: 8px;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+                backdrop-filter: blur(12px);
             }
 
             .localprompt-browse-toolbar-row {
                 display: flex;
-                align-items: stretch;
+                align-items: center;
                 gap: 5px;
                 width: 100%;
                 min-width: 0;
             }
 
-            .localprompt-browse-toolbar-row-primary .localprompt-browse-search { flex: 1.2 1 140px; }
-            .localprompt-browse-toolbar-row-primary .localprompt-browse-select { flex: 1.7 1 180px; }
-            .localprompt-browse-toolbar-row-primary #browse-stats { flex: 0.45 1 62px; }
-            .localprompt-browse-toolbar-row-primary #browse-fullscreen-toggle { flex: 0.65 1 96px; }
+            .localprompt-browse-toolbar-row-primary {
+                min-height: 48px;
+                flex-wrap: nowrap;
+            }
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-search {
+                flex: 0 0 48px;
+                width: 48px;
+                height: 48px;
+                transition: flex-basis var(--ux-transition-fast), width var(--ux-transition-fast);
+            }
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-search:focus-within,
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-search:has(.localprompt-browse-input:not(:placeholder-shown)) {
+                flex-basis: 220px;
+                width: 220px;
+            }
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-select {
+                flex: 0 1 190px;
+                width: 190px;
+                min-width: 140px;
+                max-width: 220px;
+            }
+            .localprompt-browse-toolbar-row-primary .localprompt-browse-sort-select {
+                flex: 0 1 130px;
+                width: 130px;
+                min-width: 115px;
+                max-width: 150px;
+            }
+            .localprompt-browse-toolbar-row-primary #browse-manage-toggle { flex: 0 0 84px; }
+            .localprompt-browse-toolbar-row-primary #browse-stats { flex: 0 0 62px; }
+            .localprompt-browse-toolbar-row-primary #browse-fullscreen-toggle { flex: 0 0 116px; }
             .localprompt-browse-toolbar-row-actions {
                 align-items: center;
                 flex-wrap: wrap;
@@ -743,10 +770,6 @@ export function getPromptReferenceUxStyles() {
             .localprompt-browse-toolbar-row-actions .localprompt-browse-sort-select {
                 flex: 1 1 160px;
                 min-width: 140px;
-            }
-            .localprompt-browse-toolbar-row-actions #browse-manage-toggle {
-                flex: 0 0 auto;
-                min-width: 82px;
             }
             .localprompt-browse-category-actions {
                 display: inline-flex;
@@ -756,6 +779,7 @@ export function getPromptReferenceUxStyles() {
                 min-width: 0;
                 padding-left: 5px;
                 border-left: 1px solid rgba(143, 177, 200, 0.16);
+                margin-left: auto;
             }
 
             .localprompt-browse-search {
@@ -785,16 +809,26 @@ export function getPromptReferenceUxStyles() {
                 padding: 0 9px 0 46px !important;
                 line-height: 30px;
             }
+            .localprompt-browse-search:not(:focus-within):not(:has(.localprompt-browse-input:not(:placeholder-shown))) .localprompt-browse-input {
+                padding-right: 0 !important;
+                color: transparent;
+                caret-color: transparent;
+                cursor: pointer;
+            }
+            .localprompt-browse-search:not(:focus-within):not(:has(.localprompt-browse-input:not(:placeholder-shown))) .localprompt-browse-input::placeholder {
+                opacity: 0;
+            }
 
             .localprompt-browse-toolbar .localprompt-browse-input,
             .localprompt-browse-toolbar .localprompt-browse-select,
             .localprompt-browse-toolbar .localprompt-browse-sort-select {
                 width: 100%;
-                height: 32px !important;
-                min-height: 32px !important;
+                height: 48px !important;
+                min-height: 48px !important;
+                max-height: 48px !important;
                 box-sizing: border-box;
                 border-radius: 7px !important;
-                font-size: 10.5px !important;
+                font-size: 11px !important;
             }
 
             .localprompt-browse-toolbar .localprompt-browse-input {
@@ -813,20 +847,26 @@ export function getPromptReferenceUxStyles() {
                 align-items: center;
                 justify-content: center;
                 gap: 5px;
-                min-height: 32px;
-                padding: 4px 9px !important;
+                height: 48px !important;
+                min-height: 48px !important;
+                max-height: 48px !important;
+                box-sizing: border-box;
+                padding: 4px 10px !important;
                 color: #d7e1e7;
                 background: #0c1721;
                 border: 1px solid rgba(143, 177, 200, 0.17);
                 border-radius: 7px;
-                font-size: 10.5px;
+                font-size: 11px;
+                line-height: 1;
             }
 
             .localprompt-browse-toolbar-row .localprompt-browse-toolbar-btn {
                 width: auto;
-                min-height: 30px;
-                padding: 3px 8px !important;
-                font-size: 10px;
+                height: 48px !important;
+                min-height: 48px !important;
+                max-height: 48px !important;
+                padding: 4px 10px !important;
+                font-size: 11px;
             }
 
             .localprompt-browse-toolbar-btn svg {
@@ -857,15 +897,25 @@ export function getPromptReferenceUxStyles() {
                 align-items: center;
                 gap: 5px;
                 flex-wrap: wrap;
-                margin: 6px 0 8px;
+                margin: 4px 0 8px;
                 padding: 4px 6px;
                 position: sticky;
-                top: 74px;
+                top: 60px;
                 z-index: 39;
                 background: linear-gradient(135deg, rgba(25, 39, 48, 0.98), rgba(18, 30, 37, 0.98));
                 border: 1px solid rgba(88, 214, 106, 0.22);
                 border-radius: 7px;
                 box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+            }
+            .localprompt-bulk-toolbar[hidden] {
+                display: none !important;
+            }
+            .localprompt-bulk-context {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                flex: 1 1 260px;
+                min-width: 0;
             }
 
             .localprompt-bulk-summary {
@@ -941,11 +991,15 @@ export function getPromptReferenceUxStyles() {
             }
 
             .localprompt-bulk-status:not(:empty) {
-                flex: 1 0 100%;
+                flex: 0 1 auto;
                 min-height: 0;
-                padding: 1px 2px 0;
+                padding: 6px 7px;
                 color: #a9dfb5;
+                background: rgba(109, 197, 132, 0.07);
+                border-radius: 5px;
                 font-size: 10px;
+                line-height: 1.35;
+                white-space: nowrap;
             }
 
             .localprompt-browse-pagination-pill {
@@ -992,7 +1046,7 @@ export function getPromptReferenceUxStyles() {
                 .localprompt-library-choice:nth-child(2) { border-right: 0; }
                 .localprompt-library-choice:nth-child(-n+2) { border-bottom: 1px solid rgba(143,174,196,0.10); }
                 .localprompt-browse-toolbar-row { gap: 4px; }
-                .localprompt-bulk-toolbar { top: 74px; }
+                .localprompt-bulk-toolbar { top: 60px; }
             }
 
             @container (max-width: 620px) {
@@ -1018,17 +1072,44 @@ export function getPromptReferenceUxStyles() {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                 }
-                .localprompt-browse-toolbar-row-primary .localprompt-browse-search { grid-column: 1 / -1; }
-                .localprompt-browse-toolbar-row-actions #browse-category-actions {
+                .localprompt-browse-toolbar-row-primary {
+                    min-height: 0;
+                }
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-search {
+                    grid-column: 1 / -1;
+                    width: 100%;
+                }
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-select,
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-sort-select,
+                .localprompt-browse-toolbar-row-primary #browse-manage-toggle,
+                .localprompt-browse-toolbar-row-primary #browse-stats,
+                .localprompt-browse-toolbar-row-primary #browse-fullscreen-toggle {
+                    width: 100%;
+                    max-width: none;
+                }
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-search .localprompt-browse-input {
+                    color: inherit;
+                    caret-color: auto;
+                    cursor: text;
+                }
+                .localprompt-browse-toolbar-row-primary .localprompt-browse-search .localprompt-browse-input::placeholder {
+                    opacity: 1;
+                }
+                .localprompt-browse-toolbar-row-primary #browse-category-actions {
                     grid-column: 1 / -1;
                     justify-content: flex-start;
                     flex-wrap: wrap;
                     padding-left: 0;
                     border-left: 0;
+                    margin-left: 0;
                 }
                 .localprompt-bulk-toolbar {
                     position: static;
                     align-items: flex-start;
+                }
+                .localprompt-bulk-context {
+                    flex: 1 0 100%;
+                    flex-wrap: wrap;
                 }
                 .localprompt-bulk-action-group {
                     flex-wrap: wrap;

@@ -4,6 +4,10 @@ import { escapeHtml } from "../shared/dom.js";
 import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
 import {
+    readWorkflowProfileSection,
+    writeWorkflowProfileSection,
+} from "../shared/workflowProfile.js?v=workflow-profile-v1-20260725-1";
+import {
     LORA_DISPLAY_LIMITS,
     clampInteger,
     getLoraActiveCardControlScale,
@@ -13,17 +17,17 @@ import {
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
 } from "./displayState.js?v=active-card-controls-20260722";
-import { buildLoraCardHtml } from "./renderers.js?v=repository-review-20260712";
+import { buildLoraCardHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1";
 import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js?v=lora-stepped-browser-cards-20260724-1";
-import { createLoraActiveStackController } from "./activeStackController.js?v=lora-active-stack-20260721-1";
+import { createLoraActiveStackController } from "./activeStackController.js?v=lora-trigger-preset-feedback-20260726-2";
 import { createLoraMetadataController } from "./metadataEditor.js?v=repository-review-20260712";
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
 import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712";
 import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-fix-20260724-1";
-import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-fix-20260724-1";
+import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
+import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-trigger-preset-fix-20260724-1";
+import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4&compare=lora-compare-mode-20260727-1&profile=workflow-v1-20260725-1&preset=lora-trigger-preset-feedback-20260726-2";
 import { getLoraReferenceUxStyles } from "./referenceUx.js?v=folder-pull-tab-hover-20260724-1";
 
 export function createLoraGalleryLifecycle(app) {
@@ -189,6 +193,15 @@ const UnifiedLoraGalleryNode = {
                             </div>
                         </div>
                         <div class="locallora-bottom-bar">
+                            <div class="lora-execution-controls">
+                                <button class="lora-execution-mode-btn" type="button" data-mode="stack" title="Stack enabled LoRAs onto one model">
+                                    <span class="lora-execution-mode-label">Stack</span>
+                                </button>
+                                <label class="lora-compare-strengths-control" title="Comma-separated strengths used for every selected LoRA" hidden>
+                                    <span>Strengths</span>
+                                    <input class="lora-compare-strengths-input" type="text" value="1.0" placeholder="0.8, 1.0" spellcheck="false">
+                                </label>
+                            </div>
                             <div class="lora-search-anchor">
                                 <button class="lora-action-btn lora-search-btn" type="button" title="Search LoRAs by name" aria-label="Search LoRAs by name" aria-expanded="false" aria-controls="${uniqueId}-search-popover">
                                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
@@ -330,6 +343,10 @@ const UnifiedLoraGalleryNode = {
             const searchBtn = widgetContainer.querySelector(".lora-search-btn");
             const searchPopover = widgetContainer.querySelector(".lora-search-popover");
             const clearNameSearchBtn = widgetContainer.querySelector(".lora-search-clear-btn");
+            const executionModeBtn = widgetContainer.querySelector(".lora-execution-mode-btn");
+            const executionModeLabel = widgetContainer.querySelector(".lora-execution-mode-label");
+            const compareStrengthsControl = widgetContainer.querySelector(".lora-compare-strengths-control");
+            const compareStrengthsInput = widgetContainer.querySelector(".lora-compare-strengths-input");
             const getLoraChromeHeight = () => {
                 const controlsEl = widgetContainer.querySelector(".locallora-controls");
                 const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
@@ -339,6 +356,24 @@ const UnifiedLoraGalleryNode = {
                 this.loraUiState?.visible_pinned_folder_count,
             );
             const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
+            const syncExecutionControls = () => {
+                const mode = this.properties?.lora_execution_mode === "compare" ? "compare" : "stack";
+                const strengths = String(this.properties?.lora_compare_strengths || "1.0");
+                executionModeBtn.dataset.mode = mode;
+                executionModeBtn.classList.toggle("compare", mode === "compare");
+                executionModeBtn.title = mode === "compare"
+                    ? "Compare each enabled LoRA independently from the base model"
+                    : "Stack enabled LoRAs onto one model";
+                executionModeLabel.textContent = mode === "compare" ? "Compare" : "Stack";
+                compareStrengthsControl.hidden = mode !== "compare";
+                compareStrengthsInput.value = strengths;
+            };
+            const setExecutionProperty = (name, value) => {
+                if (!this.properties) this.properties = {};
+                this.properties[name] = value;
+                this.setProperty?.(name, value);
+                this.setDirtyCanvas(true, true);
+            };
             let browserCardLayoutFrame = null;
             let browserCardLayoutObserver = null;
 
@@ -380,11 +415,14 @@ const UnifiedLoraGalleryNode = {
                     ...getLoraDisplayState(),
                     ...extraState,
                 };
-                // Serialize writes from this node so a slow earlier request cannot
-                // overwrite a newer in-memory state on the backend.
+                // Serialize snapshots so rapid UI changes retain their order while
+                // the workflow change tracker observes one stable node property.
                 loraUiStateSaveChain = loraUiStateSaveChain
                     .catch(() => {})
-                    .then(() => UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, state));
+                    .then(() => {
+                        writeWorkflowProfileSection(this, "lora_ui", state);
+                        return { status: "ok", scope: "workflow" };
+                    });
                 return loraUiStateSaveChain;
             };
 
@@ -574,7 +612,12 @@ const UnifiedLoraGalleryNode = {
             renderFolderPills();
             const persistSelectionData = () => {
                 const serializableData = toSerializableLoraSelection(this.loraData);
-                const selectionJson = writeSelectionArray(serializableData);
+                const selectionEnvelope = JSON.parse(writeSelectionArray(serializableData));
+                selectionEnvelope.execution = {
+                    mode: this.properties?.lora_execution_mode === "compare" ? "compare" : "stack",
+                    strengths: String(this.properties?.lora_compare_strengths || "1.0"),
+                };
+                const selectionJson = JSON.stringify(selectionEnvelope);
                 this.setProperty("lora_selection_data", selectionJson);
                 if (this.properties) this.properties.lora_selection_data = selectionJson;
                 const widget = this.widgets.find(w => w.name === "lora_selection_data");
@@ -584,7 +627,12 @@ const UnifiedLoraGalleryNode = {
                     // so trigger presets chosen moments earlier are included.
                     widget.serializeValue = () => {
                         const live = toSerializableLoraSelection(this.loraData || []);
-                        const liveJson = writeSelectionArray(live);
+                        const liveEnvelope = JSON.parse(writeSelectionArray(live));
+                        liveEnvelope.execution = {
+                            mode: this.properties?.lora_execution_mode === "compare" ? "compare" : "stack",
+                            strengths: String(this.properties?.lora_compare_strengths || "1.0"),
+                        };
+                        const liveJson = JSON.stringify(liveEnvelope);
                         if (this.properties) this.properties.lora_selection_data = liveJson;
                         widget.value = liveJson;
                         return liveJson;
@@ -633,8 +681,8 @@ const UnifiedLoraGalleryNode = {
 
             const updateSelection = () => {
                 persistSelectionData();
-                app.graph.setDirty(true);
-                this.setDirtyCanvas(true, true);
+                app.graph?.change?.();
+                this.setDirtyCanvas?.(true, true);
             };
 
             let selectionSyncFrame = null;
@@ -1135,13 +1183,26 @@ const UnifiedLoraGalleryNode = {
                 };
 
                 try {
+                    const savedSelection = JSON.parse(this.properties.lora_selection_data || "[]");
+                    const savedExecution = savedSelection && !Array.isArray(savedSelection)
+                        ? savedSelection.execution
+                        : null;
+                    if (savedExecution && typeof savedExecution === "object") {
+                        this.properties.lora_execution_mode = savedExecution.mode === "compare" ? "compare" : "stack";
+                        this.properties.lora_compare_strengths = String(savedExecution.strengths || "1.0");
+                    }
                     this.loraData = readSelectionArray(this.properties.lora_selection_data, []);
                 } catch (e) {
                     console.warn("LocalLoraGallery: Failed to parse lora_selection_data, resetting.", e);
                 }
 
                 try {
-                    const loadedState = await loraApi.getUiState(this.id, this.properties.lora_gallery_unique_id);
+                    let loadedState = readWorkflowProfileSection(this, "lora_ui");
+                    if (!loadedState) {
+                        // One-time compatibility migration for workflows saved
+                        // before UI profiles lived inside the node.
+                        loadedState = await loraApi.getUiState(this.id, this.properties.lora_gallery_unique_id);
+                    }
                     if (loadedState) {
                         if (loadedState.folder_colors && typeof loadedState.folder_colors !== "object") {
                             loadedState.folder_colors = {};
@@ -1163,7 +1224,9 @@ const UnifiedLoraGalleryNode = {
                 }
                 initialState.is_collapsed = false;
                 this.loraUiState = { ...initialState };
+                writeWorkflowProfileSection(this, "lora_ui", this.loraUiState);
                 applyLoraDisplayState();
+                syncExecutionControls();
 
                 persistSelectionData();
 
@@ -1214,6 +1277,20 @@ const UnifiedLoraGalleryNode = {
             this.expandedHeight = this.size[1];
 
             const bindEventListeners = () => {
+                executionModeBtn?.addEventListener("click", () => {
+                    const nextMode = executionModeBtn.dataset.mode === "compare" ? "stack" : "compare";
+                    setExecutionProperty("lora_execution_mode", nextMode);
+                    persistSelectionData();
+                    syncExecutionControls();
+                });
+
+                compareStrengthsInput?.addEventListener("change", () => {
+                    const strengths = compareStrengthsInput.value.trim() || "1.0";
+                    setExecutionProperty("lora_compare_strengths", strengths);
+                    persistSelectionData();
+                    compareStrengthsInput.value = strengths;
+                });
+
                 globalListeners.listen(document, "keydown", (e) => {
                     if (e.key === "Escape") {
                         if (this.selectedLoraNamesForEditing.size > 0) {
@@ -1574,9 +1651,7 @@ const UnifiedLoraGalleryNode = {
                         toggleGalleryBtn.textContent = "Hide Gallery";
                     }
                     
-                    UnifiedLoraGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, {
-                        is_collapsed: isCollapsing
-                    });
+                    persistLoraUiState({ is_collapsed: isCollapsing });
                 });
 
                 widgetContainer.querySelector(".toggle-all-btn").addEventListener("click", () => {
