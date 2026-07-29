@@ -279,6 +279,72 @@ export function getPromptReferenceUxStyles() {
                 background: transparent;
             }
 
+            .localprompt-library-shell-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex: 0 0 auto;
+                min-height: 48px;
+                padding: 7px 12px 7px 15px;
+                box-sizing: border-box;
+                background: rgba(12, 17, 20, 0.96);
+                border-bottom: 1px solid var(--ux-line);
+            }
+
+            .localprompt-library-shell-brand {
+                display: grid;
+                min-width: 0;
+                gap: 1px;
+            }
+
+            .localprompt-library-shell-brand strong {
+                overflow: hidden;
+                color: #eef3ed;
+                font-size: 14px;
+                font-weight: 650;
+                letter-spacing: -0.01em;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .localprompt-library-shell-brand span {
+                overflow: hidden;
+                color: #929c94;
+                font-size: 9px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .localprompt-library-shell-close {
+                flex: 0 0 auto;
+                min-height: 30px;
+                padding: 5px 10px;
+                color: #cbd1ca;
+                background: #242924;
+                border: 1px solid #3b423a;
+                border-radius: 5px;
+                cursor: pointer;
+                font-family: inherit;
+                font-size: 10px;
+                font-weight: 600;
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+
+            .localprompt-library-shell-close:hover {
+                color: #eef3ed;
+                background: #30362f;
+                border-color: #525b50;
+            }
+
+            .localprompt-library-shell-close:active {
+                transform: translateY(1px);
+            }
+
+            .localprompt-library-shell-close:focus-visible {
+                outline: 2px solid #76c988;
+                outline-offset: 2px;
+            }
+
             .localprompt-library-shell-content > .localprompt-workspace-panel,
             .localprompt-library-shell .localprompt-workspace-page,
             .localprompt-library-shell .localprompt-modal.localprompt-workspace-page {
@@ -1058,6 +1124,8 @@ export function getPromptReferenceUxStyles() {
                 .localprompt-favorite-toggle-btn,
                 .localprompt-bottom-bar .localprompt-icon-btn { width: 34px; height: 32px; min-width: 34px; }
                 .localprompt-workspace-header { min-height: 62px; padding: 12px 15px 8px; }
+                .localprompt-library-shell-header { padding-inline: 10px; }
+                .localprompt-library-shell-brand span { display: none; }
                 .localprompt-library-subnav { padding: 0 6px; }
                 .localprompt-library-subnav-item { min-width: 78px; padding-inline: 10px; font-size: 11px; }
                 .localprompt-library-shell .localprompt-workspace-body { padding: 15px 12px 22px; }

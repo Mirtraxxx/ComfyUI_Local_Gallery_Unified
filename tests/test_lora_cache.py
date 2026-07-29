@@ -1,4 +1,6 @@
 import importlib
+import base64
+import json
 import os
 import sys
 import tempfile
@@ -86,12 +88,18 @@ class LoraInventoryCacheTests(unittest.TestCase):
             lora_path = os.path.join(lora_directory, "example.safetensors")
             old_preview_path = os.path.join(lora_directory, "example.jpg")
             new_output_path = os.path.join(output_directory, "latest.png")
+            manager_metadata_path = os.path.join(lora_directory, "example.metadata.json")
             with open(lora_path, "wb") as handle:
                 handle.write(b"lora")
             with open(old_preview_path, "wb") as handle:
                 handle.write(b"old preview")
             with open(new_output_path, "wb") as handle:
-                handle.write(b"new preview")
+                handle.write(base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+                    "YAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                ))
+            with open(manager_metadata_path, "w", encoding="utf-8") as handle:
+                json.dump({"preview_url": old_preview_path.replace(os.sep, "/")}, handle)
 
             with patch.object(self.backend.folder_paths, "get_full_path", return_value=lora_path), \
                  patch.object(self.backend.folder_paths, "get_output_directory", return_value=output_directory, create=True), \
@@ -101,12 +109,18 @@ class LoraInventoryCacheTests(unittest.TestCase):
                     "latest.png",
                 )
 
-            new_preview_path = os.path.join(lora_directory, "example.png")
+            new_preview_path = os.path.join(lora_directory, "example.webp")
             self.assertEqual(preview_type, "image")
             self.assertIn("/localgalleryunified/lora/preview?", preview_url)
-            with open(new_preview_path, "rb") as handle:
-                self.assertEqual(handle.read(), b"new preview")
+            with self.backend.Image.open(new_preview_path) as image:
+                self.assertEqual(image.format, "WEBP")
             self.assertFalse(os.path.exists(old_preview_path))
+            with open(manager_metadata_path, "r", encoding="utf-8") as handle:
+                manager_metadata = json.load(handle)
+            self.assertEqual(
+                manager_metadata["preview_url"],
+                os.path.abspath(new_preview_path).replace(os.sep, "/"),
+            )
             backup_names = os.listdir(backup_directory)
             self.assertEqual(len(backup_names), 1)
             self.assertTrue(backup_names[0].endswith("-example.jpg"))

@@ -194,13 +194,12 @@ export async function showPresetsModal({
     const { root, close, isWorkspace } = surface;
     root.innerHTML = `
         <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 450px;">
-            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}">
+            ${isWorkspace ? "" : `<div class="localprompt-modal-header">
                 <div class="localprompt-workspace-title">
                     <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--preset" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg></span>Presets <span class="localprompt-title-status" aria-hidden="true"></span></h3>
-                    ${isWorkspace ? "<p>Save, load, edit, and create prompt preset stacks.</p>" : ""}
                 </div>
-                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-            </div>
+                <button class="localprompt-modal-close" title="Close">x</button>
+            </div>`}
             ${isWorkspace ? librarySubnavHtml : ""}
             <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
                 <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-preset-management" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">

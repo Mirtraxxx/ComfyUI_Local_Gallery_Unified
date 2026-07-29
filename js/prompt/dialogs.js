@@ -324,13 +324,12 @@ export async function showExportDialog({
     });
 
     dialog.innerHTML = `
-         <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
+         ${isWorkspace ? "" : `<div class="localprompt-modal-header" style="margin: -20px -20px 16px;">
              <div class="localprompt-workspace-title">
                  <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--export" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg></span>Export TXT</h3>
-                 ${isWorkspace ? "<p>Export a category to a ComfyUI wildcard .txt file.</p>" : ""}
              </div>
-             ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-         </div>
+             <button class="localprompt-modal-close" title="Close">x</button>
+         </div>`}
          ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
              <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-export-form" style="margin-bottom: 12px;">
@@ -469,13 +468,12 @@ export async function showImportDialog({
     });
 
     dialog.innerHTML = `
-         <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -20px -20px 16px;"}">
+         ${isWorkspace ? "" : `<div class="localprompt-modal-header" style="margin: -20px -20px 16px;">
              <div class="localprompt-workspace-title">
                  <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--import" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"></path><path d="M14 2v5h5M12 11v7M9 15l3 3 3-3"></path></svg></span>Import TXT</h3>
-                 ${isWorkspace ? "<p>Create a new category from a wildcard-style text file.</p>" : ""}
              </div>
-             ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-         </div>
+             <button class="localprompt-modal-close" title="Close">x</button>
+         </div>`}
          ${isWorkspace ? librarySubnavHtml : ""}
          <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
              <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-import-form" style="margin-bottom: 12px;">

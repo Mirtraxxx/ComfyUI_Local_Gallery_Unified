@@ -71,9 +71,8 @@ export function createPromptWorkspaceController({
         return openWorkspace();
     }
 
-    function getLibrarySubnavHtml(activePage = "overview") {
+    function getLibrarySubnavHtml(activePage = "cards") {
         const navItems = [
-            { key: "overview", label: "Overview" },
             { key: "cards", label: "Cards" },
             { key: "presets", label: "Presets" },
             { key: "import", label: "Import TXT" },
@@ -89,23 +88,34 @@ export function createPromptWorkspaceController({
         `;
     }
 
-    function renderLibraryShell(activePage = "overview") {
+    function renderLibraryShell(activePage = "cards") {
         if (disposed && !widgetContainer.isConnected) return null;
         const host = setWorkspaceMode(`library_${activePage}`);
         if (!host) return null;
 
         host.innerHTML = `
             <div class="localprompt-library-shell">
+                <header class="localprompt-library-shell-header">
+                    <div class="localprompt-library-shell-brand">
+                        <strong>Prompt Library</strong>
+                        <span>Cards, presets, and wildcard files</span>
+                    </div>
+                    <button class="localprompt-library-shell-close" data-library-close type="button">Back to gallery</button>
+                </header>
                 <div class="localprompt-library-shell-content" id="${uniqueId}-library-workspace-content"></div>
             </div>
         `;
 
         detachLibraryShellHandler();
         const onLibraryShellClick = event => {
+            const closeButton = event.target.closest?.("[data-library-close]");
+            if (closeButton && host.contains(closeButton)) {
+                returnToGallery();
+                return;
+            }
             const button = event.target.closest?.("[data-library-page]");
             if (!button || !host.contains(button)) return;
             const page = button.dataset.libraryPage;
-            if (page === "overview") renderLibraryWorkspace();
             if (page === "cards") showBrowseWorkspace();
             if (page === "presets") showPresetsWorkspace();
             if (page === "import") showImportWorkspace();
@@ -120,49 +130,7 @@ export function createPromptWorkspaceController({
 
     function renderLibraryWorkspace() {
         if (disposed && !widgetContainer.isConnected) return;
-        const content = renderLibraryShell("overview");
-        if (!content) return;
-        content.innerHTML = `
-            <div class="localprompt-workspace-panel">
-                <div class="localprompt-workspace-page">
-                    <div class="localprompt-workspace-header">
-                        <div class="localprompt-workspace-title">
-                            <h3>Library <span class="localprompt-title-status" aria-hidden="true"></span></h3>
-                            <p>Manage cards, reusable stacks, and wildcard text files.</p>
-                        </div>
-                    </div>
-                    ${getLibrarySubnavHtml("overview")}
-                    <div class="localprompt-workspace-body">
-                        <div class="localprompt-library-landing">
-                            <button class="localprompt-library-choice" data-workspace-target="library_cards" style="--library-accent: #58d66a;">
-                                <span class="localprompt-library-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>
-                                <strong>Cards <span class="localprompt-library-choice-arrow" aria-hidden="true">›</span></strong>
-                                <span>Browse, search, pin, add, and manage prompt cards.</span>
-                            </button>
-                            <button class="localprompt-library-choice" data-workspace-target="library_presets" style="--library-accent: #9b62ff;">
-                                <span class="localprompt-library-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 12 8 4 8-4M4 17l8 4 8-4"></path></svg></span>
-                                <strong>Presets <span class="localprompt-library-choice-arrow" aria-hidden="true">›</span></strong>
-                                <span>Save, load, edit, and create prompt preset stacks.</span>
-                            </button>
-                            <button class="localprompt-library-choice" data-workspace-target="import_txt" style="--library-accent: #4f93ff;">
-                                <span class="localprompt-library-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"></path><path d="M14 2v5h5M12 11v7M9 15l3 3 3-3"></path></svg></span>
-                                <strong>Import TXT <span class="localprompt-library-choice-arrow" aria-hidden="true">›</span></strong>
-                                <span>Create a new category from a wildcard-style text file.</span>
-                            </button>
-                            <button class="localprompt-library-choice" data-workspace-target="export_txt" style="--library-accent: #4f93ff;">
-                                <span class="localprompt-library-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg></span>
-                                <strong>Export TXT <span class="localprompt-library-choice-arrow" aria-hidden="true">›</span></strong>
-                                <span>Export a category to a ComfyUI wildcard .txt file.</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        content.querySelector('[data-workspace-target="library_cards"]')?.addEventListener("click", () => showBrowseWorkspace());
-        content.querySelector('[data-workspace-target="library_presets"]')?.addEventListener("click", () => showPresetsWorkspace());
-        content.querySelector('[data-workspace-target="import_txt"]')?.addEventListener("click", () => showImportWorkspace());
-        content.querySelector('[data-workspace-target="export_txt"]')?.addEventListener("click", () => showExportWorkspace());
+        return showBrowseWorkspace();
     }
 
     return {

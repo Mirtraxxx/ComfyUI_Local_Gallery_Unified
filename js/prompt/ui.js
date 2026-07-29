@@ -55,11 +55,11 @@ import {
 } from "./library.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
 import { showSettingsModal as openSettingsModal } from "./settings.js?v=workflow-profile-v1-20260725-1";
 import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2";
+import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2&library=direct-cards-20260728-1";
 import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
 import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
-import { createPromptWorkspaceController } from "./workspace.js?v=compact-ux-20260714-2";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-compact-align-20260727-3";
+import { createPromptWorkspaceController } from "./workspace.js?v=library-direct-cards-20260728-1";
+import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-compact-align-20260727-3&library=direct-cards-20260728-1";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
@@ -2559,8 +2559,13 @@ const UnifiedPromptGalleryNode = {
             // Bind the persistent bottom navigation as soon as the template and
             // workspace controller exist. These controls should remain usable even
             // if a later, optional gallery setup step fails or is still loading.
-            widgetContainer.querySelector(`#${uniqueId}-library-btn`)?.addEventListener("click", () => {
-                toggleWorkspaceMode("library_overview", renderLibraryWorkspace);
+            widgetContainer.querySelector(`#${uniqueId}-library-btn`)?.addEventListener("click", async () => {
+                try {
+                    await toggleWorkspaceMode("library_cards", renderLibraryWorkspace);
+                } catch (e) {
+                    console.error("Error opening Prompt Library:", e);
+                    showAlert("Error opening Prompt Library: " + e.message);
+                }
             });
 
             widgetContainer.querySelector(`#${uniqueId}-from-last-output-btn`)?.addEventListener("click", async () => {

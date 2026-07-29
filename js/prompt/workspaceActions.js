@@ -7,8 +7,8 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=from-last-output-new-category-20260724-1&profile=workflow-v1-20260725-1";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1";
+} from "./dialogs.js?v=from-last-output-new-category-20260724-1&profile=workflow-v1-20260725-1&library=compact-shell-20260728-1";
+import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1&library=compact-shell-20260728-1";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
 // for state and lifecycle, while dialogs/Card Manager own their own rendering.

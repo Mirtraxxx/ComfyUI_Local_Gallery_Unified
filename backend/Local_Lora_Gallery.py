@@ -14,6 +14,8 @@ import shutil
 import tempfile
 import time
 
+from PIL import Image, ImageOps
+
 try:
     from .value_utils import bounded_int, finite_float, parse_json_list
 except ImportError:
@@ -351,8 +353,48 @@ def resolve_comfy_preview_source(filename, subfolder='', folder_type='output'):
 
     return source_path, filename
 
+def write_lora_preview_target(source_path, target_handle, preview_type):
+    """Write a canonical LoRA preview into an already-open temporary file."""
+    if preview_type == "image":
+        with Image.open(source_path) as source_image:
+            image = ImageOps.exif_transpose(source_image)
+            output_mode = "RGBA" if "A" in image.getbands() else "RGB"
+            image.convert(output_mode).save(
+                target_handle,
+                format="WEBP",
+                quality=90,
+                method=6,
+            )
+        return
+
+    with open(source_path, "rb") as source_file:
+        shutil.copyfileobj(source_file, target_handle)
+
+def sync_lora_manager_preview_metadata(lora_full_path, preview_path):
+    """Repair LoRA Manager's adjacent cached preview path when it is present."""
+    preview_base, _ = os.path.splitext(lora_full_path)
+    manager_metadata_path = preview_base + ".metadata.json"
+    if not os.path.exists(manager_metadata_path):
+        return
+
+    try:
+        manager_metadata = load_json_file(manager_metadata_path, default_data=None)
+        if not isinstance(manager_metadata, dict) or "preview_url" not in manager_metadata:
+            return
+
+        normalized_preview_path = os.path.abspath(preview_path).replace(os.sep, "/")
+        if manager_metadata.get("preview_url") == normalized_preview_path:
+            return
+
+        manager_metadata["preview_url"] = normalized_preview_path
+        save_json_file(manager_metadata, manager_metadata_path)
+    except Exception as error:
+        # Preview assignment should still succeed if a sibling extension changes
+        # its metadata format or makes the cache temporarily unavailable.
+        print(f"Local Lora Gallery: Could not refresh LoRA Manager preview metadata: {error}")
+
 def assign_lora_preview_file(lora_name, filename, subfolder='', folder_type='output'):
-    """Copy the latest Comfy result beside a LoRA and back up replaced previews."""
+    """Store the latest Comfy result beside a LoRA and back up replaced previews."""
     lora_full_path = folder_paths.get_full_path("loras", lora_name)
     if not lora_full_path:
         raise KeyError(f"LoRA not found: {lora_name}")
@@ -365,6 +407,7 @@ def assign_lora_preview_file(lora_name, filename, subfolder='', folder_type='out
     extension = os.path.splitext(resolved_filename)[1].lower()
     if extension in IMAGE_EXTENSIONS:
         preview_type = "image"
+        extension = ".webp"
     elif extension in VIDEO_EXTENSIONS:
         preview_type = "video"
     else:
@@ -381,13 +424,12 @@ def assign_lora_preview_file(lora_name, filename, subfolder='', folder_type='out
     moved_backups = []
     try:
         with tempfile.NamedTemporaryFile(
-            "wb",
+            "w+b",
             dir=os.path.dirname(lora_full_path),
             delete=False,
         ) as temp_file:
             temp_target = temp_file.name
-            with open(source_path, "rb") as source_file:
-                shutil.copyfileobj(source_file, temp_file)
+            write_lora_preview_target(source_path, temp_file, preview_type)
             temp_file.flush()
             os.fsync(temp_file.fileno())
 
@@ -401,6 +443,7 @@ def assign_lora_preview_file(lora_name, filename, subfolder='', folder_type='out
 
         os.replace(temp_target, target_path)
         temp_target = None
+        sync_lora_manager_preview_metadata(lora_full_path, target_path)
         invalidate_lora_inventory()
         preview_url, _ = get_lora_preview_asset_info(lora_name)
         return preview_url, preview_type
