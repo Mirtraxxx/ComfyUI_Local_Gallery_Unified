@@ -25,6 +25,7 @@ import { createLoraMetadataController } from "./metadataEditor.js?v=lora-metadat
 import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
 import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712&metadata=no-tags-20260728-1";
 import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
+import { normalizeLoraLotteryConfig, readLoraLotteryConfig } from "./lotteryState.js?v=lora-run-lottery-20260730-1";
 import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
 import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
@@ -220,6 +221,38 @@ const UnifiedLoraGalleryNode = {
                                     <input class="lora-compare-strengths-input" type="text" value="1.0" placeholder="0.8, 1.0" spellcheck="false">
                                 </label>
                             </div>
+                            <div class="lora-lottery-anchor">
+                                <button class="lora-action-btn lora-lottery-btn" type="button" title="Configure a random LoRA for every run" aria-label="Configure LoRA lottery" aria-expanded="false">
+                                    <span aria-hidden="true">RND</span>
+                                </button>
+                                <div class="lora-lottery-popover" style="display: none;">
+                                    <div class="lora-lottery-heading">
+                                        <strong>Run lottery</strong>
+                                        <span>Draw one LoRA on every queue.</span>
+                                    </div>
+                                    <label class="lora-lottery-enabled">
+                                        <input class="lora-lottery-enabled-input" type="checkbox">
+                                        <span>Enable lottery</span>
+                                    </label>
+                                    <label class="lora-lottery-field">
+                                        <span>Category</span>
+                                        <select class="lora-lottery-folder-select">
+                                            <option value="">All folders</option>
+                                        </select>
+                                    </label>
+                                    <div class="lora-lottery-strengths">
+                                        <label class="lora-lottery-field">
+                                            <span>Model</span>
+                                            <input class="lora-lottery-strength-input" type="number" value="1" step="0.05">
+                                        </label>
+                                        <label class="lora-lottery-field">
+                                            <span>CLIP</span>
+                                            <input class="lora-lottery-clip-strength-input" type="number" value="1" step="0.05">
+                                        </label>
+                                    </div>
+                                    <p class="lora-lottery-status" aria-live="polite">Off. Your Active Stack is unchanged.</p>
+                                </div>
+                            </div>
                             <div class="lora-search-anchor">
                                 <button class="lora-action-btn lora-search-btn" type="button" title="Search LoRAs by name" aria-label="Search LoRAs by name" aria-expanded="false" aria-controls="${uniqueId}-search-popover">
                                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
@@ -366,6 +399,15 @@ const UnifiedLoraGalleryNode = {
             const executionModeLabel = widgetContainer.querySelector(".lora-execution-mode-label");
             const compareStrengthsControl = widgetContainer.querySelector(".lora-compare-strengths-control");
             const compareStrengthsInput = widgetContainer.querySelector(".lora-compare-strengths-input");
+            const lotteryAnchor = widgetContainer.querySelector(".lora-lottery-anchor");
+            const lotteryBtn = widgetContainer.querySelector(".lora-lottery-btn");
+            const lotteryPopover = widgetContainer.querySelector(".lora-lottery-popover");
+            const lotteryEnabledInput = widgetContainer.querySelector(".lora-lottery-enabled-input");
+            const lotteryFolderSelect = widgetContainer.querySelector(".lora-lottery-folder-select");
+            const lotteryStrengthInput = widgetContainer.querySelector(".lora-lottery-strength-input");
+            const lotteryClipStrengthInput = widgetContainer.querySelector(".lora-lottery-clip-strength-input");
+            const lotteryStatus = widgetContainer.querySelector(".lora-lottery-status");
+            let lotteryFolderValue = "";
             const getLoraChromeHeight = () => {
                 const controlsEl = widgetContainer.querySelector(".locallora-controls");
                 const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
@@ -386,6 +428,29 @@ const UnifiedLoraGalleryNode = {
                 executionModeLabel.textContent = mode === "compare" ? "Compare" : "Stack";
                 compareStrengthsControl.hidden = mode !== "compare";
                 compareStrengthsInput.value = strengths;
+            };
+            const getLotteryConfig = () => normalizeLoraLotteryConfig({
+                enabled: lotteryEnabledInput.checked,
+                folder: lotteryFolderValue,
+                strength: lotteryStrengthInput.value,
+                strength_clip: lotteryClipStrengthInput.value,
+            });
+            const syncLotteryControls = (config = getLotteryConfig()) => {
+                lotteryFolderValue = config.folder;
+                lotteryEnabledInput.checked = config.enabled;
+                lotteryFolderSelect.value = Array.from(lotteryFolderSelect.options)
+                    .some(option => option.value === config.folder)
+                    ? config.folder
+                    : "";
+                lotteryStrengthInput.value = String(config.strength);
+                lotteryClipStrengthInput.value = String(config.strength_clip);
+                lotteryBtn.classList.toggle("has-preset", config.enabled);
+                lotteryBtn.setAttribute("aria-label", config.enabled
+                    ? "LoRA lottery enabled. Configure lottery"
+                    : "Configure LoRA lottery");
+                lotteryStatus.textContent = config.enabled
+                    ? "On. One random LoRA will be added to each run."
+                    : "Off. Your Active Stack is unchanged.";
             };
             const setExecutionProperty = (name, value) => {
                 if (!this.properties) this.properties = {};
@@ -632,6 +697,7 @@ const UnifiedLoraGalleryNode = {
                     mode: this.properties?.lora_execution_mode === "compare" ? "compare" : "stack",
                     strengths: String(this.properties?.lora_compare_strengths || "1.0"),
                 };
+                selectionEnvelope.lottery = getLotteryConfig();
                 const selectionJson = JSON.stringify(selectionEnvelope);
                 this.setProperty("lora_selection_data", selectionJson);
                 if (this.properties) this.properties.lora_selection_data = selectionJson;
@@ -647,6 +713,7 @@ const UnifiedLoraGalleryNode = {
                             mode: this.properties?.lora_execution_mode === "compare" ? "compare" : "stack",
                             strengths: String(this.properties?.lora_compare_strengths || "1.0"),
                         };
+                        liveEnvelope.lottery = getLotteryConfig();
                         const liveJson = JSON.stringify(liveEnvelope);
                         if (this.properties) this.properties.lora_selection_data = liveJson;
                         widget.value = liveJson;
@@ -1045,6 +1112,7 @@ const UnifiedLoraGalleryNode = {
 
                 const currentVal = folderFilterSelect.value;
                 folderFilterSelect.innerHTML = `<option value="">All Folders</option>`;
+                lotteryFolderSelect.innerHTML = `<option value="">All folders</option>`;
                 
                 const orderedFolders = getFoldersInCurrentOrder(folders);
                 orderedFolders.forEach(folder => {
@@ -1052,8 +1120,13 @@ const UnifiedLoraGalleryNode = {
                     option.value = folder;
                     option.textContent = folder === "." ? "Root" : folder.replaceAll('\\', '/');
                     folderFilterSelect.appendChild(option);
+                    lotteryFolderSelect.appendChild(option.cloneNode(true));
                 });
                 folderFilterSelect.value = currentVal;
+                lotteryFolderValue = validOptions.has(lotteryFolderValue) ? lotteryFolderValue : "";
+                lotteryFolderSelect.value = validOptions.has(lotteryFolderValue)
+                    ? lotteryFolderValue
+                    : "";
                 renderFolderPills();
                 if (folders.length > 0) foldersRendered = true;
             };
@@ -1184,6 +1257,7 @@ const UnifiedLoraGalleryNode = {
                         this.properties.lora_execution_mode = savedExecution.mode === "compare" ? "compare" : "stack";
                         this.properties.lora_compare_strengths = String(savedExecution.strengths || "1.0");
                     }
+                    syncLotteryControls(readLoraLotteryConfig(savedSelection));
                     this.loraData = readSelectionArray(this.properties.lora_selection_data, []);
                 } catch (e) {
                     console.warn("LocalLoraGallery: Failed to parse lora_selection_data, resetting.", e);
@@ -1269,6 +1343,26 @@ const UnifiedLoraGalleryNode = {
                     persistSelectionData();
                     compareStrengthsInput.value = strengths;
                 });
+
+                const setLotteryOpen = (isOpen) => {
+                    lotteryPopover.style.display = isOpen ? "flex" : "none";
+                    lotteryBtn.setAttribute("aria-expanded", String(isOpen));
+                    lotteryBtn.classList.toggle("active", isOpen);
+                };
+                lotteryBtn?.addEventListener("click", (event) => {
+                    event.stopPropagation();
+                    const shouldOpen = lotteryPopover.style.display !== "flex";
+                    presetDropdown.style.display = "none";
+                    displayOptionsPopover.style.display = "none";
+                    displayOptionsBtn.classList.remove("active");
+                    setLotteryOpen(shouldOpen);
+                });
+                [lotteryEnabledInput, lotteryFolderSelect, lotteryStrengthInput, lotteryClipStrengthInput]
+                    .forEach(control => control?.addEventListener("change", () => {
+                        if (control === lotteryFolderSelect) lotteryFolderValue = lotteryFolderSelect.value;
+                        syncLotteryControls();
+                        updateSelection();
+                    }));
 
                 globalListeners.listen(document, "keydown", (e) => {
                     if (e.key === "Escape" && metadataEditor.classList.contains("visible")) {
@@ -1641,6 +1735,9 @@ const UnifiedLoraGalleryNode = {
                     }
                     if (searchPopover && !searchAnchor.contains(e.target)) {
                         setNameSearchOpen(false);
+                    }
+                    if (lotteryPopover && !lotteryAnchor.contains(e.target)) {
+                        setLotteryOpen(false);
                     }
                     const hitPortaledPresetMenu = Boolean(
                         e.target.closest?.(".lora-trigger-preset-popover-portal"),

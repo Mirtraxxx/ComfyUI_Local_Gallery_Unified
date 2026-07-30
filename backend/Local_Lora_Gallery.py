@@ -11,6 +11,7 @@ import aiohttp
 import asyncio
 import copy
 import shutil
+import secrets
 import tempfile
 import time
 
@@ -981,11 +982,76 @@ class BaseLoraGallery:
         return parse_json_list(selection_data)
 
     @staticmethod
+    def _parse_selection_envelope(selection_data):
+        if isinstance(selection_data, dict):
+            return copy.deepcopy(selection_data)
+        if not isinstance(selection_data, str):
+            return None
+        try:
+            parsed = json.loads(selection_data or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        return copy.deepcopy(parsed) if isinstance(parsed, dict) else None
+
+    @classmethod
+    def _get_lottery_config(cls, selection_data):
+        envelope = cls._parse_selection_envelope(selection_data)
+        lottery = envelope.get("lottery") if isinstance(envelope, dict) else None
+        return lottery if isinstance(lottery, dict) and lottery.get("enabled") else None
+
+    @classmethod
+    def resolve_lottery_selection(cls, selection_data):
+        """Resolve one category-scoped LoRA for this execution only."""
+        envelope = cls._parse_selection_envelope(selection_data)
+        lottery = envelope.get("lottery") if isinstance(envelope, dict) else None
+        if not isinstance(lottery, dict) or not lottery.get("enabled") or lottery.get("resolved"):
+            return selection_data
+
+        folder = str(lottery.get("folder") or "").strip()
+        candidates = [
+            entry for entry in get_lora_inventory()["entries"]
+            if not folder or entry["folder"] == folder
+        ]
+        if not candidates:
+            label = folder.replace("\\", "/") if folder else "All folders"
+            raise ValueError(f"LocalLoraGallery: Lottery category '{label}' has no LoRAs.")
+
+        chosen = secrets.choice(candidates)
+        items = envelope.get("items")
+        if not isinstance(items, list):
+            items = []
+        else:
+            items = copy.deepcopy(items)
+
+        chosen_name = chosen["name"]
+        if not any(isinstance(item, dict) and item.get("lora") == chosen_name for item in items):
+            strength_model = finite_float(lottery.get("strength", 1.0), 1.0)
+            strength_clip = finite_float(lottery.get("strength_clip", strength_model), strength_model)
+            items.append({
+                "on": True,
+                "lora": chosen_name,
+                "strength": strength_model,
+                "strength_clip": strength_clip,
+                "lottery": True,
+            })
+
+        envelope["items"] = items
+        envelope["lottery"] = {
+            **lottery,
+            "resolved": True,
+            "selected_lora": chosen_name,
+        }
+        category_label = folder.replace("\\", "/") if folder else "All folders"
+        print(f"LocalLoraGallery: Lottery selected '{chosen_name}' from '{category_label}'.")
+        return json.dumps(envelope)
+
+    @staticmethod
     def _float_config_value(config, key, fallback):
         return finite_float(config.get(key, fallback), fallback)
 
     @classmethod
     def MODEL_CHANGED(cls, selection_data, **kwargs):
+        selection_data = cls.resolve_lottery_selection(selection_data)
         model_state = []
         for config in cls._parse_selection_data(selection_data):
             if not isinstance(config, dict) or not config.get('on', True) or not config.get('lora'):
@@ -1006,6 +1072,7 @@ class BaseLoraGallery:
 
     @classmethod
     def get_trigger_words_for_selection(cls, selection_data):
+        selection_data = cls.resolve_lottery_selection(selection_data)
         all_metadata = load_execution_metadata()
         trigger_words_list = []
 
@@ -1027,6 +1094,7 @@ class BaseLoraGallery:
     
     @classmethod
     def IS_CHANGED(cls, selection_data, **kwargs):
+        lottery_enabled = cls._get_lottery_config(selection_data) is not None
         lora_configs = cls._parse_selection_data(selection_data)
 
         all_metadata = load_execution_metadata()
@@ -1048,9 +1116,10 @@ class BaseLoraGallery:
         if trigger_state:
             m = hashlib.sha256()
             m.update((selection_data + trigger_state).encode('utf-8'))
-            return m.hexdigest()
+            signature = m.hexdigest()
+            return f"{signature}:{time.time_ns()}" if lottery_enabled else signature
 
-        return selection_data
+        return f"{selection_data}:{time.time_ns()}" if lottery_enabled else selection_data
 
     def _get_nunchaku_model_type(self, model):
         """Checks if the model is a Nunchaku-accelerated model and returns its type."""
@@ -1109,6 +1178,7 @@ class LocalLoraGallery(BaseLoraGallery):
 
     def load_loras_independently(self, model, clip, selection_data="[]", strengths="1.0"):
         """Build independent base-model variants for every enabled LoRA/strength pair."""
+        selection_data = self.resolve_lottery_selection(selection_data)
         lora_configs = self._parse_selection_data(selection_data)
         compare_strengths = self._parse_compare_strengths(strengths)
         all_metadata = load_execution_metadata()
@@ -1177,6 +1247,7 @@ class LocalLoraGallery(BaseLoraGallery):
         return (models_output, clips_output, trigger_words_output, metadata_output)
 
     def load_loras(self, model, clip, unique_id, selection_data="[]", **kwargs):
+        selection_data = self.resolve_lottery_selection(selection_data)
         lora_configs = self._parse_selection_data(selection_data)
 
         all_metadata = load_execution_metadata()
@@ -1254,6 +1325,7 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
     CATEGORY = "📜Asset Gallery/Loras"
 
     def load_loras(self, model, unique_id, selection_data="[]", **kwargs):
+        selection_data = self.resolve_lottery_selection(selection_data)
         lora_configs = self._parse_selection_data(selection_data)
 
         all_metadata = load_execution_metadata()

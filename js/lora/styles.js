@@ -662,6 +662,98 @@ export function getLoraStyles(uniqueId) {
                         flex: 0 0 auto;
                     }
 
+                    #${uniqueId} .lora-lottery-anchor {
+                        position: relative;
+                        display: flex;
+                        flex: 0 0 auto;
+                    }
+
+                    #${uniqueId} .lora-lottery-btn span {
+                        font-size: 8px;
+                        font-weight: 800;
+                        letter-spacing: 0.04em;
+                    }
+
+                    #${uniqueId} .lora-lottery-popover {
+                        position: absolute;
+                        left: 0;
+                        bottom: calc(100% + 8px);
+                        z-index: 140;
+                        width: min(250px, calc(100vw - 32px));
+                        padding: 11px;
+                        flex-direction: column;
+                        gap: 9px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.16);
+                        border-radius: 9px;
+                        background: #202124;
+                        color: #e8ecef;
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.46);
+                    }
+
+                    #${uniqueId} .lora-lottery-heading {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 2px;
+                    }
+
+                    #${uniqueId} .lora-lottery-heading strong {
+                        font-size: 12px;
+                    }
+
+                    #${uniqueId} .lora-lottery-heading span,
+                    #${uniqueId} .lora-lottery-status {
+                        color: #aeb5b9;
+                        font-size: 10px;
+                    }
+
+                    #${uniqueId} .lora-lottery-enabled,
+                    #${uniqueId} .lora-lottery-field {
+                        display: flex;
+                        align-items: center;
+                        gap: 7px;
+                        color: #d9dde0;
+                        font-size: 10px;
+                    }
+
+                    #${uniqueId} .lora-lottery-field {
+                        align-items: stretch;
+                        flex-direction: column;
+                        gap: 4px;
+                    }
+
+                    #${uniqueId} .lora-lottery-field select,
+                    #${uniqueId} .lora-lottery-field input {
+                        width: 100%;
+                        min-width: 0;
+                        height: 27px;
+                        padding: 3px 6px;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(255, 255, 255, 0.16);
+                        border-radius: 5px;
+                        background: #121315;
+                        color: #eceff1;
+                    }
+
+                    #${uniqueId} .lora-lottery-field select:focus,
+                    #${uniqueId} .lora-lottery-field input:focus {
+                        border-color: rgba(184, 135, 99, 0.72);
+                        outline: 2px solid rgba(184, 135, 99, 0.18);
+                        outline-offset: 0;
+                    }
+
+                    #${uniqueId} .lora-lottery-strengths {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 7px;
+                    }
+
+                    #${uniqueId} .lora-lottery-status {
+                        min-height: 12px;
+                        margin: 0;
+                        line-height: 1.35;
+                    }
+
                     #${uniqueId} .lora-search-popover {
                         position: absolute;
                         left: 0;

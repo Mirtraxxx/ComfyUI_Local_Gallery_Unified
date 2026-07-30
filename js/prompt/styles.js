@@ -2331,8 +2331,10 @@ export function getPromptStyles(uniqueId) {
                         min-width: 0;
                     }
                     .localprompt-workflow-edit-button,
-                    .localprompt-workflow-close-button,
-                    .localprompt-workflow-revert-button {
+                    .localprompt-workflow-revert-button,
+                    .localprompt-workflow-cancel-button,
+                    .localprompt-workflow-confirm-button,
+                    .localprompt-workflow-editor-close {
                         border: 1px solid rgba(163, 220, 255, 0.34);
                         border-radius: 6px;
                         background: rgba(13, 25, 36, 0.74);
@@ -2348,8 +2350,9 @@ export function getPromptStyles(uniqueId) {
                         white-space: nowrap;
                     }
                     .localprompt-workflow-edit-button:hover,
-                    .localprompt-workflow-close-button:hover,
-                    .localprompt-workflow-revert-button:hover {
+                    .localprompt-workflow-revert-button:hover,
+                    .localprompt-workflow-cancel-button:hover,
+                    .localprompt-workflow-editor-close:hover {
                         background: rgba(44, 102, 137, 0.72);
                         border-color: rgba(191, 237, 255, 0.7);
                         color: #fff;
@@ -2384,60 +2387,223 @@ export function getPromptStyles(uniqueId) {
                         padding: 2px 5px;
                         font-size: 8px;
                     }
-                    .localprompt-workflow-editor {
-                        grid-column: 1 / -1;
+                    .localprompt-workflow-editor-overlay {
+                        position: fixed;
+                        inset: 0;
+                        z-index: 100000;
                         display: grid;
-                        gap: 6px;
-                        padding: 8px;
-                        border: 1px solid rgba(163, 220, 255, 0.32);
-                        border-radius: 8px;
-                        background: rgba(7, 13, 19, 0.9);
-                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 18px rgba(0,0,0,0.24);
+                        place-items: stretch;
+                        padding: clamp(10px, 2.4vw, 32px);
+                        box-sizing: border-box;
+                        background: rgba(3, 8, 12, 0.88);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
                         cursor: default;
                     }
-                    .localprompt-workflow-editor[hidden] {
-                        display: none;
+                    .localprompt-workflow-editor {
+                        min-width: 0;
+                        min-height: 0;
+                        display: grid;
+                        grid-template-rows: auto minmax(0, 1fr) auto;
+                        overflow: hidden;
+                        border: 1px solid rgba(163, 220, 255, 0.32);
+                        border-radius: 12px;
+                        background: #0d151c;
+                        color: #f4fbff;
+                        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 80px rgba(0,0,0,0.5);
+                    }
+                    .localprompt-workflow-editor-header,
+                    .localprompt-workflow-editor-footer {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 18px;
+                        padding: 16px 20px;
+                        background: #121d26;
+                    }
+                    .localprompt-workflow-editor-header {
+                        border-bottom: 1px solid rgba(163, 220, 255, 0.18);
+                    }
+                    .localprompt-workflow-editor-footer {
+                        border-top: 1px solid rgba(163, 220, 255, 0.18);
+                    }
+                    .localprompt-workflow-editor-heading {
+                        min-width: 0;
+                    }
+                    .localprompt-workflow-editor-heading h2 {
+                        margin: 0;
+                        color: #f5fbff;
+                        font: 700 clamp(17px, 2vw, 22px)/1.2 system-ui, sans-serif;
+                    }
+                    .localprompt-workflow-editor-heading p {
+                        margin: 4px 0 0;
+                        overflow: hidden;
+                        color: #a9bdc9;
+                        font: 12px/1.4 system-ui, sans-serif;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                    .localprompt-workflow-editor-close {
+                        width: 38px;
+                        height: 38px;
+                        flex: 0 0 38px;
+                        padding: 0;
+                        color: #d8e7ee;
+                        font: 26px/1 system-ui, sans-serif;
+                    }
+                    .localprompt-workflow-editor-body {
+                        min-width: 0;
+                        min-height: 0;
+                        padding: clamp(16px, 2.5vw, 28px);
+                    }
+                    .localprompt-workflow-editor-input-pane {
+                        width: 100%;
+                        height: 100%;
+                        min-width: 0;
+                        min-height: 0;
+                        display: grid;
+                        grid-template-rows: auto auto minmax(0, 1fr);
+                        gap: 8px;
+                    }
+                    .localprompt-workflow-editor-label-row {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 12px;
                     }
                     .localprompt-workflow-editor-label {
-                        display: grid;
-                        gap: 4px;
-                        color: #b9d9e9;
-                        font-size: 9px;
-                        font-weight: 650;
+                        color: #c9dce6;
+                        font: 650 12px/1.3 system-ui, sans-serif;
+                    }
+                    .localprompt-workflow-inline-diff-status {
+                        color: #91a7b3;
+                        font: 10px/1.3 system-ui, sans-serif;
+                    }
+                    .localprompt-workflow-inline-diff-status.has-changes {
+                        color: #92e7b5;
+                    }
+                    .localprompt-workflow-original-reference {
+                        min-width: 0;
+                        overflow: hidden;
+                        border: 1px solid rgba(170, 213, 235, 0.18);
+                        border-radius: 7px;
+                        background: #0b151c;
+                    }
+                    .localprompt-workflow-original-reference summary {
+                        padding: 8px 11px;
+                        color: #a9c0cc;
+                        cursor: pointer;
+                        font: 650 10px/1.3 system-ui, sans-serif;
+                        user-select: none;
+                    }
+                    .localprompt-workflow-original-reference[open] summary {
+                        border-bottom: 1px solid rgba(170, 213, 235, 0.12);
+                    }
+                    .localprompt-workflow-original-reference pre {
+                        min-height: 74px;
+                        max-height: min(220px, 28vh);
+                        margin: 0;
+                        overflow: auto;
+                        box-sizing: border-box;
+                        padding: clamp(14px, 2vw, 22px);
+                        color: #dce8ee;
+                        font: clamp(14px, 1.3vw, 17px)/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+                        overflow-wrap: anywhere;
+                        white-space: pre-wrap;
+                        scrollbar-width: thin;
+                    }
+                    .localprompt-workflow-editor-input-wrap {
+                        position: relative;
+                        width: 100%;
+                        height: 100%;
+                        min-height: 180px;
+                        overflow: hidden;
+                        box-sizing: border-box;
+                        border: 1px solid rgba(170, 213, 235, 0.32);
+                        border-radius: 9px;
+                        background: #081017;
+                    }
+                    .localprompt-workflow-editor-input-wrap:focus-within {
+                        border-color: #70c8f2;
+                        box-shadow: 0 0 0 3px rgba(112, 200, 242, 0.18);
+                    }
+                    .localprompt-workflow-editor-text,
+                    .localprompt-workflow-editor-highlight {
+                        position: absolute;
+                        inset: 0;
+                        margin: 0;
+                        box-sizing: border-box;
+                        border: 0;
+                        outline: 0;
+                        font: clamp(14px, 1.3vw, 17px)/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+                        overflow-wrap: anywhere;
+                        white-space: pre-wrap;
+                        tab-size: 4;
+                        padding: clamp(14px, 2vw, 22px);
+                    }
+                    .localprompt-workflow-editor-highlight {
+                        z-index: 1;
+                        overflow: hidden;
+                        pointer-events: none;
+                        color: transparent;
+                    }
+                    .localprompt-workflow-diff-added {
+                        border-radius: 3px;
+                        background: rgba(42, 164, 99, 0.34);
+                        box-shadow: inset 0 -1px 0 #63d995;
+                        color: transparent;
+                        padding: 1px 0;
+                    }
+                    .localprompt-workflow-diff-removed {
+                        border-radius: 3px;
+                        background: rgba(199, 70, 70, 0.28);
+                        box-shadow: inset 0 -1px 0 #ef7777;
+                        color: #ffd0d0;
+                        padding: 1px 0;
+                        text-decoration: line-through;
+                        text-decoration-color: #ff8f8f;
                     }
                     .localprompt-workflow-editor-text {
+                        z-index: 2;
                         width: 100%;
-                        min-height: 56px;
-                        resize: vertical;
-                        box-sizing: border-box;
-                        border: 1px solid rgba(170, 213, 235, 0.3);
-                        border-radius: 5px;
-                        background: rgba(0,0,0,0.28);
+                        height: 100%;
+                        min-height: 0;
+                        resize: none;
+                        overflow: auto;
+                        scrollbar-gutter: stable;
+                        background: transparent;
                         color: #f4fbff;
-                        font: 11px/1.35 monospace;
-                        padding: 6px;
+                        -webkit-text-fill-color: #f4fbff;
+                        caret-color: #f4fbff;
+                    }
+                    .localprompt-workflow-editor-text::selection {
+                        background: rgba(112, 200, 242, 0.32);
+                    }
+                    .localprompt-workflow-editor-status {
+                        min-width: 0;
+                        display: flex;
+                        align-items: center;
+                        gap: 9px;
+                        color: #9fb4c0;
+                        font: 11px/1.3 system-ui, sans-serif;
                     }
                     .localprompt-workflow-editor-actions {
                         display: flex;
+                        align-items: center;
                         justify-content: flex-end;
+                        gap: 8px;
                     }
-                    .localprompt-workflow-close-button,
+                    .localprompt-workflow-revert-button,
+                    .localprompt-workflow-cancel-button,
+                    .localprompt-workflow-confirm-button {
+                        min-height: 38px;
+                        padding: 7px 14px;
+                        font: 650 12px/1 system-ui, sans-serif;
+                        white-space: nowrap;
+                    }
                     .localprompt-workflow-revert-button {
-                        min-height: 24px;
-                        padding: 3px 7px;
-                        font-size: 9px;
-                    }
-                    .localprompt-workflow-revert-button {
-                        color: #ffd7d7;
-                        border-color: rgba(255, 161, 161, 0.4);
-                        background: rgba(92, 34, 34, 0.64);
-                    }
-                    .localprompt-chip-thumb.pinned-managed {
-                        position: relative;
-                    }
-                    .localprompt-chip-thumb.pinned-managed .localprompt-workflow-edit-button {
-                        position: relative;
-                        min-height: 20px;
+                        margin-right: auto;
+                        color: #c9e8f6;
                     }
                     .localprompt-chip-thumb.pinned-managed .localprompt-workflow-edit-button svg {
                         width: 12px;
@@ -2461,26 +2627,53 @@ export function getPromptStyles(uniqueId) {
                         background: #7cf2aa;
                         box-shadow: 0 0 5px rgba(124, 242, 170, 0.8);
                     }
-                    .localprompt-chip-thumb.pinned-managed > .localprompt-workflow-editor {
-                        position: absolute;
-                        inset: 4px;
-                        z-index: 12;
-                        min-height: 0;
-                        overflow: hidden;
-                        grid-template-rows: minmax(0, 1fr) auto;
+                    .localprompt-workflow-confirm-button {
+                        border-color: #68c2ea;
+                        background: #167cac;
+                        color: #fff;
                     }
-                    .localprompt-chip-thumb.pinned-managed > .localprompt-workflow-editor .localprompt-workflow-editor-label {
-                        min-height: 0;
-                        grid-template-rows: auto minmax(0, 1fr);
+                    .localprompt-workflow-confirm-button:hover {
+                        border-color: #9cddfa;
+                        background: #2093c8;
                     }
-                    .localprompt-chip-thumb.pinned-managed > .localprompt-workflow-editor .localprompt-workflow-editor-text {
-                        min-height: 0;
-                        height: 100%;
-                        resize: none;
+                    .localprompt-workflow-editor-actions button:active,
+                    .localprompt-workflow-editor-close:active {
+                        transform: translateY(1px);
                     }
-                    .localprompt-chip-thumb.pinned-managed > .localprompt-workflow-editor .localprompt-workflow-editor-actions {
-                        gap: 6px;
-                        flex-wrap: wrap;
+                    @media (max-width: 640px) {
+                        .localprompt-workflow-editor-overlay {
+                            padding: 0;
+                        }
+                        .localprompt-workflow-editor {
+                            border: 0;
+                            border-radius: 0;
+                        }
+                        .localprompt-workflow-editor-header,
+                        .localprompt-workflow-editor-footer {
+                            padding: 12px;
+                        }
+                        .localprompt-workflow-editor-footer {
+                            align-items: stretch;
+                            flex-direction: column;
+                        }
+                        .localprompt-workflow-editor-status {
+                            justify-content: space-between;
+                        }
+                        .localprompt-workflow-editor-actions {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                        }
+                        .localprompt-workflow-revert-button {
+                            grid-column: 1 / -1;
+                            margin-right: 0;
+                        }
+                    }
+                    @media (prefers-reduced-transparency: reduce) {
+                        .localprompt-workflow-editor-overlay {
+                            background: #050b10;
+                            backdrop-filter: none;
+                            -webkit-backdrop-filter: none;
+                        }
                     }
                     .localprompt-active-row .managed-state-pill {
                         position: static;

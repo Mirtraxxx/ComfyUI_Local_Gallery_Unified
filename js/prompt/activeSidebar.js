@@ -11,6 +11,100 @@ import {
 } from "./helpers.js?v=workflow-edit-icon-20260723-1&media=prompt-video-20260726-1";
 import { escapeHtml } from "../shared/dom.js";
 
+export function buildPromptTextDiff(originalText, currentText) {
+    const tokenize = value => String(value || "").match(/\s+|[^\s]+/g) || [];
+    const original = tokenize(originalText);
+    const current = tokenize(currentText);
+    const originalLength = original.length;
+    const currentLength = current.length;
+
+    if (originalLength > 800 || currentLength > 800) {
+        const originalValue = original.join("");
+        const currentValue = current.join("");
+        let prefixLength = 0;
+        const maxPrefix = Math.min(originalValue.length, currentValue.length);
+        while (
+            prefixLength < maxPrefix
+            && originalValue[prefixLength] === currentValue[prefixLength]
+        ) {
+            prefixLength += 1;
+        }
+
+        let suffixLength = 0;
+        while (
+            suffixLength < originalValue.length - prefixLength
+            && suffixLength < currentValue.length - prefixLength
+            && originalValue[originalValue.length - 1 - suffixLength]
+                === currentValue[currentValue.length - 1 - suffixLength]
+        ) {
+            suffixLength += 1;
+        }
+
+        const segments = [];
+        const prefix = originalValue.slice(0, prefixLength);
+        const removed = originalValue.slice(prefixLength, originalValue.length - suffixLength);
+        const added = currentValue.slice(prefixLength, currentValue.length - suffixLength);
+        const suffix = suffixLength ? originalValue.slice(-suffixLength) : "";
+        if (prefix) segments.push({ type: "equal", text: prefix });
+        if (removed) segments.push({ type: "removed", text: removed });
+        if (added) segments.push({ type: "added", text: added });
+        if (suffix) segments.push({ type: "equal", text: suffix });
+        return segments;
+    }
+
+    const width = currentLength + 1;
+    const directions = new Uint8Array((originalLength + 1) * width);
+    let previous = new Uint16Array(width);
+    let active = new Uint16Array(width);
+
+    for (let originalIndex = 1; originalIndex <= originalLength; originalIndex += 1) {
+        for (let currentIndex = 1; currentIndex <= currentLength; currentIndex += 1) {
+            const directionIndex = originalIndex * width + currentIndex;
+            if (original[originalIndex - 1] === current[currentIndex - 1]) {
+                active[currentIndex] = previous[currentIndex - 1] + 1;
+                directions[directionIndex] = 1;
+            } else if (previous[currentIndex] >= active[currentIndex - 1]) {
+                active[currentIndex] = previous[currentIndex];
+                directions[directionIndex] = 2;
+            } else {
+                active[currentIndex] = active[currentIndex - 1];
+                directions[directionIndex] = 3;
+            }
+        }
+        [previous, active] = [active, previous];
+        active.fill(0);
+    }
+
+    const reversed = [];
+    let originalIndex = originalLength;
+    let currentIndex = currentLength;
+    while (originalIndex > 0 || currentIndex > 0) {
+        const direction = directions[originalIndex * width + currentIndex];
+        if (originalIndex > 0 && currentIndex > 0 && direction === 1) {
+            reversed.push({ type: "equal", text: original[originalIndex - 1] });
+            originalIndex -= 1;
+            currentIndex -= 1;
+        } else if (originalIndex > 0 && (currentIndex === 0 || direction === 2)) {
+            reversed.push({ type: "removed", text: original[originalIndex - 1] });
+            originalIndex -= 1;
+        } else {
+            reversed.push({ type: "added", text: current[currentIndex - 1] });
+            currentIndex -= 1;
+        }
+    }
+
+    const segments = [];
+    reversed.reverse().forEach(segment => {
+        const previousSegment = segments[segments.length - 1];
+        if (previousSegment?.type === segment.type) {
+            previousSegment.text += segment.text;
+        } else {
+            segments.push({ ...segment });
+        }
+    });
+    return segments;
+}
+
 export function getActiveSidebarWidth({ nodeInstance }) {
     return resolveActiveSidebarWidth(nodeInstance.properties, nodeInstance.uiPrefs);
 }
@@ -337,38 +431,6 @@ export async function renderActiveSidebar({
             badgeHost.appendChild(editedBadge);
         }
 
-        const editor = document.createElement("div");
-        editor.className = "localprompt-workflow-editor";
-        editor.hidden = true;
-
-        const editorLabel = document.createElement("label");
-        editorLabel.className = "localprompt-workflow-editor-label";
-        editorLabel.textContent = "Workflow-only prompt text";
-        const textArea = document.createElement("textarea");
-        textArea.className = "localprompt-workflow-editor-text";
-        textArea.rows = 3;
-        textArea.spellcheck = false;
-        textArea.value = getOverride() || getCardText();
-        editorLabel.appendChild(textArea);
-
-        const editorActions = document.createElement("div");
-        editorActions.className = "localprompt-workflow-editor-actions";
-        const closeButton = document.createElement("button");
-        closeButton.type = "button";
-        closeButton.className = "localprompt-workflow-close-button";
-        closeButton.dataset.workflowAction = "close";
-        closeButton.textContent = "Done";
-        editorActions.appendChild(closeButton);
-        const revertButton = document.createElement("button");
-        revertButton.type = "button";
-        revertButton.className = "localprompt-workflow-revert-button";
-        revertButton.dataset.workflowAction = "revert";
-        revertButton.textContent = "Revert to card text";
-        revertButton.hidden = !hasOverride();
-        editorActions.appendChild(revertButton);
-        editor.append(editorLabel, editorActions);
-        chip.appendChild(editor);
-
         const syncEditedState = () => {
             const edited = hasOverride();
             chip.classList.toggle("localprompt-workflow-edited", edited);
@@ -377,14 +439,13 @@ export async function renderActiveSidebar({
             editButton.title = editLabel;
             editButton.setAttribute("aria-label", editLabel);
             if (editedBadge) editedBadge.hidden = !edited;
-            revertButton.hidden = !edited;
         };
 
         syncEditedState();
 
         const saveOverride = (value) => {
             const normalized = String(value || "").trim();
-            if (normalized) {
+            if (normalized && normalized !== getCardText().trim()) {
                 selectedEntry.prompt_text_override = normalized;
             } else {
                 delete selectedEntry.prompt_text_override;
@@ -393,30 +454,238 @@ export async function renderActiveSidebar({
             syncEditedState();
         };
 
+        const openWorkflowEditor = () => {
+            const existingOverlay = document.querySelector(".localprompt-workflow-editor-overlay");
+            existingOverlay?.__localpromptClose?.({ restoreFocus: false });
+
+            const initialValue = getOverride() || getCardText();
+            const overlay = document.createElement("div");
+            overlay.className = "localprompt-workflow-editor-overlay";
+            overlay.innerHTML = `
+                <section
+                    class="localprompt-workflow-editor"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="localprompt-workflow-editor-title"
+                    aria-describedby="localprompt-workflow-editor-description"
+                >
+                    <header class="localprompt-workflow-editor-header">
+                        <div class="localprompt-workflow-editor-heading">
+                            <h2 id="localprompt-workflow-editor-title">Edit for this workflow</h2>
+                            <p id="localprompt-workflow-editor-description"></p>
+                        </div>
+                        <button
+                            type="button"
+                            class="localprompt-workflow-editor-close"
+                            data-workflow-editor-action="cancel"
+                            aria-label="Cancel and close editor"
+                            title="Cancel"
+                        >&times;</button>
+                    </header>
+                    <main class="localprompt-workflow-editor-body">
+                        <section class="localprompt-workflow-editor-input-pane">
+                            <div class="localprompt-workflow-editor-label-row">
+                                <label class="localprompt-workflow-editor-label" for="localprompt-workflow-editor-text">
+                                    Prompt text
+                                </label>
+                                <span class="localprompt-workflow-inline-diff-status" data-workflow-diff-status>
+                                    Matches card
+                                </span>
+                            </div>
+                            <details class="localprompt-workflow-original-reference" open>
+                                <summary>Original card text</summary>
+                                <pre data-workflow-original-text></pre>
+                            </details>
+                            <div class="localprompt-workflow-editor-input-wrap">
+                                <pre class="localprompt-workflow-editor-highlight" aria-hidden="true"></pre>
+                                <textarea
+                                    id="localprompt-workflow-editor-text"
+                                    class="localprompt-workflow-editor-text"
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                        </section>
+                    </main>
+                    <footer class="localprompt-workflow-editor-footer">
+                        <div class="localprompt-workflow-editor-status" aria-live="polite">
+                            <span data-workflow-editor-status>No changes</span>
+                            <span aria-hidden="true">|</span>
+                            <span data-workflow-editor-count>0 characters</span>
+                        </div>
+                        <div class="localprompt-workflow-editor-actions">
+                            <button
+                                type="button"
+                                class="localprompt-workflow-revert-button"
+                                data-workflow-editor-action="revert"
+                            >Use card text</button>
+                            <button
+                                type="button"
+                                class="localprompt-workflow-cancel-button"
+                                data-workflow-editor-action="cancel"
+                            >Cancel</button>
+                            <button
+                                type="button"
+                                class="localprompt-workflow-confirm-button"
+                                data-workflow-editor-action="confirm"
+                            >Confirm changes</button>
+                        </div>
+                    </footer>
+                </section>
+            `;
+
+            const editor = overlay.querySelector(".localprompt-workflow-editor");
+            const description = overlay.querySelector("#localprompt-workflow-editor-description");
+            const textArea = overlay.querySelector(".localprompt-workflow-editor-text");
+            const status = overlay.querySelector("[data-workflow-editor-status]");
+            const count = overlay.querySelector("[data-workflow-editor-count]");
+            const revertButton = overlay.querySelector("[data-workflow-editor-action='revert']");
+            const diffStatus = overlay.querySelector("[data-workflow-diff-status]");
+            const originalTextReference = overlay.querySelector("[data-workflow-original-text]");
+            const highlightLayer = overlay.querySelector(".localprompt-workflow-editor-highlight");
+            const previousBodyOverflow = document.body.style.overflow;
+            let closed = false;
+
+            description.textContent = prompt?.name
+                ? `${prompt.name}. This edit is saved only in the current workflow.`
+                : "This edit is saved only in the current workflow.";
+            textArea.value = initialValue;
+            revertButton.hidden = !hasOverride();
+
+            const renderHighlightSegments = (segments) => {
+                highlightLayer.replaceChildren();
+                segments.forEach(segment => {
+                    if (segment.type === "removed") return;
+                    const element = segment.type === "equal"
+                        ? document.createTextNode(segment.text)
+                        : document.createElement("mark");
+                    if (element.nodeType === Node.ELEMENT_NODE) {
+                        element.className = "localprompt-workflow-diff-added";
+                        element.textContent = segment.text;
+                    }
+                    highlightLayer.appendChild(element);
+                });
+                highlightLayer.appendChild(document.createTextNode("\n"));
+            };
+
+            const renderOriginalSegments = (segments) => {
+                originalTextReference.replaceChildren();
+                if (!getCardText()) {
+                    originalTextReference.textContent = "This card has no prompt text.";
+                    return;
+                }
+                segments.forEach(segment => {
+                    if (segment.type === "added") return;
+                    const element = segment.type === "removed"
+                        ? document.createElement("mark")
+                        : document.createTextNode(segment.text);
+                    if (element.nodeType === Node.ELEMENT_NODE) {
+                        element.className = "localprompt-workflow-diff-removed";
+                        element.textContent = segment.text;
+                    }
+                    originalTextReference.appendChild(element);
+                });
+            };
+
+            const updateDiff = () => {
+                const segments = buildPromptTextDiff(getCardText(), textArea.value);
+                const hasAdded = segments.some(segment => segment.type === "added");
+                const hasRemoved = segments.some(segment => segment.type === "removed");
+                const hasChanges = hasAdded || hasRemoved;
+                if (hasAdded && hasRemoved) {
+                    diffStatus.textContent = "Changed text highlighted";
+                } else if (hasAdded) {
+                    diffStatus.textContent = "Added text highlighted";
+                } else if (hasRemoved) {
+                    diffStatus.textContent = "Text removed from card";
+                } else {
+                    diffStatus.textContent = "Matches card";
+                }
+                diffStatus.classList.toggle("has-changes", hasChanges);
+                renderHighlightSegments(segments);
+                renderOriginalSegments(segments);
+            };
+
+            const updateStatus = () => {
+                const dirty = textArea.value !== initialValue;
+                status.textContent = dirty ? "Ready to confirm" : "No changes";
+                count.textContent = `${textArea.value.length} character${textArea.value.length === 1 ? "" : "s"}`;
+                updateDiff();
+            };
+
+            const closeEditor = ({ restoreFocus = true } = {}) => {
+                if (closed) return;
+                closed = true;
+                document.removeEventListener("keydown", handleKeydown, true);
+                overlay.remove();
+                document.body.style.overflow = previousBodyOverflow;
+                if (restoreFocus && editButton.isConnected) editButton.focus();
+            };
+
+            const confirmEditor = () => {
+                saveOverride(textArea.value);
+                closeEditor();
+            };
+
+            const handleKeydown = (event) => {
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeEditor();
+                    return;
+                }
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    confirmEditor();
+                    return;
+                }
+                if (event.key !== "Tab") return;
+
+                const focusable = Array.from(editor.querySelectorAll(
+                    "button:not([disabled]):not([hidden]), textarea:not([disabled])"
+                ));
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            };
+
+            overlay.__localpromptClose = closeEditor;
+            overlay.addEventListener("click", (event) => {
+                const action = event.target.closest("[data-workflow-editor-action]")?.dataset.workflowEditorAction;
+                if (action === "cancel") closeEditor();
+                if (action === "confirm") confirmEditor();
+                if (action === "revert") {
+                    textArea.value = getCardText();
+                    textArea.focus();
+                    updateStatus();
+                }
+            });
+            textArea.addEventListener("input", updateStatus);
+            textArea.addEventListener("scroll", () => {
+                highlightLayer.scrollTop = textArea.scrollTop;
+                highlightLayer.scrollLeft = textArea.scrollLeft;
+            });
+            document.addEventListener("keydown", handleKeydown, true);
+            document.body.style.overflow = "hidden";
+            document.body.appendChild(overlay);
+            updateStatus();
+            requestAnimationFrame(() => {
+                textArea.focus();
+                textArea.setSelectionRange(textArea.value.length, textArea.value.length);
+            });
+        };
+
         editButton.addEventListener("click", event => {
             event.preventDefault();
             event.stopPropagation();
-            editor.hidden = !editor.hidden;
-            if (!editor.hidden) {
-                textArea.value = getOverride() || getCardText();
-                textArea.focus();
-                textArea.select();
-            }
-        });
-        textArea.addEventListener("input", event => {
-            saveOverride(event.target.value);
-        });
-        closeButton.addEventListener("click", event => {
-            event.preventDefault();
-            event.stopPropagation();
-            editor.hidden = true;
-        });
-        revertButton.addEventListener("click", event => {
-            event.preventDefault();
-            event.stopPropagation();
-            delete selectedEntry.prompt_text_override;
-            saveSelectionData();
-            renderPrompts();
+            openWorkflowEditor();
         });
     };
 

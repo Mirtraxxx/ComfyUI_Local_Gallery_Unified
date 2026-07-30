@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { buildPromptTextDiff } from "../js/prompt/activeSidebar.js";
 
 const activeSidebarUrl = new URL("../js/prompt/activeSidebar.js", import.meta.url);
 const helpersUrl = new URL("../js/prompt/helpers.js", import.meta.url);
@@ -8,7 +9,7 @@ const presetUrl = new URL("../js/prompt/presets.js", import.meta.url);
 const selectionJsonUrl = new URL("../js/shared/json.js", import.meta.url);
 const stylesUrl = new URL("../js/prompt/styles.js", import.meta.url);
 
-test("Active Stack uses a compact accessible thumbnail editor action and removes overrides on revert", async () => {
+test("Active Stack opens a full-screen confirmable workflow prompt editor", async () => {
     const [source, helpers, styles] = await Promise.all([
         readFile(activeSidebarUrl, "utf8"),
         readFile(helpersUrl, "utf8"),
@@ -24,13 +25,54 @@ test("Active Stack uses a compact accessible thumbnail editor action and removes
     assert.match(source, /editButton\.setAttribute\("aria-label", editLabel\)/);
     assert.match(source, /if \(!isThumbnail\) \{\s*editedBadge = document\.createElement/);
     assert.match(helpers, /if \(name === "edit"\)/);
+    assert.match(styles, /\.localprompt-chip-thumb\.pinned-managed \.localprompt-workflow-edit-button svg \{[\s\S]*?stroke: currentColor;/);
     assert.match(styles, /\.localprompt-chip-thumb\.pinned-managed \.localprompt-workflow-edit-button\.is-edited::after/);
-    assert.match(styles, /\.localprompt-chip-thumb\.pinned-managed > \.localprompt-workflow-editor \{[\s\S]*?overflow: hidden;/);
+    assert.match(styles, /\.localprompt-workflow-editor-overlay \{[\s\S]*?position: fixed;[\s\S]*?inset: 0;/);
+    assert.match(styles, /\.localprompt-workflow-editor \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;/);
     assert.doesNotMatch(styles, /> \.localprompt-workflow-edited-badge/);
     assert.match(source, /prompt_text_override/);
-    assert.match(source, /Revert to card text/);
+    assert.match(source, /Confirm changes/);
+    assert.match(source, /Use card text/);
+    assert.match(source, /localprompt-workflow-editor-highlight/);
+    assert.match(source, /Changed text highlighted/);
+    assert.match(source, /Original card text/);
+    assert.match(source, /data-workflow-original-text/);
+    assert.doesNotMatch(source, /Changes from card/);
+    assert.match(styles, /\.localprompt-workflow-diff-added \{[\s\S]*?background:/);
+    assert.match(styles, /\.localprompt-workflow-diff-removed \{[\s\S]*?background:[\s\S]*?text-decoration: line-through;/);
+    assert.match(styles, /\.localprompt-workflow-editor-highlight \{[\s\S]*?color: transparent;/);
+    assert.match(styles, /\.localprompt-workflow-editor-text \{[\s\S]*?color: #f4fbff;/);
+    assert.match(styles, /\.localprompt-workflow-original-reference pre \{[\s\S]*?font: clamp\(14px, 1\.3vw, 17px\)\/1\.6/);
+    assert.match(source, /event\.key === "Escape"/);
+    assert.match(source, /event\.ctrlKey \|\| event\.metaKey/);
+    assert.match(source, /saveOverride\(textArea\.value\)/);
+    assert.doesNotMatch(source, /textArea\.addEventListener\("input", event => \{\s*saveOverride/);
     assert.match(source, /delete selectedEntry\.prompt_text_override/);
     assert.match(source, /editedBadge\.textContent = "Edited"/);
+});
+
+test("workflow prompt diff preserves text and identifies additions and removals", () => {
+    const segments = buildPromptTextDiff(
+        "portrait, blue eyes, soft light",
+        "portrait, green eyes, soft light, detailed",
+    );
+
+    assert.equal(
+        segments.filter(segment => segment.type !== "added").map(segment => segment.text).join(""),
+        "portrait, blue eyes, soft light",
+    );
+    assert.equal(
+        segments.filter(segment => segment.type !== "removed").map(segment => segment.text).join(""),
+        "portrait, green eyes, soft light, detailed",
+    );
+    assert.match(
+        segments.filter(segment => segment.type === "removed").map(segment => segment.text).join(""),
+        /blue/,
+    );
+    assert.match(
+        segments.filter(segment => segment.type === "added").map(segment => segment.text).join(""),
+        /green|detailed/,
+    );
 });
 
 test("selection envelopes and presets preserve unknown workflow-local fields", async () => {
