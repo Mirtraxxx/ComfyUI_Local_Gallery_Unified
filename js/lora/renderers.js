@@ -1,5 +1,5 @@
-import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js?v=url-safety-20260712";
-import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
+import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js";
+import { getSelectedTriggerPresetNames } from "./selectionState.js";
 import { formatLoraWeight } from "./weights.js";
 
 function getSelectedPresetNames(selectionItem) {

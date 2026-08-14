@@ -46,11 +46,10 @@ function createOperationEditorHtml(selectedCount) {
                     </section>
 
                     <section class="localprompt-bulk-edit-section">
-                        <h4>Pinning and usage</h4>
+                        <h4>Pinning</h4>
                         <label><input type="radio" name="bulk-edit-favorite-mode" value="leave" checked> Leave pin state unchanged</label>
                         <label><input type="radio" name="bulk-edit-favorite-mode" value="set" data-favorite-value="true"> Pin all</label>
                         <label><input type="radio" name="bulk-edit-favorite-mode" value="set" data-favorite-value="false"> Unpin all</label>
-                        <label><input id="bulk-edit-reset-usage" type="checkbox"> Reset usage count</label>
                     </section>
 
                     <section class="localprompt-bulk-edit-preview" aria-live="polite">
@@ -112,9 +111,6 @@ function buildOperations(root) {
             value: root.querySelector("input[name=bulk-edit-favorite-mode]:checked").dataset.favoriteValue === "true",
         };
     }
-    if (root.querySelector("#bulk-edit-reset-usage").checked) {
-        operations.reset_usage = true;
-    }
     return operations;
 }
 
@@ -131,7 +127,7 @@ function renderPreview(root, result) {
     samples.innerHTML = (result?.samples || []).map((sample) => {
         const name = escapeHtml(sample.name || sample.id || "Card");
         const details = Object.entries(sample)
-            .filter(([field]) => ["name", "category", "prompt_text", "favorite", "usage_count"].includes(field))
+            .filter(([field]) => ["name", "category", "prompt_text", "favorite"].includes(field))
             .map(([field, values]) => {
                 if (!values || typeof values !== "object") return "";
                 return `<div><strong>${escapeHtml(field.replace("_", " "))}</strong>: “${escapeHtml(String(values.before))}” → “${escapeHtml(String(values.after))}”</div>`;

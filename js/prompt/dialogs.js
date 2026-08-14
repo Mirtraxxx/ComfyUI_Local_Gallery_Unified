@@ -4,7 +4,7 @@ import {
     createCenteredOverlay,
     createDialogPanel,
     createWorkspaceDialogSurface,
-} from "../shared/modalSurfaces.js?v=card-insights-20260722-11";
+} from "../shared/modalSurfaces.js";
 import {
     buildLastOutputPreviewUrl,
     extractPromptTextFromSourceNode,
@@ -32,6 +32,7 @@ export async function showAddPromptDialog({
     nodeInstance,
     loadCategories,
     loadPromptsForGallery,
+    operationFeedback = null,
 }) {
     try {
         const overlay = createCenteredOverlay();
@@ -76,6 +77,7 @@ export async function showAddPromptDialog({
         cancelBtn.addEventListener("click", () => overlay.remove());
 
         saveBtn.addEventListener("click", async () => {
+            const originalLabel = saveBtn.textContent;
             try {
                 const name = nameInput.value.trim();
                 const promptText = textInput.value.trim();
@@ -86,21 +88,37 @@ export async function showAddPromptDialog({
                     return;
                 }
 
+                saveBtn.disabled = true;
+                saveBtn.textContent = "Creating...";
+                operationFeedback?.pending("Creating prompt...");
                 const result = await galleryNode.createPrompt(name, promptText, category);
+                if (!result || result.status !== "ok") {
+                    throw new Error(result?.message || "Could not create prompt");
+                }
 
-                if (result.status === "ok") {
-                    nodeInstance.uiPrefs.last_created_category = category;
-                    await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
+                nodeInstance.uiPrefs.last_created_category = category;
+                const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
+                if (prefsResult?.status === "error") {
+                    operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                } else {
+                    operationFeedback?.success("Prompt saved to gallery");
+                }
 
-                    overlay.remove();
+                overlay.remove();
+                try {
                     await loadCategories();
                     await loadPromptsForGallery(1);
-                } else {
-                    showAlert("Failed to create prompt: " + (result.message || "Unknown error"));
+                } catch (refreshError) {
+                    operationFeedback?.warning("Prompt created. View refresh failed.", {
+                        details: refreshError?.message,
+                    });
                 }
             } catch (error) {
                 console.error("Error creating prompt:", error);
-                showAlert("Error creating prompt: " + error.message);
+                operationFeedback?.error(error.message || "Could not create prompt");
+                showAlert("Could not create prompt: " + error.message);
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalLabel;
             }
         });
     } catch (error) {
@@ -117,6 +135,7 @@ export async function showEditPromptDialog({
     loadPromptsForGallery,
     refreshAllSections,
     onRefresh = null,
+    operationFeedback = null,
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
@@ -189,8 +208,8 @@ export async function showEditPromptDialog({
     const statusDot = dialog.querySelector("#edit-status-dot");
     const characterCount = dialog.querySelector("#edit-character-count");
 
-    const updateEditStatus = (isDirty = true) => {
-        if (statusLabel) statusLabel.textContent = isDirty ? "Changes not saved" : "Saved";
+    const updateEditStatus = (isDirty = true, message = null) => {
+        if (statusLabel) statusLabel.textContent = message || (isDirty ? "Changes not saved" : "Saved to gallery");
         if (statusDot) statusDot.classList.toggle("saved", !isDirty);
         if (characterCount) {
             const count = textInput.value.length;
@@ -211,16 +230,38 @@ export async function showEditPromptDialog({
             prompt_text: textInput.value.trim(),
             category: categoryInput.value.trim()
         };
-        const result = await galleryNode.updateMetadata(promptId, nextData);
-        updateLocalPromptAfterMetadataSave(promptId, result?.prompt || nextData);
-
-        overlay.remove();
-        await loadCategories();
-        if (onRefresh) {
-            await onRefresh();
-        } else {
-            await loadPromptsForGallery(galleryNode.currentPage);
-            await refreshAllSections();
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+        updateEditStatus(true, "Saving to gallery...");
+        operationFeedback?.pending("Saving prompt...");
+        try {
+            const result = await galleryNode.updateMetadata(promptId, nextData);
+            if (result?.status && result.status !== "ok") {
+                throw new Error(result.message || "Could not save prompt");
+            }
+            updateLocalPromptAfterMetadataSave(promptId, result?.prompt || nextData);
+            updateEditStatus(false);
+            operationFeedback?.success("Prompt saved to gallery");
+            overlay.remove();
+            try {
+                await loadCategories();
+                if (onRefresh) {
+                    await onRefresh();
+                } else {
+                    await loadPromptsForGallery(galleryNode.currentPage);
+                    await refreshAllSections();
+                }
+            } catch (refreshError) {
+                operationFeedback?.warning("Prompt saved. View refresh failed.", {
+                    details: refreshError?.message,
+                });
+            }
+        } catch (error) {
+            console.error("LocalPromptGallery: Failed to save prompt", error);
+            updateEditStatus(true, error?.message || "Could not save changes");
+            operationFeedback?.error(error?.message || "Could not save prompt");
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save";
         }
     });
 }
@@ -230,6 +271,7 @@ export function showUploadThumbnailDialog({
     galleryNode,
     loadPromptsForGallery,
     onRefresh = null,
+    operationFeedback = null,
 }) {
     const promptId = prompt?.id ?? prompt?.prompt_id;
     if (!promptId) {
@@ -267,17 +309,32 @@ export function showUploadThumbnailDialog({
             return;
         }
 
-        const result = await galleryNode.uploadThumbnail(promptId, file);
-
-        if (result.status === "ok") {
-            overlay.remove();
-            if (onRefresh) {
-                await onRefresh();
-            } else {
-                await loadPromptsForGallery(galleryNode.currentPage);
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Uploading...";
+        operationFeedback?.pending("Uploading thumbnail...");
+        try {
+            const result = await galleryNode.uploadThumbnail(promptId, file);
+            if (!result || result.status !== "ok") {
+                throw new Error(result?.message || "Could not upload thumbnail");
             }
-        } else {
-            showAlert("Failed to upload thumbnail: " + (result.message || "Unknown error"));
+            operationFeedback?.success("Thumbnail saved to gallery");
+            overlay.remove();
+            try {
+                if (onRefresh) {
+                    await onRefresh();
+                } else {
+                    await loadPromptsForGallery(galleryNode.currentPage);
+                }
+            } catch (refreshError) {
+                operationFeedback?.warning("Thumbnail saved. View refresh failed.", {
+                    details: refreshError?.message,
+                });
+            }
+        } catch (error) {
+            operationFeedback?.error(error?.message || "Could not upload thumbnail");
+            showAlert("Could not upload thumbnail: " + (error?.message || "Unknown error"));
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = "Upload";
         }
     });
 }
@@ -311,6 +368,7 @@ function updateWildcardTokenPreview(dialog, filenameValue) {
 export async function showExportDialog({
     galleryNode,
     initialCategory = "",
+    operationFeedback = null,
     workspaceContainer = null,
     surfaceHost = null,
     onClose = null,
@@ -432,6 +490,7 @@ export async function showExportDialog({
 
         try {
             updateStatus("Exporting wildcard file...");
+            operationFeedback?.pending("Exporting wildcard file...");
             const result = await galleryNode.exportWildcardCategory(category, filename, destination);
             if (result.status !== "ok") {
                 throw new Error(result.message || "Export failed");
@@ -444,8 +503,10 @@ export async function showExportDialog({
             const tokenLine = result.wildcard_token ? `\nWildcard token: ${result.wildcard_token}` : "";
             const pathLine = result.save_path ? `\nSaved to: ${result.save_path}` : "";
             updateStatus((result.message || `Exported ${result.line_count || 0} lines.`) + tokenLine + pathLine);
+            operationFeedback?.success(`Exported ${Number(result.line_count || 0)} prompt lines`);
         } catch (error) {
             updateStatus("Error: " + error.message, true);
+            operationFeedback?.error(error?.message || "Could not export wildcard file");
         } finally {
             saveBtn.disabled = false;
             saveBtn.style.opacity = "1";
@@ -457,6 +518,7 @@ export async function showImportDialog({
     galleryNode,
     loadCategories,
     loadPromptsForGallery,
+    operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
@@ -545,6 +607,7 @@ export async function showImportDialog({
 
         try {
             updateStatus("Uploading file...");
+            operationFeedback?.pending("Uploading wildcard file...");
             const uploadResult = await galleryNode.uploadWildcardFile(file);
 
             if (uploadResult.status !== "ok") {
@@ -552,6 +615,7 @@ export async function showImportDialog({
             }
 
             updateStatus("File uploaded. Importing prompts...");
+            operationFeedback?.pending("Importing prompt cards...");
             const importResult = await galleryNode.importWildcardFile(uploadResult.filename, category);
 
             if (importResult.status !== "ok") {
@@ -559,15 +623,22 @@ export async function showImportDialog({
             }
 
             updateStatus(importResult.message + "\nClosing dialog in 2 seconds...");
+            operationFeedback?.success(importResult.message || "Prompt cards imported");
 
-            await loadCategories();
-            await loadPromptsForGallery(1);
+            try {
+                await loadCategories();
+                await loadPromptsForGallery(1);
+            } catch (refreshError) {
+                updateStatus((importResult.message || "Prompt cards imported") + "\nView refresh failed; close and reopen the gallery.", true);
+                operationFeedback?.warning("Prompt cards imported. View refresh failed.");
+            }
 
             setTimeout(() => {
                 close();
             }, 2000);
         } catch (error) {
             updateStatus("Error: " + error.message, true);
+            operationFeedback?.error(error?.message || "Could not import prompt cards");
             saveBtn.disabled = false;
             saveBtn.style.opacity = "1";
         }
@@ -583,6 +654,7 @@ export async function showFromLastOutputDialog({
     insertPromptIntoCurrentGallery,
     loadPromptsForGallery,
     loadCategories = null,
+    operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -746,6 +818,8 @@ export async function showFromLastOutputDialog({
 
         saveBtn.disabled = true;
         saveBtn.style.opacity = "0.6";
+        saveBtn.textContent = "Saving...";
+        operationFeedback?.pending("Creating prompt from last output...");
 
         try {
             const createResult = await galleryNode.createPromptFromOutput(
@@ -760,9 +834,17 @@ export async function showFromLastOutputDialog({
 
             nodeInstance.uiPrefs.last_created_category = category;
             nodeInstance.uiPrefs.from_last_output_name_default = nameDefaultSelect.value === "blank" ? "blank" : "time";
-            galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance).catch(error => {
-                console.warn("LocalPromptGallery: Failed to save last created category", error);
-            });
+            try {
+                const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
+                if (prefsResult?.status === "error") {
+                    operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                } else {
+                    operationFeedback?.success("Prompt and thumbnail saved to gallery");
+                }
+            } catch (preferenceError) {
+                console.warn("LocalPromptGallery: Failed to save last created category", preferenceError);
+                operationFeedback?.warning("Prompt created. Category preference was not saved.");
+            }
 
             close();
             // Refresh categories when a brand-new label may have been introduced.
@@ -771,16 +853,27 @@ export async function showFromLastOutputDialog({
                     await loadCategories?.();
                 } catch (error) {
                     console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
+                    operationFeedback?.warning("Prompt created. Category refresh failed.", {
+                        details: error?.message,
+                    });
                 }
             }
             if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
-                await loadPromptsForGallery(1);
+                try {
+                    await loadPromptsForGallery(1);
+                } catch (refreshError) {
+                    operationFeedback?.warning("Prompt created. View refresh failed.", {
+                        details: refreshError?.message,
+                    });
+                }
             }
         } catch (error) {
             console.error("Error creating prompt from last output:", error);
+            operationFeedback?.error(error?.message || "Could not create prompt from last output");
             showAlert(`Error: ${error.message}`);
             saveBtn.disabled = false;
             saveBtn.style.opacity = "1";
+            saveBtn.textContent = "Save";
         }
     });
 }

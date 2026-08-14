@@ -1,5 +1,5 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
-import * as promptApi from "../api/promptApi.js?v=card-insights-20260722-13";
+import * as promptApi from "../api/promptApi.js";
 import {
     CATEGORY_ROLE_PALETTE,
     FAVORITE_COLORS,
@@ -25,53 +25,54 @@ import {
     sortPromptsByPinnedOrder,
     stepManagedPromptWeight,
     syncPinnedOrderWithPromptIds,
-} from "./helpers.js?v=unified-icons-20260606";
+} from "./helpers.js";
 import {
     closePromptContextMenus,
     showPromptActionContextMenu as openPromptActionContextMenu,
     showPromptContextMenu as openPromptContextMenu,
-} from "./contextMenus.js?v=card-manager-surface-host-20260721-1";
+} from "./contextMenus.js";
 import {
     attachInfoPopup as attachPromptInfoPopup,
     closePromptPreviews,
     hideHoverPreview as hidePromptHoverPreview,
     showHoverPreview as showPromptHoverPreview,
-} from "./previews.js?v=card-manager-surface-host-20260721-1";
+} from "./previews.js";
 import {
     applyActiveSidebarWidthPreference as applyPromptActiveSidebarWidthPreference,
     getActiveSidebarWidth as getPromptActiveSidebarWidth,
-} from "./activeSidebar.js?v=active-stack-swap-reorder-20260617&media=prompt-video-20260726-1";
-import { createPromptGalleryController } from "./galleryController.js?v=prompt-gallery-controller-20260712";
-import { createPromptCategoryStripController } from "./categoryStripController.js?v=category-overflow-height-restore-20260728-1";
-import { createBottomToolbarController } from "./bottomToolbarController.js?v=compact-ux-20260714-3";
-import { createDisplayPreferencesController } from "./displayPreferencesController.js?v=responsive-thumbnail-bounds-20260723-1";
-import { createActiveStackController } from "./activeStackController.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1&icons=builder-match-20260728-1";
+} from "./activeSidebar.js";
+import { createPromptGalleryController } from "./galleryController.js";
+import { createPromptCategoryStripController } from "./categoryStripController.js";
+import { createBottomToolbarController } from "./bottomToolbarController.js";
+import { createDisplayPreferencesController } from "./displayPreferencesController.js";
+import { createActiveStackController } from "./activeStackController.js";
 import {
     applyLibraryTabLayoutPreference as applyLibraryTabLayoutClasses,
     getUtilityLibraryTabs,
     isUtilityLibraryTab,
     renderPromptBuilderBar,
     renderPromptBuilderDrawer,
-} from "./library.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1";
-import { showSettingsModal as openSettingsModal } from "./settings.js?v=workflow-profile-v1-20260725-1";
-import { showWildcardsModal } from "./wildcards.js?v=modal-surfaces-20260721-2";
-import { getPromptTemplate } from "./template.js?v=category-overflow-resize-20260723-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2&library=direct-cards-20260728-1";
-import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js?v=wildcard-update-default-off-20260717-1";
-import { createMetaTagsController } from "./metaTags.js?v=prompt-performance-20260721-1";
-import { createPromptWorkspaceController } from "./workspace.js?v=library-direct-cards-20260728-1";
-import { createPromptWorkspaceActions } from "./workspaceActions.js?v=card-manager-compact-align-20260727-3&library=direct-cards-20260728-1";
+} from "./library.js";
+import { showSettingsModal as openSettingsModal } from "./settings.js";
+import { showWildcardsModal } from "./wildcards.js";
+import { getPromptTemplate } from "./template.js";
+import { setupPromptPreDomStateWidgets, setupPromptPostDomStateWidgets } from "./stateWidgets.js";
+import { createMetaTagsController } from "./metaTags.js";
+import { createPromptWorkspaceController } from "./workspace.js";
+import { createPromptWorkspaceActions } from "./workspaceActions.js";
 import {
     DEFAULT_PROMPT_UI_PREFS,
     mergeUiPrefs,
-} from "./preferences.js?v=category-overflow-height-persist-20260724-1";
+} from "./preferences.js";
 import { escapeHtml } from "../shared/dom.js";
-import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
-import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
+import { createEventListenerRegistry } from "../shared/events.js";
+import { createOperationFeedback } from "../shared/operationFeedback.js?v=operation-feedback-20260809-3";
+import { readSelectionArray, stringifyJsonOr, writeSelectionArray } from "../shared/json.js";
 import {
     getWorkflowProfileStatus,
     readWorkflowProfileSection,
     writeWorkflowProfileSection,
-} from "../shared/workflowProfile.js?v=workflow-profile-v1-20260725-1";
+} from "../shared/workflowProfile.js";
 
 export function createPromptGalleryLifecycle(app, api) {
 const UnifiedPromptGalleryNode = {
@@ -305,15 +306,6 @@ const UnifiedPromptGalleryNode = {
         }
     },
 
-    async getMostUsed(count = 10) {
-        try {
-            return await promptApi.getMostUsed(count);
-        } catch (e) {
-            console.error("LocalPromptGallery: Failed to get most used", e);
-            return [];
-        }
-    },
-
     async getUiPrefs() {
         try {
             return await promptApi.getUiPrefs();
@@ -381,15 +373,6 @@ const UnifiedPromptGalleryNode = {
         }
     },
 
-    async resetUsageCount(prompt_id) {
-        try {
-            return await promptApi.resetUsageCount(prompt_id);
-        } catch (e) {
-            console.error("LocalPromptGallery: Failed to reset usage count", e);
-            return { status: "error", message: e.toString() };
-        }
-    },
-
     async assignThumbnail(prompt_id, lastOutput) {
         try {
             return await promptApi.assignThumbnail(prompt_id, lastOutput);
@@ -410,6 +393,35 @@ const UnifiedPromptGalleryNode = {
 
     isComfyIdle() {
         return !this.isExecuting && Number(this.queueRemaining || 0) <= 0;
+    },
+
+    reportOperationFeedback(state, message, options = {}) {
+        this.instances.forEach(instance => {
+            instance.operationFeedback?.[state]?.(message, options);
+        });
+    },
+
+    /**
+     * Free GPU/compositor work in the gallery UI while Comfy is sampling.
+     * Continuous card border animations + backdrop blur + video decode share the
+     * same GPU as the sampler on Windows and can tank it/s until a hard refresh.
+     */
+    setSamplingQuietMode(enabled) {
+        const quiet = !!enabled;
+        this.instances.forEach(instance => {
+            const root = instance.__localPromptWidgetRoot;
+            if (!root) return;
+            root.classList.toggle("localprompt-sampling-quiet", quiet);
+            if (quiet) {
+                root.querySelectorAll("video").forEach(video => {
+                    try {
+                        video.pause();
+                    } catch {
+                        // Ignore media control failures during teardown/generation.
+                    }
+                });
+            }
+        });
     },
 
     cancelDeferredAutoAttachFlush() {
@@ -526,7 +538,9 @@ const UnifiedPromptGalleryNode = {
                     "LocalPromptGallery: Deferred auto-attach batch failed",
                     result?.message || "unknown error"
                 );
+                this.reportOperationFeedback("error", result?.message || "Automatic thumbnail attachment failed");
             } else if (Array.isArray(result?.results)) {
+                const failedItems = result.results.filter(item => item?.status && item.status !== "ok");
                 for (const item of result.results) {
                     if (item?.status && item.status !== "ok") {
                         console.warn(
@@ -534,6 +548,14 @@ const UnifiedPromptGalleryNode = {
                             item.message || "unknown error"
                         );
                     }
+                }
+                if (failedItems.length > 0) {
+                    this.reportOperationFeedback(
+                        "warning",
+                        `Attached ${attachedCount} thumbnails. ${failedItems.length} failed.`
+                    );
+                } else if (attachedCount > 0) {
+                    this.reportOperationFeedback("success", `Attached ${attachedCount} wildcard thumbnails`);
                 }
             }
 
@@ -549,6 +571,7 @@ const UnifiedPromptGalleryNode = {
             }
         } catch (error) {
             console.warn("LocalPromptGallery: Deferred auto-attach flush failed", error);
+            this.reportOperationFeedback("error", error?.message || "Automatic thumbnail attachment failed");
         } finally {
             this.deferredAutoAttachFlushing = false;
             // If more items arrived while we were writing, schedule another pass only if idle.
@@ -608,6 +631,10 @@ const UnifiedPromptGalleryNode = {
             // ADD DOM WIDGET HERE - before hidden data widgets
             widgetContainer = document.createElement("div");
             widgetContainer.className = "localprompt-container-wrapper";
+            this.__localPromptWidgetRoot = widgetContainer;
+            if (UnifiedPromptGalleryNode.isExecuting) {
+                widgetContainer.classList.add("localprompt-sampling-quiet");
+            }
             this.addDOMWidget("prompt_gallery", "div", widgetContainer, {});
 
             // Keep interactions inside the custom UI from bubbling into the ComfyUI canvas.
@@ -635,6 +662,13 @@ const UnifiedPromptGalleryNode = {
             const uniqueId = `localprompt-gallery-${this.id}`;
 
             widgetContainer.innerHTML = getPromptTemplate(uniqueId);
+            const promptBottomBar = widgetContainer.querySelector(".localprompt-bottom-bar");
+            const operationFeedback = createOperationFeedback({
+                host: promptBottomBar,
+                before: promptBottomBar?.querySelector(".localprompt-bottom-spacer"),
+                readyMessage: "Ready",
+            });
+            this.operationFeedback = operationFeedback;
 
             const metaTagsController = createMetaTagsController({
                 app,
@@ -818,6 +852,7 @@ const UnifiedPromptGalleryNode = {
                     getPinnedCategories,
                     savePinnedCategories,
                     getWorkflowProfileStatus: () => getWorkflowProfileStatus(node_instance),
+                    operationFeedback,
                     workspaceContainer: host,
                     onClose: returnToGallery,
                 });
@@ -978,6 +1013,7 @@ const UnifiedPromptGalleryNode = {
                 libraryDrawerRenderToken += 1;
                 activeStackController?.dispose?.();
                 UnifiedPromptGalleryNode.instances.delete(this);
+                this.__localPromptWidgetRoot = null;
                 const preview = document.getElementById(`${uniqueId}-hover-preview`);
                 if (preview) preview.remove();
                 if (toolbarOutsideClickHandler) {
@@ -1008,6 +1044,7 @@ const UnifiedPromptGalleryNode = {
                 closePromptContextMenus();
                 closePromptPreviews();
                 globalListeners.cleanup();
+                operationFeedback.dispose();
                 closeCategoryContextMenu();
                 if (originalOnRemoved) originalOnRemoved.call(this);
             };
@@ -1667,12 +1704,10 @@ const UnifiedPromptGalleryNode = {
                 }
                 if (typeof scope === "string") {
                     if (scope === "pinned") return "favorites";
-                    if (scope === "most_used") return "most_used";
                     if (scope.trim()) return `category:${scope.trim()}`;
                 }
 
                 if (activeLibraryTab === "pinned") return "favorites";
-                if (activeLibraryTab === "most_used") return "most_used";
                 if (activeLibraryTab) return `category:${activeLibraryTab}`;
 
                 const categorySelect = widgetContainer.querySelector(`#${uniqueId}-category-select`);
@@ -1887,7 +1922,6 @@ const UnifiedPromptGalleryNode = {
                         preview_url: null,
                         favorite: false,
                         category_favorites: [],
-                        usage_count: 0,
                     };
                 }).filter(Boolean);
             }
@@ -2338,35 +2372,78 @@ const UnifiedPromptGalleryNode = {
                             showUploadThumbnailDialog(selectedPrompt, refresh);
                         },
                         favorite: async (selectedPrompt) => {
-                            const result = await UnifiedPromptGalleryNode.toggleFavorite(selectedPrompt.id);
-                            if (result?.status === 'ok') {
-                                await syncPinnedOrderForFavorite(selectedPrompt.id, result.favorite);
+                            operationFeedback.pending('Updating favorite...');
+                            let result;
+                            try {
+                                result = await UnifiedPromptGalleryNode.toggleFavorite(selectedPrompt.id);
+                                if (!result || result.status !== 'ok') {
+                                    throw new Error(result?.message || 'Could not update favorite');
+                                }
+                            } catch (error) {
+                                operationFeedback.error(error?.message || 'Could not update favorite');
+                                return;
                             }
-                            await refresh();
-                        },
-                        reset_usage: async (selectedPrompt) => {
-                            await UnifiedPromptGalleryNode.resetUsageCount(selectedPrompt.id);
-                            await refresh();
+                            try {
+                                await syncPinnedOrderForFavorite(selectedPrompt.id, result.favorite);
+                                await refresh();
+                                operationFeedback.success(result.favorite ? 'Prompt added to favorites' : 'Prompt removed from favorites');
+                            } catch (error) {
+                                operationFeedback.warning('Favorite updated. View or pinned order refresh failed.', {
+                                    action: refresh,
+                                    actionLabel: 'Retry',
+                                });
+                            }
                         },
                         use_last_output: async (selectedPrompt) => {
                             if (UnifiedPromptGalleryNode.lastOutput) {
-                                const res = await UnifiedPromptGalleryNode.assignThumbnail(selectedPrompt.id, UnifiedPromptGalleryNode.lastOutput);
-                                if (res.status === 'ok') {
+                                operationFeedback.pending('Saving thumbnail...');
+                                try {
+                                    const result = await UnifiedPromptGalleryNode.assignThumbnail(selectedPrompt.id, UnifiedPromptGalleryNode.lastOutput);
+                                    if (!result || result.status !== 'ok') {
+                                        throw new Error(result?.message || 'Could not save thumbnail');
+                                    }
+                                    operationFeedback.success('Thumbnail saved to gallery');
+                                } catch (error) {
+                                    operationFeedback.error(error?.message || 'Could not save thumbnail');
+                                    showAlert('Error: ' + (error?.message || 'Could not save thumbnail'));
+                                    return;
+                                }
+                                try {
                                     await refresh();
-                                } else {
-                                    showAlert('Error: ' + res.message);
+                                } catch (error) {
+                                    operationFeedback.warning('Thumbnail saved. View refresh failed.', {
+                                        action: refresh,
+                                        actionLabel: 'Retry',
+                                    });
                                 }
                             }
                         },
                         delete: async (selectedPrompt) => {
                             if (confirmAction(`Delete prompt "${selectedPrompt.name}"?`)) {
-                                await UnifiedPromptGalleryNode.deletePrompt(selectedPrompt.id);
+                                operationFeedback.pending('Deleting prompt...');
+                                try {
+                                    const result = await UnifiedPromptGalleryNode.deletePrompt(selectedPrompt.id);
+                                    if (!result || result.status !== 'ok') {
+                                        throw new Error(result?.message || 'Could not delete prompt');
+                                    }
+                                } catch (error) {
+                                    operationFeedback.error(error?.message || 'Could not delete prompt');
+                                    return;
+                                }
                                 const idx = node_instance.promptData.findIndex(p => p.prompt_id === selectedPrompt.id);
                                 if (idx >= 0) {
                                     node_instance.promptData.splice(idx, 1);
                                     saveSelectionData();
                                 }
-                                await refresh();
+                                operationFeedback.success('Prompt deleted');
+                                try {
+                                    await refresh();
+                                } catch (error) {
+                                    operationFeedback.warning('Prompt deleted. View refresh failed.', {
+                                        action: refresh,
+                                        actionLabel: 'Retry',
+                                    });
+                                }
                             }
                         },
                     },
@@ -2451,14 +2528,26 @@ const UnifiedPromptGalleryNode = {
                 );
                 if (!confirmed) return false;
 
-                const result = await UnifiedPromptGalleryNode.renameCategory(sourceCategory, targetCategory);
-                if (result?.status !== 'ok') {
-                    showAlert('Error: ' + (result?.message || 'Failed to rename category'));
+                operationFeedback.pending(`Renaming category "${sourceCategory}"...`);
+                let result;
+                try {
+                    result = await UnifiedPromptGalleryNode.renameCategory(sourceCategory, targetCategory);
+                    if (!result || result.status !== 'ok') {
+                        throw new Error(result?.message || 'Failed to rename category');
+                    }
+                } catch (error) {
+                    operationFeedback.error(error?.message || 'Failed to rename category');
+                    showAlert('Error: ' + (error?.message || 'Failed to rename category'));
                     return false;
                 }
 
-                if (typeof onSuccess === 'function') {
-                    await onSuccess(targetCategory, result);
+                try {
+                    if (typeof onSuccess === 'function') {
+                        await onSuccess(targetCategory, result);
+                    }
+                    operationFeedback.success(`Category renamed to "${targetCategory}"`);
+                } catch (error) {
+                    operationFeedback.warning(`Category renamed to "${targetCategory}". View refresh failed.`);
                 }
                 return true;
             }
@@ -2538,6 +2627,7 @@ const UnifiedPromptGalleryNode = {
                 renderLibraryShell,
                 getLibrarySubnavHtml,
                 onPromptsLoaded: seedPromptModels,
+                operationFeedback,
             });
             const {
                 showEditPromptDialog,
@@ -2634,19 +2724,26 @@ const UnifiedPromptGalleryNode = {
                         
                         if (!doubleConfirmed) return;
                         
+                        operationFeedback.pending(`Deleting category "${categoryToDelete}"...`);
                         try {
                             const result = await UnifiedPromptGalleryNode.deleteCategory(categoryToDelete);
                             if (result.status === 'ok') {
-                                showAlert(result.message);
                                 categorySelect.value = ''; // Reset to "All Categories"
                                 deleteCategoryBtn.style.display = 'none';
-                                await loadCategories();
-                                await loadPromptsForGallery(1);
+                                operationFeedback.success(`Category "${categoryToDelete}" deleted`);
+                                try {
+                                    await loadCategories();
+                                    await loadPromptsForGallery(1);
+                                } catch (error) {
+                                    operationFeedback.warning(`Category "${categoryToDelete}" deleted. View refresh failed.`);
+                                }
                             } else {
+                                operationFeedback.error(result.message || 'Failed to delete category');
                                 showAlert('Error: ' + (result.message || 'Failed to delete category'));
                             }
                         } catch (e) {
                             console.error('Error deleting category:', e);
+                            operationFeedback.error(e?.message || 'Failed to delete category');
                             showAlert('Error deleting category: ' + e.message);
                         }
                     });
@@ -3017,10 +3114,16 @@ return {
             UnifiedPromptGalleryNode.isExecuting = true;
             // Abort any idle flush timer so we never hit disk mid-sampling.
             UnifiedPromptGalleryNode.cancelDeferredAutoAttachFlush();
+            // Stop continuous browser GPU work (zip borders, blur, video) that
+            // steals cycles from the sampler until the page is hard-refreshed.
+            UnifiedPromptGalleryNode.setSamplingQuietMode(true);
         });
 
         api.addEventListener("execution_success", ({ detail }) => {
             UnifiedPromptGalleryNode.isExecuting = false;
+            if (UnifiedPromptGalleryNode.isComfyIdle()) {
+                UnifiedPromptGalleryNode.setSamplingQuietMode(false);
+            }
 
             const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
             if (!promptId) return;
@@ -3043,11 +3146,19 @@ return {
             }
             // queue_remaining can be 0 while the current job is still sampling —
             // isComfyIdle() also requires !isExecuting.
+            if (UnifiedPromptGalleryNode.isComfyIdle()) {
+                UnifiedPromptGalleryNode.setSamplingQuietMode(false);
+            } else if (UnifiedPromptGalleryNode.isExecuting || Number(UnifiedPromptGalleryNode.queueRemaining || 0) > 0) {
+                UnifiedPromptGalleryNode.setSamplingQuietMode(true);
+            }
             UnifiedPromptGalleryNode.tryScheduleDeferredAutoAttachFlush();
         });
 
         const clearWildcardExecutionState = ({ detail }) => {
             UnifiedPromptGalleryNode.isExecuting = false;
+            if (UnifiedPromptGalleryNode.isComfyIdle()) {
+                UnifiedPromptGalleryNode.setSamplingQuietMode(false);
+            }
             const promptId = detail?.prompt_id == null ? "" : String(detail.prompt_id);
             if (!promptId) return;
             UnifiedPromptGalleryNode.pendingWildcardAutoAttach.delete(promptId);

@@ -29,12 +29,32 @@ export function createLoraMetadataController({
     assignThumbnail,
     renderCurrentView,
     renderSelectedList,
-    fetchAndRender,
+    operationFeedback = null,
     onClose,
 }) {
     let thumbnailAssignmentInProgress = false;
     let thumbnailFeedbackTimer = null;
     let presetEditorLoraName = null;
+    const EMPTY_PREVIEW_IMAGE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+    const updateVisibleGalleryPreview = (loraName, previewUrl, previewType) => {
+        const card = findGalleryCardByLoraName(loraName);
+        const mediaContainer = card?.querySelector(".locallora-media-container");
+        if (!mediaContainer) return;
+
+        const hasVideoPreview = previewType === "video" && Boolean(previewUrl);
+        const media = document.createElement(hasVideoPreview ? "video" : "img");
+        media.src = previewUrl || EMPTY_PREVIEW_IMAGE;
+        if (hasVideoPreview) {
+            media.muted = true;
+            media.loop = true;
+            media.playsInline = true;
+            media.preload = "metadata";
+        } else {
+            media.loading = "lazy";
+        }
+        mediaContainer.replaceChildren(media);
+    };
 
     const setThumbnailStatus = (message, { visible = false } = {}) => {
         thumbnailActionStatus.textContent = message;
@@ -160,11 +180,20 @@ export function createLoraMetadataController({
                         e.stopPropagation();
                         const newPresets = { ...loraInDataSource.trigger_presets };
                         delete newPresets[pName];
-                        await updateMetadata(loraName, { trigger_presets: newPresets });
-                        updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
-                        renderPresetsList();
-                        renderCurrentView();
-                        renderSelectedList();
+                        rmBtn.disabled = true;
+                        operationFeedback?.pending(`Removing preset "${pName}"...`);
+                        try {
+                            await updateMetadata(loraName, { trigger_presets: newPresets });
+                            updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
+                            renderPresetsList();
+                            renderCurrentView();
+                            renderSelectedList();
+                            operationFeedback?.success(`Preset "${pName}" removed`);
+                        } catch (error) {
+                            operationFeedback?.error(error?.message || "Could not remove trigger preset");
+                        } finally {
+                            rmBtn.disabled = false;
+                        }
                     };
 
                     row.appendChild(nameSpan);
@@ -207,6 +236,7 @@ export function createLoraMetadataController({
         useLastOutputThumbnailBtn.classList.add("loading");
         thumbnailActionLabel.textContent = "Saving";
         setThumbnailStatus("Saving thumbnail...", { visible: true });
+        operationFeedback?.pending("Saving LoRA thumbnail...");
         try {
             const loraName = editingLoras[0].name;
             const result = await assignThumbnail(loraName, lastOutput);
@@ -214,18 +244,20 @@ export function createLoraMetadataController({
                 preview_url: result.preview_url,
                 preview_type: result.preview_type,
             });
+            updateVisibleGalleryPreview(loraName, result.preview_url, result.preview_type);
             useLastOutputThumbnailBtn.classList.add("success");
             setThumbnailStatus("Thumbnail updated", { visible: true });
+            operationFeedback?.success("LoRA thumbnail saved to gallery");
             clearTimeout(thumbnailFeedbackTimer);
             thumbnailFeedbackTimer = setTimeout(() => {
                 useLastOutputThumbnailBtn.classList.remove("success");
                 thumbnailActionStatus.classList.remove("is-visible");
             }, 1200);
-            await fetchAndRender();
             renderSelectedList();
         } catch (error) {
             console.error("LocalLoraGallery: Failed to assign thumbnail", error);
             setThumbnailStatus(error?.message || "Could not update thumbnail", { visible: true });
+            operationFeedback?.error(error?.message || "Could not update LoRA thumbnail");
         } finally {
             thumbnailAssignmentInProgress = false;
             useLastOutputThumbnailBtn.classList.remove("loading");

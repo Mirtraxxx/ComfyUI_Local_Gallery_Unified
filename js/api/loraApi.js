@@ -4,6 +4,9 @@ async function readJsonResponse(response) {
     try {
         return await response.json();
     } catch (error) {
+        if (error?.name === "AbortError") {
+            throw error;
+        }
         if (response.ok) {
             return {};
         }
@@ -14,15 +17,27 @@ async function readJsonResponse(response) {
     }
 }
 
-function getErrorMessage(data, response) {
-    return data?.message || data?.error || response.statusText || `HTTP error ${response.status}`;
+function getErrorMessage(data, response, fallbackMessage = "Request failed") {
+    const candidates = [
+        data?.message,
+        data?.error,
+        data?.error?.message,
+        data?.detail,
+        response.statusText,
+    ];
+    return candidates.find(value => typeof value === "string" && value.trim())
+        || (!response.ok && response.status ? `HTTP error ${response.status}` : fallbackMessage);
 }
 
-async function fetchJson(url, options) {
+async function fetchJson(url, options, { fallbackMessage = "Request failed", rejectStatuses = ["error"] } = {}) {
     const response = await api.fetchApi(url, options);
     const data = await readJsonResponse(response);
-    if (!response.ok) {
-        throw new Error(getErrorMessage(data, response));
+    const payloadStatus = typeof data?.status === "string" ? data.status.toLowerCase() : "";
+    if (!response.ok || rejectStatuses.includes(payloadStatus)) {
+        const error = new Error(getErrorMessage(data, response, fallbackMessage));
+        error.status = response.status;
+        error.result = data;
+        throw error;
     }
     return data;
 }

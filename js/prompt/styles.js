@@ -2807,32 +2807,33 @@ export function getPromptStyles(uniqueId) {
                         overflow: hidden;
                         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
                     }
-                    .localprompt-chip-thumb.pinned-managed::before {
-                        content: '';
-                        position: absolute;
-                        top: -50%;
-                        left: -50%;
-                        width: 200%;
-                        height: 200%;
-                        background: conic-gradient(from 0deg, transparent 0%, var(--localprompt-zip-color-1, #ffffff) 3%, transparent 6%, transparent 100%);
-                        animation: border-zip 4s linear infinite;
-                        z-index: 1;
-                        filter: blur(2.5px);
+                    /*
+                     * Active border themes used to spin dual full-card conic layers
+                     * with live blur filters. That shared the GPU with sampling and
+                     * could tank it/s until a hard refresh. Keep the color themes as
+                     * a cheap static border/glow only — no continuous animation.
+                     */
+                    .localprompt-container-wrapper {
+                        --localprompt-zip-color-1: rgba(255, 255, 255, 0.85);
+                        --localprompt-zip-color-2: rgba(255, 255, 255, 0.35);
                     }
+                    .localprompt-active-sidebar.active .localprompt-chip-thumb.pinned-managed {
+                        border-color: color-mix(in srgb, var(--localprompt-zip-color-1) 70%, rgba(255, 255, 255, 0.12));
+                        box-shadow:
+                            0 8px 20px rgba(0, 0, 0, 0.3),
+                            0 0 0 1px color-mix(in srgb, var(--localprompt-zip-color-1) 45%, transparent),
+                            0 0 14px color-mix(in srgb, var(--localprompt-zip-color-1) 28%, transparent),
+                            0 0 18px color-mix(in srgb, var(--localprompt-zip-color-2) 18%, transparent);
+                    }
+                    .localprompt-chip-thumb.pinned-managed::before,
                     .localprompt-chip-thumb.pinned-managed::after {
-                        content: '';
-                        position: absolute;
-                        top: -50%;
-                        left: -50%;
-                        width: 200%;
-                        height: 200%;
-                        background: conic-gradient(from 0deg, transparent 0%, var(--localprompt-zip-color-2, #ffffff) 3%, transparent 6%, transparent 100%);
-                        animation: border-zip-reverse 4s linear infinite;
-                        z-index: 1;
-                        filter: blur(2.5px);
+                        content: none !important;
+                        animation: none !important;
+                        filter: none !important;
+                        will-change: auto !important;
                     }
 
-                    /* Active border tracer themes */
+                    /* Active border tracer themes (static colors only) */
                     .localprompt-container-wrapper.zip-theme-cyberpunk {
                         --localprompt-zip-color-1: #00f0ff;
                         --localprompt-zip-color-2: #ff007f;
@@ -2857,37 +2858,21 @@ export function getPromptStyles(uniqueId) {
                         --localprompt-zip-color-1: #00ffaa;
                         --localprompt-zip-color-2: #ffdd00;
                     }
-
-                    /* Rainbow Cycle animations */
-                    @keyframes rainbow-cycle-1 {
-                        0% { filter: blur(2.5px) hue-rotate(0deg); }
-                        100% { filter: blur(2.5px) hue-rotate(360deg); }
-                    }
-                    @keyframes rainbow-cycle-2 {
-                        0% { filter: blur(2.5px) hue-rotate(180deg); }
-                        100% { filter: blur(2.5px) hue-rotate(540deg); }
-                    }
-
-                    .localprompt-container-wrapper.zip-theme-rainbow-sync {
-                        --localprompt-zip-color-1: #ff0055;
-                        --localprompt-zip-color-2: #ff0055;
-                    }
-                    .localprompt-container-wrapper.zip-theme-rainbow-sync .localprompt-chip-thumb.pinned-managed::before {
-                        animation: border-zip 4s linear infinite, rainbow-cycle-1 6s linear infinite;
-                    }
-                    .localprompt-container-wrapper.zip-theme-rainbow-sync .localprompt-chip-thumb.pinned-managed::after {
-                        animation: border-zip-reverse 4s linear infinite, rainbow-cycle-1 6s linear infinite;
-                    }
-
+                    .localprompt-container-wrapper.zip-theme-rainbow-sync,
                     .localprompt-container-wrapper.zip-theme-rainbow-split {
                         --localprompt-zip-color-1: #ff0055;
-                        --localprompt-zip-color-2: #ff0055;
+                        --localprompt-zip-color-2: #00d2ff;
                     }
-                    .localprompt-container-wrapper.zip-theme-rainbow-split .localprompt-chip-thumb.pinned-managed::before {
-                        animation: border-zip 4s linear infinite, rainbow-cycle-1 6s linear infinite;
+
+                    /* While Comfy is sampling, also drop panel blur / video decode. */
+                    .localprompt-container-wrapper.localprompt-sampling-quiet .localprompt-active-sidebar,
+                    .localprompt-container-wrapper.localprompt-sampling-quiet .localprompt-library-drawer,
+                    .localprompt-container-wrapper.localprompt-sampling-quiet .localprompt-dropdown-panel {
+                        backdrop-filter: none !important;
+                        -webkit-backdrop-filter: none !important;
                     }
-                    .localprompt-container-wrapper.zip-theme-rainbow-split .localprompt-chip-thumb.pinned-managed::after {
-                        animation: border-zip-reverse 4s linear infinite, rainbow-cycle-2 6s linear infinite;
+                    .localprompt-container-wrapper.localprompt-sampling-quiet video {
+                        visibility: hidden !important;
                     }
                     .localprompt-chip-thumb.pinned-managed .managed-thumb-media {
                         position: absolute;
@@ -3390,23 +3375,12 @@ export function getPromptStyles(uniqueId) {
                         border-color: color-mix(in srgb, var(--role-color, #ffffff) 40%, rgba(255, 255, 255, 0.08));
                         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
                     }
-                    .localprompt-chip-thumb.role-colored.pinned-managed::before {
-                        background: conic-gradient(
-                            from 0deg,
-                            transparent 0%,
-                            var(--localprompt-zip-color-1, color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff)) 3%,
-                            transparent 6%,
-                            transparent 100%
-                        );
-                    }
-                    .localprompt-chip-thumb.role-colored.pinned-managed::after {
-                        background: conic-gradient(
-                            from 0deg,
-                            transparent 0%,
-                            var(--localprompt-zip-color-2, color-mix(in srgb, var(--role-color, #ffffff) 80%, #ffffff)) 3%,
-                            transparent 6%,
-                            transparent 100%
-                        );
+                    .localprompt-active-sidebar.active .localprompt-chip-thumb.role-colored.pinned-managed {
+                        border-color: color-mix(in srgb, var(--role-color, #ffffff) 55%, var(--localprompt-zip-color-1, #ffffff));
+                        box-shadow:
+                            0 8px 20px rgba(0, 0, 0, 0.3),
+                            0 0 0 1px color-mix(in srgb, var(--role-color, #ffffff) 35%, transparent),
+                            0 0 14px color-mix(in srgb, var(--role-color, #ffffff) 22%, transparent);
                     }
                     .localprompt-chip-thumb.role-colored.pinned-managed .managed-thumb-media::after {
                         content: '';

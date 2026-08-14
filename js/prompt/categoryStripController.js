@@ -8,6 +8,75 @@
 export const CATEGORY_OVERFLOW_MIN_HEIGHT = 120;
 export const CATEGORY_OVERFLOW_VIEWPORT_GUTTER = 24;
 
+const CATEGORY_COLOR_FAMILIES = [
+    { key: "red", label: "Red", minHue: 345, maxHue: 360 },
+    { key: "red", label: "Red", minHue: 0, maxHue: 15 },
+    { key: "orange", label: "Orange", minHue: 15, maxHue: 42 },
+    { key: "gold", label: "Gold", minHue: 42, maxHue: 70 },
+    { key: "green", label: "Green", minHue: 70, maxHue: 155 },
+    { key: "teal", label: "Teal", minHue: 155, maxHue: 195 },
+    { key: "blue", label: "Blue", minHue: 195, maxHue: 250 },
+    { key: "violet", label: "Violet", minHue: 250, maxHue: 310 },
+    { key: "rose", label: "Rose", minHue: 310, maxHue: 345 },
+];
+
+function parseHexColor(color) {
+    const match = String(color || "").trim().match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (!match) return null;
+    const colorHex = match[1].length <= 4 ? match[1].slice(0, 3) : match[1].slice(0, 6);
+    const hex = colorHex.length === 3
+        ? colorHex.split("").map(value => value + value).join("")
+        : colorHex;
+    return [0, 2, 4].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
+}
+
+function rgbToHsl([red, green, blue]) {
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const lightness = (max + min) / 2;
+    if (max === min) return { hue: 0, saturation: 0, lightness };
+
+    const delta = max - min;
+    const saturation = lightness > 0.5
+        ? delta / (2 - max - min)
+        : delta / (max + min);
+    let hue;
+    if (max === red) hue = ((green - blue) / delta) + (green < blue ? 6 : 0);
+    else if (max === green) hue = ((blue - red) / delta) + 2;
+    else hue = ((red - green) / delta) + 4;
+    return { hue: hue * 60, saturation, lightness };
+}
+
+export function getCategoryColorFamily(color) {
+    const rgb = parseHexColor(color);
+    if (!rgb) return { key: "other", label: "Other", color: "" };
+    const { hue, saturation } = rgbToHsl(rgb);
+    if (saturation < 0.16) return { key: "neutral", label: "Neutral", color };
+    const family = CATEGORY_COLOR_FAMILIES.find(item => hue >= item.minHue && hue < item.maxHue);
+    return {
+        key: family?.key || "other",
+        label: family?.label || "Other",
+        color,
+    };
+}
+
+export function groupCategoryEntriesByColor(entries = []) {
+    const groups = new Map();
+    entries.forEach(entry => {
+        const family = getCategoryColorFamily(entry?.color);
+        if (!groups.has(family.key)) {
+            groups.set(family.key, {
+                key: family.key,
+                label: family.label,
+                color: family.color,
+                entries: [],
+            });
+        }
+        groups.get(family.key).entries.push(entry);
+    });
+    return Array.from(groups.values());
+}
+
 export function clampCategoryOverflowHeight(
     requestedHeight,
     panelTop,
@@ -174,6 +243,7 @@ export function createPromptCategoryStripController({
 }) {
     let renderGeneration = 0;
     let openGeneration = 0;
+    let categorySearchQuery = "";
     const longPressTimers = new Set();
     let disposed = false;
     const disposeOverflowResize = setupCategoryOverflowResize(widgetContainer, uniqueId, {
@@ -344,7 +414,7 @@ export function createPromptCategoryStripController({
                 : "Show all categories";
         }
         overflowContainer.classList.toggle("open", getCategoryOverflowOpen());
-        hiddenCategories.forEach(category => {
+        const categoryEntries = hiddenCategories.map(category => {
             const option = document.createElement("button");
             const isPinned = pinnedCategories.includes(category);
             option.className = `localprompt-pinned-category-pill${getActiveLibraryTab() === category ? " active" : ""}`;
@@ -355,8 +425,91 @@ export function createPromptCategoryStripController({
             option.dataset.pinned = String(isPinned);
             applyLibraryTabRoleStyling(option, category, getActiveLibraryTab() === category);
             armCategoryPill(option, category, isPinned);
-            chipsContainer.appendChild(option);
+            return {
+                category,
+                color: option.style.getPropertyValue("--category-color").trim(),
+                option,
+            };
         });
+
+        const searchRow = document.createElement("label");
+        searchRow.className = "localprompt-category-search-row";
+        searchRow.setAttribute("for", `${uniqueId}-category-search`);
+        const searchLabel = document.createElement("span");
+        searchLabel.className = "localprompt-category-search-label";
+        searchLabel.textContent = "Find a category";
+        const searchInput = document.createElement("input");
+        searchInput.id = `${uniqueId}-category-search`;
+        searchInput.className = "localprompt-category-search-input";
+        searchInput.type = "search";
+        searchInput.placeholder = "Search categories";
+        searchInput.autocomplete = "off";
+        searchInput.spellcheck = false;
+        searchInput.value = categorySearchQuery;
+        searchRow.append(searchLabel, searchInput);
+        chipsContainer.appendChild(searchRow);
+
+        const groupsContainer = document.createElement("div");
+        groupsContainer.className = "localprompt-category-groups";
+        const groups = groupCategoryEntriesByColor(categoryEntries);
+        groups.forEach(group => {
+            const section = document.createElement("section");
+            section.className = "localprompt-category-group";
+            section.dataset.categoryFamily = group.key;
+            section.style.setProperty("--category-group-color", group.color || "#8295a3");
+
+            const heading = document.createElement("div");
+            heading.className = "localprompt-category-group-heading";
+            const title = document.createElement("h3");
+            title.className = "localprompt-category-group-title";
+            title.id = `${uniqueId}-category-group-${group.key}`;
+            title.textContent = group.label;
+            section.setAttribute("aria-labelledby", title.id);
+            const count = document.createElement("span");
+            count.className = "localprompt-category-group-count";
+            count.textContent = String(group.entries.length);
+            count.setAttribute("aria-label", `${group.entries.length} categories`);
+            heading.append(title, count);
+
+            const items = document.createElement("div");
+            items.className = "localprompt-category-group-items";
+            group.entries.forEach(entry => items.appendChild(entry.option));
+            section.append(heading, items);
+            groupsContainer.appendChild(section);
+        });
+        chipsContainer.appendChild(groupsContainer);
+
+        const emptyState = document.createElement("div");
+        emptyState.className = "localprompt-category-search-empty";
+        emptyState.textContent = "No categories match your search.";
+        emptyState.hidden = true;
+        emptyState.setAttribute("role", "status");
+        chipsContainer.appendChild(emptyState);
+
+        const applySearch = () => {
+            const query = categorySearchQuery.trim().toLocaleLowerCase();
+            let visibleCount = 0;
+            groupsContainer.querySelectorAll(".localprompt-category-group").forEach(section => {
+                let groupVisibleCount = 0;
+                section.querySelectorAll(".localprompt-pinned-category-pill").forEach(option => {
+                    const matches = !query || option.dataset.category.toLocaleLowerCase().includes(query);
+                    option.hidden = !matches;
+                    if (matches) groupVisibleCount += 1;
+                });
+                section.hidden = groupVisibleCount === 0;
+                visibleCount += groupVisibleCount;
+            });
+            emptyState.hidden = visibleCount !== 0;
+        };
+        searchInput.addEventListener("input", () => {
+            categorySearchQuery = searchInput.value;
+            applySearch();
+        });
+        searchInput.addEventListener("search", () => {
+            categorySearchQuery = searchInput.value;
+            applySearch();
+        });
+        applySearch();
     }
 
     async function renderCategoryDropdownOptions() {

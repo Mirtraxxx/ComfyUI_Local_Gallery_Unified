@@ -1,13 +1,14 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
 import { api } from "../../../scripts/api.js";
-import * as loraApi from "../api/loraApi.js?v=lora-metadata-thumbnail-20260728-2";
+import * as loraApi from "../api/loraApi.js";
 import { escapeHtml } from "../shared/dom.js";
-import { createEventListenerRegistry } from "../shared/events.js?v=unified-listener-cleanup-20260712";
-import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js?v=selection-envelope-v1-20260721";
+import { createOperationFeedback } from "../shared/operationFeedback.js?v=operation-feedback-20260809-3";
+import { createEventListenerRegistry } from "../shared/events.js";
+import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import {
     readWorkflowProfileSection,
     writeWorkflowProfileSection,
-} from "../shared/workflowProfile.js?v=workflow-profile-v1-20260725-1";
+} from "../shared/workflowProfile.js";
 import {
     LORA_DISPLAY_LIMITS,
     clampInteger,
@@ -17,20 +18,20 @@ import {
     normalizeLoraDisplayState,
     normalizeLoraSortMode,
     normalizeVisiblePinnedFolderCount,
-} from "./displayState.js?v=active-card-controls-20260722";
-import { buildLoraCardHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1&metadata=no-tags-20260728-1";
-import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js?v=lora-stepped-browser-cards-20260724-1";
-import { createLoraActiveStackController } from "./activeStackController.js?v=lora-trigger-preset-feedback-20260726-2";
-import { createLoraMetadataController } from "./metadataEditor.js?v=lora-metadata-thumbnail-20260728-3";
-import { createLoraFolderController } from "./folderController.js?v=lora-refactor-20260712";
-import { syncLoraWithCivitai } from "./civitaiSync.js?v=repository-review-20260712&metadata=no-tags-20260728-1";
-import { buildLoraSelectionEntry } from "./selectionEntry.js?v=lora-refactor-20260712";
-import { normalizeLoraLotteryConfig, readLoraLotteryConfig } from "./lotteryState.js?v=lora-run-lottery-20260730-1";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
-import { toSerializableLoraSelection } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
+} from "./displayState.js";
+import { buildLoraCardHtml } from "./renderers.js";
+import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js";
+import { createLoraActiveStackController } from "./activeStackController.js";
+import { createLoraMetadataController } from "./metadataEditor.js";
+import { createLoraFolderController } from "./folderController.js";
+import { syncLoraWithCivitai } from "./civitaiSync.js";
+import { buildLoraSelectionEntry } from "./selectionEntry.js";
+import { normalizeLoraLotteryConfig, readLoraLotteryConfig } from "./lotteryState.js";
+import { setupLoraPresetControls } from "./presetControls.js";
+import { toSerializableLoraSelection } from "./selectionState.js";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js?v=lora-stepped-browser-cards-20260724-4&compare=lora-compare-mark-20260728-1&profile=workflow-v1-20260725-1&preset=lora-trigger-preset-feedback-20260726-2&metadata=lora-thumbnail-20260728-4&icons=browser-active-match-20260728-1";
-import { getLoraReferenceUxStyles } from "./referenceUx.js?v=folder-pull-tab-hover-20260724-1";
+import { getLoraStyles } from "./styles.js";
+import { getLoraReferenceUxStyles } from "./referenceUx.js";
 
 export function createLoraGalleryLifecycle(app) {
 const UnifiedLoraGalleryNode = {
@@ -57,9 +58,10 @@ const UnifiedLoraGalleryNode = {
 
     async updateMetadata(lora_name, data) {
         try {
-            await loraApi.updateMetadata(lora_name, data);
+            return await loraApi.updateMetadata(lora_name, data);
         } catch(e) {
             console.error("LocalLoraGallery: Failed to update metadata", e);
+            throw e;
         }
     },
 
@@ -389,6 +391,12 @@ const UnifiedLoraGalleryNode = {
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
+            const operationFeedback = createOperationFeedback({
+                host: widgetContainer.querySelector(".locallora-bottom-bar"),
+                before: widgetContainer.querySelector(".lora-execution-controls"),
+                readyMessage: "Ready",
+            });
+            this.operationFeedback = operationFeedback;
             const displayOptionsBtn = widgetContainer.querySelector(".lora-display-options-btn");
             const displayOptionsPopover = widgetContainer.querySelector(".lora-display-options-popover");
             const searchAnchor = widgetContainer.querySelector(".lora-search-anchor");
@@ -866,6 +874,7 @@ const UnifiedLoraGalleryNode = {
                 card,
                 nodeInstance: this,
                 loraIconSvg,
+                operationFeedback,
             });
             const toggleLoraSelectionFromElement = (element, loraName) => {
                 const existingIndex = this.loraData.findIndex(item => item.lora === loraName);
@@ -1037,11 +1046,11 @@ const UnifiedLoraGalleryNode = {
             const fetchAndRender = async (append = false) => {
                 if (this.isLoading) {
                     pendingFetchAfterLoad = pendingFetchAfterLoad === false ? false : append;
-                    return;
+                    return true;
                 }
                 const fetchSequence = ++loraFetchSequence;
                 const pageToFetch = append ? this.currentPage + 1 : 1;
-                if (append && pageToFetch > this.totalPages) return;
+                if (append && pageToFetch > this.totalPages) return true;
                 try {
                     // Keep browser sorting and pagination independent from the Active Stack.
                     const { loras, folders } = await UnifiedLoraGalleryNode.getLoras.call(this, "", "OR", folderFilterSelect.value, pageToFetch, [], 50, getLoraDisplayState().sort_mode);
@@ -1063,8 +1072,14 @@ const UnifiedLoraGalleryNode = {
                         console.error("LocalLoraGallery: Failed to hydrate Active Stack metadata:", error);
                     }
                     renderCurrentView(append);
+                    return true;
                 } catch (error) {
                     console.error("LocalLoraGallery: Keeping the current gallery after a refresh failure:", error);
+                    operationFeedback.warning("Could not refresh LoRAs. Showing previous results.", {
+                        action: () => fetchAndRender(false),
+                        actionLabel: "Retry",
+                    });
+                    return false;
                 } finally {
                     if (fetchSequence === loraFetchSequence && pendingFetchAfterLoad !== null) {
                         const nextAppend = pendingFetchAfterLoad;
@@ -1150,14 +1165,24 @@ const UnifiedLoraGalleryNode = {
                         e.stopPropagation();
                         e.preventDefault();
                         if (confirmAction(`Are you sure you want to delete preset "${name}"?`)) {
-                            const data = await loraApi.deletePreset(name);
-                            renderPresets(data.presets);
+                            deleteBtn.style.pointerEvents = "none";
+                            operationFeedback.pending(`Deleting preset "${name}"...`);
+                            try {
+                                const data = await loraApi.deletePreset(name);
+                                renderPresets(data.presets);
+                                operationFeedback.success(`Preset "${name}" deleted`);
+                            } catch (error) {
+                                operationFeedback.error(error?.message || "Could not delete LoRA preset");
+                            } finally {
+                                deleteBtn.style.pointerEvents = "";
+                            }
                         }
                     };
                     presetLink.appendChild(deleteBtn);
                     
-                    presetLink.onclick = (e) => {
+                    presetLink.onclick = async (e) => {
                         e.preventDefault();
+                        operationFeedback.pending(`Applying preset "${name}"...`);
                         this.loraData = cloneJsonOr(presets[name], []);
 
                         renderSelectedList();
@@ -1181,10 +1206,19 @@ const UnifiedLoraGalleryNode = {
                         }, 0);
 
                         updateSelection();
-                        fetchAndRender(false).then(() => renderSelectedList());
+                        const refreshed = await fetchAndRender(false);
+                        renderSelectedList();
                         presetDropdown.style.display = 'none';
 
                         updatePresetButtonText(name);
+                        if (refreshed) {
+                            operationFeedback.success(`Preset "${name}" applied to workflow`);
+                        } else {
+                            operationFeedback.warning(`Preset "${name}" applied. Gallery refresh failed.`, {
+                                action: () => fetchAndRender(false),
+                                actionLabel: "Retry",
+                            });
+                        }
                     };
                     presetDropdown.appendChild(presetLink);
                 }
@@ -1194,7 +1228,13 @@ const UnifiedLoraGalleryNode = {
                 try {
                     const presets = await loraApi.getPresets();
                     renderPresets(presets);
-                } catch (e) { console.error("LocalLoraGallery: Failed to load presets", e); }
+                } catch (e) {
+                    console.error("LocalLoraGallery: Failed to load presets", e);
+                    operationFeedback.error(e?.message || "Could not load LoRA presets", {
+                        action: loadPresets,
+                        actionLabel: "Retry",
+                    });
+                }
             };
 
             const { getEditingLorasData, renderMetadataEditor } = createLoraMetadataController({
@@ -1227,7 +1267,7 @@ const UnifiedLoraGalleryNode = {
                 assignThumbnail: (...args) => loraApi.assignThumbnail(...args),
                 renderCurrentView,
                 renderSelectedList,
-                fetchAndRender,
+                operationFeedback,
                 onClose: clearMetadataEditing,
             });
             this.initializeNode = async () => {
@@ -1391,14 +1431,23 @@ const UnifiedLoraGalleryNode = {
                     
                     const newPresets = { ...(loraInDataSource.trigger_presets || {}) };
                     newPresets[name] = val;
-                    await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
-                    updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
-                    triggerPresetNameInput.value = "";
-                    triggerPresetValueInput.value = "";
-                    addTriggerPresetBtn.textContent = "Add preset";
-                    renderMetadataEditor();
-                    renderCurrentView();
-                    renderSelectedList();
+                    addTriggerPresetBtn.disabled = true;
+                    operationFeedback.pending(`Saving trigger preset "${name}"...`);
+                    try {
+                        await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
+                        updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
+                        triggerPresetNameInput.value = "";
+                        triggerPresetValueInput.value = "";
+                        addTriggerPresetBtn.textContent = "Add preset";
+                        renderMetadataEditor();
+                        renderCurrentView();
+                        renderSelectedList();
+                        operationFeedback.success(`Trigger preset "${name}" saved to gallery`);
+                    } catch (error) {
+                        operationFeedback.error(error?.message || "Could not save trigger preset");
+                    } finally {
+                        addTriggerPresetBtn.disabled = false;
+                    }
                 });
 
                 urlEditorInput.addEventListener("keydown", async (e) => {
@@ -1410,34 +1459,41 @@ const UnifiedLoraGalleryNode = {
                         const singleLora = editingLoras[0];
                         const loraName = singleLora.name;
                         const newUrl = urlEditorInput.value.trim();
+                        urlEditorInput.disabled = true;
+                        operationFeedback.pending("Saving LoRA download URL...");
+                        try {
+                            await UnifiedLoraGalleryNode.updateMetadata(loraName, { download_url: newUrl });
+                            updateCachedLoraMetadata(loraName, { download_url: newUrl });
 
-                        await UnifiedLoraGalleryNode.updateMetadata(loraName, { download_url: newUrl });
-
-                        updateCachedLoraMetadata(loraName, { download_url: newUrl });
-
-                        const card = findGalleryCardByLoraName(loraName);
-                        if (card) {
-                            card.dataset.downloadUrl = newUrl;
-                            let linkBtn = card.querySelector('.lora-card-link-btn');
-                            if (newUrl) {
-                                if (!linkBtn) {
-                                    linkBtn = document.createElement('a');
-                                    linkBtn.className = 'card-btn lora-card-link-btn';
-                                    linkBtn.title = 'Open download page';
-                                    linkBtn.setAttribute('aria-label', 'Open download page');
-                                    linkBtn.innerHTML = loraIconSvg.link;
-                                    linkBtn.target = '_blank';
-                                    linkBtn.addEventListener("click", (e) => e.stopPropagation());
-                                    card.prepend(linkBtn);
+                            const card = findGalleryCardByLoraName(loraName);
+                            if (card) {
+                                card.dataset.downloadUrl = newUrl;
+                                let linkBtn = card.querySelector('.lora-card-link-btn');
+                                if (newUrl) {
+                                    if (!linkBtn) {
+                                        linkBtn = document.createElement('a');
+                                        linkBtn.className = 'card-btn lora-card-link-btn';
+                                        linkBtn.title = 'Open download page';
+                                        linkBtn.setAttribute('aria-label', 'Open download page');
+                                        linkBtn.innerHTML = loraIconSvg.link;
+                                        linkBtn.target = '_blank';
+                                        linkBtn.addEventListener("click", (event) => event.stopPropagation());
+                                        card.prepend(linkBtn);
+                                    }
+                                    linkBtn.href = newUrl;
+                                } else if (linkBtn) {
+                                    linkBtn.remove();
                                 }
-                                linkBtn.href = newUrl;
-                            } else if (linkBtn) {
-                                linkBtn.remove();
                             }
-                        }
 
-                        urlEditorInput.style.backgroundColor = "#2a5";
-                        setTimeout(() => { urlEditorInput.style.backgroundColor = ""; }, 500);
+                            urlEditorInput.style.backgroundColor = "#2a5";
+                            setTimeout(() => { urlEditorInput.style.backgroundColor = ""; }, 500);
+                            operationFeedback.success("LoRA download URL saved to gallery");
+                        } catch (error) {
+                            operationFeedback.error(error?.message || "Could not save LoRA download URL");
+                        } finally {
+                            urlEditorInput.disabled = false;
+                        }
                     }
                 });
 
@@ -1450,23 +1506,29 @@ const UnifiedLoraGalleryNode = {
                         const singleLora = editingLoras[0];
                         const loraName = singleLora.name;
                         const newTriggers = triggerEditorInput.value.trim();
+                        triggerEditorInput.disabled = true;
+                        operationFeedback.pending("Saving LoRA trigger words...");
+                        try {
+                            await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_words: newTriggers });
+                            updateCachedLoraMetadata(loraName, { trigger_words: newTriggers });
 
-                        await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_words: newTriggers });
-
-                        updateCachedLoraMetadata(loraName, { trigger_words: newTriggers });
-
-                        const card = findGalleryCardByLoraName(loraName);
-                        if (card) {
-                            card.dataset.triggerWords = newTriggers;
-                            const triggerDisplayEl = card.querySelector('.lora-card-triggers');
-                            if (triggerDisplayEl) {
-                                triggerDisplayEl.textContent = newTriggers || 'No triggers';
-                                triggerDisplayEl.title = newTriggers;
+                            const card = findGalleryCardByLoraName(loraName);
+                            if (card) {
+                                card.dataset.triggerWords = newTriggers;
+                                const triggerDisplayEl = card.querySelector('.lora-card-triggers');
+                                if (triggerDisplayEl) {
+                                    triggerDisplayEl.textContent = newTriggers || 'No triggers';
+                                    triggerDisplayEl.title = newTriggers;
+                                }
                             }
+                            triggerEditorInput.style.backgroundColor = "#2a5";
+                            setTimeout(() => { triggerEditorInput.style.backgroundColor = ""; }, 500);
+                            operationFeedback.success("LoRA trigger words saved to gallery");
+                        } catch (error) {
+                            operationFeedback.error(error?.message || "Could not save LoRA trigger words");
+                        } finally {
+                            triggerEditorInput.disabled = false;
                         }
-                        
-                        triggerEditorInput.style.backgroundColor = "#2a5";
-                        setTimeout(() => { triggerEditorInput.style.backgroundColor = ""; }, 500);
                     }
                 });
                 
@@ -1485,8 +1547,17 @@ const UnifiedLoraGalleryNode = {
                 savePresetBtn.addEventListener("click", async () => {
                     const presetName = prompt("Enter a name for this preset:", "");
                     if (presetName && this.loraData.length > 0) {
-                        const data = await loraApi.savePreset(presetName, this.loraData);
-                        renderPresets(data.presets);
+                        savePresetBtn.disabled = true;
+                        operationFeedback.pending(`Saving preset "${presetName}"...`);
+                        try {
+                            const data = await loraApi.savePreset(presetName, this.loraData);
+                            renderPresets(data.presets);
+                            operationFeedback.success(`Preset "${presetName}" saved to gallery`);
+                        } catch (error) {
+                            operationFeedback.error(error?.message || "Could not save LoRA preset");
+                        } finally {
+                            savePresetBtn.disabled = false;
+                        }
                     }
                 });
 
@@ -1822,6 +1893,7 @@ const UnifiedLoraGalleryNode = {
                     });
                     folderController.cancelDrag();
                     activeStackController.dispose();
+                    operationFeedback.dispose();
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

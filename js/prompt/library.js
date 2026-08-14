@@ -5,7 +5,7 @@ import {
     createManagedTextControlsHtml,
     createPinnedManagedControlsHtml,
     createPromptActionButton,
-} from "./helpers.js?v=unified-icons-20260606&media=prompt-video-20260726-1";
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 
 // Product term: Prompt Builder. Historical code names still use "library"
@@ -50,7 +50,7 @@ function sortPromptsByManualOrder(prompts, manualOrder = []) {
 }
 
 export function getUtilityLibraryTabs() {
-    return ["most_used", "pinned"];
+    return ["pinned"];
 }
 
 export function isUtilityLibraryTab(tabName) {
@@ -86,10 +86,7 @@ export async function renderPromptBuilderBar({
     const utilityContainer = widgetContainer.querySelector(`#${uniqueId}-utility-tabs`);
     if (!tabsContainer || !utilityContainer) return;
 
-    const utilityTabs = [];
-    if (uiPrefs?.show_most_used !== false) {
-        utilityTabs.push("most_used");
-    }
+    const utilityTabs = ["pinned"];
     const categoryTabs = getLibraryTabs();
     let draggedLibraryTab = null;
 
@@ -101,10 +98,7 @@ export async function renderPromptBuilderBar({
         const tabBtn = document.createElement("button");
         const isActive = getActiveLibraryTab() === tabContent;
         tabBtn.className = `localprompt-library-tab${role === "utility" ? " localprompt-utility-tab" : ""}${isActive ? " active" : ""}`;
-        if (tabContent === "most_used") {
-            tabBtn.textContent = "🔥";
-            tabBtn.title = "Most Used";
-        } else if (tabContent === "pinned") {
+        if (tabContent === "pinned") {
             tabBtn.textContent = "⭐";
             tabBtn.title = "Favorites";
         } else {
@@ -206,20 +200,13 @@ export async function getLibraryDrawerPrompts({
     maxCount,
     sortMode = "manual",
 }) {
-    if (tabName === "most_used") {
-        return await galleryNode.getMostUsed(maxCount);
-    }
     if (tabName === "pinned") {
         const data = await galleryNode.getPrompts("", "OR", 1, [], "", true, maxCount, sortMode);
         return data.prompts || [];
     }
 
     const data = await galleryNode.getPrompts("", "OR", 1, [], tabName, false, 200, sortMode);
-    const categoryPrompts = data.prompts || [];
-    if (sortMode === "manual") {
-        categoryPrompts.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
-    }
-    return categoryPrompts;
+    return data.prompts || [];
 }
 
 export async function renderPromptBuilderDrawer({
@@ -290,7 +277,7 @@ export async function renderPromptBuilderDrawer({
         container.ondrop = null;
     }
 
-    const maxCount = nodeInstance.uiPrefs.most_used_count || 10;
+    const maxCount = 200;
     const loadPrompts = () => getLibraryDrawerPrompts({
         galleryNode,
         tabName,
@@ -344,7 +331,6 @@ export async function renderPromptBuilderDrawer({
 
     const canPointerReorderManualCards = (
         typeof persistManualOrder === "function"
-        && tabName !== "most_used"
         && tabName !== "pinned"
     );
     const manualOrderScope = tabName;
@@ -443,7 +429,7 @@ export async function renderPromptBuilderDrawer({
             chip.className = `localprompt-chip-thumb ${isSelected ? "selected" : ""}`;
 
             let content = "";
-            if (tabName !== "most_used" && (tabName !== "pinned" || !isSelected)) {
+            if (tabName !== "pinned" || !isSelected) {
                 const pinFilter = isGlobalPinned ? "none" : "grayscale(100%) opacity(0.3)";
                 content += createPromptActionButton({ icon: "star", className: `chip-pin-btn ${isGlobalPinned ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `style="filter: ${pinFilter};"`, pressed: !!isGlobalPinned });
             }
@@ -476,7 +462,7 @@ export async function renderPromptBuilderDrawer({
             chip.className = `localprompt-chip ${isSelected ? "selected" : ""}`;
 
             let content = "";
-            if (tabName !== "most_used" && (tabName !== "pinned" || !isSelected)) {
+            if (tabName !== "pinned" || !isSelected) {
                 const pinFilter = isGlobalPinned ? "none" : "grayscale(100%) opacity(0.3)";
                 content += createPromptActionButton({ icon: "star", className: `chip-pin-btn ${isGlobalPinned ? "favorited" : ""}`, title: "Pin/Unpin", extraAttrs: `style="filter: ${pinFilter};"`, pressed: !!isGlobalPinned });
             }
@@ -489,9 +475,6 @@ export async function renderPromptBuilderDrawer({
                 `;
             } else {
                 content += `${createPromptActionButton({ icon: "eye", className: "localprompt-info-btn", title: "View Info" })} <span class="localprompt-chip-label">${safeName}</span>`;
-            }
-            if (tabName === "most_used" || (prompt.usage_count > 0 && tabName !== "pinned")) {
-                content += ` <span class="usage-count">x${prompt.usage_count || 0}</span>`;
             }
             chip.innerHTML = content;
             applyCategoryRoleStyling(chip, prompt, { soften: isSelected });

@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { createDebouncedCommitter } from "./performance.js?v=prompt-performance-20260721-1";
+import { createDebouncedCommitter } from "./performance.js";
 export function createMetaTagsController({
     app,
     nodeInstance,
@@ -42,12 +42,12 @@ export function createMetaTagsController({
     }
 
     function showMetaSaveFeedback() {
-        setMetaSaveStatus("Saving...", "saving");
+        setMetaSaveStatus("Applying...", "saving");
         if (metaSaveStatusTimer) {
             clearTimeout(metaSaveStatusTimer);
         }
         metaSaveStatusTimer = setTimeout(() => {
-            setMetaSaveStatus("Saved", "saved");
+            setMetaSaveStatus("Applied", "saved");
             metaSaveStatusTimer = null;
         }, 220);
     }

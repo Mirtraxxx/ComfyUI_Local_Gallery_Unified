@@ -3,17 +3,17 @@ import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.j
 import {
     bindPromptPreviewVideo,
     createPromptActionButton,
-} from "./helpers.js?v=unified-icons-20260606&media=prompt-video-20260726-1";
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
-import { showBulkEditDrawer } from "./bulkEditor.js?v=card-manager-surface-host-20260721-1";
-import { showWildcardStats } from "./wildcardStats.js?v=card-stats-separated-20260727-1";
-import { closePromptPreviews } from "./previews.js?v=card-manager-surface-host-20260721-1";
-import { closePromptContextMenus } from "./contextMenus.js?v=card-manager-surface-host-20260721-1";
+import { showBulkEditDrawer } from "./bulkEditor.js";
+import { showWildcardStats } from "./wildcardStats.js";
+import { closePromptPreviews } from "./previews.js";
+import { closePromptContextMenus } from "./contextMenus.js";
 import {
     CARD_MANAGER_CARD_SIZE_DEFAULT,
     CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT,
-} from "./constants.js?v=card-manager-size-settings-20260722-1";
-import { getCardManagerCardSizePx } from "./preferences.js?v=card-manager-size-settings-20260722-1";
+} from "./constants.js";
+import { getCardManagerCardSizePx } from "./preferences.js";
 
 // Product term: Card Manager. Historical code names still use "browse"
 // for DOM ids, CSS classes, and compatibility exports.
@@ -269,6 +269,7 @@ export async function showCardManagerModal({
     getSortMode = () => "manual",
     setSortMode = null,
     onPromptsLoaded = null,
+    operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
@@ -839,14 +840,19 @@ export async function showCardManagerModal({
                 });
                 if (selectionChanged) saveSelectionData({ redrawCanvas: false });
                 clearBulkSelection();
-                await loadCategories();
-                await loadBrowseCategoryOptions(categorySelect.value);
-                await loadBrowseGallery(1);
-                await refreshAllSections();
                 if (bulkStatus) {
                     const changedCount = Number(result?.changed_count || 0);
                     bulkStatus.textContent = `${changedCount} card${changedCount === 1 ? "" : "s"} updated.`;
                     if (result?.missing_count) bulkStatus.textContent += ` ${result.missing_count} missing.`;
+                }
+                try {
+                    await loadCategories();
+                    await loadBrowseCategoryOptions(categorySelect.value);
+                    await loadBrowseGallery(1);
+                    await refreshAllSections();
+                    operationFeedback?.success(`${Number(result?.changed_count || 0)} cards saved to gallery`);
+                } catch (error) {
+                    operationFeedback?.warning("Cards saved. View refresh failed.");
                 }
             },
             surfaceHost: getSurfaceHost(),
@@ -863,6 +869,8 @@ export async function showCardManagerModal({
         const isQuerySelection = selection.type === "query";
         const activePromptIds = nodeInstance.promptData.map(entry => String(entry.prompt_id));
         renameSequentialBtn.disabled = true;
+        operationFeedback?.pending("Preparing sequential rename...");
+        let renameCompleted = false;
         try {
             const preview = await galleryNode.renamePromptsSequential(selection, {
                 preview: true,
@@ -887,6 +895,7 @@ export async function showCardManagerModal({
                 baseRevision: preview.revision,
                 activePromptIds,
             });
+            renameCompleted = true;
             const activeById = new Map(
                 (result.active_prompts || []).map(prompt => [String(prompt.id), prompt])
             );
@@ -914,8 +923,14 @@ export async function showCardManagerModal({
                     ? `${renamedCount} card${renamedCount === 1 ? "" : "s"} renamed sequentially.`
                     : "Selected card names were already sequential.";
             }
+            operationFeedback?.success("Card names saved to gallery");
         } catch (error) {
             if (bulkStatus) bulkStatus.textContent = error.message || "Sequential rename failed.";
+            if (renameCompleted) {
+                operationFeedback?.warning("Card names saved. View refresh failed.");
+            } else {
+                operationFeedback?.error(error?.message || "Sequential rename failed");
+            }
         } finally {
             updateBrowseBulkToolbar();
         }
@@ -934,9 +949,10 @@ export async function showCardManagerModal({
         if (targetCategory === null) return;
 
         moveSelectedBtn.disabled = true;
+        operationFeedback?.pending("Moving cards...");
         let result;
-        if (bulkQuerySelection) {
-            try {
+        try {
+            if (bulkQuerySelection) {
                 const selection = getBulkSelectionDescriptor();
                 const operations = { category: { mode: "set", value: targetCategory } };
                 const preview = await galleryNode.bulkEdit(selection, operations, { preview: true, sampleLimit: 0 });
@@ -946,16 +962,15 @@ export async function showCardManagerModal({
                     sampleLimit: 0,
                 });
                 result.moved_count = result.changed_count;
-            } catch (error) {
-                if (bulkStatus) bulkStatus.textContent = error.message || "Move failed.";
-                updateBrowseBulkToolbar();
-                return;
+            } else {
+                result = await galleryNode.movePromptsBulk(Array.from(bulkSelectedPromptIds), targetCategory);
             }
-        } else {
-            result = await galleryNode.movePromptsBulk(Array.from(bulkSelectedPromptIds), targetCategory);
-        }
-        if (!result || result.status !== "ok") {
-            if (bulkStatus) bulkStatus.textContent = result?.message || "Move failed.";
+            if (!result || result.status !== "ok") {
+                throw new Error(result?.message || "Move failed");
+            }
+        } catch (error) {
+            if (bulkStatus) bulkStatus.textContent = error.message || "Move failed.";
+            operationFeedback?.error(error?.message || "Could not move cards");
             updateBrowseBulkToolbar();
             return;
         }
@@ -967,13 +982,20 @@ export async function showCardManagerModal({
                 ? `${movedCount} card${movedCount === 1 ? "" : "s"} moved.`
                 : "Cards were already in that category.";
         }
-        await loadCategories();
-        await loadBrowseCategoryOptions(categorySelect.value);
-        await loadBrowseGallery(1);
-        await refreshAllSections();
+        try {
+            await loadCategories();
+            await loadBrowseCategoryOptions(categorySelect.value);
+            await loadBrowseGallery(1);
+            await refreshAllSections();
+        } catch (error) {
+            operationFeedback?.warning("Cards moved. View refresh failed.");
+            updateBrowseBulkToolbar();
+            return;
+        }
         if (Array.isArray(result.missing_ids) && result.missing_ids.length && bulkStatus) {
             bulkStatus.textContent += ` ${result.missing_ids.length} missing.`;
         }
+        operationFeedback?.success(`${Number(result.moved_count || 0)} cards moved`);
     });
 
     deleteSelectedBtn?.addEventListener("click", async () => {
@@ -987,12 +1009,15 @@ export async function showCardManagerModal({
         if (!confirmed) return;
 
         deleteSelectedBtn.disabled = true;
+        operationFeedback?.pending(`Deleting ${idsToDelete.length} card${idsToDelete.length === 1 ? "" : "s"}...`);
         if (bulkStatus) bulkStatus.textContent = `Deleting ${idsToDelete.length} card${idsToDelete.length === 1 ? "" : "s"}…`;
+        let deleteCompleted = false;
         try {
             const result = await galleryNode.deletePromptsBulk(idsToDelete);
             if (!result || result.status !== "ok") {
                 throw new Error(result?.message || "Unknown error");
             }
+            deleteCompleted = true;
 
             const deletedIds = new Set(idsToDelete);
             nodeInstance.promptData = nodeInstance.promptData.filter(
@@ -1011,8 +1036,15 @@ export async function showCardManagerModal({
                     bulkStatus.textContent += ` ${result.missing_ids.length} already missing.`;
                 }
             }
+            operationFeedback?.success(`${Number(result.deleted_count || 0)} cards deleted`);
         } catch (error) {
-            if (bulkStatus) bulkStatus.textContent = `Delete failed: ${error.message || "Unknown error"}`;
+            if (deleteCompleted) {
+                if (bulkStatus) bulkStatus.textContent = "Cards deleted, but the view could not refresh.";
+                operationFeedback?.warning("Cards deleted. View refresh failed.");
+            } else {
+                if (bulkStatus) bulkStatus.textContent = `Delete failed: ${error.message || "Unknown error"}`;
+                operationFeedback?.error(error?.message || "Could not delete cards");
+            }
             updateBrowseBulkToolbar();
         }
     });
@@ -1092,19 +1124,26 @@ export async function showCardManagerModal({
         );
         if (!doubleConfirmed) return;
 
+        operationFeedback?.pending(`Deleting category "${categoryToDelete}"...`);
         try {
             const result = await galleryNode.deleteCategory(categoryToDelete);
             if (result.status === "ok") {
-                showAlert(result.message);
-                await loadBrowseCategoryOptions();
-                updateCategoryActionButtons(root, "");
-                await loadBrowseGallery(1);
-                refreshAllSections();
+                operationFeedback?.success(`Category "${categoryToDelete}" deleted`);
+                try {
+                    await loadBrowseCategoryOptions();
+                    updateCategoryActionButtons(root, "");
+                    await loadBrowseGallery(1);
+                    refreshAllSections();
+                } catch (error) {
+                    operationFeedback?.warning(`Category "${categoryToDelete}" deleted. View refresh failed.`);
+                }
             } else {
+                operationFeedback?.error(result.message || "Failed to delete category");
                 showAlert("Error: " + (result.message || "Failed to delete category"));
             }
         } catch (error) {
             console.error("Error deleting category:", error);
+            operationFeedback?.error(error?.message || "Failed to delete category");
             showAlert("Error deleting category: " + error.message);
         }
     });

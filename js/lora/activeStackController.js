@@ -1,7 +1,7 @@
-import { buildSelectedLoraItemHtml } from "./renderers.js?v=lora-trigger-preset-feedback-20260726-1";
-import { setupLoraPresetControls } from "./presetControls.js?v=lora-trigger-preset-feedback-20260726-2";
+import { buildSelectedLoraItemHtml } from "./renderers.js";
+import { setupLoraPresetControls } from "./presetControls.js";
 import { hydrateSelectedLoraInfo, swapSelectedLoras } from "./activeStackState.js";
-import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js?v=lora-weight-policy-20260712";
+import { formatLoraWeight, LORA_WEIGHT_LIMITS, stepLoraWeight } from "./weights.js";
 
 const EMPTY_PREVIEW_IMAGE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 

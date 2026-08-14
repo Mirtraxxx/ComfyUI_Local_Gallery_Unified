@@ -1,5 +1,5 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
-import { showCardManagerModal as openCardManager } from "./browse.js?v=card-manager-compact-align-20260727-3";
+import { showCardManagerModal as openCardManager } from "./browse.js";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
@@ -7,8 +7,8 @@ import {
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
-} from "./dialogs.js?v=from-last-output-new-category-20260724-1&profile=workflow-v1-20260725-1&library=compact-shell-20260728-1";
-import { showPresetsModal as openPresetsModal } from "./presets.js?v=modal-surfaces-20260721-1&library=compact-shell-20260728-1";
+} from "./dialogs.js";
+import { showPresetsModal as openPresetsModal } from "./presets.js";
 
 // Prompt Library Workspace actions live here so ui.js remains the coordinator
 // for state and lifecycle, while dialogs/Card Manager own their own rendering.
@@ -50,6 +50,7 @@ export function createPromptWorkspaceActions({
     renderLibraryShell,
     getLibrarySubnavHtml,
     onPromptsLoaded = null,
+    operationFeedback = null,
 }) {
     async function showEditPromptDialog(prompt, onRefresh = null) {
         await openEditPromptDialog({
@@ -60,6 +61,7 @@ export function createPromptWorkspaceActions({
             loadPromptsForGallery,
             refreshAllSections,
             onRefresh,
+            operationFeedback,
         });
     }
 
@@ -71,6 +73,7 @@ export function createPromptWorkspaceActions({
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
             loadCategories,
+            operationFeedback,
         });
     }
 
@@ -83,6 +86,7 @@ export function createPromptWorkspaceActions({
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
             loadCategories,
+            operationFeedback,
             workspaceContainer: host,
             onClose: returnToGallery,
         });
@@ -90,11 +94,11 @@ export function createPromptWorkspaceActions({
     }
 
     async function showAddPromptDialog() {
-        await openAddPromptDialog({ galleryNode, nodeInstance, loadCategories, loadPromptsForGallery });
+        await openAddPromptDialog({ galleryNode, nodeInstance, loadCategories, loadPromptsForGallery, operationFeedback });
     }
 
     async function showImportDialog() {
-        await openImportDialog({ galleryNode, loadCategories, loadPromptsForGallery });
+        await openImportDialog({ galleryNode, loadCategories, loadPromptsForGallery, operationFeedback });
     }
 
     async function showImportWorkspace(onClose = returnToGallery) {
@@ -104,6 +108,7 @@ export function createPromptWorkspaceActions({
             galleryNode,
             loadCategories,
             loadPromptsForGallery,
+            operationFeedback,
             workspaceContainer: host,
             onClose,
             librarySubnavHtml: getLibrarySubnavHtml("import"),
@@ -111,7 +116,7 @@ export function createPromptWorkspaceActions({
     }
 
     async function showExportDialog(initialCategory = "", { surfaceHost = null } = {}) {
-        await openExportDialog({ galleryNode, initialCategory, surfaceHost });
+        await openExportDialog({ galleryNode, initialCategory, surfaceHost, operationFeedback });
     }
 
     async function showExportWorkspace(onClose = returnToGallery) {
@@ -119,6 +124,7 @@ export function createPromptWorkspaceActions({
         if (!host) return;
         await openExportDialog({
             galleryNode,
+            operationFeedback,
             workspaceContainer: host,
             onClose,
             librarySubnavHtml: getLibrarySubnavHtml("export"),
@@ -141,6 +147,7 @@ export function createPromptWorkspaceActions({
             renderPrompts,
             getActiveLibraryTab,
             renderLibraryDrawer,
+            operationFeedback,
             ...(workspaceContainer ? {
                 workspaceContainer,
                 onClose,
@@ -180,6 +187,7 @@ export function createPromptWorkspaceActions({
             getManualOrder: scope => getPromptManualOrder(scope),
             persistManualOrder: persistPromptManualOrder,
             onPromptsLoaded,
+            operationFeedback,
             ...(workspaceContainer ? {
                 workspaceContainer,
                 onClose,
@@ -199,14 +207,41 @@ export function createPromptWorkspaceActions({
     }
 
     function showUploadThumbnailDialog(prompt, onRefresh = null) {
-        openUploadThumbnailDialog({ prompt, galleryNode, loadPromptsForGallery, onRefresh });
+        openUploadThumbnailDialog({ prompt, galleryNode, loadPromptsForGallery, onRefresh, operationFeedback });
     }
 
     async function deletePromptWithConfirm(prompt) {
         if (!confirmAction(`Are you sure you want to delete "${prompt.name}"?`)) return;
-        await galleryNode.deletePrompt(prompt.id);
-        await loadCategories();
-        await loadPromptsForGallery(galleryNode.currentPage);
+        const removePrompt = async () => {
+            const result = await galleryNode.deletePrompt(prompt.id);
+            if (!result || result.status !== "ok") {
+                throw new Error(result?.message || "Could not delete prompt");
+            }
+            return result;
+        };
+        try {
+            if (operationFeedback) {
+                await operationFeedback.run(removePrompt, {
+                    pendingMessage: "Deleting prompt...",
+                    successMessage: "Prompt deleted",
+                    errorMessage: "Could not delete prompt",
+                    retry: true,
+                });
+            } else {
+                await removePrompt();
+            }
+        } catch {
+            return;
+        }
+        try {
+            await loadCategories();
+            await loadPromptsForGallery(galleryNode.currentPage);
+        } catch (error) {
+            operationFeedback?.warning("Prompt deleted. View refresh failed.", {
+                action: () => loadPromptsForGallery(galleryNode.currentPage),
+                actionLabel: "Retry",
+            });
+        }
     }
 
     return {

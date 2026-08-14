@@ -1,5 +1,5 @@
 import * as loraApi from "../api/loraApi.js";
-import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js?v=url-safety-20260712";
+import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js";
 
 /** Synchronizes one LoRA card and updates the node's cached metadata/UI. */
 export async function syncLoraWithCivitai({
@@ -7,12 +7,14 @@ export async function syncLoraWithCivitai({
     card,
     nodeInstance,
     loraIconSvg,
+    operationFeedback = null,
 }) {
         const syncBtn = card.querySelector('.sync-civitai-btn');
          syncBtn.innerHTML = loraIconSvg.sync;
         syncBtn.title = "Syncing with Civitai";
         syncBtn.classList.remove('error');
         syncBtn.classList.add('loading');
+        operationFeedback?.pending(`Syncing ${loraName} with Civitai...`);
 
         try {
             const result = await loraApi.syncCivitai(loraName);
@@ -65,6 +67,7 @@ export async function syncLoraWithCivitai({
                     linkBtn.addEventListener('click', e => e.stopPropagation());
                     card.prepend(linkBtn);
                 }
+                operationFeedback?.success(`${loraName} synced with Civitai`);
 
             } else {
                throw new Error(result.message || 'Sync failed');
@@ -75,6 +78,16 @@ export async function syncLoraWithCivitai({
             syncBtn.innerHTML = loraIconSvg.alert;
             syncBtn.title = "Civitai sync failed";
             syncBtn.classList.add('error');
+            operationFeedback?.error(error?.message || `Could not sync ${loraName} with Civitai`, {
+                action: () => syncLoraWithCivitai({
+                    loraName,
+                    card,
+                    nodeInstance,
+                    loraIconSvg,
+                    operationFeedback,
+                }),
+                actionLabel: "Retry",
+            });
             setTimeout(() => {
                 syncBtn.innerHTML = loraIconSvg.sync;
                 syncBtn.title = "Sync with Civitai";

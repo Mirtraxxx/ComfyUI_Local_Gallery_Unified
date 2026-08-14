@@ -238,6 +238,7 @@ export async function showSettingsModal({
     renderActiveSidebar = null,
     renderGallery = null,
     getWorkflowProfileStatus = null,
+    operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
 }) {
@@ -299,13 +300,7 @@ export async function showSettingsModal({
                         <p>Display size, contrast, and card sorting stay in the sliders button on the prompt toolbar.</p>
                     </div>
                     <div class="localprompt-settings-behavior-grid">
-                        <label class="localprompt-settings-number-field">
-                            <span>Most Used cards</span>
-                            <input type="number" id="settings-most-used-count" min="1" max="50" inputmode="numeric">
-                            <small>How many cards the Most Used view can show.</small>
-                        </label>
                         <div class="localprompt-settings-toggle-list">
-                            <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-show-most-used"><span>Show the Most Used category</span></label>
                             <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-promote-selected-prompts"><span>Keep selected cards at the top</span></label>
                             <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-active-sidebar-hover-open"><span>Open the Active Stack on hover</span></label>
                             <label class="localprompt-settings-toggle"><input type="checkbox" id="settings-auto-hide-toolbars"><span>Auto-hide the bottom toolbar</span></label>
@@ -352,8 +347,6 @@ export async function showSettingsModal({
 
     const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
     const sourceSelect = root.querySelector(`#${uniqueId}-settings-prompt-source-select`);
-    const mostUsedCountInput = root.querySelector("#settings-most-used-count");
-    const showMostUsedInput = root.querySelector("#settings-show-most-used");
     const promoteSelectedPromptsInput = root.querySelector("#settings-promote-selected-prompts");
     const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
     const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
@@ -377,8 +370,6 @@ export async function showSettingsModal({
     });
     updatePromptSourceStatus();
 
-    mostUsedCountInput.value = Math.max(1, Math.min(50, Number.parseInt(nodeInstance.uiPrefs?.most_used_count, 10) || 10));
-    showMostUsedInput.checked = nodeInstance.uiPrefs?.show_most_used !== false;
     promoteSelectedPromptsInput.checked = nodeInstance.uiPrefs?.promote_selected_prompts !== false;
     activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs?.active_sidebar_hover_open !== false;
     autoHideToolbarsInput.checked = nodeInstance.uiPrefs?.auto_hide_toolbars === true;
@@ -549,12 +540,9 @@ export async function showSettingsModal({
         }
         const categoryColors = { ...(nodeInstance.uiPrefs?.category_colors || {}), ...draftCategoryColors };
         resetCategoryColors.forEach(category => delete categoryColors[category]);
-        const mostUsedCount = Math.max(1, Math.min(50, Number.parseInt(mostUsedCountInput.value, 10) || 10));
         const visiblePinnedCount = Math.max(1, Math.min(20, Number.parseInt(visiblePinnedCountInput.value, 10) || 5));
         const newPrefs = {
             ...nodeInstance.uiPrefs,
-            most_used_count: mostUsedCount,
-            show_most_used: showMostUsedInput.checked,
             promote_selected_prompts: promoteSelectedPromptsInput.checked,
             active_sidebar_hover_open: activeSidebarHoverOpenInput.checked,
             auto_hide_toolbars: autoHideToolbarsInput.checked,
@@ -565,8 +553,12 @@ export async function showSettingsModal({
 
         saveButton.disabled = true;
         saveStatus.textContent = "Saving...";
+        operationFeedback?.pending("Applying Prompt settings...");
         try {
-            await galleryNode.saveUiPrefs(newPrefs, nodeInstance);
+            const result = await galleryNode.saveUiPrefs(newPrefs, nodeInstance);
+            if (!result || result.status !== "ok") {
+                throw new Error(result?.message || "Could not apply Prompt settings");
+            }
             nodeInstance.uiPrefs = newPrefs;
             if (typeof savePinnedCategories === "function") {
                 await savePinnedCategories(draftPinnedCategories);
@@ -576,11 +568,13 @@ export async function showSettingsModal({
             if (activeLibraryTab) await renderLibraryDrawer(activeLibraryTab);
             if (typeof renderActiveSidebar === "function") await renderActiveSidebar();
             if (typeof renderGallery === "function") renderGallery();
+            operationFeedback?.success("Prompt settings applied to workflow");
             closeColorPopover();
             close();
         } catch (error) {
             console.error("Local Prompt Gallery: failed to save settings", error);
             saveStatus.textContent = "Could not save changes. Please try again.";
+            operationFeedback?.error(error?.message || "Could not apply Prompt settings");
             saveButton.disabled = false;
         }
     });

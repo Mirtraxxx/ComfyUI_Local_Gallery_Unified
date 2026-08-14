@@ -2,7 +2,7 @@ import {
     buildPromptPreviewMediaHtml,
     createPromptActionButton,
     promotePromptsById,
-} from "./helpers.js?v=unified-icons-20260606";
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 
 function getPromptCreatedAtValue(prompt) {

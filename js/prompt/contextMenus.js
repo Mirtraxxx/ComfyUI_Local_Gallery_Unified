@@ -69,7 +69,6 @@ export function showPromptActionContextMenu({
             disabled: !hasLastOutput,
         },
         { label: "Toggle Favorite", action: "favorite" },
-        { label: "Reset Usage Count", action: "reset_usage" },
         { label: "Delete Prompt", action: "delete" },
     ];
 

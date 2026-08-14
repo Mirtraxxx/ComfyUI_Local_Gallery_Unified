@@ -1,5 +1,47 @@
 import { api } from "../../../scripts/api.js";
 
+async function readJsonResponse(response) {
+    try {
+        return await response.json();
+    } catch (error) {
+        if (error?.name === "AbortError") {
+            throw error;
+        }
+        if (response.ok) {
+            return {};
+        }
+        return {
+            status: "error",
+            message: response.statusText || `HTTP error ${response.status}`,
+        };
+    }
+}
+
+function getErrorMessage(data, response, fallbackMessage = "Request failed") {
+    const candidates = [
+        data?.message,
+        data?.error,
+        data?.error?.message,
+        data?.detail,
+        response.statusText,
+    ];
+    return candidates.find(value => typeof value === "string" && value.trim())
+        || (!response.ok && response.status ? `HTTP error ${response.status}` : fallbackMessage);
+}
+
+async function fetchJson(url, options, { fallbackMessage = "Request failed", rejectStatuses = ["error"] } = {}) {
+    const response = await api.fetchApi(url, options);
+    const data = await readJsonResponse(response);
+    const payloadStatus = typeof data?.status === "string" ? data.status.toLowerCase() : "";
+    if (!response.ok || rejectStatuses.includes(payloadStatus)) {
+        const error = new Error(getErrorMessage(data, response, fallbackMessage));
+        error.status = response.status;
+        error.result = data;
+        throw error;
+    }
+    return data;
+}
+
 export async function getPrompts(filterName = "", mode = "OR", page = 1, selectedPrompts = [], filterCategory = "", favoritesOnly = false, perPage = 10, sortMode = "manual", requestOptions = {}) {
     const category = filterCategory === "All Categories" ? "" : (filterCategory || "");
     let url = `/localgalleryunified/prompt/get_prompts?filter_name=${encodeURIComponent(filterName)}&mode=${encodeURIComponent(mode)}&page=${page}&per_page=${perPage}&favorites_only=${favoritesOnly ? 1 : 0}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sortMode || "manual")}`;
@@ -14,13 +56,11 @@ export async function getPrompts(filterName = "", mode = "OR", page = 1, selecte
     });
     const fetchOptions = { ...requestOptions };
     delete fetchOptions.categories;
-    const response = await api.fetchApi(url, fetchOptions);
-    return await response.json();
+    return await fetchJson(url, fetchOptions);
 }
 
 export async function getPrompt(promptId) {
-    const response = await api.fetchApi(`/localgalleryunified/prompt/get_prompt?prompt_id=${encodeURIComponent(promptId)}`);
-    const data = await response.json();
+    const data = await fetchJson(`/localgalleryunified/prompt/get_prompt?prompt_id=${encodeURIComponent(promptId)}`);
     return data.prompt || null;
 }
 
@@ -28,24 +68,21 @@ export async function getPromptsByIds(promptIds = []) {
     if (!Array.isArray(promptIds) || promptIds.length === 0) {
         return [];
     }
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_prompts_by_ids", {
+    const data = await fetchJson("/localgalleryunified/prompt/get_prompts_by_ids", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_ids: promptIds }),
     });
-    const data = await response.json();
     return data.prompts || [];
 }
 
 export async function getCategories() {
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_categories");
-    const data = await response.json();
+    const data = await fetchJson("/localgalleryunified/prompt/get_categories");
     return data.categories || [];
 }
 
 export async function getCategorySummary() {
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_categories");
-    const data = await response.json();
+    const data = await fetchJson("/localgalleryunified/prompt/get_categories");
     return {
         categories: Array.isArray(data.categories) ? data.categories : [],
         counts: data.category_counts && typeof data.category_counts === "object"
@@ -61,39 +98,30 @@ export async function getPromptStats({ category, categories = [], group = "all",
     if (Array.isArray(categories)) {
         [...new Set(categories)].filter(Boolean).forEach(value => params.append("categories", value));
     }
-    const response = await api.fetchApi(`/localgalleryunified/prompt/get_prompt_stats?${params.toString()}`);
-    const result = await response.json();
-    if (!response.ok || result?.status === "error") {
-        throw new Error(result?.message || "Failed to load prompt stats");
-    }
-    return result;
+    return await fetchJson(`/localgalleryunified/prompt/get_prompt_stats?${params.toString()}`, undefined, {
+        fallbackMessage: "Failed to load prompt stats",
+    });
 }
 
 export async function updateMetadata(promptId, data) {
     const body = { prompt_id: promptId, ...data };
-    const response = await api.fetchApi("/localgalleryunified/prompt/update_metadata", {
+    return await fetchJson("/localgalleryunified/prompt/update_metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-    });
-    const result = await response.json();
-    if (!response.ok || result?.status === "error") {
-        throw new Error(result?.message || "Failed to update metadata");
-    }
-    return result;
+    }, { fallbackMessage: "Failed to update metadata" });
 }
 
 export async function createPrompt(name, promptText, category = "") {
-    const response = await api.fetchApi("/localgalleryunified/prompt/create_prompt", {
+    return await fetchJson("/localgalleryunified/prompt/create_prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, prompt_text: promptText, category }),
     });
-    return await response.json();
 }
 
 export async function createPromptFromOutput(name, promptText, category = "", lastOutput = null) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/create_prompt_from_output", {
+    return await fetchJson("/localgalleryunified/prompt/create_prompt_from_output", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -103,38 +131,30 @@ export async function createPromptFromOutput(name, promptText, category = "", la
             last_output: lastOutput,
         }),
     });
-    return await response.json();
 }
 
 export async function deletePrompt(promptId) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/delete_prompt", {
+    return await fetchJson("/localgalleryunified/prompt/delete_prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_id: promptId }),
     });
-    return await response.json();
 }
 
 export async function deletePromptsBulk(promptIds) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/delete_prompts_bulk", {
+    return await fetchJson("/localgalleryunified/prompt/delete_prompts_bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_ids: promptIds }),
     });
-    return await response.json();
 }
 
 export async function movePromptsBulk(promptIds, category = "") {
-    const response = await api.fetchApi("/localgalleryunified/prompt/move_prompts_bulk", {
+    return await fetchJson("/localgalleryunified/prompt/move_prompts_bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_ids: promptIds, category }),
-    });
-    const result = await response.json();
-    if (!response.ok || result?.status === "error") {
-        throw new Error(result?.message || "Failed to move prompts");
-    }
-    return result;
+    }, { fallbackMessage: "Failed to move prompts" });
 }
 
 export async function renamePromptsSequential(selection, {
@@ -145,7 +165,7 @@ export async function renamePromptsSequential(selection, {
     const body = Array.isArray(selection) || selection?.type === "ids"
         ? { prompt_ids: Array.isArray(selection) ? selection : selection.ids }
         : { selection };
-    const response = await api.fetchApi("/localgalleryunified/prompt/rename_prompts_sequential", {
+    return await fetchJson("/localgalleryunified/prompt/rename_prompts_sequential", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,15 +174,10 @@ export async function renamePromptsSequential(selection, {
             base_revision: baseRevision,
             active_prompt_ids: activePromptIds,
         }),
+    }, {
+        fallbackMessage: "Failed to rename cards sequentially",
+        rejectStatuses: ["error", "conflict"],
     });
-    const result = await response.json();
-    if (!response.ok || result?.status === "error" || result?.status === "conflict") {
-        const error = new Error(result?.message || "Failed to rename cards sequentially");
-        error.status = response.status;
-        error.result = result;
-        throw error;
-    }
-    return result;
 }
 
 export async function bulkEdit(selection, operations, {
@@ -171,7 +186,7 @@ export async function bulkEdit(selection, operations, {
     sampleLimit = 10,
     activePromptIds = [],
 } = {}) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/bulk_edit", {
+    return await fetchJson("/localgalleryunified/prompt/bulk_edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -182,122 +197,100 @@ export async function bulkEdit(selection, operations, {
             sample_limit: sampleLimit,
             active_prompt_ids: activePromptIds,
         }),
+    }, {
+        fallbackMessage: "Bulk edit failed",
+        rejectStatuses: ["error", "conflict"],
     });
-    const result = await response.json();
-    if (!response.ok || result?.status === "error" || result?.status === "conflict") {
-        const error = new Error(result?.message || "Bulk edit failed");
-        error.status = response.status;
-        error.result = result;
-        throw error;
-    }
-    return result;
 }
 
 export async function uploadThumbnail(promptId, file) {
     const formData = new FormData();
     formData.append("prompt_id", promptId);
     formData.append("file", file);
-    const response = await api.fetchApi("/localgalleryunified/prompt/upload_thumbnail", {
+    return await fetchJson("/localgalleryunified/prompt/upload_thumbnail", {
         method: "POST",
         body: formData,
     });
-    return await response.json();
 }
 
 export async function toggleFavorite(promptId, category = null) {
     const body = { prompt_id: promptId };
     if (category) body.category = category;
-    const response = await api.fetchApi("/localgalleryunified/prompt/toggle_favorite", {
+    return await fetchJson("/localgalleryunified/prompt/toggle_favorite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
-    return await response.json();
 }
 
 export async function setFavoriteColor(promptId, color) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/set_favorite_color", {
+    return await fetchJson("/localgalleryunified/prompt/set_favorite_color", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_id: promptId, color }),
     });
-    return await response.json();
 }
 
 export async function uploadWildcardFile(file) {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.fetchApi("/localgalleryunified/prompt/upload_wildcard_file", {
+    return await fetchJson("/localgalleryunified/prompt/upload_wildcard_file", {
         method: "POST",
         body: formData,
     });
-    return await response.json();
 }
 
 export async function importWildcardFile(filename, category) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/import_wildcard_file", {
+    return await fetchJson("/localgalleryunified/prompt/import_wildcard_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename, category }),
     });
-    return await response.json();
 }
 
 export async function exportWildcardCategory(category, filename = "", destination = "comfy") {
-    const response = await api.fetchApi("/localgalleryunified/prompt/export_wildcard_category", {
+    return await fetchJson("/localgalleryunified/prompt/export_wildcard_category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category, filename, destination }),
     });
-    return await response.json();
 }
 
 export async function deleteCategory(category) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/delete_category", {
+    return await fetchJson("/localgalleryunified/prompt/delete_category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category }),
     });
-    return await response.json();
 }
 
 export async function renameCategory(oldCategory, newCategory) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/rename_category", {
+    return await fetchJson("/localgalleryunified/prompt/rename_category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ old_category: oldCategory, new_category: newCategory }),
     });
-    return await response.json();
-}
-
-export async function getMostUsed(count = 10) {
-    const response = await api.fetchApi(`/localgalleryunified/prompt/get_most_used?count=${count}`);
-    const data = await response.json();
-    return data.prompts || [];
 }
 
 export async function getUiPrefs() {
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_ui_prefs");
-    return await response.json();
+    return await fetchJson("/localgalleryunified/prompt/get_ui_prefs");
 }
 
 export async function saveUiPrefs(prefs) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/save_ui_prefs", {
+    return await fetchJson("/localgalleryunified/prompt/save_ui_prefs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefs),
     });
-    return await response.json();
 }
 
 export async function getPresets() {
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_presets");
-    const data = await response.json();
+    const data = await fetchJson("/localgalleryunified/prompt/get_presets");
     return data.presets || [];
 }
 
 export async function savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail = "off") {
-    const response = await api.fetchApi("/localgalleryunified/prompt/save_preset", {
+    return await fetchJson("/localgalleryunified/prompt/save_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -308,47 +301,34 @@ export async function savePreset(name, selection, wildcardMode, wildcardCategori
             wildcard_auto_attach_thumbnail: wildcardAutoAttachThumbnail,
         }),
     });
-    return await response.json();
 }
 
 export async function getOrCreatePrompts(prompts) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/get_or_create_prompts", {
+    return await fetchJson("/localgalleryunified/prompt/get_or_create_prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompts }),
     });
-    return await response.json();
 }
 
 export async function loadPreset(name) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/load_preset", {
+    return await fetchJson("/localgalleryunified/prompt/load_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
     });
-    return await response.json();
 }
 
 export async function deletePreset(name) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/delete_preset", {
+    return await fetchJson("/localgalleryunified/prompt/delete_preset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
     });
-    return await response.json();
-}
-
-export async function resetUsageCount(promptId) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/reset_usage_count", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt_id: promptId }),
-    });
-    return await response.json();
 }
 
 export async function assignThumbnail(promptId, lastOutput) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/assign_thumbnail", {
+    return await fetchJson("/localgalleryunified/prompt/assign_thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -358,7 +338,6 @@ export async function assignThumbnail(promptId, lastOutput) {
             type: lastOutput.type,
         }),
     });
-    return await response.json();
 }
 
 /**
@@ -366,10 +345,9 @@ export async function assignThumbnail(promptId, lastOutput) {
  * @param {Array<{prompt_id: string, filename: string, subfolder?: string, type?: string}>} assignments
  */
 export async function assignThumbnailsBatch(assignments = []) {
-    const response = await api.fetchApi("/localgalleryunified/prompt/assign_thumbnails_batch", {
+    return await fetchJson("/localgalleryunified/prompt/assign_thumbnails_batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assignments }),
     });
-    return await response.json();
 }

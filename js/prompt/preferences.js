@@ -9,24 +9,23 @@ import {
     THUMBNAIL_SIZE_LEGACY_PRESETS,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
-} from "./constants.js?v=card-manager-size-settings-20260722-1";
+} from "./constants.js";
 import {
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
     getThumbnailSizePx as resolveThumbnailSizePx,
-} from "./helpers.js?v=unified-icons-20260606";
+} from "./helpers.js";
 
 export const DEFAULT_PROMPT_UI_PREFS = {
     display_mode: "thumbnails",
     cards_display_mode: "thumbnails",
     active_display_mode: "compact",
-    most_used_count: 10,
     library_tab_layout: "scroll",
     thumbnail_size: "medium",
     thumbnail_size_px: THUMBNAIL_SIZE_DEFAULT,
     active_thumbnail_size_px: 110,
     card_manager_card_size_px: CARD_MANAGER_CARD_SIZE_DEFAULT,
     bars_size_scale: BARS_SIZE_SCALE_DEFAULT,
-    library_tabs: ["most_used", "pinned"],
+    library_tabs: ["pinned"],
     pinned_categories: null,
     visible_pinned_category_count: 5,
     pinned_order: [],
@@ -36,7 +35,6 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     active_sidebar_width: 300,
     active_sidebar_hover_open: true,
     auto_hide_toolbars: false,
-    show_most_used: true,
     promote_selected_prompts: true,
     prompt_sort_mode: "manual",
     prompt_sort_modes: {},

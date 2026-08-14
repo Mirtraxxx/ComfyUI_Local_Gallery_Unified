@@ -6,17 +6,17 @@ import {
     getCardsDisplayMode as resolveCardsDisplayMode,
     getThumbnailSizePx as resolveThumbnailSizePx,
     normalizeDisplayMode,
-} from "./preferences.js?v=card-manager-size-settings-20260722-1";
+} from "./preferences.js";
 import {
     CARD_MANAGER_CARD_SIZE_DEFAULT,
     CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
-} from "./constants.js?v=card-manager-size-settings-20260722-1";
+} from "./constants.js";
 import {
     getResponsiveThumbnailSizeBounds,
     getThumbnailVariables,
-} from "./helpers.js?v=responsive-thumbnail-bounds-20260723-1";
+} from "./helpers.js";
 
 /** Owns Prompt Builder, Card Manager, and Active Stack display preferences and controls. */
 export function createDisplayPreferencesController({

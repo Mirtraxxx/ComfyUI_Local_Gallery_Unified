@@ -2,7 +2,7 @@
  * Binds trigger-preset controls for either a browser card or an active-stack item.
  * The node owns selection persistence; this module owns only the preset interaction state.
  */
-import { getSelectedTriggerPresetNames } from "./selectionState.js?v=lora-trigger-preset-feedback-20260726-1";
+import { getSelectedTriggerPresetNames } from "./selectionState.js";
 
 export function setupLoraPresetControls(
     element,

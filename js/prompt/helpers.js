@@ -224,9 +224,14 @@ export function normalizePromptIdList(ids) {
     return [...new Set(ids.map(id => String(id)).filter(Boolean))];
 }
 
-export function getLibraryTabsFromPrefs(uiPrefs, utilityTabs = ["most_used", "pinned"]) {
+export function getLibraryTabsFromPrefs(uiPrefs, utilityTabs = ["pinned"]) {
     const storedTabs = Array.isArray(uiPrefs?.library_tabs) ? uiPrefs.library_tabs : [];
-    return storedTabs.filter(tab => tab && tab !== "active" && !utilityTabs.includes(tab));
+    return storedTabs.filter(tab => (
+        tab
+        && tab !== "active"
+        && tab !== "most_used"
+        && !utilityTabs.includes(tab)
+    ));
 }
 
 export function syncPinnedOrderWithPromptIds(pinnedOrder, promptIds) {
@@ -385,9 +390,6 @@ export function buildPromptHoverPreviewHtml(prompt, roleColor = null) {
     }
     if (prompt.favorite) {
         previewPills.push("<span class=\"preview-pill\">Pinned</span>");
-    }
-    if (prompt.usage_count > 0) {
-        previewPills.push(`<span class="preview-pill">${prompt.usage_count} uses</span>`);
     }
 
     const roleStyle = roleColor ? ` style="--role-color: ${escapeHtml(roleColor)};"` : "";

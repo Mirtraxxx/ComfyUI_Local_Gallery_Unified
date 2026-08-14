@@ -1,5 +1,5 @@
-import { getPromptStyles } from "./styles.js?v=category-pull-tab-hover-20260724-1&profile=workflow-v1-20260725-1&media=prompt-video-20260726-1&card-manager=compact-align-20260727-3&icons=active-builder-match-20260728-2";
-import { getPromptReferenceUxStyles } from "./referenceUx.js?v=prompt-builder-responsive-grid-foundation-20260723-1&card-manager=compact-align-20260727-3&library=direct-cards-20260728-1";
+import { getPromptStyles } from "./styles.js";
+import { getPromptReferenceUxStyles } from "./referenceUx.js";
 import {
     BARS_SIZE_SCALE_MAX,
     BARS_SIZE_SCALE_MIN,
@@ -7,7 +7,7 @@ import {
     CARD_MANAGER_CARD_SIZE_MIN,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
-} from "./constants.js?v=card-manager-size-settings-20260722-1";
+} from "./constants.js";
 
 export function getPromptTemplate(uniqueId) {
     return `

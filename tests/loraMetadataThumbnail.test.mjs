@@ -39,3 +39,13 @@ test("LoRA details editor has explicit close and compact optional presets", () =
     assert.match(metadataEditorSource, /setPresetEditorExpanded\(presetEntries\.length > 0\)/);
     assert.match(stylesSource, /\.add-trigger-preset-btn \{[\s\S]*?font-size: 10px;[\s\S]*?line-height: 1\.2;/);
 });
+
+test("latest-result thumbnail assignment updates the visible card without refreshing the gallery", () => {
+    assert.match(metadataEditorSource, /findGalleryCardByLoraName\(loraName\)/);
+    assert.match(metadataEditorSource, /mediaContainer\.replaceChildren\(media\)/);
+
+    const handlerStart = metadataEditorSource.indexOf("useLastOutputThumbnailBtn.addEventListener");
+    const handlerEnd = metadataEditorSource.indexOf("    });", handlerStart) + 7;
+    const handler = metadataEditorSource.slice(handlerStart, handlerEnd);
+    assert.doesNotMatch(handler, /fetchAndRender\(/);
+});

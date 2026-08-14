@@ -31,8 +31,8 @@ test("trigger preset apply persists selected_preset/selected_presets and rebuild
 
     assert.match(ui, /hitPortaledPresetMenu/);
     assert.match(ui, /lora-trigger-preset-popover-portal/);
-    assert.match(ui, /activeStackController\.js\?v=lora-trigger-preset-feedback-20260726-2/);
-    assert.match(ui, /styles\.js\?[^\n"]*preset=lora-trigger-preset-feedback-20260726-2/);
+    assert.match(ui, /from "\.\/activeStackController\.js"/);
+    assert.match(ui, /from "\.\/styles\.js"/);
     assert.match(entry, /lora\/ui\.js\?[^\n"]*preset=lora-trigger-preset-feedback-20260726-2/);
     assert.match(ui, /widget\.serializeValue = \(\) => \{/);
     assert.match(ui, /toSerializableLoraSelection\(this\.loraData/);
@@ -41,7 +41,7 @@ test("trigger preset apply persists selected_preset/selected_presets and rebuild
 
     assert.match(activeStack, /onPresetApplied:\s*\(\{\s*stacking\s*\}\)\s*=>/);
     assert.match(activeStack, /if \(!stacking\) \{\s*renderSelectedList\(\);/);
-    assert.match(activeStack, /renderers\.js\?v=lora-trigger-preset-feedback-20260726-1/);
+    assert.match(activeStack, /from "\.\/renderers\.js"/);
 
     assert.match(styles, /\.lora-trigger-preset-button\.has-selection/);
     assert.match(styles, /\.lora-trigger-preset-option\.selected::after/);

@@ -1,7 +1,7 @@
 import {
     applyActiveSidebarPreference as applyPromptActiveSidebarPreference,
     renderActiveSidebar as renderPromptActiveSidebar,
-} from "./activeSidebar.js?v=prompt-performance-20260721-1&media=prompt-video-20260726-1&icons=builder-match-20260728-1";
+} from "./activeSidebar.js";
 
 /** Coordinates the Prompt Active Stack sidebar state, timers, and renders. */
 export function createActiveStackController({

@@ -21,7 +21,7 @@ test("From Last Output category select supports creating a new category", async 
 test("workspace actions pass loadCategories into From Last Output dialog", async () => {
     const workspaceActions = await readFile(workspaceActionsUrl, "utf8");
 
-    assert.match(workspaceActions, /dialogs\.js\?v=from-last-output-new-category-20260724-1/);
+    assert.match(workspaceActions, /from "\.\/dialogs\.js"/);
     assert.match(
         workspaceActions,
         /openFromLastOutputDialog\(\{[\s\S]*?loadPromptsForGallery,[\s\S]*?loadCategories,/,

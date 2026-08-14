@@ -42,13 +42,6 @@ _ui_prefs_mtime = 0
 _json_file_lock = threading.RLock()
 _prompt_stats_cache = {}
 
-# Deferred usage-count saving
-_pending_usage = {}
-_usage_flush_timer = None
-_usage_flush_generation = 0
-_USAGE_FLUSH_DELAY = 30  # seconds
-_USAGE_BUSY_RETRY_DELAY = 15  # seconds — do not rewrite 30MB metadata mid-run
-
 # Deferred wildcard cycle-state prefs (updated every execution with wildcards)
 _pending_wildcard_cycle_state = None
 _cycle_state_flush_timer = None
@@ -59,10 +52,10 @@ _CYCLE_STATE_BUSY_RETRY_DELAY = 10  # seconds
 def _load_metadata_from_disk_locked(update_cache=True):
     """Read the metadata file while the process-wide JSON lock is held.
 
-    Mutation paths must not start from the in-memory cache: a deferred usage
-    flush or another request may have changed the file since the cache was
-    populated.  Keeping this small read helper separate also makes the
-    load/modify/save transaction boundary explicit.
+    Mutation paths must not start from the in-memory cache: another request
+    may have changed the file since the cache was populated. Keeping this
+    small read helper separate also makes the load/modify/save transaction
+    boundary explicit.
     """
     global _metadata_cache, _metadata_mtime
     metadata = load_json_file(METADATA_FILE, {}, strict=True)
@@ -77,44 +70,19 @@ def _load_metadata_from_disk_locked(update_cache=True):
     return metadata
 
 
-def _apply_pending_usage_locked(metadata, pending):
-    """Apply a pending usage snapshot to metadata in-place."""
-    for prompt_id, count in pending.items():
-        prompt_data = metadata.get(prompt_id)
-        if isinstance(prompt_data, dict):
-            prompt_data['usage_count'] = prompt_data.get('usage_count', 0) + count
-
-
-def _consume_pending_usage_locked(snapshot):
-    """Remove only the usage counts represented by *snapshot*.
-
-    New executions can arrive while a transaction is saving.  Subtracting the
-    snapshot instead of clearing the whole map preserves those later counts.
-    """
-    for prompt_id, count in snapshot.items():
-        remaining = _pending_usage.get(prompt_id, 0) - count
-        if remaining > 0:
-            _pending_usage[prompt_id] = remaining
-        else:
-            _pending_usage.pop(prompt_id, None)
-
-
 class MetadataTransaction(AbstractContextManager):
     """Serialize one prompt metadata load/modify/save operation.
 
-    The transaction owns the JSON lock for its entire lifetime and normally
-    includes a snapshot of deferred usage counts before yielding mutable
-    metadata.  Name-only mutations can opt out of that merge so they preserve
-    usage metadata exactly. A caller must call :meth:`commit` after making a
-    mutation; leaving without a commit performs no write. Pending usage is
-    consumed only after a merged snapshot saves successfully, so a failed
-    mutation cannot lose execution counts.
+    The transaction owns the JSON lock for its entire lifetime. A caller must
+    call :meth:`commit` after making a mutation; leaving without a commit
+    performs no write.
     """
 
     def __init__(self, include_pending_usage=True):
+        # include_pending_usage is accepted for older call sites and ignored.
+        # Card usage counting was removed; it rewrote the multi-MB library file
+        # during generation and is no longer tracked.
         self.metadata = None
-        self._pending_snapshot = None
-        self._include_pending_usage = include_pending_usage
         self._committed = False
 
     def __enter__(self):
@@ -124,8 +92,6 @@ class MetadataTransaction(AbstractContextManager):
             # full deep copy is significant for large metadata libraries while
             # retaining the transaction's all-or-nothing cache visibility.
             self.metadata = _load_metadata_from_disk_locked(update_cache=False)
-            self._pending_snapshot = dict(_pending_usage) if self._include_pending_usage else {}
-            _apply_pending_usage_locked(self.metadata, self._pending_snapshot)
             return self
         except Exception:
             _json_file_lock.release()
@@ -135,7 +101,6 @@ class MetadataTransaction(AbstractContextManager):
         if self._committed:
             return
         save_metadata(self.metadata)
-        _consume_pending_usage_locked(self._pending_snapshot or {})
         self._committed = True
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -149,69 +114,16 @@ def _comfy_queue_busy():
         prompt_queue = getattr(server.PromptServer.instance, "prompt_queue", None)
         if prompt_queue is None:
             return False
-        running, pending = prompt_queue.get_current_queue()
+        # Prefer the cheap volatile read — get_current_queue() deep-copies the
+        # full queue and is marked slow in ComfyUI itself.
+        getter = getattr(prompt_queue, "get_current_queue_volatile", None)
+        if callable(getter):
+            running, pending = getter()
+        else:
+            running, pending = prompt_queue.get_current_queue()
         return bool(running) or bool(pending)
     except Exception:
         return False
-
-
-def _flush_usage_counts(generation=None):
-    """Merge pending usage counts into metadata and save to disk.
-
-    Never rewrite the large metadata file while a generation is in progress —
-    that freezes sampling progress for several seconds.
-    """
-    global _pending_usage, _usage_flush_timer
-    try:
-        with _json_file_lock:
-            if not _pending_usage:
-                return
-            if generation is not None and generation != _usage_flush_generation:
-                return
-
-        if _comfy_queue_busy():
-            _schedule_usage_flush(delay=_USAGE_BUSY_RETRY_DELAY)
-            return
-
-        with _json_file_lock:
-            if not _pending_usage:
-                return
-            if generation is not None and generation != _usage_flush_generation:
-                return
-            pending_snapshot = dict(_pending_usage)
-            metadata = _load_metadata_from_disk_locked(update_cache=False)
-            _apply_pending_usage_locked(metadata, pending_snapshot)
-            save_metadata(metadata)
-            _consume_pending_usage_locked(pending_snapshot)
-    except Exception as e:
-        print(f"LocalPromptGallery: failed to flush usage counts: {e}")
-    finally:
-        with _json_file_lock:
-            if generation is None or generation == _usage_flush_generation:
-                _usage_flush_timer = None
-
-def _schedule_usage_flush(delay=None):
-    """Debounce: reset the timer each time so we only write once after activity stops."""
-    global _usage_flush_timer, _usage_flush_generation
-    flush_delay = _USAGE_FLUSH_DELAY if delay is None else max(1.0, float(delay))
-    with _json_file_lock:
-        _usage_flush_generation += 1
-        generation = _usage_flush_generation
-        if _usage_flush_timer is not None:
-            _usage_flush_timer.cancel()
-        _usage_flush_timer = threading.Timer(flush_delay, _flush_usage_counts, args=(generation,))
-        _usage_flush_timer.daemon = True
-        _usage_flush_timer.start()
-
-
-def _record_usage_counts(prompt_ids):
-    """Record execution usage without racing metadata transactions."""
-    if not prompt_ids:
-        return
-    with _json_file_lock:
-        for prompt_id in prompt_ids:
-            _pending_usage[prompt_id] = _pending_usage.get(prompt_id, 0) + 1
-    _schedule_usage_flush()
 
 
 def _flush_wildcard_cycle_state(generation=None):
@@ -612,7 +524,6 @@ def build_sequential_rename_plan(metadata, prompt_ids):
 def build_metadata_indexes(metadata):
     category_ids = {}
     favorite_ids = []
-    used_ids = []
     name_to_id = {}
     searchable_text_by_id = {}
 
@@ -623,9 +534,6 @@ def build_metadata_indexes(metadata):
 
         if data.get('favorite', False):
             favorite_ids.append(prompt_id)
-
-        if data.get('usage_count', 0) > 0:
-            used_ids.append(prompt_id)
 
         name = data.get('name', '')
         if name:
@@ -654,7 +562,6 @@ def build_metadata_indexes(metadata):
         "categories": sorted(category_ids.keys()),
         "favorite_ids": favorite_ids,
         "favorite_name_ids": sorted(favorite_ids, key=sort_by_name),
-        "used_ids": used_ids,
         "name_to_id": name_to_id,
         "searchable_text_by_id": searchable_text_by_id,
         "all_name_ids": sorted(metadata.keys(), key=sort_by_name),
@@ -687,16 +594,14 @@ def prompt_response(prompt_id, data, include_usage=False):
         'favorite_color': data.get('favorite_color'),
     }
     response['category_favorites'] = data.get('category_favorites', [])
-    if include_usage:
-        response['usage_count'] = data.get('usage_count', 0)
+    # include_usage is ignored: card usage counting was removed.
     return response
 
 UI_PREF_DEFAULTS = {
     "display_mode": "thumbnails",
     "cards_display_mode": "thumbnails",
     "active_display_mode": "compact",
-    "most_used_count": 10,
-    "library_tabs": ["most_used", "pinned"],
+    "library_tabs": ["pinned"],
     "library_tab_layout": "scroll",
     "thumbnail_size": "medium",
     "thumbnail_size_px": 96,
@@ -712,7 +617,6 @@ UI_PREF_DEFAULTS = {
     "active_sidebar_width": 392,
     "active_sidebar_hover_open": True,
     "auto_hide_toolbars": False,
-    "show_most_used": True,
     "prompt_sort_mode": "manual",
     "prompt_sort_modes": {},
     "meta_tags_button_side": "right",
@@ -804,8 +708,7 @@ UI_PREF_VALIDATORS = {
     "display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["display_mode"]),
     "cards_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["cards_display_mode"]),
     "active_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["active_display_mode"]),
-    "most_used_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["most_used_count"]),
-    "library_tabs": lambda value, prefs: _normalize_str_list(value),
+    "library_tabs": lambda value, prefs: [tab for tab in _normalize_str_list(value) if tab != "most_used"],
     "library_tab_layout": lambda value, prefs: _normalize_choice(value, {"scroll", "wrap"}, UI_PREF_DEFAULTS["library_tab_layout"]),
     "thumbnail_size": lambda value, prefs: _normalize_choice(value, {"small", "medium", "large"}, UI_PREF_DEFAULTS["thumbnail_size"]),
     "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 40, 320),
@@ -821,7 +724,6 @@ UI_PREF_VALIDATORS = {
     "active_sidebar_width": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["active_sidebar_width"], 220),
     "active_sidebar_hover_open": lambda value, prefs: bool(value),
     "auto_hide_toolbars": lambda value, prefs: bool(value),
-    "show_most_used": lambda value, prefs: bool(value),
     "prompt_sort_mode": lambda value, prefs: _normalize_choice(value, SORT_MODES, UI_PREF_DEFAULTS["prompt_sort_mode"]),
     "prompt_sort_modes": lambda value, prefs: _normalize_sort_modes(value),
     "meta_tags_button_side": lambda value, prefs: _normalize_choice(value, {"left", "right"}, UI_PREF_DEFAULTS["meta_tags_button_side"]),
@@ -1158,7 +1060,6 @@ async def get_prompt_endpoint(request):
             'favorite': data.get('favorite', False),
             'favorite_color': data.get('favorite_color'),
             'category_favorites': data.get('category_favorites', []),
-            'usage_count': data.get('usage_count', 0)
         }
         return web.json_response({"status": "ok", "prompt": prompt})
 
@@ -1441,7 +1342,7 @@ def _normalize_bulk_operations(raw_operations):
         raise ValueError("At least one operation is required")
 
     operations = {}
-    allowed_fields = {"category", "prompt_text", "name", "favorite", "reset_usage"}
+    allowed_fields = {"category", "prompt_text", "name", "favorite"}
     unknown_fields = set(raw_operations) - allowed_fields
     if unknown_fields:
         raise ValueError(f"Unsupported bulk operation: {sorted(unknown_fields)[0]}")
@@ -1484,11 +1385,6 @@ def _normalize_bulk_operations(raw_operations):
         if not isinstance(value, bool):
             raise ValueError("Pin value must be true or false")
         operations["favorite"] = {"mode": "set", "value": value}
-
-    if "reset_usage" in raw_operations:
-        if raw_operations["reset_usage"] is not True:
-            raise ValueError("reset_usage must be true when provided")
-        operations["reset_usage"] = True
 
     if not operations:
         raise ValueError("At least one valid operation is required")
@@ -1537,16 +1433,13 @@ def _apply_bulk_operations(prompt_data, operations):
     if favorite_operation:
         prompt_data["favorite"] = favorite_operation["value"]
 
-    if operations.get("reset_usage"):
-        prompt_data["usage_count"] = 0
-
     return before, prompt_data != before
 
 
 def _bulk_diff(prompt_id, before, after):
     diff = {"id": prompt_id, "name": after.get("name", prompt_id)}
-    for field in ("name", "category", "prompt_text", "favorite", "usage_count"):
-        default = False if field == "favorite" else 0 if field == "usage_count" else ""
+    for field in ("name", "category", "prompt_text", "favorite"):
+        default = False if field == "favorite" else ""
         previous = before.get(field, default)
         current = after.get(field, default)
         if previous != current:
@@ -1638,7 +1531,7 @@ async def bulk_edit_endpoint(request):
             for prompt_id in active_prompt_ids:
                 prompt_data = metadata.get(prompt_id)
                 if isinstance(prompt_data, dict):
-                    updated_active_prompts.append(prompt_response(prompt_id, prompt_data, include_usage=True))
+                    updated_active_prompts.append(prompt_response(prompt_id, prompt_data))
 
             result_revision = metadata_revision()
 
@@ -1699,9 +1592,7 @@ async def rename_prompts_sequential_endpoint(request):
         if not base_revision:
             raise ValueError("base_revision is required when applying a sequential rename")
 
-        # Do not fold deferred execution usage into this name-only mutation.
-        # Those counts remain queued for their normal flush path.
-        with MetadataTransaction(include_pending_usage=False) as transaction:
+        with MetadataTransaction() as transaction:
             current_revision = metadata_revision()
             if base_revision != current_revision:
                 return web.json_response({
@@ -2346,64 +2237,6 @@ async def set_favorite_color_endpoint(request):
         print(f"Error setting favorite color: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_most_used")
-async def get_most_used_endpoint(request):
-    """Get the most frequently used prompts"""
-    try:
-        count = bounded_int(request.query.get('count', 10), 10, 1, 50)
-        
-        with _json_file_lock:
-            metadata = load_metadata()
-            indexes = get_metadata_indexes()
-            # Merge any pending (not-yet-flushed) usage counts for accurate reading
-            pending_snapshot = dict(_pending_usage)
-        
-        # Get all prompts with their usage counts
-        prompts_with_usage = []
-        candidate_ids = set(indexes.get("used_ids", [])) | set(pending_snapshot.keys())
-        for prompt_id in candidate_ids:
-            data = metadata.get(prompt_id)
-            if not data:
-                continue
-            usage_count = data.get('usage_count', 0) + pending_snapshot.get(prompt_id, 0)
-            if usage_count > 0:  # Only include prompts that have been used
-                prompt = prompt_response(prompt_id, data, include_usage=False)
-                prompt['usage_count'] = usage_count
-                prompts_with_usage.append(prompt)
-        
-        # Sort by usage count descending
-        prompts_with_usage.sort(key=lambda p: p['usage_count'], reverse=True)
-        
-        # Return top N
-        return web.json_response({'prompts': prompts_with_usage[:count]})
-    except Exception as e:
-        print(f"Error getting most used prompts: {e}")
-        return web.json_response({'status': 'error', 'message': str(e), 'prompts': []}, status=500)
-
-@server.PromptServer.instance.routes.post("/localgalleryunified/prompt/reset_usage_count")
-async def reset_usage_count_endpoint(request):
-    """Reset usage count for a prompt to 0"""
-    try:
-        data = await request.json()
-        prompt_id = data.get('prompt_id')
-        
-        if not prompt_id:
-            return web.json_response({"status": "error", "message": "prompt_id is required"}, status=400)
-        
-        with MetadataTransaction() as transaction:
-            metadata = transaction.metadata
-
-            if prompt_id not in metadata:
-                return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-
-            metadata[prompt_id]['usage_count'] = 0
-            transaction.commit()
-
-        return web.json_response({"status": "ok", "message": "Usage count reset"})
-    except Exception as e:
-        print(f"Error resetting usage count: {e}")
-        return web.json_response({"status": "error", "message": str(e)}, status=500)
-
 @server.PromptServer.instance.routes.get("/localgalleryunified/prompt/get_ui_prefs")
 async def get_ui_prefs_endpoint(request):
     """Get UI preferences"""
@@ -2862,12 +2695,18 @@ class LocalPromptGallery:
 
         selection_data = parse_json_list(selection_data_str)
 
+        uses_wildcards = (
+            (wildcard_mode or "off") != "off"
+            and self._has_wildcard_categories(wildcard_categories)
+        )
+
+        # Manual card stacks only need id→text lookup. Skip index rebuild and
+        # prefs deepcopy/load unless wildcards actually run.
         metadata = load_metadata()
-        indexes = get_metadata_indexes()
-        prefs = load_ui_prefs()
-        wildcard_cycle_state = prefs.get("wildcard_cycle_state", {})
+        indexes = get_metadata_indexes() if uses_wildcards else {}
+        prefs = load_ui_prefs() if uses_wildcards else {}
+        wildcard_cycle_state = prefs.get("wildcard_cycle_state", {}) if uses_wildcards else {}
         wildcard_cycle_state_changed = False
-        used_prompt_ids = []  # Track which prompts were used for usage counting
         wildcard_prompt_ids = []  # IDs selected by wildcard mode for optional thumbnail attachment
 
         # Start with manual selections (always processed)
@@ -2891,15 +2730,10 @@ class LocalPromptGallery:
                 # A selection can carry a workflow-local text override.  It is
                 # intentionally kept out of card metadata so editing a card in
                 # one workflow never changes the stored library card or other
-                # workflows that use it.  A live source card still counts as
-                # used even when its workflow instance supplies different text.
+                # workflows that use it.
                 prompt_text = workflow_override
-                if prompt_id in metadata:
-                    used_prompt_ids.append(prompt_id)
             elif prompt_id in metadata:
                 prompt_text = metadata[prompt_id].get('prompt_text', '')
-                if prompt_text:
-                    used_prompt_ids.append(prompt_id)  # Track usage
             else:
                 # Presets may store inline prompt text or a prompt name alongside the
                 # id. If an id went stale after metadata recovery, use that stored
@@ -2916,7 +2750,7 @@ class LocalPromptGallery:
                     combined_parts.append(prompt_text)
 
         # If wildcard mode is enabled AND categories are set, add wildcard prompts
-        if wildcard_mode != "off" and wildcard_categories:
+        if uses_wildcards:
             try:
                 # Try to parse as JSON first (new format)
                 parsed = json.loads(wildcard_categories)
@@ -3014,7 +2848,6 @@ class LocalPromptGallery:
                     if wildcard_auto_attach_thumbnail and auto_attach_category:
                         wildcard_prompt_ids.append(selected_prompt_id)
 
-                    used_prompt_ids.append(selected_prompt_id)  # Track usage
                     prompt_text = selected_prompt.get('prompt_text', '')
                     if prompt_text:
                         if weight != 1.0:
@@ -3027,9 +2860,6 @@ class LocalPromptGallery:
 
         # Combine everything
         combined_prompt = ", ".join(combined_parts)
-        
-        # Defer usage count updates (avoids writing 15MB JSON on every execution)
-        _record_usage_counts(used_prompt_ids)
 
         if wildcard_cycle_state_changed:
             # Keep cycle progress in the in-memory prefs cache immediately, but

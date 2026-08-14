@@ -33,19 +33,19 @@ test("copied node identities keep independent workflow profile objects", () => {
     const secondWorkflowNode = makeNode();
 
     writeWorkflowProfileSection(firstWorkflowNode, "prompt_ui", {
-        library_tabs: ["most_used", "Anima", "Styles"],
+        library_tabs: ["pinned", "Anima", "Styles"],
     });
     writeWorkflowProfileSection(secondWorkflowNode, "prompt_ui", {
-        library_tabs: ["most_used", "Wan Low", "Wan High"],
+        library_tabs: ["pinned", "Wan Low", "Wan High"],
     });
 
     assert.deepEqual(
         readWorkflowProfileSection(firstWorkflowNode, "prompt_ui").library_tabs,
-        ["most_used", "Anima", "Styles"],
+        ["pinned", "Anima", "Styles"],
     );
     assert.deepEqual(
         readWorkflowProfileSection(secondWorkflowNode, "prompt_ui").library_tabs,
-        ["most_used", "Wan Low", "Wan High"],
+        ["pinned", "Wan Low", "Wan High"],
     );
 });
 

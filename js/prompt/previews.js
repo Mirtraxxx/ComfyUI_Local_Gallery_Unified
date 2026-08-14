@@ -1,7 +1,7 @@
 import {
     buildPromptHoverPreviewHtml,
     getFloatingPreviewPosition,
-} from "./helpers.js?v=preview-popover-20260606";
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 
 let disposePreviewOutsideClick = null;

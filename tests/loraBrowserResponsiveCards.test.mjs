@@ -38,7 +38,7 @@ test("LoRA Browser uses Prompt Builder-style fractional tracks with an explicit 
     assert.match(ui, /cardThumbnailSlider\.value = state\.thumbnail_size_px/);
     assert.match(ui, /new ResizeObserver\(scheduleBrowserCardLayout\)/);
     assert.match(ui, /--lora-card-responsive-height/);
-    assert.match(ui, /\.\/styles\.js\?v=lora-stepped-browser-cards-20260724-4/);
+    assert.match(ui, /from "\.\/styles\.js"/);
     assert.match(entry, /\.\/lora\/ui\.js\?v=lora-stepped-browser-cards-20260724-4/);
 });
 

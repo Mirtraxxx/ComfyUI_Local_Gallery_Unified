@@ -8,7 +8,7 @@ import {
     getActiveSidebarWidth as resolveActiveSidebarWidth,
     getActiveSidebarWidthBounds as resolveActiveSidebarWidthBounds,
     getManagedPromptState,
-} from "./helpers.js?v=workflow-edit-icon-20260723-1&media=prompt-video-20260726-1";
+} from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
 
 export function buildPromptTextDiff(originalText, currentText) {

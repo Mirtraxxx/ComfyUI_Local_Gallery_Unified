@@ -118,6 +118,7 @@ function renderPresetRow({
     renderPresetsList,
     loadPreset,
     deletePreset,
+    operationFeedback = null,
 }) {
     const row = document.createElement("div");
     row.className = "localprompt-preset-row";
@@ -159,11 +160,23 @@ function renderPresetRow({
 
     row.querySelector(".delete-preset-btn").addEventListener("click", async () => {
         if (confirmAction(`Delete preset "${preset.name}"?`)) {
-            const result = await deletePreset(preset.name);
-            if (result.status === "ok") {
+            operationFeedback?.pending("Deleting Prompt preset...");
+            let deleted = false;
+            try {
+                const result = await deletePreset(preset.name);
+                if (!result || result.status !== "ok") {
+                    throw new Error(result?.message || "Could not delete preset");
+                }
+                deleted = true;
                 await renderPresetsList();
-            } else {
-                showAlert("Error: " + result.message);
+                operationFeedback?.success(`Preset "${preset.name}" deleted`);
+            } catch (error) {
+                if (deleted) {
+                    operationFeedback?.warning(`Preset "${preset.name}" deleted. Preset list refresh failed.`);
+                } else {
+                    operationFeedback?.error(error?.message || "Could not delete preset");
+                    showAlert("Error: " + (error?.message || "Could not delete preset"));
+                }
             }
         }
     });
@@ -186,6 +199,7 @@ export async function showPresetsModal({
     renderPrompts,
     getActiveLibraryTab,
     renderLibraryDrawer,
+    operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
     librarySubnavHtml = "",
@@ -236,14 +250,23 @@ export async function showPresetsModal({
     const createComboBtn = root.querySelector("#create-combo-btn");
 
     const loadPreset = async (preset) => {
-        const result = await galleryNode.loadPreset(preset.name);
-        if (result.status !== "ok") {
-            showAlert("Error loading preset: " + result.message);
+        operationFeedback?.pending(`Loading preset "${preset.name}"...`);
+        let presetData;
+        let presetSelection;
+        try {
+            const result = await galleryNode.loadPreset(preset.name);
+            if (!result || result.status !== "ok") {
+                throw new Error(result?.message || "Could not load preset");
+            }
+            presetData = result.preset;
+            presetSelection = await resolvePresetSelection(galleryNode, preset.name, presetData);
+        } catch (error) {
+            const message = error?.message || "Could not load preset";
+            operationFeedback?.error(message);
+            showAlert("Error loading preset: " + message);
             return;
         }
 
-        const presetData = result.preset;
-        const presetSelection = await resolvePresetSelection(galleryNode, preset.name, presetData);
         nodeInstance.promptData = mergePresetSelection(nodeInstance.promptData, presetSelection);
         saveSelectionData();
 
@@ -258,12 +281,17 @@ export async function showPresetsModal({
             categoriesWidget.value = presetCategoriesValue;
         }
 
-        await refreshPromptSurfaces({
-            renderPrompts,
-            getActiveLibraryTab,
-            renderLibraryDrawer,
-            app,
-        });
+        try {
+            await refreshPromptSurfaces({
+                renderPrompts,
+                getActiveLibraryTab,
+                renderLibraryDrawer,
+                app,
+            });
+            operationFeedback?.success(`Preset "${preset.name}" applied to workflow`);
+        } catch (error) {
+            operationFeedback?.warning(`Preset "${preset.name}" applied. View refresh failed.`);
+        }
         close();
     };
 
@@ -284,6 +312,7 @@ export async function showPresetsModal({
                 renderPresetsList,
                 loadPreset,
                 deletePreset: name => galleryNode.deletePreset(name),
+                operationFeedback,
             }));
         });
     }
@@ -300,13 +329,22 @@ export async function showPresetsModal({
         const wildcardCategories = parseJsonOr(categoriesWidget?.value || "[]", []);
         const wildcardAutoAttachThumbnail = getWildcardAutoAttachThumbnail?.() ? "on" : "off";
 
-        const result = await galleryNode.savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail);
-        if (result.status === "ok") {
+        operationFeedback?.pending(`Saving preset "${name}"...`);
+        try {
+            const result = await galleryNode.savePreset(name, selection, wildcardMode, wildcardCategories, wildcardAutoAttachThumbnail);
+            if (result.status !== "ok") {
+                throw new Error(result?.message || "Could not save preset");
+            }
             presetNameInput.value = "";
-            await renderPresetsList();
-            showAlert(`Preset "${name}" saved!`);
-        } else {
-            showAlert("Error: " + result.message);
+            operationFeedback?.success(`Preset "${name}" saved to gallery`);
+            try {
+                await renderPresetsList();
+            } catch (error) {
+                operationFeedback?.warning(`Preset "${name}" saved. Preset list refresh failed.`);
+            }
+        } catch (error) {
+            operationFeedback?.error(error?.message || "Could not save preset");
+            showAlert("Error: " + (error?.message || "Could not save preset"));
         }
     });
 
@@ -328,10 +366,14 @@ export async function showPresetsModal({
 
         createComboBtn.textContent = "Generating...";
         createComboBtn.disabled = true;
+        operationFeedback?.pending("Creating Prompt combo preset...");
 
+        let comboApplied = false;
+        let comboSaved = false;
         try {
             const result = await galleryNode.getOrCreatePrompts(prompts);
             if (result.status !== "ok" || !result.prompts) {
+                operationFeedback?.error(result?.message || "Could not prepare combo preset");
                 showAlert("Error processing prompts: " + result.message);
                 return;
             }
@@ -351,10 +393,12 @@ export async function showPresetsModal({
 
             nodeInstance.promptData = [...nodeInstance.promptData, ...filteredNewPrompts];
             saveSelectionData();
+            comboApplied = true;
 
             const saveResult = await galleryNode.savePreset(name, newSelectionParams, "off", []);
             if (saveResult.status === "ok") {
-                showAlert(`Combo Preset created and loaded: ${prompts.length} prompts`);
+                comboSaved = true;
+                operationFeedback?.success(`Combo preset applied with ${prompts.length} prompts`);
                 presetNameInput.value = "";
                 comboPromptsInput.value = "";
 
@@ -365,23 +409,40 @@ export async function showPresetsModal({
                 }
                 createComboBtn.textContent = "Create & Load Combo";
 
-                await renderPresetsList();
-                await refreshPromptSurfaces({
-                    renderPrompts,
-                    getActiveLibraryTab,
-                    renderLibraryDrawer,
-                    app,
-                });
+                try {
+                    await renderPresetsList();
+                    await refreshPromptSurfaces({
+                        renderPrompts,
+                        getActiveLibraryTab,
+                        renderLibraryDrawer,
+                        app,
+                    });
+                } catch (refreshError) {
+                    operationFeedback?.warning("Combo preset saved and applied. View refresh failed.");
+                }
             } else {
-                showAlert("Error saving combo preset: " + saveResult.message);
+                operationFeedback?.warning("Combo prompts applied, but the preset was not saved.");
+                showAlert("Preset was not saved: " + (saveResult?.message || "Unknown error"));
             }
         } catch (error) {
-            showAlert("Error: " + error.message);
+            if (comboSaved) {
+                operationFeedback?.warning("Combo preset saved and applied. View refresh failed.");
+            } else if (comboApplied) {
+                operationFeedback?.warning("Combo prompts applied, but the preset was not saved.");
+                showAlert("Preset was not saved: " + error.message);
+            } else {
+                operationFeedback?.error(error?.message || "Could not create combo preset");
+                showAlert("Error: " + error.message);
+            }
         } finally {
             createComboBtn.textContent = "Create & Load Combo";
             createComboBtn.disabled = false;
         }
     });
 
-    await renderPresetsList();
+    try {
+        await renderPresetsList();
+    } catch (error) {
+        operationFeedback?.error(error?.message || "Could not load Prompt presets");
+    }
 }

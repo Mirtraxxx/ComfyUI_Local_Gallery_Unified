@@ -2,7 +2,7 @@ import {
     loadCategories as loadPromptGalleryCategories,
     promptMatchesCurrentGallery as promptMatchesPromptGallery,
     renderGallery as renderPromptGallery,
-} from "./gallery.js?v=repository-review-20260712";
+} from "./gallery.js";
 
 /**
  * Owns Prompt Builder's legacy gallery data flow.  The coordinator supplies
