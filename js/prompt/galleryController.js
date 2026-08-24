@@ -17,6 +17,7 @@ export function createPromptGalleryController({
     getCategories,
     invalidateCategoryCache,
     renderCategoryDropdownOptions,
+    renderPinnedCategoryStrip = null,
     syncPinnedOrderForFavorite,
     attachInfoPopup,
     showPromptContextMenu,
@@ -74,6 +75,7 @@ export function createPromptGalleryController({
         });
         if (disposed() || currentRequest !== categoryRequestToken) return;
         await renderCategoryDropdownOptions();
+        await renderPinnedCategoryStrip?.();
     }
 
     async function loadPromptsForGallery(page = 1) {

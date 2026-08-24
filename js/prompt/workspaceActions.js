@@ -65,7 +65,7 @@ export function createPromptWorkspaceActions({
         });
     }
 
-    async function showFromLastOutputDialog() {
+    async function showFromLastOutputDialog(onRefresh = null) {
         await openFromLastOutputDialog({
             galleryNode,
             nodeInstance,
@@ -73,11 +73,13 @@ export function createPromptWorkspaceActions({
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
             loadCategories,
+            refreshAllSections,
+            onRefresh,
             operationFeedback,
         });
     }
 
-    async function showFromLastOutputWorkspace() {
+    async function showFromLastOutputWorkspace(onRefresh = null) {
         const host = setWorkspaceMode("from_last_output");
         await openFromLastOutputDialog({
             galleryNode,
@@ -86,6 +88,8 @@ export function createPromptWorkspaceActions({
             insertPromptIntoCurrentGallery,
             loadPromptsForGallery,
             loadCategories,
+            refreshAllSections,
+            onRefresh,
             operationFeedback,
             workspaceContainer: host,
             onClose: returnToGallery,
@@ -93,12 +97,27 @@ export function createPromptWorkspaceActions({
         if (host && !host.hasChildNodes()) returnToGallery();
     }
 
-    async function showAddPromptDialog() {
-        await openAddPromptDialog({ galleryNode, nodeInstance, loadCategories, loadPromptsForGallery, operationFeedback });
+    async function showAddPromptDialog(onRefresh = null) {
+        await openAddPromptDialog({
+            galleryNode,
+            nodeInstance,
+            loadCategories,
+            loadPromptsForGallery,
+            refreshAllSections,
+            onRefresh,
+            operationFeedback,
+        });
     }
 
-    async function showImportDialog() {
-        await openImportDialog({ galleryNode, loadCategories, loadPromptsForGallery, operationFeedback });
+    async function showImportDialog(onRefresh = null) {
+        await openImportDialog({
+            galleryNode,
+            loadCategories,
+            loadPromptsForGallery,
+            refreshAllSections,
+            onRefresh,
+            operationFeedback,
+        });
     }
 
     async function showImportWorkspace(onClose = returnToGallery) {
@@ -108,6 +127,7 @@ export function createPromptWorkspaceActions({
             galleryNode,
             loadCategories,
             loadPromptsForGallery,
+            refreshAllSections,
             operationFeedback,
             workspaceContainer: host,
             onClose,
@@ -236,6 +256,7 @@ export function createPromptWorkspaceActions({
         try {
             await loadCategories();
             await loadPromptsForGallery(galleryNode.currentPage);
+            await refreshAllSections?.();
         } catch (error) {
             operationFeedback?.warning("Prompt deleted. View refresh failed.", {
                 action: () => loadPromptsForGallery(galleryNode.currentPage),

@@ -18,12 +18,37 @@ test("From Last Output category select supports creating a new category", async 
     assert.match(dialogs, /await loadCategories\?\.\(\)/);
 });
 
-test("workspace actions pass loadCategories into From Last Output dialog", async () => {
+test("workspace actions pass loadCategories and refreshAllSections into dialogs", async () => {
     const workspaceActions = await readFile(workspaceActionsUrl, "utf8");
 
     assert.match(workspaceActions, /from "\.\/dialogs\.js"/);
     assert.match(
         workspaceActions,
-        /openFromLastOutputDialog\(\{[\s\S]*?loadPromptsForGallery,[\s\S]*?loadCategories,/,
+        /openFromLastOutputDialog\(\{[\s\S]*?loadPromptsForGallery,[\s\S]*?loadCategories,[\s\S]*?refreshAllSections,/,
+    );
+    assert.match(
+        workspaceActions,
+        /openAddPromptDialog\(\{[\s\S]*?loadCategories,[\s\S]*?loadPromptsForGallery,[\s\S]*?refreshAllSections,/,
+    );
+    assert.match(
+        workspaceActions,
+        /openImportDialog\(\{[\s\S]*?loadCategories,[\s\S]*?loadPromptsForGallery,[\s\S]*?refreshAllSections,/,
+    );
+});
+
+test("dialogs invoke loadCategories and refreshAllSections on creation", async () => {
+    const dialogs = await readFile(dialogsUrl, "utf8");
+
+    assert.match(
+        dialogs,
+        /showFromLastOutputDialog\(\{[\s\S]*?refreshAllSections[\s\S]*?await refreshAllSections\?\.\(\)/,
+    );
+    assert.match(
+        dialogs,
+        /showAddPromptDialog\(\{[\s\S]*?refreshAllSections[\s\S]*?await refreshAllSections\?\.\(\)/,
+    );
+    assert.match(
+        dialogs,
+        /showImportDialog\(\{[\s\S]*?refreshAllSections[\s\S]*?await refreshAllSections\?\.\(\)/,
     );
 });

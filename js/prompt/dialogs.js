@@ -32,6 +32,8 @@ export async function showAddPromptDialog({
     nodeInstance,
     loadCategories,
     loadPromptsForGallery,
+    refreshAllSections = null,
+    onRefresh = null,
     operationFeedback = null,
 }) {
     try {
@@ -107,7 +109,12 @@ export async function showAddPromptDialog({
                 overlay.remove();
                 try {
                     await loadCategories();
-                    await loadPromptsForGallery(1);
+                    if (onRefresh) {
+                        await onRefresh();
+                    } else {
+                        await loadPromptsForGallery(1);
+                        await refreshAllSections?.();
+                    }
                 } catch (refreshError) {
                     operationFeedback?.warning("Prompt created. View refresh failed.", {
                         details: refreshError?.message,
@@ -518,6 +525,8 @@ export async function showImportDialog({
     galleryNode,
     loadCategories,
     loadPromptsForGallery,
+    refreshAllSections = null,
+    onRefresh = null,
     operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
@@ -627,7 +636,12 @@ export async function showImportDialog({
 
             try {
                 await loadCategories();
-                await loadPromptsForGallery(1);
+                if (onRefresh) {
+                    await onRefresh();
+                } else {
+                    await loadPromptsForGallery(1);
+                    await refreshAllSections?.();
+                }
             } catch (refreshError) {
                 updateStatus((importResult.message || "Prompt cards imported") + "\nView refresh failed; close and reopen the gallery.", true);
                 operationFeedback?.warning("Prompt cards imported. View refresh failed.");
@@ -654,6 +668,8 @@ export async function showFromLastOutputDialog({
     insertPromptIntoCurrentGallery,
     loadPromptsForGallery,
     loadCategories = null,
+    refreshAllSections = null,
+    onRefresh = null,
     operationFeedback = null,
     workspaceContainer = null,
     onClose = null,
@@ -847,25 +863,28 @@ export async function showFromLastOutputDialog({
             }
 
             close();
-            // Refresh categories when a brand-new label may have been introduced.
-            if (creatingNewCategory || (category && !categories.includes(category))) {
-                try {
-                    await loadCategories?.();
-                } catch (error) {
-                    console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
-                    operationFeedback?.warning("Prompt created. Category refresh failed.", {
-                        details: error?.message,
-                    });
-                }
+            try {
+                await loadCategories?.();
+            } catch (error) {
+                console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
+                operationFeedback?.warning("Prompt created. Category refresh failed.", {
+                    details: error?.message,
+                });
             }
-            if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
-                try {
-                    await loadPromptsForGallery(1);
-                } catch (refreshError) {
-                    operationFeedback?.warning("Prompt created. View refresh failed.", {
-                        details: refreshError?.message,
-                    });
+            try {
+                if (onRefresh) {
+                    await onRefresh();
+                } else {
+                    if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
+                        await loadPromptsForGallery(1);
+                    }
+                    await refreshAllSections?.();
                 }
+            } catch (refreshError) {
+                console.warn("LocalPromptGallery: Failed to refresh gallery after from-last-output create", refreshError);
+                operationFeedback?.warning("Prompt created. View refresh failed.", {
+                    details: refreshError?.message,
+                });
             }
         } catch (error) {
             console.error("Error creating prompt from last output:", error);

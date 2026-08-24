@@ -2570,6 +2570,7 @@ const UnifiedPromptGalleryNode = {
                 getCategories: options => getCachedCategories(options),
                 invalidateCategoryCache,
                 renderCategoryDropdownOptions,
+                renderPinnedCategoryStrip,
                 syncPinnedOrderForFavorite,
                 attachInfoPopup,
                 showPromptContextMenu,
