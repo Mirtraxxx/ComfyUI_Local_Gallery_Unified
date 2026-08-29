@@ -27,92 +27,329 @@ async function populateCategoryDatalist(galleryNode, datalist) {
     }
 }
 
-export async function showAddPromptDialog({
+const FROM_LAST_OUTPUT_NEW_CATEGORY = "__new_category__";
+
+export async function showFromLastOutputDialog({
     galleryNode,
     nodeInstance,
-    loadCategories,
-    loadPromptsForGallery,
+    getPromptSourceNode = null,
+    insertPromptIntoCurrentGallery = null,
+    loadPromptsForGallery = null,
+    loadCategories = null,
     refreshAllSections = null,
     onRefresh = null,
     operationFeedback = null,
+    workspaceContainer = null,
+    onClose = null,
+}) {
+    return await showAddPromptDialog({
+        galleryNode,
+        nodeInstance,
+        getPromptSourceNode,
+        insertPromptIntoCurrentGallery,
+        loadPromptsForGallery,
+        loadCategories,
+        refreshAllSections,
+        onRefresh,
+        operationFeedback,
+        workspaceContainer,
+        onClose,
+        initialTab: "from_last_output",
+    });
+}
+
+export async function showAddPromptDialog({
+    galleryNode,
+    nodeInstance,
+    getPromptSourceNode = null,
+    insertPromptIntoCurrentGallery = null,
+    loadPromptsForGallery = null,
+    loadCategories = null,
+    refreshAllSections = null,
+    onRefresh = null,
+    operationFeedback = null,
+    workspaceContainer = null,
+    onClose = null,
+    initialTab = "direct",
 }) {
     try {
-        const overlay = createCenteredOverlay();
-        const dialog = createDialogPanel(500);
+        const categories = (await galleryNode?.getCategories?.()) || [];
+        const sourceNode = typeof getPromptSourceNode === "function" ? getPromptSourceNode() : null;
+        const capturedPromptText = sourceNode ? normalizePromptText(extractPromptTextFromSourceNode(sourceNode)) : "";
+        const hasLastOutput = Boolean(galleryNode?.lastOutput?.filename);
+        const defaultNameMode = nodeInstance?.uiPrefs?.from_last_output_name_default === "blank" ? "blank" : "time";
+        const timeCardName = `Last Output ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+        const defaultOutputCardName = defaultNameMode === "blank" ? "" : timeCardName;
+        const previewUrl = hasLastOutput ? buildLastOutputPreviewUrl(galleryNode.lastOutput) : "";
+        const activeTab = initialTab === "from_last_output" ? "from_last_output" : "direct";
+
+        const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+            workspaceContainer,
+            onClose,
+            width: 560,
+        });
+
+        if (isWorkspace) {
+            dialog.classList.add("localprompt-from-output-page", "localprompt-add-prompt-page");
+        } else {
+            dialog.classList.add("localprompt-add-prompt-dialog");
+            dialog.style.padding = "16px";
+        }
+
+        const categoryOptions = ['<option value="">Uncategorized</option>']
+            .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
+            .concat([`<option value="${FROM_LAST_OUTPUT_NEW_CATEGORY}">+ New category…</option>`])
+            .join("");
 
         dialog.innerHTML = `
-            <h3 style="margin: 0 0 16px 0; color: #ddd;">Add New Prompt</h3>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Name:</label>
-                <input type="text" id="new-prompt-name" placeholder="Prompt Name" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -16px -16px 12px;"}">
+                <div class="localprompt-workspace-title">
+                    <h3>Add New Prompt</h3>
+                    ${isWorkspace ? "<p>Add a new prompt card directly or capture from the latest generated output.</p>" : ""}
+                </div>
+                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Prompt Text:</label>
-                <textarea id="new-prompt-text" rows="4" placeholder="The actual prompt text..." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+            <nav class="localprompt-library-subnav localprompt-add-prompt-tabs" aria-label="Add prompt sections" style="margin-bottom: 12px; padding: 0;">
+                <button class="localprompt-library-subnav-item${activeTab === "direct" ? " active" : ""}" data-add-tab="direct" type="button">New Prompt</button>
+                <button class="localprompt-library-subnav-item${activeTab === "from_last_output" ? " active" : ""}" data-add-tab="from_last_output" type="button">From Last Output</button>
+            </nav>
+            <div id="add-prompt-direct-panel" class="${isWorkspace ? "localprompt-workspace-body" : ""}" style="${activeTab === "direct" ? "" : "display: none;"}">
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div style="min-width: 0;">
+                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
+                        <input type="text" id="new-prompt-name" placeholder="e.g. Cinematic Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div style="min-width: 0;">
+                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
+                        <select id="new-prompt-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                            ${categoryOptions}
+                        </select>
+                    </div>
+                </div>
+                <div id="new-prompt-new-category-row" hidden style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="new-prompt-new-category">New category name</label>
+                    <input type="text" id="new-prompt-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                </div>
+                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
+                    <textarea id="new-prompt-text" rows="8" placeholder="The actual prompt text..." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+                </div>
+                <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
+                    <button id="new-prompt-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button id="new-prompt-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Create Prompt</button>
+                </div>
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category:</label>
-                <input type="text" id="new-prompt-category" placeholder="e.g., Hair, Clothing, Poses" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;" list="category-datalist">
-                <datalist id="category-datalist"></datalist>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
-                <button id="add-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-                <button id="add-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Create</button>
+            <div id="add-prompt-output-panel" class="${isWorkspace ? "localprompt-workspace-body" : ""}" style="${activeTab === "from_last_output" ? "" : "display: none;"}">
+                ${!hasLastOutput ? `
+                    <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="padding: 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; text-align: center; color: #aaa; font-size: 12px; margin-bottom: 12px;">
+                        <p style="margin: 0 0 6px; font-weight: bold; color: #ddd; font-size: 13px;">No Previous Output Found</p>
+                        <p style="margin: 0;">Run a generation in ComfyUI first to capture the generated image thumbnail and prompt text, or use the <strong>New Prompt</strong> tab above to write a prompt directly.</p>
+                    </div>
+                ` : !sourceNode ? `
+                    <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="padding: 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; text-align: center; color: #aaa; font-size: 12px; margin-bottom: 12px;">
+                        <p style="margin: 0 0 6px; font-weight: bold; color: #ddd; font-size: 13px;">No Prompt Source Selected</p>
+                        <p style="margin: 0;">Select your Show Text node first in ComfyUI and click Pick Prompt Source, or use the <strong>New Prompt</strong> tab above.</p>
+                    </div>
+                ` : `
+                <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-details" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
+                    <div class="localprompt-from-output-preview-wrap" style="width: 104px;">
+                        <div class="localprompt-from-output-preview" style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
+                            <img src="${escapeHtml(previewUrl)}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        </div>
+                    </div>
+                    <div class="localprompt-from-output-fields" style="min-width: 0;">
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
+                            <input type="text" id="from-last-output-name" value="${escapeHtml(defaultOutputCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                            <div style="min-width: 0;">
+                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
+                                <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                                    <option value="time" ${defaultNameMode === "time" ? "selected" : ""}>Time</option>
+                                    <option value="blank" ${defaultNameMode === "blank" ? "selected" : ""}>Blank</option>
+                                </select>
+                            </div>
+                            <div style="min-width: 0;">
+                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
+                                <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                                    ${categoryOptions}
+                                </select>
+                            </div>
+                        </div>
+                        <div id="from-last-output-new-category-row" hidden style="margin-top: 10px;">
+                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="from-last-output-new-category">New category name</label>
+                            <input type="text" id="from-last-output-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                </div>
+                <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-prompt-section" : ""}" style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
+                    <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+                    <div class="localprompt-from-output-source" style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
+                        Using prompt source: ${escapeHtml(sourceNode?.title || sourceNode?.type || `Node ${sourceNode?.id || ""}`)}
+                    </div>
+                </div>
+                `}
+                <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
+                    <button id="from-last-output-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    ${hasLastOutput && sourceNode ? `<button id="from-last-output-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>` : ""}
+                </div>
             </div>
         `;
 
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
+        // Direct tab elements
+        const directNameInput = dialog.querySelector("#new-prompt-name");
+        const directCategorySelect = dialog.querySelector("#new-prompt-category");
+        const directNewCategoryRow = dialog.querySelector("#new-prompt-new-category-row");
+        const directNewCategoryInput = dialog.querySelector("#new-prompt-new-category");
+        const directTextInput = dialog.querySelector("#new-prompt-text");
+        const directCancelBtn = dialog.querySelector("#new-prompt-cancel");
+        const directSaveBtn = dialog.querySelector("#new-prompt-save");
 
-        await populateCategoryDatalist(galleryNode, dialog.querySelector("#category-datalist"));
-
-        const nameInput = dialog.querySelector("#new-prompt-name");
-        const textInput = dialog.querySelector("#new-prompt-text");
-        const categoryInput = dialog.querySelector("#new-prompt-category");
-        const cancelBtn = dialog.querySelector("#add-cancel-btn");
-        const saveBtn = dialog.querySelector("#add-save-btn");
-
-        if (nodeInstance.uiPrefs?.last_created_category) {
-            categoryInput.value = nodeInstance.uiPrefs.last_created_category;
+        function isDirectNewCategory() {
+            return directCategorySelect?.value === FROM_LAST_OUTPUT_NEW_CATEGORY;
         }
 
-        cancelBtn.addEventListener("click", () => overlay.remove());
+        function getDirectCategory() {
+            if (isDirectNewCategory()) return directNewCategoryInput?.value.trim() || "";
+            return directCategorySelect?.value || "";
+        }
 
-        saveBtn.addEventListener("click", async () => {
-            const originalLabel = saveBtn.textContent;
+        function updateDirectNewCategoryRow() {
+            const isNew = isDirectNewCategory();
+            if (directNewCategoryRow) directNewCategoryRow.hidden = !isNew;
+            if (isNew) directNewCategoryInput?.focus();
+        }
+
+        const lastCreated = nodeInstance?.uiPrefs?.last_created_category;
+        if (lastCreated && categories.includes(lastCreated)) {
+            if (directCategorySelect) directCategorySelect.value = lastCreated;
+        }
+        updateDirectNewCategoryRow();
+        directCategorySelect?.addEventListener("change", updateDirectNewCategoryRow);
+
+        // Output tab elements
+        const outputNameInput = dialog.querySelector("#from-last-output-name");
+        const outputNameDefaultSelect = dialog.querySelector("#from-last-output-name-default");
+        const outputCategorySelect = dialog.querySelector("#from-last-output-category");
+        const outputNewCategoryRow = dialog.querySelector("#from-last-output-new-category-row");
+        const outputNewCategoryInput = dialog.querySelector("#from-last-output-new-category");
+        const outputPromptTextarea = dialog.querySelector("#from-last-output-prompt");
+        const outputCancelBtn = dialog.querySelector("#from-last-output-cancel");
+        const outputSaveBtn = dialog.querySelector("#from-last-output-save");
+
+        if (outputPromptTextarea) {
+            outputPromptTextarea.value = capturedPromptText;
+        }
+
+        function isCreatingNewCategory() {
+            return outputCategorySelect?.value === FROM_LAST_OUTPUT_NEW_CATEGORY;
+        }
+
+        function getSelectedCategory() {
+            if (isCreatingNewCategory()) return outputNewCategoryInput?.value.trim() || "";
+            return outputCategorySelect?.value || "";
+        }
+
+        function updateNewCategoryRow() {
+            const isNew = isCreatingNewCategory();
+            if (outputNewCategoryRow) outputNewCategoryRow.hidden = !isNew;
+            if (isNew) outputNewCategoryInput?.focus();
+        }
+
+        if (lastCreated && categories.includes(lastCreated)) {
+            if (outputCategorySelect) outputCategorySelect.value = lastCreated;
+        }
+        updateNewCategoryRow();
+        outputCategorySelect?.addEventListener("change", updateNewCategoryRow);
+
+        // Tab switching
+        const tabBtns = dialog.querySelectorAll("[data-add-tab]");
+        const directPanel = dialog.querySelector("#add-prompt-direct-panel");
+        const outputPanel = dialog.querySelector("#add-prompt-output-panel");
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                const targetTab = btn.dataset.addTab;
+                tabBtns.forEach(b => b.classList.toggle("active", b === btn));
+                if (directPanel) directPanel.style.display = targetTab === "direct" ? "" : "none";
+                if (outputPanel) outputPanel.style.display = targetTab === "from_last_output" ? "" : "none";
+            });
+        });
+
+        // Close bindings
+        dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
+        directCancelBtn?.addEventListener("click", close);
+        outputCancelBtn?.addEventListener("click", close);
+
+        // Name Default Change
+        outputNameDefaultSelect?.addEventListener("change", () => {
+            const mode = outputNameDefaultSelect.value === "blank" ? "blank" : "time";
+            if (nodeInstance?.uiPrefs) {
+                nodeInstance.uiPrefs.from_last_output_name_default = mode;
+                if (outputNameInput) outputNameInput.value = mode === "blank" ? "" : timeCardName;
+                galleryNode?.saveUiPrefs?.(nodeInstance.uiPrefs, nodeInstance).catch(error => {
+                    console.warn("LocalPromptGallery: Failed to save from last output name default", error);
+                });
+            }
+        });
+
+        // Direct Save
+        directSaveBtn?.addEventListener("click", async () => {
+            const promptText = directTextInput?.value.trim() || "";
+            const name = directNameInput?.value.trim() || promptText;
+            const creatingNew = isDirectNewCategory();
+            const category = getDirectCategory();
+
+            if (!promptText && !name) {
+                showAlert("Please enter a name or prompt text.");
+                directTextInput?.focus();
+                return;
+            }
+            if (creatingNew && !category) {
+                showAlert("Enter a name for the new category.");
+                directNewCategoryInput?.focus();
+                return;
+            }
+
+            directSaveBtn.disabled = true;
+            directSaveBtn.textContent = "Creating...";
+            operationFeedback?.pending("Creating prompt...");
+
             try {
-                const name = nameInput.value.trim();
-                const promptText = textInput.value.trim();
-                const category = categoryInput.value.trim();
-
-                if (!name) {
-                    showAlert("Please enter a name for the prompt");
-                    return;
-                }
-
-                saveBtn.disabled = true;
-                saveBtn.textContent = "Creating...";
-                operationFeedback?.pending("Creating prompt...");
-                const result = await galleryNode.createPrompt(name, promptText, category);
+                const result = await galleryNode.createPrompt(name || promptText, promptText, category);
                 if (!result || result.status !== "ok") {
                     throw new Error(result?.message || "Could not create prompt");
                 }
 
-                nodeInstance.uiPrefs.last_created_category = category;
-                const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
-                if (prefsResult?.status === "error") {
-                    operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                if (nodeInstance?.uiPrefs) {
+                    nodeInstance.uiPrefs.last_created_category = category;
+                    const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
+                    if (prefsResult?.status === "error") {
+                        operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                    } else {
+                        operationFeedback?.success("Prompt saved to gallery");
+                    }
                 } else {
                     operationFeedback?.success("Prompt saved to gallery");
                 }
 
-                overlay.remove();
+                close();
                 try {
-                    await loadCategories();
+                    await loadCategories?.();
+                } catch (catError) {
+                    console.warn("LocalPromptGallery: Failed to refresh categories after prompt create", catError);
+                }
+                try {
                     if (onRefresh) {
                         await onRefresh();
                     } else {
-                        await loadPromptsForGallery(1);
+                        if (insertPromptIntoCurrentGallery && result.prompt) {
+                            insertPromptIntoCurrentGallery(result.prompt);
+                        } else {
+                            await loadPromptsForGallery?.(1);
+                        }
                         await refreshAllSections?.();
                     }
                 } catch (refreshError) {
@@ -124,8 +361,93 @@ export async function showAddPromptDialog({
                 console.error("Error creating prompt:", error);
                 operationFeedback?.error(error.message || "Could not create prompt");
                 showAlert("Could not create prompt: " + error.message);
-                saveBtn.disabled = false;
-                saveBtn.textContent = originalLabel;
+                directSaveBtn.disabled = false;
+                directSaveBtn.textContent = "Create Prompt";
+            }
+        });
+
+        // Output Save
+        outputSaveBtn?.addEventListener("click", async () => {
+            const promptText = outputPromptTextarea?.value.trim() || "";
+            const name = outputNameInput?.value.trim() || promptText;
+            const creatingNewCategory = isCreatingNewCategory();
+            const category = getSelectedCategory();
+
+            if (!promptText) {
+                showAlert("Prompt text is empty.");
+                return;
+            }
+            if (creatingNewCategory && !category) {
+                showAlert("Enter a name for the new category.");
+                outputNewCategoryInput?.focus();
+                return;
+            }
+
+            outputSaveBtn.disabled = true;
+            outputSaveBtn.style.opacity = "0.6";
+            outputSaveBtn.textContent = "Saving...";
+            operationFeedback?.pending("Creating prompt from last output...");
+
+            try {
+                const createResult = await galleryNode.createPromptFromOutput(
+                    name,
+                    promptText,
+                    category,
+                    galleryNode.lastOutput
+                );
+                if (createResult?.status !== "ok") {
+                    throw new Error(createResult?.message || "Failed to create prompt");
+                }
+
+                if (nodeInstance?.uiPrefs) {
+                    nodeInstance.uiPrefs.last_created_category = category;
+                    nodeInstance.uiPrefs.from_last_output_name_default = outputNameDefaultSelect?.value === "blank" ? "blank" : "time";
+                    try {
+                        const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
+                        if (prefsResult?.status === "error") {
+                            operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                        } else {
+                            operationFeedback?.success("Prompt and thumbnail saved to gallery");
+                        }
+                    } catch (preferenceError) {
+                        console.warn("LocalPromptGallery: Failed to save last created category", preferenceError);
+                        operationFeedback?.warning("Prompt created. Category preference was not saved.");
+                    }
+                } else {
+                    operationFeedback?.success("Prompt and thumbnail saved to gallery");
+                }
+
+                close();
+                try {
+                    await loadCategories?.();
+                } catch (error) {
+                    console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
+                    operationFeedback?.warning("Prompt created. Category refresh failed.", {
+                        details: error?.message,
+                    });
+                }
+                try {
+                    if (onRefresh) {
+                        await onRefresh();
+                    } else {
+                        if (!insertPromptIntoCurrentGallery || !insertPromptIntoCurrentGallery(createResult.prompt)) {
+                            await loadPromptsForGallery?.(1);
+                        }
+                        await refreshAllSections?.();
+                    }
+                } catch (refreshError) {
+                    console.warn("LocalPromptGallery: Failed to refresh gallery after from-last-output create", refreshError);
+                    operationFeedback?.warning("Prompt created. View refresh failed.", {
+                        details: refreshError?.message,
+                    });
+                }
+            } catch (error) {
+                console.error("Error creating prompt from last output:", error);
+                operationFeedback?.error(error?.message || "Could not create prompt from last output");
+                showAlert(`Error: ${error.message}`);
+                outputSaveBtn.disabled = false;
+                outputSaveBtn.style.opacity = "1";
+                outputSaveBtn.textContent = "Save";
             }
         });
     } catch (error) {
@@ -655,244 +977,6 @@ export async function showImportDialog({
             operationFeedback?.error(error?.message || "Could not import prompt cards");
             saveBtn.disabled = false;
             saveBtn.style.opacity = "1";
-        }
-    });
-}
-
-const FROM_LAST_OUTPUT_NEW_CATEGORY = "__new_category__";
-
-export async function showFromLastOutputDialog({
-    galleryNode,
-    nodeInstance,
-    getPromptSourceNode,
-    insertPromptIntoCurrentGallery,
-    loadPromptsForGallery,
-    loadCategories = null,
-    refreshAllSections = null,
-    onRefresh = null,
-    operationFeedback = null,
-    workspaceContainer = null,
-    onClose = null,
-}) {
-    if (!galleryNode.lastOutput?.filename) {
-        showAlert("No previous output found yet.");
-        return;
-    }
-
-    const sourceNode = getPromptSourceNode();
-    if (!sourceNode) {
-        showAlert("No prompt source selected. Select your Show Text node first, then click Pick Prompt Source.");
-        return;
-    }
-
-    const capturedPromptText = normalizePromptText(extractPromptTextFromSourceNode(sourceNode));
-    if (!capturedPromptText) {
-        showAlert("The selected prompt source has no text yet. Run the workflow once so the Show Text node updates.");
-        return;
-    }
-
-    const categories = await galleryNode.getCategories();
-    const defaultNameMode = nodeInstance.uiPrefs?.from_last_output_name_default === "blank" ? "blank" : "time";
-    const timeCardName = `Last Output ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
-    const defaultCardName = defaultNameMode === "blank" ? "" : timeCardName;
-    const previewUrl = buildLastOutputPreviewUrl(galleryNode.lastOutput);
-
-    const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
-        workspaceContainer,
-        onClose,
-        width: 560,
-    });
-    if (isWorkspace) {
-        dialog.classList.add("localprompt-from-output-page");
-    }
-    if (!isWorkspace) {
-        dialog.style.padding = "16px";
-    }
-
-    const categoryOptions = ['<option value="">Uncategorized</option>']
-        .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
-        .concat([`<option value="${FROM_LAST_OUTPUT_NEW_CATEGORY}">+ New category…</option>`])
-        .join("");
-
-    dialog.innerHTML = `
-        <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -16px -16px 12px;"}">
-            <div class="localprompt-workspace-title">
-                <h3>From Last Output</h3>
-                ${isWorkspace ? "<p>Create a prompt card from the latest generated output.</p>" : ""}
-            </div>
-            ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-        </div>
-        <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-            <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-details" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
-                <div class="localprompt-from-output-preview-wrap" style="width: 104px;">
-                    <div class="localprompt-from-output-preview" style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
-                        <img src="${escapeHtml(previewUrl)}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                    </div>
-                </div>
-                <div class="localprompt-from-output-fields" style="min-width: 0;">
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
-                        <input type="text" id="from-last-output-name" value="${escapeHtml(defaultCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
-                        <div style="min-width: 0;">
-                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
-                            <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                                <option value="time" ${defaultNameMode === "time" ? "selected" : ""}>Time</option>
-                                <option value="blank" ${defaultNameMode === "blank" ? "selected" : ""}>Blank</option>
-                            </select>
-                        </div>
-                        <div style="min-width: 0;">
-                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
-                            <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                                ${categoryOptions}
-                            </select>
-                        </div>
-                    </div>
-                    <div id="from-last-output-new-category-row" hidden style="margin-top: 10px;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="from-last-output-new-category">New category name</label>
-                        <input type="text" id="from-last-output-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                    </div>
-                </div>
-            </div>
-            <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-prompt-section" : ""}" style="margin-bottom: 8px;">
-                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
-                <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-                <div class="localprompt-from-output-source" style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
-                    Using prompt source: ${escapeHtml(sourceNode.title || sourceNode.type || `Node ${sourceNode.id}`)}
-                </div>
-            </div>
-        </div>
-        <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end;">
-            <button id="from-last-output-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button id="from-last-output-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>
-        </div>
-    `;
-
-    const nameInput = dialog.querySelector("#from-last-output-name");
-    const nameDefaultSelect = dialog.querySelector("#from-last-output-name-default");
-    const categorySelect = dialog.querySelector("#from-last-output-category");
-    const newCategoryRow = dialog.querySelector("#from-last-output-new-category-row");
-    const newCategoryInput = dialog.querySelector("#from-last-output-new-category");
-    const promptTextarea = dialog.querySelector("#from-last-output-prompt");
-    const cancelBtn = dialog.querySelector("#from-last-output-cancel");
-    const saveBtn = dialog.querySelector("#from-last-output-save");
-
-    promptTextarea.value = capturedPromptText;
-
-    function isCreatingNewCategory() {
-        return categorySelect.value === FROM_LAST_OUTPUT_NEW_CATEGORY;
-    }
-
-    function getSelectedCategory() {
-        if (isCreatingNewCategory()) return newCategoryInput.value.trim();
-        return categorySelect.value;
-    }
-
-    function updateNewCategoryRow() {
-        const isNew = isCreatingNewCategory();
-        newCategoryRow.hidden = !isNew;
-        if (isNew) {
-            newCategoryInput.focus();
-        }
-    }
-
-    const lastCreated = nodeInstance.uiPrefs?.last_created_category;
-    if (lastCreated && categories.includes(lastCreated)) {
-        categorySelect.value = lastCreated;
-    }
-
-    updateNewCategoryRow();
-    categorySelect.addEventListener("change", updateNewCategoryRow);
-
-    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
-    cancelBtn.addEventListener("click", close);
-    nameDefaultSelect.addEventListener("change", () => {
-        const mode = nameDefaultSelect.value === "blank" ? "blank" : "time";
-        nodeInstance.uiPrefs.from_last_output_name_default = mode;
-        nameInput.value = mode === "blank" ? "" : timeCardName;
-        galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance).catch(error => {
-            console.warn("LocalPromptGallery: Failed to save from last output name default", error);
-        });
-    });
-
-    saveBtn.addEventListener("click", async () => {
-        const promptText = promptTextarea.value.trim();
-        const name = nameInput.value.trim() || promptText;
-        const creatingNewCategory = isCreatingNewCategory();
-        const category = getSelectedCategory();
-
-        if (!promptText) {
-            showAlert("Prompt text is empty.");
-            return;
-        }
-        if (creatingNewCategory && !category) {
-            showAlert("Enter a name for the new category.");
-            newCategoryInput.focus();
-            return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.style.opacity = "0.6";
-        saveBtn.textContent = "Saving...";
-        operationFeedback?.pending("Creating prompt from last output...");
-
-        try {
-            const createResult = await galleryNode.createPromptFromOutput(
-                name,
-                promptText,
-                category,
-                galleryNode.lastOutput
-            );
-            if (createResult?.status !== "ok") {
-                throw new Error(createResult?.message || "Failed to create prompt");
-            }
-
-            nodeInstance.uiPrefs.last_created_category = category;
-            nodeInstance.uiPrefs.from_last_output_name_default = nameDefaultSelect.value === "blank" ? "blank" : "time";
-            try {
-                const prefsResult = await galleryNode.saveUiPrefs(nodeInstance.uiPrefs, nodeInstance);
-                if (prefsResult?.status === "error") {
-                    operationFeedback?.warning("Prompt created. Category preference was not saved.");
-                } else {
-                    operationFeedback?.success("Prompt and thumbnail saved to gallery");
-                }
-            } catch (preferenceError) {
-                console.warn("LocalPromptGallery: Failed to save last created category", preferenceError);
-                operationFeedback?.warning("Prompt created. Category preference was not saved.");
-            }
-
-            close();
-            try {
-                await loadCategories?.();
-            } catch (error) {
-                console.warn("LocalPromptGallery: Failed to refresh categories after from-last-output create", error);
-                operationFeedback?.warning("Prompt created. Category refresh failed.", {
-                    details: error?.message,
-                });
-            }
-            try {
-                if (onRefresh) {
-                    await onRefresh();
-                } else {
-                    if (!insertPromptIntoCurrentGallery(createResult.prompt)) {
-                        await loadPromptsForGallery(1);
-                    }
-                    await refreshAllSections?.();
-                }
-            } catch (refreshError) {
-                console.warn("LocalPromptGallery: Failed to refresh gallery after from-last-output create", refreshError);
-                operationFeedback?.warning("Prompt created. View refresh failed.", {
-                    details: refreshError?.message,
-                });
-            }
-        } catch (error) {
-            console.error("Error creating prompt from last output:", error);
-            operationFeedback?.error(error?.message || "Could not create prompt from last output");
-            showAlert(`Error: ${error.message}`);
-            saveBtn.disabled = false;
-            saveBtn.style.opacity = "1";
-            saveBtn.textContent = "Save";
         }
     });
 }

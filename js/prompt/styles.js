@@ -1643,17 +1643,26 @@ export function getPromptStyles(uniqueId) {
                     .localprompt-from-output-page .localprompt-from-output-source {
                         color: #9ba5ad !important;
                     }
+                    .localprompt-add-prompt-tabs {
+                        padding: 0 0 10px !important;
+                        border-bottom: 1px solid rgba(255,255,255,0.07);
+                        margin-bottom: 12px !important;
+                    }
                     .localprompt-from-output-page #from-last-output-cancel,
-                    .localprompt-from-output-page #from-last-output-save {
+                    .localprompt-from-output-page #from-last-output-save,
+                    .localprompt-from-output-page #new-prompt-cancel,
+                    .localprompt-from-output-page #new-prompt-save {
                         min-height: 28px;
                         padding: 5px 14px !important;
                         border-radius: 6px !important;
                     }
-                    .localprompt-from-output-page #from-last-output-cancel {
+                    .localprompt-from-output-page #from-last-output-cancel,
+                    .localprompt-from-output-page #new-prompt-cancel {
                         background: rgba(255,255,255,0.05) !important;
                         border-color: rgba(255,255,255,0.14) !important;
                     }
-                    .localprompt-from-output-page #from-last-output-save {
+                    .localprompt-from-output-page #from-last-output-save,
+                    .localprompt-from-output-page #new-prompt-save {
                         background: rgba(70, 134, 73, 0.9) !important;
                         border-color: rgba(105, 190, 111, 0.7) !important;
                     }

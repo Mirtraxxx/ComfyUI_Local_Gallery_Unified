@@ -80,7 +80,7 @@ export function createPromptWorkspaceActions({
     }
 
     async function showFromLastOutputWorkspace(onRefresh = null) {
-        const host = setWorkspaceMode("from_last_output");
+        const host = setWorkspaceMode("add_prompt");
         await openFromLastOutputDialog({
             galleryNode,
             nodeInstance,
@@ -101,12 +101,34 @@ export function createPromptWorkspaceActions({
         await openAddPromptDialog({
             galleryNode,
             nodeInstance,
+            getPromptSourceNode,
+            insertPromptIntoCurrentGallery,
             loadCategories,
             loadPromptsForGallery,
             refreshAllSections,
             onRefresh,
             operationFeedback,
+            initialTab: "direct",
         });
+    }
+
+    async function showAddPromptWorkspace(onRefresh = null) {
+        const host = setWorkspaceMode("add_prompt");
+        await openAddPromptDialog({
+            galleryNode,
+            nodeInstance,
+            getPromptSourceNode,
+            insertPromptIntoCurrentGallery,
+            loadCategories,
+            loadPromptsForGallery,
+            refreshAllSections,
+            onRefresh,
+            operationFeedback,
+            workspaceContainer: host,
+            onClose: returnToGallery,
+            initialTab: "direct",
+        });
+        if (host && !host.hasChildNodes()) returnToGallery();
     }
 
     async function showImportDialog(onRefresh = null) {
@@ -270,6 +292,7 @@ export function createPromptWorkspaceActions({
         showFromLastOutputDialog,
         showFromLastOutputWorkspace,
         showAddPromptDialog,
+        showAddPromptWorkspace,
         showImportDialog,
         showImportWorkspace,
         showExportDialog,

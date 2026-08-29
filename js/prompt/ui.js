@@ -2635,6 +2635,7 @@ const UnifiedPromptGalleryNode = {
                 showFromLastOutputDialog,
                 showFromLastOutputWorkspace,
                 showAddPromptDialog,
+                showAddPromptWorkspace,
                 showImportDialog,
                 showImportWorkspace,
                 showExportDialog,
@@ -2659,11 +2660,13 @@ const UnifiedPromptGalleryNode = {
                 }
             });
 
-            widgetContainer.querySelector(`#${uniqueId}-from-last-output-btn`)?.addEventListener("click", async () => {
+            const addPromptBtn = widgetContainer.querySelector(`#${uniqueId}-add-prompt-btn`) ||
+                widgetContainer.querySelector(`#${uniqueId}-from-last-output-btn`);
+            addPromptBtn?.addEventListener("click", async () => {
                 try {
-                    await toggleWorkspaceMode("from_last_output", showFromLastOutputWorkspace);
+                    await toggleWorkspaceMode("add_prompt", showAddPromptWorkspace);
                 } catch (e) {
-                    console.error("Error in showFromLastOutputDialog:", e);
+                    console.error("Error in showAddPromptWorkspace:", e);
                     showAlert("Error opening dialog: " + e.message);
                 }
             });
