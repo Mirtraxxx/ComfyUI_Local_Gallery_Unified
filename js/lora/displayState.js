@@ -11,8 +11,17 @@ export const LORA_DISPLAY_LIMITS = Object.freeze({
     sidebarMax: 720,
     visibleFolderMin: 1,
     visibleFolderMax: 25,
-    barsSizeScaleMin: 60,
-    barsSizeScaleMax: 160,
+});
+
+// Discrete top/bottom bar size steps. `bars_size_scale` stores the nominal
+// step value; the matching CSS class carries the per-step geometry.
+export const LORA_BAR_SIZE_PRESETS = Object.freeze([75, 100, 125, 150]);
+export const LORA_BAR_SIZE_DEFAULT = 100;
+export const LORA_BAR_SIZE_CLASSES = Object.freeze({
+    75: "bars-compact",
+    100: "",
+    125: "bars-large",
+    150: "bars-xl",
 });
 
 function normalizeChoice(value, allowed, fallback) {
@@ -45,6 +54,16 @@ export function normalizeVisiblePinnedFolderCount(value) {
         LORA_DISPLAY_LIMITS.visibleFolderMax,
         8,
     );
+}
+
+export function normalizeBarsSizeScale(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return LORA_BAR_SIZE_DEFAULT;
+    let nearest = LORA_BAR_SIZE_DEFAULT;
+    for (const preset of LORA_BAR_SIZE_PRESETS) {
+        if (Math.abs(preset - number) < Math.abs(nearest - number)) nearest = preset;
+    }
+    return nearest;
 }
 
 export function getLoraActiveCardControlScale(value) {
@@ -81,12 +100,7 @@ export function normalizeLoraDisplayState(uiState = {}) {
             LORA_DISPLAY_LIMITS.sidebarMax,
             450,
         ),
-        bars_size_scale: clampInteger(
-            uiState.bars_size_scale,
-            LORA_DISPLAY_LIMITS.barsSizeScaleMin,
-            LORA_DISPLAY_LIMITS.barsSizeScaleMax,
-            100,
-        ),
+        bars_size_scale: normalizeBarsSizeScale(uiState.bars_size_scale),
         move_active_loras_to_top: uiState.move_active_loras_to_top !== false,
         active_card_size_mode: uiState.active_card_size_mode === "large" ? "large" : "default",
         show_clip_weights: uiState.show_clip_weights !== false,

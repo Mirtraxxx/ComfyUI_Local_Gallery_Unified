@@ -194,8 +194,8 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-active-stack-btn {
                         position: relative;
                         z-index: 55;
-                        width: 32px;
-                        height: 28px;
+                        width: 36px;
+                        height: 34px;
                         padding: 0;
                         display: inline-flex;
                         align-items: center;
@@ -325,7 +325,8 @@ export function getLoraStyles(uniqueId) {
                         text-overflow: ellipsis;
                         white-space: nowrap;
                         border-radius: 4px;
-                        padding: 5px 10px 5px 8px;
+                        min-height: 34px;
+                        padding: 0 11px;
                         font-size: 11px;
                         line-height: 1.2;
                         background: #1a1a1c;
@@ -424,12 +425,12 @@ export function getLoraStyles(uniqueId) {
                         justify-content: center;
                         position: absolute;
                         top: 100%;
-                        margin-top: -1px;
+                        margin-top: 7px;
                         left: 50%;
                         transform: translateX(-50%) translateY(-3px);
                         z-index: 4201;
-                        width: 60px;
-                        height: 16px;
+                        width: 64px;
+                        height: 18px;
                         padding: 0;
                         background: #141416;
                         border: 1px solid #333;
@@ -453,8 +454,8 @@ export function getLoraStyles(uniqueId) {
                         transform: translateX(-50%) translateY(0);
                     }
                     #${uniqueId} .lora-folder-pull-tab svg {
-                        width: 10px;
-                        height: 10px;
+                        width: 11px;
+                        height: 11px;
                         stroke: currentColor;
                         transition: transform 0.16s ease, color 0.16s ease;
                     }
@@ -544,7 +545,7 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .lora-execution-mode-btn {
-                        height: 28px;
+                        height: 34px;
                         min-width: 68px;
                         padding: 0 10px;
                         display: inline-flex;
@@ -584,7 +585,7 @@ export function getLoraStyles(uniqueId) {
                     }
 
                     #${uniqueId} .lora-compare-strengths-control {
-                        height: 28px;
+                        height: 34px;
                         display: inline-flex;
                         align-items: center;
                         gap: 5px;
@@ -617,8 +618,8 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-action-btn {
                         position: relative;
                         z-index: 55;
-                        width: 32px;
-                        height: 28px;
+                        width: 36px;
+                        height: 34px;
                         padding: 0;
                         display: inline-flex;
                         align-items: center;
@@ -651,8 +652,8 @@ export function getLoraStyles(uniqueId) {
                     }
                     
                     #${uniqueId} .lora-action-btn svg {
-                        width: 16px;
-                        height: 16px;
+                        width: 15px;
+                        height: 15px;
                         stroke: currentColor;
                     }
 
@@ -773,7 +774,7 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-search-popover .search-input {
                         width: 100%;
                         min-width: 0;
-                        height: 28px;
+                        height: 34px;
                         padding: 4px 28px 4px 8px;
                         box-sizing: border-box;
                         border: 1px solid rgba(255, 255, 255, 0.16);
@@ -2845,35 +2846,158 @@ export function getLoraStyles(uniqueId) {
                         backdrop-filter: none;
                         -webkit-backdrop-filter: none;
                     }
-                    #${uniqueId} .lora-active-stack-btn,
-                    #${uniqueId} .lora-action-btn {
-                        width: calc(36px * var(--locallora-bar-scale, 1)) !important;
-                        height: calc(34px * var(--locallora-bar-scale, 1)) !important;
-                        min-width: calc(36px * var(--locallora-bar-scale, 1)) !important;
+                    /* --- Bar size presets: discrete steps; Normal is the base geometry above --- */
+                    #${uniqueId} .locallora-container.bars-compact .locallora-controls,
+                    #${uniqueId} .locallora-container.bars-compact .locallora-bottom-bar {
+                        padding-top: 6px;
+                        padding-bottom: 6px;
                     }
-                    #${uniqueId} .lora-action-btn svg,
-                    #${uniqueId} .lora-active-stack-btn svg {
-                        width: calc(15px * var(--locallora-bar-scale, 1)) !important;
-                        height: calc(15px * var(--locallora-bar-scale, 1)) !important;
+                    #${uniqueId} .locallora-container.bars-compact .lora-active-stack-btn,
+                    #${uniqueId} .locallora-container.bars-compact .lora-action-btn {
+                        width: 28px;
+                        height: 26px;
                     }
-                    #${uniqueId} .lora-folder-pill,
-                    #${uniqueId} .lora-folder-chip {
-                        min-height: calc(34px * var(--locallora-bar-scale, 1)) !important;
-                        padding: 0 calc(11px * var(--locallora-bar-scale, 1)) !important;
-                        font-size: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                    #${uniqueId} .locallora-container.bars-compact .lora-action-btn svg {
+                        width: 12px;
+                        height: 12px;
                     }
-                    #${uniqueId} .lora-folder-pull-tab {
-                        width: calc(64px * var(--locallora-bar-scale, 1)) !important;
-                        height: calc(18px * var(--locallora-bar-scale, 1)) !important;
+                    #${uniqueId} .locallora-container.bars-compact .lora-active-stack-count {
+                        font-size: 10px;
                     }
-                    #${uniqueId} .lora-folder-pull-tab svg {
-                        width: calc(11px * var(--locallora-bar-scale, 1)) !important;
-                        height: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pill {
+                        min-height: 26px;
+                        padding: 0 9px;
+                        font-size: 10px;
                     }
-                    #${uniqueId} .folder-filter-select,
-                    #${uniqueId} .search-input {
-                        height: calc(34px * var(--locallora-bar-scale, 1)) !important;
-                        font-size: calc(11px * var(--locallora-bar-scale, 1)) !important;
+                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pull-tab {
+                        width: 48px;
+                        height: 14px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pull-tab svg {
+                        width: 9px;
+                        height: 9px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .lora-execution-mode-btn {
+                        height: 26px;
+                        font-size: 10px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .lora-execution-mode-icon {
+                        width: 12px;
+                        height: 12px;
+                        flex-basis: 12px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .lora-compare-strengths-control {
+                        height: 26px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .lora-search-popover .search-input {
+                        height: 26px;
+                        font-size: 10px;
+                    }
+                    #${uniqueId} .locallora-container.bars-compact .locallora-bottom-bar .localgallery-operation-feedback {
+                        height: 22px;
+                        font-size: 9px;
+                    }
+
+                    #${uniqueId} .locallora-container.bars-large .locallora-controls,
+                    #${uniqueId} .locallora-container.bars-large .locallora-bottom-bar {
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-active-stack-btn,
+                    #${uniqueId} .locallora-container.bars-large .lora-action-btn {
+                        width: 44px;
+                        height: 42px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-action-btn svg {
+                        width: 18px;
+                        height: 18px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-active-stack-count {
+                        font-size: 13px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-folder-pill {
+                        min-height: 42px;
+                        padding: 0 13px;
+                        font-size: 13px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-folder-pull-tab {
+                        width: 78px;
+                        height: 22px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-folder-pull-tab svg {
+                        width: 13px;
+                        height: 13px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-execution-mode-btn {
+                        height: 42px;
+                        font-size: 13px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-execution-mode-icon {
+                        width: 16px;
+                        height: 16px;
+                        flex-basis: 16px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-compare-strengths-control {
+                        height: 42px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .lora-search-popover .search-input {
+                        height: 42px;
+                        font-size: 13px;
+                    }
+                    #${uniqueId} .locallora-container.bars-large .locallora-bottom-bar .localgallery-operation-feedback {
+                        height: 34px;
+                        font-size: 12px;
+                    }
+
+                    #${uniqueId} .locallora-container.bars-xl .locallora-controls,
+                    #${uniqueId} .locallora-container.bars-xl .locallora-bottom-bar {
+                        padding-top: 12px;
+                        padding-bottom: 12px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-active-stack-btn,
+                    #${uniqueId} .locallora-container.bars-xl .lora-action-btn {
+                        width: 52px;
+                        height: 50px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-action-btn svg {
+                        width: 21px;
+                        height: 21px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-active-stack-count {
+                        font-size: 14px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pill {
+                        min-height: 50px;
+                        padding: 0 15px;
+                        font-size: 14px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pull-tab {
+                        width: 92px;
+                        height: 26px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pull-tab svg {
+                        width: 15px;
+                        height: 15px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-execution-mode-btn {
+                        height: 50px;
+                        font-size: 14px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-execution-mode-icon {
+                        width: 18px;
+                        height: 18px;
+                        flex-basis: 18px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-compare-strengths-control {
+                        height: 50px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .lora-search-popover .search-input {
+                        height: 50px;
+                        font-size: 14px;
+                    }
+                    #${uniqueId} .locallora-container.bars-xl .locallora-bottom-bar .localgallery-operation-feedback {
+                        height: 40px;
+                        font-size: 13px;
                     }
                     @media (prefers-reduced-motion: reduce) {
                         #${uniqueId} .locallora-container *,

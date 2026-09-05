@@ -5,8 +5,10 @@ import { importModuleSource } from "./importModuleSource.mjs";
 
 const {
     LORA_DISPLAY_LIMITS,
+    LORA_BAR_SIZE_PRESETS,
     clampInteger,
     getLoraActiveCardControlScale,
+    normalizeBarsSizeScale,
     normalizeLoraDisplayState,
     normalizeVisiblePinnedFolderCount,
 } = await importModuleSource(new URL("../js/lora/displayState.js", import.meta.url));
@@ -47,7 +49,7 @@ test("normalizeLoraDisplayState preserves valid values and clamps numeric ranges
         active_thumbnail_size_px: LORA_DISPLAY_LIMITS.activeThumbnailMax,
         thumbnail_size_px: LORA_DISPLAY_LIMITS.cardThumbnailMin,
         active_sidebar_width: 512,
-        bars_size_scale: 130,
+        bars_size_scale: 125,
         move_active_loras_to_top: true,
         active_card_size_mode: "large",
         show_clip_weights: false,
@@ -80,6 +82,18 @@ test("integer helpers round, clamp, and use their fallback for non-numeric input
     assert.equal(clampInteger("invalid", 1, 25, 8), 8);
     assert.equal(normalizeVisiblePinnedFolderCount(0), 1);
     assert.equal(normalizeVisiblePinnedFolderCount(99), 25);
+});
+
+test("bars_size_scale snaps to the nearest discrete preset instead of free scaling", () => {
+    assert.deepEqual(LORA_BAR_SIZE_PRESETS, [75, 100, 125, 150]);
+    assert.equal(normalizeBarsSizeScale(60), 75);
+    assert.equal(normalizeBarsSizeScale(85), 75);
+    assert.equal(normalizeBarsSizeScale(90), 100);
+    assert.equal(normalizeBarsSizeScale(130), 125);
+    assert.equal(normalizeBarsSizeScale(160), 150);
+    assert.equal(normalizeBarsSizeScale(150), 150);
+    assert.equal(normalizeBarsSizeScale("bogus"), 100);
+    assert.equal(normalizeLoraDisplayState({ bars_size_scale: 137 }).bars_size_scale, 125);
 });
 
 test("active card control scale follows thumbnail size without shrinking below usable controls", () => {

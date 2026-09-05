@@ -11,8 +11,10 @@ import {
 } from "../shared/workflowProfile.js";
 import {
     LORA_DISPLAY_LIMITS,
+    LORA_BAR_SIZE_CLASSES,
     clampInteger,
     getLoraActiveCardControlScale,
+    normalizeBarsSizeScale,
     normalizeLoraContrastMode,
     normalizeLoraDisplayMode,
     normalizeLoraDisplayState,
@@ -317,11 +319,12 @@ const UnifiedLoraGalleryNode = {
                                         </section>
                                         <section class="lora-display-section">
                                             <div class="lora-display-section-title">BAR SIZE</div>
-                                            <label class="lora-thumbnail-size-control lora-bars-size-control" title="Top and bottom bar size">
-                                                <span>-</span>
-                                                <input class="lora-bars-size-slider" type="range" min="60" max="160" step="1">
-                                                <span>+</span>
-                                            </label>
+                                            <select class="lora-display-mode-select lora-bars-size-select" title="Top and bottom bar size">
+                                                <option value="75">Compact</option>
+                                                <option value="100">Normal</option>
+                                                <option value="125">Large</option>
+                                                <option value="150">XL</option>
+                                            </select>
                                         </section>
                                         <section class="lora-display-section">
                                             <div class="lora-display-section-title">CONTRAST</div>
@@ -565,7 +568,7 @@ const UnifiedLoraGalleryNode = {
                 const foldersSlider = widgetContainer.querySelector(".lora-visible-folders-slider");
                 const activeThumbnailSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
                 const cardThumbnailSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
-                const barsSlider = widgetContainer.querySelector(".lora-bars-size-slider");
+                const barsSizeSelect = widgetContainer.querySelector(".lora-bars-size-select");
                 if (activeModeSelect) activeModeSelect.value = state.active_display_mode;
                 if (cardsModeSelect) cardsModeSelect.value = state.cards_display_mode;
                 if (contrastSelect) contrastSelect.value = state.card_contrast_mode;
@@ -573,7 +576,7 @@ const UnifiedLoraGalleryNode = {
                 if (foldersSlider) foldersSlider.value = getVisiblePinnedFolderCount();
                 if (activeThumbnailSlider) activeThumbnailSlider.value = state.active_thumbnail_size_px;
                 if (cardThumbnailSlider) cardThumbnailSlider.value = state.thumbnail_size_px;
-                if (barsSlider) barsSlider.value = state.bars_size_scale || 100;
+                if (barsSizeSelect) barsSizeSelect.value = String(state.bars_size_scale);
                 const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
                 if (foldersCountVal) foldersCountVal.textContent = getVisiblePinnedFolderCount();
                 const largeCardsCheckbox = widgetContainer.querySelector(".lora-active-large-cards-checkbox");
@@ -609,7 +612,9 @@ const UnifiedLoraGalleryNode = {
                     * (state.active_card_size_mode === "large" ? 1.32 : 1);
                 mainContainer.style.setProperty("--lora-active-card-control-scale", activeCardControlScale.toFixed(3));
                 mainContainer.style.setProperty("--locallora-active-sidebar-width", `${state.active_sidebar_width}px`);
-                mainContainer.style.setProperty("--locallora-bar-scale", `${(state.bars_size_scale || 100) / 100}`);
+                const barsSizeClass = LORA_BAR_SIZE_CLASSES[state.bars_size_scale] || "";
+                mainContainer.classList.remove("bars-compact", "bars-large", "bars-xl");
+                if (barsSizeClass) mainContainer.classList.add(barsSizeClass);
                 const sidebarEl = widgetContainer.querySelector(".locallora-active-sidebar");
                 if (sidebarEl) {
                     sidebarEl.classList.toggle("large-mode", state.active_card_size_mode === "large");
@@ -1672,23 +1677,8 @@ const UnifiedLoraGalleryNode = {
                     await flushLoraDisplayStateSave();
                 });
 
-                widgetContainer.querySelector(".lora-bars-size-slider")?.addEventListener("input", (event) => {
-                    this.loraUiState.bars_size_scale = clampInteger(
-                        event.target.value,
-                        LORA_DISPLAY_LIMITS.barsSizeScaleMin,
-                        LORA_DISPLAY_LIMITS.barsSizeScaleMax,
-                        100,
-                    );
-                    applyLoraDisplayState();
-                    queueLoraDisplayStateSave();
-                });
-                widgetContainer.querySelector(".lora-bars-size-slider")?.addEventListener("change", async (event) => {
-                    this.loraUiState.bars_size_scale = clampInteger(
-                        event.target.value,
-                        LORA_DISPLAY_LIMITS.barsSizeScaleMin,
-                        LORA_DISPLAY_LIMITS.barsSizeScaleMax,
-                        100,
-                    );
+                widgetContainer.querySelector(".lora-bars-size-select")?.addEventListener("change", async (event) => {
+                    this.loraUiState.bars_size_scale = normalizeBarsSizeScale(event.target.value);
                     applyLoraDisplayState();
                     await flushLoraDisplayStateSave();
                 });
