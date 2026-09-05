@@ -1,3 +1,12 @@
+import {
+    ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT,
+    ACTIVE_SIDEBAR_WIDTH_LARGE_MAX,
+    ACTIVE_SIDEBAR_WIDTH_LARGE_MIN,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
+} from "./constants.js";
+
 export function getPromptStyles(uniqueId) {
     return `
                 <style>
@@ -821,7 +830,7 @@ export function getPromptStyles(uniqueId) {
                         top: 12px;
                         left: 12px;
                         z-index: 130;
-                        width: min(clamp(380px, var(--localprompt-active-sidebar-width, 420px), 480px), calc(100% - 24px));
+                        width: min(clamp(${ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN}px, var(--localprompt-active-sidebar-width, ${ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT}px), ${ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX}px), calc(100% - 24px));
                         min-width: min(330px, calc(100% - 24px));
                         max-width: min(540px, calc(100% - 24px));
                         max-height: calc(100% - 24px);
@@ -864,7 +873,7 @@ export function getPromptStyles(uniqueId) {
                             visibility 0s;
                     }
                     .localprompt-active-sidebar.large-mode {
-                        width: min(clamp(640px, var(--localprompt-active-sidebar-width, 660px), 740px), calc(100% - 24px));
+                        width: min(clamp(${ACTIVE_SIDEBAR_WIDTH_LARGE_MIN}px, var(--localprompt-active-sidebar-width, ${ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT}px), ${ACTIVE_SIDEBAR_WIDTH_LARGE_MAX}px), calc(100% - 24px));
                         min-width: min(620px, calc(100% - 24px));
                         max-width: min(840px, calc(100% - 24px));
                     }

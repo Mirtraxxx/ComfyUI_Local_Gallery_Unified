@@ -37,3 +37,14 @@ export const CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT = 210;
 export const BARS_SIZE_SCALE_MIN = 60;
 export const BARS_SIZE_SCALE_MAX = 160;
 export const BARS_SIZE_SCALE_DEFAULT = 100;
+
+// The Active Stack sidebar is an overlay, so its width is mode-dependent:
+// compact/text cards use a narrow shelf and large thumbnail cards need a wide
+// one. These six numbers are the single source of truth shared by the drag
+// handlers, the preference defaults, and the CSS clamp() in styles.js.
+export const ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN = 380;
+export const ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX = 480;
+export const ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT = 420;
+export const ACTIVE_SIDEBAR_WIDTH_LARGE_MIN = 640;
+export const ACTIVE_SIDEBAR_WIDTH_LARGE_MAX = 740;
+export const ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT = 660;

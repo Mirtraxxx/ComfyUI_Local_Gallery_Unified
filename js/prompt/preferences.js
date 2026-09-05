@@ -1,4 +1,5 @@
 import {
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
     BARS_SIZE_SCALE_DEFAULT,
     BARS_SIZE_SCALE_MAX,
     BARS_SIZE_SCALE_MIN,
@@ -32,7 +33,7 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     prompt_manual_orders: {},
     category_colors: {},
     active_sidebar_open: false,
-    active_sidebar_width: 300,
+    active_sidebar_width: ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
     active_sidebar_hover_open: true,
     auto_hide_toolbars: false,
     promote_selected_prompts: true,

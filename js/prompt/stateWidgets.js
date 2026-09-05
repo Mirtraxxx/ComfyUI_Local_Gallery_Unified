@@ -1,4 +1,5 @@
 import { collapseWidget, hideWidget } from "../shared/widgets.js";
+import { ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT } from "./constants.js";
 
 export function setupPromptPreDomStateWidgets({ nodeInstance }) {
     if (!nodeInstance.properties || !nodeInstance.properties.prompt_gallery_unique_id) {
@@ -8,7 +9,7 @@ export function setupPromptPreDomStateWidgets({ nodeInstance }) {
         nodeInstance.properties.prompt_gallery_unique_id = "prompt-gallery-" + Math.random().toString(36).substring(2, 11);
     }
     if (typeof nodeInstance.properties.active_sidebar_width !== 'number') {
-        nodeInstance.properties.active_sidebar_width = 300;
+        nodeInstance.properties.active_sidebar_width = ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT;
     }
 
     const galleryIdWidget = nodeInstance.addWidget(
@@ -56,12 +57,12 @@ export function setupPromptPreDomStateWidgets({ nodeInstance }) {
     const activeSidebarWidthWidget = nodeInstance.addWidget(
         "number",
         "active_sidebar_width",
-        nodeInstance.properties.active_sidebar_width || 300,
+        nodeInstance.properties.active_sidebar_width || ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
         () => { },
         {}
     );
     activeSidebarWidthWidget.serializeValue = () => {
-        return Number(nodeInstance.properties.active_sidebar_width) || 300;
+        return Number(nodeInstance.properties.active_sidebar_width) || ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT;
     };
     hideWidget(activeSidebarWidthWidget);
 

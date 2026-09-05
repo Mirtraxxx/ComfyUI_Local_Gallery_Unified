@@ -1,4 +1,12 @@
 import { escapeHtml } from "../shared/dom.js";
+import {
+    ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT,
+    ACTIVE_SIDEBAR_WIDTH_LARGE_MAX,
+    ACTIVE_SIDEBAR_WIDTH_LARGE_MIN,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX,
+    ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
+} from "./constants.js";
 
 export function isShowTextNode(node) {
     const comfyClass = String(node?.comfyClass || node?.type || "").toLowerCase();
@@ -172,31 +180,48 @@ export function getThumbnailVariables(sizePx) {
     };
 }
 
-export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = 300) {
+export function isActiveSidebarLarge(uiPrefs) {
     const activeDisplay = uiPrefs?.active_display_mode || uiPrefs?.display_mode || "compact";
-    const isLarge = uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
-    const defaultFallback = isLarge ? 660 : fallbackWidth;
+    return uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
+}
+
+export function getActiveSidebarWidthBoundsForMode(isLarge) {
+    return isLarge
+        ? {
+            min: ACTIVE_SIDEBAR_WIDTH_LARGE_MIN,
+            max: ACTIVE_SIDEBAR_WIDTH_LARGE_MAX,
+            default: ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT,
+        }
+        : {
+            min: ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
+            max: ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX,
+            default: ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
+        };
+}
+
+export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT) {
+    const isLarge = isActiveSidebarLarge(uiPrefs);
+    const bounds = getActiveSidebarWidthBoundsForMode(isLarge);
     const rawWidth = Number(properties?.active_sidebar_width ?? uiPrefs?.active_sidebar_width);
-    let resolvedWidth = Number.isFinite(rawWidth) ? rawWidth : defaultFallback;
-    if (isLarge && resolvedWidth < 640) {
-        resolvedWidth = 640;
-    }
-    return resolvedWidth;
+    const resolvedWidth = Number.isFinite(rawWidth)
+        ? rawWidth
+        : (isLarge ? ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT : fallbackWidth);
+    // CSS paints with clamp(bounds.min, var(...), bounds.max). Clamping here too
+    // keeps a stored width honest instead of silently exceeding what is drawn.
+    return Math.min(bounds.max, Math.max(bounds.min, Math.round(resolvedWidth)));
 }
 
 export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, options = {}, uiPrefs = null) {
-    const activeDisplay = uiPrefs?.active_display_mode || uiPrefs?.display_mode || "compact";
-    const isLarge = uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
-    
-    const defaultMin = isLarge ? 640 : 300;
-    const defaultFallback = isLarge ? 660 : 500;
-    
-    const minWidth = options?.minWidth ?? defaultMin;
-    const fallbackWidth = options?.fallbackWidth ?? defaultFallback;
+    const bounds = getActiveSidebarWidthBoundsForMode(isActiveSidebarLarge(uiPrefs));
+
+    const minWidth = options?.minWidth ?? bounds.min;
+    const fallbackWidth = options?.fallbackWidth ?? bounds.default;
     const reservedWidth = options?.reservedWidth ?? 180;
-    
+
     const availableWidth = shellWidth || nodeWidth || fallbackWidth;
-    const maxWidth = Math.max(minWidth + 20, availableWidth - reservedWidth);
+    // Never offer a drag range wider than what CSS is willing to paint; the
+    // old uncapped maximum made the sidebar feel like it hit an invisible wall.
+    const maxWidth = Math.max(minWidth + 20, Math.min(bounds.max, availableWidth - reservedWidth));
     return { minWidth, maxWidth };
 }
 
