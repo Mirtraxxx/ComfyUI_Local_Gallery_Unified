@@ -95,15 +95,15 @@ export function getPromptTemplate(uniqueId) {
                         </button>
                         <div class="localprompt-display-options-anchor">
                             <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-size-toggle-btn" title="Display options" aria-label="Display options">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10"></path><path d="M18 7h2"></path><path d="M4 17h2"></path><path d="M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 8h4"></path><path d="M18 16h4"></path></svg>
                             </button>
                             <div class="localprompt-display-options-popover" id="${uniqueId}-size-controls" style="display: none;">
                                 <div class="localprompt-display-options-panel">
                                     <section class="localprompt-display-section">
                                         <div class="localprompt-display-section-title">ACTIVE</div>
                                         <select id="${uniqueId}-active-display-mode" class="localprompt-display-mode-select" title="Active display mode">
-                                            <option value="compact">Compact</option>
                                             <option value="thumbnails">Thumbnails</option>
+                                            <option value="compact">Compact</option>
                                         </select>
                                         <label class="localprompt-thumbnail-size-control" id="${uniqueId}-active-size-control" title="Active prompt thumbnail size">
                                             <span>-</span>
@@ -152,10 +152,10 @@ export function getPromptTemplate(uniqueId) {
                                         <div class="localprompt-display-section-title">SORT CARDS</div>
                                         <select id="${uniqueId}-main-sort-select" class="localprompt-display-mode-select" title="Sort cards">
                                             <option value="manual">Manual / stored order</option>
-                                            <option value="newest">Newest first</option>
-                                            <option value="oldest">Oldest first</option>
                                             <option value="az">A to Z</option>
                                             <option value="za">Z to A</option>
+                                            <option value="newest">Newest first</option>
+                                            <option value="oldest">Oldest first</option>
                                         </select>
                                     </section>
                                 </div>

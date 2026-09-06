@@ -2110,17 +2110,20 @@ export function getPromptStyles(uniqueId) {
                         container-type: inline-size;
                     }
                     .localprompt-thumbnail-size-control {
-                        display: inline-flex;
+                        display: grid;
+                        grid-template-columns: 10px minmax(0, 1fr) 10px;
                         align-items: center;
-                        gap: 6px;
+                        gap: 5px;
+                        color: #9ea9b2;
+                        font-size: 10px;
                         min-width: 0;
                         width: 100%;
                         transition: opacity 0.15s, filter 0.15s;
                     }
                     .localprompt-thumbnail-size-control input[type="range"] {
                         width: 100%;
-                        min-width: 90px;
-                        accent-color: #8ab4f8;
+                        min-width: 0;
+                        accent-color: #65c77a;
                         cursor: ew-resize;
                     }
                     .localprompt-thumbnail-size-control.disabled {
@@ -2134,8 +2137,6 @@ export function getPromptStyles(uniqueId) {
                         accent-color: #666;
                     }
                     .localprompt-thumbnail-size-control span {
-                        color: #888;
-                        font-size: 10px;
                         line-height: 1;
                     }
                     .localprompt-thumbnail-size-control .size-label {
@@ -3719,7 +3720,7 @@ export function getPromptStyles(uniqueId) {
                         bottom: calc(100% + 8px);
                         z-index: 2600;
                         isolation: isolate;
-                        width: 204px;
+                        width: 228px;
                         max-width: calc(100vw - 24px);
                         box-sizing: border-box;
                     }

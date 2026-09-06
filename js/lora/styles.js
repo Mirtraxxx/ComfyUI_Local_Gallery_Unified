@@ -888,16 +888,28 @@ export function getLoraStyles(uniqueId) {
                         gap: 5px;
                         color: #9ea9b2;
                         font-size: 10px;
+                        min-width: 0;
+                        width: 100%;
+                        transition: opacity 0.15s, filter 0.15s;
                     }
                     
                     #${uniqueId} .lora-thumbnail-size-control.disabled {
                         opacity: 0.42;
+                        filter: grayscale(0.9);
+                        cursor: not-allowed;
+                    }
+                    
+                    #${uniqueId} .lora-thumbnail-size-control.disabled input[type=range] {
+                        cursor: not-allowed;
+                        pointer-events: none;
+                        accent-color: #666;
                     }
                     
                     #${uniqueId} .lora-thumbnail-size-control input[type=range] {
                         width: 100%;
                         min-width: 0;
                         accent-color: #ff7a00;
+                        cursor: ew-resize;
                     }
                     
                     /* --- LoRA Discovery Card --- */
