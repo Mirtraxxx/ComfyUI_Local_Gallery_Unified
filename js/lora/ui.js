@@ -347,8 +347,8 @@ const UnifiedLoraGalleryNode = {
                                             <div class="lora-display-section-title">FOLDERS: <span class="lora-visible-folders-count-val">8</span></div>
                                             <label class="lora-thumbnail-size-control lora-folders-count-control" title="Visible pinned folders count">
                                                 <span>1</span>
-                                                <input class="lora-visible-folders-slider" type="range" min="1" max="25" step="1">
-                                                <span>25</span>
+                                                <input class="lora-visible-folders-slider" type="range" min="1" max="20" step="1">
+                                                <span>20</span>
                                             </label>
                                         </section>
                                     </div>
@@ -1326,8 +1326,9 @@ const UnifiedLoraGalleryNode = {
                             loadedState.folder_order = [];
                         }
                         if (loadedState.visible_pinned_folder_count !== undefined) {
-                            const count = parseInt(loadedState.visible_pinned_folder_count, 10);
-                            loadedState.visible_pinned_folder_count = Number.isInteger(count) ? Math.max(1, Math.min(25, count)) : 8;
+                            // Route through the shared normalizer so the slider bounds,
+                            // the load path, and the save path can never drift apart.
+                            loadedState.visible_pinned_folder_count = normalizeVisiblePinnedFolderCount(loadedState.visible_pinned_folder_count);
                         }
                     }
                     initialState = { ...initialState, ...loadedState };

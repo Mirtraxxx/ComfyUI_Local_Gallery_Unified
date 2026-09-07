@@ -8,6 +8,9 @@ import {
     THUMBNAIL_SIZE_LEGACY_PRESETS,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
+    VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT,
+    VISIBLE_PINNED_CATEGORY_COUNT_MAX,
+    VISIBLE_PINNED_CATEGORY_COUNT_MIN,
 } from "./constants.js";
 import {
     createManagedTextControlsHtml,
@@ -1412,12 +1415,17 @@ const UnifiedPromptGalleryNode = {
                 return getLibraryTabsFromPrefs(node_instance.uiPrefs, getUtilityLibraryTabs());
             }
 
-            const PINNED_CATEGORY_VISIBLE_COUNT = 5;
+            function normalizeVisiblePinnedCategoryCount(value) {
+                const count = Number(value);
+                if (!Number.isFinite(count)) return VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT;
+                return Math.min(
+                    VISIBLE_PINNED_CATEGORY_COUNT_MAX,
+                    Math.max(VISIBLE_PINNED_CATEGORY_COUNT_MIN, Math.round(count)),
+                );
+            }
 
             function getVisiblePinnedCategoryCount() {
-                const count = Number(node_instance.uiPrefs?.visible_pinned_category_count);
-                if (!Number.isFinite(count)) return PINNED_CATEGORY_VISIBLE_COUNT;
-                return Math.max(1, Math.min(20, Math.round(count)));
+                return normalizeVisiblePinnedCategoryCount(node_instance.uiPrefs?.visible_pinned_category_count);
             }
 
             function getPinnedCategories(allCategories = null) {
@@ -1555,6 +1563,60 @@ const UnifiedPromptGalleryNode = {
                 saveUiPrefs,
                 bindMainSortSelect,
             });
+
+            // The visible pinned category count lives in the Display Options
+            // popover, mirroring the LoRA tab's "FOLDERS:" knob: same row
+            // layout, same live count in the section title, same auto-pin while
+            // the knob grows. The gear dialog curates which categories count.
+            let visiblePinnedCategorySaveTimer = null;
+
+            function queueVisiblePinnedCategorySave() {
+                clearTimeout(visiblePinnedCategorySaveTimer);
+                visiblePinnedCategorySaveTimer = setTimeout(() => {
+                    visiblePinnedCategorySaveTimer = null;
+                    Promise.resolve(saveUiPrefs()).catch(() => {});
+                }, 250);
+            }
+
+            function syncVisiblePinnedCategoryCountControl() {
+                const slider = widgetContainer.querySelector(`#${uniqueId}-display-visible-categories-slider`);
+                const countVal = widgetContainer.querySelector(`#${uniqueId}-display-categories-count-val`);
+                const count = getVisiblePinnedCategoryCount();
+                if (slider) slider.value = String(count);
+                if (countVal) countVal.textContent = String(count);
+            }
+
+            function setupVisiblePinnedCategoryCountControl() {
+                const slider = widgetContainer.querySelector(`#${uniqueId}-display-visible-categories-slider`);
+                if (!slider) return;
+                slider.addEventListener("input", async () => {
+                    const nextCount = normalizeVisiblePinnedCategoryCount(slider.value);
+                    const previousCount = getVisiblePinnedCategoryCount();
+                    node_instance.uiPrefs.visible_pinned_category_count = nextCount;
+                    slider.value = String(nextCount);
+                    const countVal = widgetContainer.querySelector(`#${uniqueId}-display-categories-count-val`);
+                    if (countVal) countVal.textContent = String(nextCount);
+                    if (nextCount > previousCount) {
+                        // Widen the strip first: pull the next discovered categories into
+                        // the pinned set so the knob never shows fewer pills than it could.
+                        const allCategories = await getCachedCategories();
+                        const pinned = new Set(getPinnedCategories(allCategories));
+                        for (const category of getCategoriesInCurrentOrder(allCategories)) {
+                            if (pinned.size >= nextCount) break;
+                            pinned.add(category);
+                        }
+                        await savePinnedCategories([...pinned]);
+                        await renderCategoryOverflowCategories();
+                        return;
+                    }
+                    await renderPinnedCategoryStrip();
+                    await renderCategoryOverflowCategories();
+                    queueVisiblePinnedCategorySave();
+                });
+                syncVisiblePinnedCategoryCountControl();
+            }
+
+            setupVisiblePinnedCategoryCountControl();
 
             function closeCategoryContextMenu() {
                 if (activeCategoryContextMenu) {
@@ -2913,6 +2975,7 @@ const UnifiedPromptGalleryNode = {
                     applyThumbnailSizePreference();
                     applyActiveThumbnailSizePreference();
                     setupThumbnailSizeSliders();
+                    syncVisiblePinnedCategoryCountControl();
                     applyActiveSidebarWidthPreference();
                     applyActiveSidebarPreference();
                     applyMetaTagsButtonSidePreference();
@@ -3008,6 +3071,7 @@ const UnifiedPromptGalleryNode = {
                     }
                     sizeToggleBtn?.classList.toggle('active', !isOpen);
                     syncThumbnailSizeSliders();
+                    syncVisiblePinnedCategoryCountControl();
                     if (!isOpen) {
                         fitFloatingPanelToNode(sizeControls);
                         requestAnimationFrame(() => fitFloatingPanelToNode(sizeControls));

@@ -297,7 +297,7 @@ export async function showSettingsModal({
                 <section class="localprompt-settings-section">
                     <div class="localprompt-settings-section-heading">
                         <h4>Prompt behavior</h4>
-                        <p>Display size, contrast, and card sorting stay in the sliders button on the prompt toolbar.</p>
+                        <p>Display size, contrast, card sorting, and how many categories fit in the top row stay in the sliders button on the prompt toolbar.</p>
                     </div>
                     <div class="localprompt-settings-behavior-grid">
                         <div class="localprompt-settings-toggle-list">
@@ -311,13 +311,8 @@ export async function showSettingsModal({
                 <section class="localprompt-settings-section">
                     <div class="localprompt-settings-section-heading">
                         <h4>Category strip</h4>
-                        <p>Pin categories for fast access, then place the most important ones first. Arrow buttons work with keyboard and mouse.</p>
+                        <p>Pin categories for fast access, then place the most important ones first. Arrow buttons work with keyboard and mouse. How many pins fit in the top row is adjusted in the sliders popover; extra pins stay reachable from the pull-out row.</p>
                     </div>
-                    <label class="localprompt-settings-number-field localprompt-settings-visible-count">
-                        <span>Categories visible in the top row</span>
-                        <input type="number" id="settings-visible-pinned-category-count" min="1" max="20" inputmode="numeric">
-                        <small>Additional pinned categories remain available from the pull-out row.</small>
-                    </label>
                     <div class="localprompt-settings-category-columns">
                         <div class="localprompt-settings-category-panel">
                             <div class="localprompt-settings-list-heading"><strong>Pinned</strong><span id="settings-pinned-category-count"></span></div>
@@ -350,7 +345,6 @@ export async function showSettingsModal({
     const promoteSelectedPromptsInput = root.querySelector("#settings-promote-selected-prompts");
     const activeSidebarHoverOpenInput = root.querySelector("#settings-active-sidebar-hover-open");
     const autoHideToolbarsInput = root.querySelector("#settings-auto-hide-toolbars");
-    const visiblePinnedCountInput = root.querySelector("#settings-visible-pinned-category-count");
     const pinnedCategoryList = root.querySelector("#settings-pinned-category-list");
     const availableCategoryList = root.querySelector("#settings-available-category-list");
     const categoryColorList = root.querySelector("#settings-category-color-list");
@@ -373,7 +367,6 @@ export async function showSettingsModal({
     promoteSelectedPromptsInput.checked = nodeInstance.uiPrefs?.promote_selected_prompts !== false;
     activeSidebarHoverOpenInput.checked = nodeInstance.uiPrefs?.active_sidebar_hover_open !== false;
     autoHideToolbarsInput.checked = nodeInstance.uiPrefs?.auto_hide_toolbars === true;
-    visiblePinnedCountInput.value = Math.max(1, Math.min(20, Number.parseInt(nodeInstance.uiPrefs?.visible_pinned_category_count, 10) || 5));
 
     const draftCategoryColors = { ...(nodeInstance.uiPrefs?.category_colors || {}) };
     const resetCategoryColors = new Set();
@@ -540,13 +533,13 @@ export async function showSettingsModal({
         }
         const categoryColors = { ...(nodeInstance.uiPrefs?.category_colors || {}), ...draftCategoryColors };
         resetCategoryColors.forEach(category => delete categoryColors[category]);
-        const visiblePinnedCount = Math.max(1, Math.min(20, Number.parseInt(visiblePinnedCountInput.value, 10) || 5));
+        // visible_pinned_category_count is owned by the Display Options popover;
+        // the spread below carries the current value through untouched.
         const newPrefs = {
             ...nodeInstance.uiPrefs,
             promote_selected_prompts: promoteSelectedPromptsInput.checked,
             active_sidebar_hover_open: activeSidebarHoverOpenInput.checked,
             auto_hide_toolbars: autoHideToolbarsInput.checked,
-            visible_pinned_category_count: visiblePinnedCount,
             pinned_categories: draftPinnedCategories,
             category_colors: categoryColors,
         };

@@ -10,6 +10,7 @@ import {
     THUMBNAIL_SIZE_LEGACY_PRESETS,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
+    VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT,
 } from "./constants.js";
 import {
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
@@ -28,7 +29,7 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     bars_size_scale: BARS_SIZE_SCALE_DEFAULT,
     library_tabs: ["pinned"],
     pinned_categories: null,
-    visible_pinned_category_count: 5,
+    visible_pinned_category_count: VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT,
     pinned_order: [],
     prompt_manual_orders: {},
     category_colors: {},

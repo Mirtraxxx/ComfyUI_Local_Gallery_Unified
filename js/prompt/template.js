@@ -158,6 +158,14 @@ export function getPromptTemplate(uniqueId) {
                                             <option value="oldest">Oldest first</option>
                                         </select>
                                     </section>
+                                    <section class="localprompt-display-section">
+                                        <div class="localprompt-display-section-title">CATEGORIES: <span class="localprompt-visible-categories-count-val" id="${uniqueId}-display-categories-count-val">5</span></div>
+                                        <label class="localprompt-thumbnail-size-control" title="Visible pinned categories count">
+                                            <span>1</span>
+                                            <input id="${uniqueId}-display-visible-categories-slider" class="localprompt-visible-categories-slider" type="range" min="1" max="20" step="1" style="width: 100%;">
+                                            <span>20</span>
+                                        </label>
+                                    </section>
                                 </div>
                             </div>
                         </div>

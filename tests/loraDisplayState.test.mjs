@@ -81,7 +81,9 @@ test("integer helpers round, clamp, and use their fallback for non-numeric input
     assert.equal(clampInteger("12.6", 1, 25, 8), 13);
     assert.equal(clampInteger("invalid", 1, 25, 8), 8);
     assert.equal(normalizeVisiblePinnedFolderCount(0), 1);
-    assert.equal(normalizeVisiblePinnedFolderCount(99), 25);
+    // Upper bound matches the Prompt gallery's visible_pinned_category_count
+    // window (see visiblePinnedCountParity.test.mjs).
+    assert.equal(normalizeVisiblePinnedFolderCount(99), 20);
 });
 
 test("bars_size_scale snaps to the nearest discrete preset instead of free scaling", () => {

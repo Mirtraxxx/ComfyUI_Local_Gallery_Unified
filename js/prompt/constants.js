@@ -34,6 +34,14 @@ export const CARD_MANAGER_CARD_SIZE_MAX = 320;
 export const CARD_MANAGER_CARD_SIZE_DEFAULT = 150;
 export const CARD_MANAGER_FULLSCREEN_CARD_SIZE_DEFAULT = 210;
 
+// Shared spine with the LoRA gallery's "FOLDERS:" knob. The Prompt backend
+// normalizes visible_pinned_category_count to 1..20, so both tabs expose the
+// exact same window here. Defaults stay per-domain (categories 5, folders 8)
+// because each tab pins a different kind of entity.
+export const VISIBLE_PINNED_CATEGORY_COUNT_MIN = 1;
+export const VISIBLE_PINNED_CATEGORY_COUNT_MAX = 20;
+export const VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT = 5;
+
 export const BARS_SIZE_SCALE_MIN = 60;
 export const BARS_SIZE_SCALE_MAX = 160;
 export const BARS_SIZE_SCALE_DEFAULT = 100;

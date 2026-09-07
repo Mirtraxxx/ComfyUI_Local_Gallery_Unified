@@ -9,8 +9,10 @@ export const LORA_DISPLAY_LIMITS = Object.freeze({
     cardThumbnailMax: 260,
     sidebarMin: 300,
     sidebarMax: 720,
+    // Kept identical to the Prompt gallery's visible_pinned_category_count
+    // window (see js/prompt/constants.js): same knob, same reach.
     visibleFolderMin: 1,
-    visibleFolderMax: 25,
+    visibleFolderMax: 20,
 });
 
 // Discrete top/bottom bar size steps. `bars_size_scale` stores the nominal
