@@ -1,3 +1,5 @@
+import { LORA_WEIGHT_LIMITS, formatLoraWeight } from "./weights.js";
+
 /** Owns the LoRA metadata editor while delegating persistence and gallery refreshes to the node. */
 export function createLoraMetadataController({
     nodeInstance,
@@ -21,6 +23,11 @@ export function createLoraMetadataController({
     triggerPresetNameInput,
     triggerPresetValueInput,
     addTriggerPresetBtn,
+    strengthMemoryRow,
+    strengthMemoryEnableInput,
+    strengthMemoryModelInput,
+    strengthMemoryClipControl,
+    strengthMemoryClipInput,
     getLoraMetadataByName,
     updateCachedLoraMetadata,
     findGalleryCardByLoraName,
@@ -29,6 +36,7 @@ export function createLoraMetadataController({
     assignThumbnail,
     renderCurrentView,
     renderSelectedList,
+    updateSelection,
     operationFeedback = null,
     onClose,
 }) {
@@ -90,6 +98,36 @@ export function createLoraMetadataController({
             };
         });
     };
+
+    const clampWeight = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    const parseWeightInput = (input, fallback) => {
+        const parsed = Number.parseFloat(input.value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const getActiveSelectionItem = (loraName) => (
+        nodeInstance.loraData.find(entry => entry.lora === loraName)
+    );
+
+    const renderStrengthMemoryRow = (singleLora) => {
+        const loraSource = getLoraMetadataByName(singleLora.name);
+        const remembered = Boolean(loraSource?.remember_strength);
+        const liveItem = remembered ? getActiveSelectionItem(singleLora.name) : null;
+        strengthMemoryEnableInput.checked = remembered;
+        const modelValue = liveItem
+            ? liveItem.strength ?? 1
+            : loraSource?.saved_strength ?? 1;
+        const clipValue = liveItem
+            ? liveItem.strength_clip ?? liveItem.strength ?? 1
+            : loraSource?.saved_strength_clip ?? loraSource?.saved_strength ?? 1;
+        strengthMemoryModelInput.value = formatLoraWeight(modelValue);
+        strengthMemoryClipInput.value = formatLoraWeight(clipValue);
+        strengthMemoryModelInput.disabled = !remembered;
+        strengthMemoryClipInput.disabled = !remembered;
+        strengthMemoryClipControl.hidden = nodeInstance.isModelOnly;
+        strengthMemoryRow.style.display = "flex";
+    };
      const renderMetadataEditor = () => {
         const editingLoras = getEditingLorasData();
         selectedCountEl.textContent = editingLoras.length;
@@ -119,6 +157,7 @@ export function createLoraMetadataController({
             urlEditorInput.value = singleLora.download_url || "";
             urlEditorRow.style.display = "flex";
             triggerPresetEditorRow.style.display = "flex";
+            renderStrengthMemoryRow(singleLora);
 
             const renderPresetsList = () => {
                 triggerPresetList.innerHTML = "";
@@ -208,6 +247,7 @@ export function createLoraMetadataController({
             triggerEditorRow.style.display = "none";
             urlEditorRow.style.display = "none";
             triggerPresetEditorRow.style.display = "none";
+            strengthMemoryRow.style.display = "none";
         }
          metadataEditor.classList.add("visible");
     };
@@ -223,6 +263,86 @@ export function createLoraMetadataController({
         event.stopPropagation();
         setPresetEditorExpanded(triggerPresetToggleBtn.getAttribute("aria-expanded") !== "true");
     });
+
+    strengthMemoryEnableInput.addEventListener("change", async () => {
+        const editingLoras = getEditingLorasData();
+        if (editingLoras.length !== 1) return;
+        const singleLora = editingLoras[0];
+        const loraName = singleLora.name;
+        const enable = strengthMemoryEnableInput.checked;
+        const loraSource = getLoraMetadataByName(loraName);
+        const activeItem = getActiveSelectionItem(loraName);
+        const payload = { remember_strength: enable };
+        if (enable) {
+            payload.saved_strength = clampWeight(
+                activeItem
+                    ? activeItem.strength ?? 1
+                    : parseWeightInput(strengthMemoryModelInput, loraSource?.saved_strength ?? 1),
+                LORA_WEIGHT_LIMITS.modelMin,
+                LORA_WEIGHT_LIMITS.modelMax,
+            );
+            payload.saved_strength_clip = clampWeight(
+                activeItem
+                    ? activeItem.strength_clip ?? activeItem.strength ?? 1
+                    : parseWeightInput(strengthMemoryClipInput, loraSource?.saved_strength_clip ?? loraSource?.saved_strength ?? 1),
+                LORA_WEIGHT_LIMITS.clipMin,
+                LORA_WEIGHT_LIMITS.clipMax,
+            );
+        }
+        strengthMemoryEnableInput.disabled = true;
+        try {
+            await updateMetadata(loraName, payload);
+            updateCachedLoraMetadata(loraName, payload);
+            operationFeedback?.success(enable
+                ? "Remembering strengths for this LoRA"
+                : "Stopped remembering strengths for this LoRA");
+        } catch (error) {
+            strengthMemoryEnableInput.checked = !enable;
+            operationFeedback?.error(error?.message || "Could not update strength memory");
+        } finally {
+            strengthMemoryEnableInput.disabled = false;
+            renderStrengthMemoryRow(singleLora);
+        }
+    });
+
+    const commitStrengthMemoryEdits = async () => {
+        const editingLoras = getEditingLorasData();
+        if (editingLoras.length !== 1) return;
+        const singleLora = editingLoras[0];
+        const loraName = singleLora.name;
+        const loraSource = getLoraMetadataByName(loraName);
+        const savedModel = loraSource?.saved_strength ?? 1;
+        const savedClip = loraSource?.saved_strength_clip ?? savedModel;
+        const model = clampWeight(
+            parseWeightInput(strengthMemoryModelInput, savedModel),
+            LORA_WEIGHT_LIMITS.modelMin,
+            LORA_WEIGHT_LIMITS.modelMax,
+        );
+        const clip = clampWeight(
+            parseWeightInput(strengthMemoryClipInput, savedClip),
+            LORA_WEIGHT_LIMITS.clipMin,
+            LORA_WEIGHT_LIMITS.clipMax,
+        );
+        const payload = { saved_strength: model, saved_strength_clip: clip };
+        const activeItem = getActiveSelectionItem(loraName);
+        if (strengthMemoryEnableInput.checked && activeItem) {
+            activeItem.strength = model;
+            if (!nodeInstance.isModelOnly) activeItem.strength_clip = clip;
+            renderSelectedList();
+            updateSelection();
+        }
+        try {
+            await updateMetadata(loraName, payload);
+            updateCachedLoraMetadata(loraName, payload);
+        } catch (error) {
+            operationFeedback?.error(error?.message || "Could not save remembered strengths");
+        } finally {
+            renderStrengthMemoryRow(singleLora);
+        }
+    };
+
+    strengthMemoryModelInput.addEventListener("change", commitStrengthMemoryEdits);
+    strengthMemoryClipInput.addEventListener("change", commitStrengthMemoryEdits);
 
     useLastOutputThumbnailBtn.addEventListener("click", async (event) => {
         event.preventDefault();

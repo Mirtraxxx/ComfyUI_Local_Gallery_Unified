@@ -2,6 +2,10 @@
 export function buildLoraSelectionEntry({ element, loraName, lora = null }) {
     const entry = { on: true, lora: loraName, strength: 1.0, strength_clip: 1.0 };
     if (lora) {
+        if (lora.remember_strength) {
+            entry.strength = lora.saved_strength ?? 1.0;
+            entry.strength_clip = lora.saved_strength_clip ?? entry.strength;
+        }
         entry.preview_url = lora.preview_url || "";
         entry.preview_type = lora.preview_type || "none";
         entry.tags = lora.tags || [];

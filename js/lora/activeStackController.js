@@ -24,6 +24,7 @@ export function createLoraActiveStackController({
     updateSelection,
     syncGallerySelection,
     updatePresetButtonText,
+    persistRememberedWeight = null,
 }) {
     let draggedIndex = -1;
     let cleanupMouseReorder = null;
@@ -347,6 +348,8 @@ export function createLoraActiveStackController({
                     nodeInstance.loraData[index][field] = nextValue;
                     valueElement.textContent = formatLoraWeight(nextValue);
                     updateSelection();
+                    if (metadataEditor.classList.contains("visible")) renderMetadataEditor();
+                    persistRememberedWeight?.(item);
                 }, { passive: false });
             };
             bindWeightWheel(

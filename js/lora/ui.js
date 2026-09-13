@@ -167,6 +167,23 @@ const UnifiedLoraGalleryNode = {
                                         <input type="text" class="url-editor-input" placeholder="Civitai or download page">
                                     </label>
                                 </div>
+                                <div class="lora-metadata-field strength-memory-editor-row" style="display:none;">
+                                    <label class="strength-memory-enable-label">
+                                        <input type="checkbox" class="strength-memory-enable-input">
+                                        <span>Remember strengths</span>
+                                    </label>
+                                    <small>Re-select this LoRA with these strengths.</small>
+                                    <div class="strength-memory-controls">
+                                        <label class="strength-memory-control">
+                                            <span>Model</span>
+                                            <input type="number" class="strength-memory-model-input" step="0.05" min="-10" max="10" value="1">
+                                        </label>
+                                        <label class="strength-memory-control strength-memory-clip-control">
+                                            <span>CLIP</span>
+                                            <input type="number" class="strength-memory-clip-input" step="0.05" min="-2" max="2" value="1">
+                                        </label>
+                                    </div>
+                                </div>
                                 <div class="lora-metadata-field trigger-preset-editor-row" style="display:none;">
                                     <button class="lora-trigger-preset-editor-toggle" type="button" aria-expanded="false">
                                         <span class="lora-metadata-field-label">
@@ -373,6 +390,11 @@ const UnifiedLoraGalleryNode = {
             const triggerPresetNameInput = widgetContainer.querySelector(".trigger-preset-name-input");
             const triggerPresetValueInput = widgetContainer.querySelector(".trigger-preset-value-input");
             const addTriggerPresetBtn = widgetContainer.querySelector(".add-trigger-preset-btn");
+            const strengthMemoryRow = widgetContainer.querySelector(".strength-memory-editor-row");
+            const strengthMemoryEnableInput = widgetContainer.querySelector(".strength-memory-enable-input");
+            const strengthMemoryModelInput = widgetContainer.querySelector(".strength-memory-model-input");
+            const strengthMemoryClipControl = widgetContainer.querySelector(".strength-memory-clip-control");
+            const strengthMemoryClipInput = widgetContainer.querySelector(".strength-memory-clip-input");
             const toggleGalleryBtn = widgetContainer.querySelector(".toggle-gallery-btn");
             const activeStackBtn = widgetContainer.querySelector(".lora-active-stack-btn");
             const activeStackCount = widgetContainer.querySelector(".lora-active-stack-count");
@@ -842,6 +864,23 @@ const UnifiedLoraGalleryNode = {
                 this.activeEditingLoraName = null;
                 renderMetadataEditor();
             };
+
+            const rememberedStrengthTimers = new Map();
+            const persistRememberedWeight = (item) => {
+                if (!getLoraMetadataByName(item.lora)?.remember_strength) return;
+                const loraName = item.lora;
+                clearTimeout(rememberedStrengthTimers.get(loraName));
+                rememberedStrengthTimers.set(loraName, setTimeout(() => {
+                    rememberedStrengthTimers.delete(loraName);
+                    const payload = {
+                        saved_strength: item.strength ?? 1,
+                        saved_strength_clip: item.strength_clip ?? item.strength ?? 1,
+                    };
+                    UnifiedLoraGalleryNode.updateMetadata(loraName, payload)
+                        .then(() => updateCachedLoraMetadata(loraName, payload))
+                        .catch(() => {});
+                }, 500));
+            };
             
             const activeStackController = createLoraActiveStackController({
                 nodeInstance: this,
@@ -862,6 +901,7 @@ const UnifiedLoraGalleryNode = {
                 updateSelection,
                 syncGallerySelection: syncGallerySelectionSoon,
                 updatePresetButtonText,
+                persistRememberedWeight,
             });
             const {
                 hydrateSelectedLoraInfo,
@@ -1264,6 +1304,11 @@ const UnifiedLoraGalleryNode = {
                 triggerPresetNameInput,
                 triggerPresetValueInput,
                 addTriggerPresetBtn,
+                strengthMemoryRow,
+                strengthMemoryEnableInput,
+                strengthMemoryModelInput,
+                strengthMemoryClipControl,
+                strengthMemoryClipInput,
                 getLoraMetadataByName,
                 updateCachedLoraMetadata,
                 findGalleryCardByLoraName,
@@ -1272,6 +1317,7 @@ const UnifiedLoraGalleryNode = {
                 assignThumbnail: (...args) => loraApi.assignThumbnail(...args),
                 renderCurrentView,
                 renderSelectedList,
+                updateSelection,
                 operationFeedback,
                 onClose: clearMetadataEditing,
             });
@@ -1885,6 +1931,8 @@ const UnifiedLoraGalleryNode = {
                     folderController.cancelDrag();
                     activeStackController.dispose();
                     operationFeedback.dispose();
+                    rememberedStrengthTimers.forEach(timer => clearTimeout(timer));
+                    rememberedStrengthTimers.clear();
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

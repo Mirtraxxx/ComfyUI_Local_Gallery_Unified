@@ -6,6 +6,9 @@ const RUNTIME_ONLY_SELECTION_FIELDS = Object.freeze([
     "trigger_words",
     "trigger_presets",
     "download_url",
+    "remember_strength",
+    "saved_strength",
+    "saved_strength_clip",
 ]);
 
 /** Resolve selected trigger preset names from a selection item (stack or single). */

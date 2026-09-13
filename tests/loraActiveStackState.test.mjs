@@ -30,6 +30,9 @@ test("active stack hydration copies browser metadata without replacing selection
         trigger_words: "example trigger",
         trigger_presets: { portrait: "portrait trigger" },
         download_url: "https://example.invalid/model",
+        remember_strength: false,
+        saved_strength: 1,
+        saved_strength_clip: 1,
     });
 });
 

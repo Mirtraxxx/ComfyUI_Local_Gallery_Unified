@@ -9,6 +9,9 @@ export function hydrateSelectedLoraInfo(selectedItems = [], availableLoras = [])
         item.trigger_words = lora.trigger_words || "";
         item.trigger_presets = lora.trigger_presets || {};
         item.download_url = lora.download_url || "";
+        item.remember_strength = lora.remember_strength || false;
+        item.saved_strength = lora.saved_strength ?? 1;
+        item.saved_strength_clip = lora.saved_strength_clip ?? lora.saved_strength ?? 1;
     });
     return selectedItems;
 }

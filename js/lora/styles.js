@@ -1366,6 +1366,63 @@ export function getLoraStyles(uniqueId) {
                         gap: 5px;
                     }
 
+                    #${uniqueId} .strength-memory-editor-row {
+                        padding-top: 8px;
+                        border-top: 1px solid rgba(147, 177, 199, 0.12);
+                        gap: 6px;
+                    }
+
+                    #${uniqueId} .strength-memory-enable-label {
+                        display: flex;
+                        align-items: center;
+                        gap: 7px;
+                        color: #dce6eb;
+                        font-size: 10px;
+                        font-weight: 650;
+                        cursor: pointer;
+                    }
+
+                    #${uniqueId} .strength-memory-enable-input {
+                        accent-color: #ff7a00;
+                        cursor: pointer;
+                    }
+
+                    #${uniqueId} .strength-memory-controls {
+                        display: grid;
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 8px;
+                    }
+
+                    #${uniqueId} .strength-memory-control {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        min-width: 0;
+                    }
+
+                    #${uniqueId} .strength-memory-control > span {
+                        color: rgba(199, 214, 223, 0.72);
+                        font-size: 9px;
+                        font-weight: 600;
+                    }
+
+                    #${uniqueId} .strength-memory-controls input[type="number"] {
+                        width: 100%;
+                        box-sizing: border-box;
+                        min-height: 32px;
+                        padding: 5px 8px;
+                        border-radius: 8px;
+                        font-size: 10px;
+                        background: rgba(18, 20, 24, 0.72);
+                        color: #e7ecef;
+                        border: 1px solid rgba(147, 177, 199, 0.22);
+                    }
+
+                    #${uniqueId} .strength-memory-controls input[type="number"]:disabled {
+                        opacity: 0.45;
+                        cursor: default;
+                    }
+
                     #${uniqueId} .add-trigger-preset-btn {
                         min-height: 32px;
                         padding: 5px 9px;

@@ -503,6 +503,9 @@ def _build_lora_inventory(lora_files, lora_roots, generation):
             "trigger_words": lora_meta.get("trigger_words", ""),
             "trigger_presets": copy.deepcopy(lora_meta.get("trigger_presets", {})),
             "download_url": lora_meta.get("download_url", ""),
+            "remember_strength": bool(lora_meta.get("remember_strength", False)),
+            "saved_strength": float(lora_meta.get("saved_strength", 1.0)),
+            "saved_strength_clip": float(lora_meta.get("saved_strength_clip", lora_meta.get("saved_strength", 1.0))),
         })
     if metadata_changed:
         save_metadata(metadata)
@@ -780,6 +783,9 @@ async def get_loras_endpoint(request):
                 "trigger_words": entry["trigger_words"],
                 "trigger_presets": entry["trigger_presets"],
                 "download_url": entry["download_url"],
+                "remember_strength": entry["remember_strength"],
+                "saved_strength": entry["saved_strength"],
+                "saved_strength_clip": entry["saved_strength_clip"],
             })
         
         return web.json_response({
@@ -922,6 +928,18 @@ async def update_lora_metadata(request):
 
         if download_url is not None:
             lora_meta['download_url'] = str(download_url)
+
+        remember_strength = data.get("remember_strength")
+        if remember_strength is not None:
+            lora_meta['remember_strength'] = bool(remember_strength)
+
+        saved_strength = data.get("saved_strength")
+        if saved_strength is not None:
+            lora_meta['saved_strength'] = float(saved_strength)
+
+        saved_strength_clip = data.get("saved_strength_clip")
+        if saved_strength_clip is not None:
+            lora_meta['saved_strength_clip'] = float(saved_strength_clip)
 
         save_metadata(metadata)
         return web.json_response({"status": "ok"})
