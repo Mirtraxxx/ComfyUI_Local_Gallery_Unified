@@ -121,14 +121,16 @@ const UnifiedLoraGalleryNode = {
                                 <div class="lora-folder-nav">
                                     <div class="lora-folder-first-row">
                                         <div class="lora-folder-strip"></div>
-                                    </div>
-                                    <div class="lora-folder-overflow-wrapper">
-                                        <div class="lora-folder-overflow">
-                                            <div class="lora-folder-overflow-chips"></div>
-                                        </div>
-                                        <button class="lora-folder-pull-tab" type="button" aria-expanded="false" title="Show all LoRA folders">
+                                        <button class="lora-folder-pill lora-folder-more-btn" type="button" hidden
+                                            aria-expanded="false" aria-controls="${uniqueId}-folder-overflow"
+                                            title="Show all LoRA folders" aria-label="Show all LoRA folders">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                         </button>
+                                    </div>
+                                    <div class="lora-folder-overflow-wrapper">
+                                        <div class="lora-folder-overflow" id="${uniqueId}-folder-overflow">
+                                            <div class="lora-folder-overflow-chips"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -412,7 +414,7 @@ const UnifiedLoraGalleryNode = {
             const folderStrip = widgetContainer.querySelector(".lora-folder-strip");
             const folderOverflow = widgetContainer.querySelector(".lora-folder-overflow");
             const folderOverflowChips = widgetContainer.querySelector(".lora-folder-overflow-chips");
-            const folderPullTab = widgetContainer.querySelector(".lora-folder-pull-tab");
+            const folderMoreBtn = widgetContainer.querySelector(".lora-folder-more-btn");
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
@@ -710,7 +712,7 @@ const UnifiedLoraGalleryNode = {
                 folderStrip,
                 folderOverflow,
                 folderOverflowChips,
-                folderPullTab,
+                folderMoreBtn,
                 getVisiblePinnedFolderCount,
                 saveStateAndFetch,
             });
@@ -1591,7 +1593,7 @@ const UnifiedLoraGalleryNode = {
                     renderFolderPills();
                     saveStateAndFetch();
                 });
-                folderPullTab?.addEventListener("click", (e) => {
+                folderMoreBtn?.addEventListener("click", (e) => {
                     e.stopPropagation();
                     folderController.toggleOverflow();
                     renderFolderPills();

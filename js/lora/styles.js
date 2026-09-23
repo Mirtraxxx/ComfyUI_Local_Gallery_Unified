@@ -277,29 +277,9 @@ export function getLoraStyles(uniqueId) {
                     
                     /* --- Folder Navigation --- */
                     #${uniqueId} .lora-folder-nav {
-                        --lora-folder-pull-tab-center-offset: 19px;
-                        --lora-folder-pull-tab-edge-offset: 8px;
                         position: relative;
                         flex: 1 1 auto;
                         min-width: 0;
-                    }
-
-                    /* Invisible hover bridge so the tongue stays reachable without blocking cards idle */
-                    #${uniqueId} .lora-folder-nav::after {
-                        content: '';
-                        position: absolute;
-                        left: 0;
-                        right: 0;
-                        top: 100%;
-                        height: 22px;
-                        z-index: 4199;
-                        pointer-events: none;
-                    }
-                    #${uniqueId} .lora-folder-nav:hover::after,
-                    #${uniqueId} .lora-folder-nav:focus-within::after,
-                    #${uniqueId} .lora-folder-nav:has(.lora-folder-pull-tab[aria-expanded="true"])::after,
-                    #${uniqueId} .lora-folder-nav:has(.lora-folder-pull-tab.open)::after {
-                        pointer-events: auto;
                     }
                     
                     #${uniqueId} .lora-folder-first-row {
@@ -368,7 +348,7 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-folder-overflow {
                         position: relative;
                         width: 100%;
-                        background: #141416;
+                        background: #1b1f23;
                         margin-top: -1px;
                         border-bottom: 1px solid transparent;
                         border-top: none;
@@ -377,7 +357,6 @@ export function getLoraStyles(uniqueId) {
                         border-radius: 0 0 8px 8px;
                         padding: 0 10px;
                         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
-                        clip-path: inset(0px -30px -30px -30px);
                         box-sizing: border-box;
                         pointer-events: auto;
                         max-height: 0;
@@ -391,98 +370,118 @@ export function getLoraStyles(uniqueId) {
                     #${uniqueId} .lora-folder-overflow.open {
                         opacity: 1;
                         transform: translateY(0);
-                        max-height: 250px;
-                        padding: 14px 10px;
-                        border-bottom-color: #333;
+                        max-height: 280px;
+                        padding: 12px 10px;
+                        border-bottom-color: #3a4148;
                         overflow-y: auto;
+                        scrollbar-width: thin;
+                        scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
                     }
-                    
+
+                    #${uniqueId} .lora-folder-overflow::-webkit-scrollbar {
+                        width: 5px;
+                    }
+
+                    #${uniqueId} .lora-folder-overflow::-webkit-scrollbar-thumb {
+                        background: rgba(255, 255, 255, 0.18);
+                        border-radius: 2px;
+                    }
+
                     #${uniqueId} .lora-folder-overflow-chips {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        width: 100%;
+                    }
+
+                    #${uniqueId} .lora-folder-overflow-grid {
                         display: grid;
                         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                         gap: 8px 10px;
                         width: 100%;
                     }
-                    
-                    #${uniqueId} .lora-folder-overflow-chips::-webkit-scrollbar {
-                        width: 4px;
-                    }
-                    
-                    #${uniqueId} .lora-folder-overflow-chips::-webkit-scrollbar-thumb {
-                        background: rgba(255, 255, 255, 0.15);
-                        border-radius: 2px;
-                    }
 
-                    #${uniqueId} .lora-folder-overflow-chips .lora-folder-pill {
+                    #${uniqueId} .lora-folder-overflow-grid .lora-folder-pill {
                         width: 100%;
                         max-width: none;
                         text-align: left;
                     }
-                    
-                    #${uniqueId} .lora-folder-pull-tab {
-                        display: none;
+
+                    #${uniqueId} .lora-folder-search-row {
+                        display: flex;
                         align-items: center;
-                        justify-content: center;
-                        position: absolute;
-                        top: 100%;
-                        margin-top: 7px;
-                        left: 50%;
-                        transform: translateX(-50%) translateY(-3px);
-                        z-index: 4201;
-                        width: 64px;
-                        height: 18px;
-                        padding: 0;
-                        background: #141416;
-                        border: 1px solid #333;
-                        border-top: none;
-                        border-radius: 0 0 6px 6px;
-                        cursor: pointer;
-                        opacity: 0;
-                        color: #aaa;
-                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-                        pointer-events: none;
-                        transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+                        min-width: 0;
+                        background: #111820;
+                        border: 1px solid #3b4652;
+                        border-radius: 6px;
                     }
 
-                    /* Reveal pull-tab only while hovering the folder strip (or while overflow is open) */
-                    #${uniqueId} .lora-folder-nav:hover .lora-folder-pull-tab,
-                    #${uniqueId} .lora-folder-nav:focus-within .lora-folder-pull-tab,
-                    #${uniqueId} .lora-folder-pull-tab.open,
-                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
-                        opacity: 1;
-                        pointer-events: auto;
-                        transform: translateX(-50%) translateY(0);
+                    #${uniqueId} .lora-folder-search-row:focus-within {
+                        border-color: #5a6d80;
                     }
-                    #${uniqueId} .lora-folder-pull-tab svg {
+
+                    #${uniqueId} .lora-folder-search-input {
+                        width: 100%;
+                        min-width: 0;
+                        padding: 7px 9px;
+                        background: transparent;
+                        border: none;
+                        color: #e8ecef;
+                        font: inherit;
+                        font-size: 11px;
+                    }
+
+                    #${uniqueId} .lora-folder-search-input::placeholder {
+                        color: #9aa4ad;
+                    }
+
+                    #${uniqueId} .lora-folder-search-empty {
+                        padding: 12px;
+                        color: #9ea9b2;
+                        font-size: 11px;
+                        text-align: center;
+                    }
+
+                    #${uniqueId} .lora-folder-overflow-grid .lora-folder-pill[hidden],
+                    #${uniqueId} .lora-folder-search-empty[hidden] {
+                        display: none !important;
+                    }
+                    
+                    /* Persistent "more folders" toggle at the strip end.
+                       Hidden until folders overflow the strip. */
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex: 0 0 auto;
+                        width: 30px;
+                        max-width: none;
+                        min-width: 0;
+                        padding: 0;
+                        border-left: 1px solid rgba(255, 255, 255, 0.06);
+                        color: #c9c9c9;
+                    }
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn svg {
                         width: 11px;
                         height: 11px;
                         stroke: currentColor;
-                        transition: transform 0.16s ease, color 0.16s ease;
+                        transition: transform 0.2s ease, color 0.18s ease;
                     }
-                    #${uniqueId} .lora-folder-pull-tab::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: -1px;
-                        right: -1px;
-                        height: 1px;
-                        background: #141416;
-                        z-index: 4203;
-                        transition: background-color 0.16s ease;
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn.open,
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn[aria-expanded="true"] {
+                        color: #7fb2ff;
+                        background: #22303f;
+                        border-color: rgba(59, 130, 246, 0.55);
                     }
-                    #${uniqueId} .lora-folder-pull-tab.open,
-                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
-                        background: #141416;
-                        border-color: #333;
-                        color: #ccc;
-                    }
-                    #${uniqueId} .lora-folder-pull-tab.open svg,
-                    #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] svg {
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn.open svg,
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn[aria-expanded="true"] svg {
                         transform: rotate(180deg);
-                        color: #ccc;
                     }
-                    #${uniqueId} .lora-folder-pull-tab:hover svg {
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn:hover svg {
                         color: #3b82f6;
+                    }
+                    #${uniqueId} .lora-folder-pill.lora-folder-more-btn[hidden] {
+                        display: none !important;
                     }
                     
                     #${uniqueId} .folder-filter-select {
@@ -2906,7 +2905,6 @@ export function getLoraStyles(uniqueId) {
                         border-color: #73836d;
                     }
                     #${uniqueId} .lora-folder-overflow,
-                    #${uniqueId} .lora-folder-pull-tab,
                     #${uniqueId} .lora-display-options-popover,
                     #${uniqueId} .preset-dropdown {
                         background-color: #20221f;
@@ -2938,11 +2936,10 @@ export function getLoraStyles(uniqueId) {
                         padding: 0 9px;
                         font-size: 10px;
                     }
-                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pull-tab {
-                        width: 48px;
-                        height: 14px;
+                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pill.lora-folder-more-btn {
+                        width: 24px;
                     }
-                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pull-tab svg {
+                    #${uniqueId} .locallora-container.bars-compact .lora-folder-pill.lora-folder-more-btn svg {
                         width: 9px;
                         height: 9px;
                     }
@@ -2989,11 +2986,10 @@ export function getLoraStyles(uniqueId) {
                         padding: 0 13px;
                         font-size: 13px;
                     }
-                    #${uniqueId} .locallora-container.bars-large .lora-folder-pull-tab {
-                        width: 78px;
-                        height: 22px;
+                    #${uniqueId} .locallora-container.bars-large .lora-folder-pill.lora-folder-more-btn {
+                        width: 38px;
                     }
-                    #${uniqueId} .locallora-container.bars-large .lora-folder-pull-tab svg {
+                    #${uniqueId} .locallora-container.bars-large .lora-folder-pill.lora-folder-more-btn svg {
                         width: 13px;
                         height: 13px;
                     }
@@ -3040,11 +3036,10 @@ export function getLoraStyles(uniqueId) {
                         padding: 0 15px;
                         font-size: 14px;
                     }
-                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pull-tab {
-                        width: 92px;
-                        height: 26px;
+                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pill.lora-folder-more-btn {
+                        width: 44px;
                     }
-                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pull-tab svg {
+                    #${uniqueId} .locallora-container.bars-xl .lora-folder-pill.lora-folder-more-btn svg {
                         width: 15px;
                         height: 15px;
                     }

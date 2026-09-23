@@ -62,31 +62,46 @@ export function getLoraReferenceUxStyles(uniqueId) {
                 box-shadow: 0 0 20px rgba(69, 218, 116, 0.09), inset 0 1px 0 rgba(255,255,255,0.04);
                 transform: translateY(-1px);
             }
-            #${uniqueId} .lora-folder-pull-tab {
-                width: 60px;
-                height: 16px;
-                min-width: 60px;
-                padding: 0;
-                color: #82909d;
-                background: #08111a;
-                border: 1px solid rgba(155, 186, 208, 0.22);
-                border-top: 0;
-                border-radius: 0 0 7px 7px;
-                box-shadow: 0 3px 8px rgba(0,0,0,0.22);
-                /* Keep translateY hidden/revealed states from styles.js */
-                transform: translateX(-50%) translateY(-3px);
+            #${uniqueId} .lora-folder-pill.lora-folder-more-btn {
+                min-height: 34px;
+                color: #b9c8d3;
+                background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01)), #0b151f;
+                border: 1px solid rgba(155, 186, 208, 0.19);
+                border-left: 1px solid rgba(155, 186, 208, 0.19);
+                border-radius: 9px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 6px 16px rgba(0,0,0,0.15);
             }
-            #${uniqueId} .lora-folder-nav:hover .lora-folder-pull-tab,
-            #${uniqueId} .lora-folder-nav:focus-within .lora-folder-pull-tab,
-            #${uniqueId} .lora-folder-pull-tab.open,
-            #${uniqueId} .lora-folder-pull-tab[aria-expanded="true"] {
-                transform: translateX(-50%) translateY(0);
+            #${uniqueId} .lora-folder-pill.lora-folder-more-btn:hover {
+                color: #f4fff7;
+                border-color: rgba(85, 221, 125, 0.42);
+                border-left-color: rgba(85, 221, 125, 0.42);
+                box-shadow: 0 0 20px rgba(69, 218, 116, 0.09), inset 0 1px 0 rgba(255,255,255,0.04);
             }
-            #${uniqueId} .lora-folder-pull-tab:hover {
-                color: #72e994;
-                background: #0b1821;
-                border-color: rgba(85, 221, 125, 0.34);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.26), 0 0 14px rgba(69,218,116,0.08);
+            #${uniqueId} .lora-folder-pill.lora-folder-more-btn.open,
+            #${uniqueId} .lora-folder-pill.lora-folder-more-btn[aria-expanded="true"] {
+                color: #75e994;
+                background: linear-gradient(145deg, rgba(72,215,116,0.22), rgba(39,100,70,0.07)), #0b181b;
+                border: 1px solid rgba(85, 221, 125, 0.54);
+                box-shadow: 0 0 18px rgba(61, 218, 110, 0.12), inset 0 0 0 1px rgba(255,255,255,0.025);
+            }
+            #${uniqueId} .lora-folder-pill.lora-folder-more-btn[hidden] {
+                display: none !important;
+            }
+            #${uniqueId} .lora-folder-search-row {
+                background: #0a141d;
+                border: 1px solid rgba(156, 188, 211, 0.22);
+                border-radius: 9px;
+            }
+            #${uniqueId} .lora-folder-search-row:focus-within {
+                border-color: rgba(190, 222, 240, 0.58);
+                background: #15232e;
+            }
+            #${uniqueId} .lora-folder-search-input {
+                color: #eef4f7;
+                caret-color: #eef4f7;
+            }
+            #${uniqueId} .lora-folder-search-input::placeholder {
+                color: #8295a3;
             }
             #${uniqueId} .lora-active-stack-btn:not(.empty),
             #${uniqueId} .lora-action-btn.active,
@@ -209,7 +224,6 @@ export function getLoraReferenceUxStyles(uniqueId) {
                 #${uniqueId} .lora-folder-chip { min-height: 36px; padding-inline: 10px; font-size: 10px; }
                 #${uniqueId} .lora-active-stack-btn,
                 #${uniqueId} .lora-action-btn { width: 38px; height: 36px; min-width: 38px; }
-                #${uniqueId} .lora-folder-pull-tab { width: 54px; height: 14px; min-width: 54px; }
                 #${uniqueId} .locallora-gallery { padding: 10px; gap: 9px; }
                 #${uniqueId} .locallora-bottom-bar { padding-inline: 8px; gap: 6px; }
             }

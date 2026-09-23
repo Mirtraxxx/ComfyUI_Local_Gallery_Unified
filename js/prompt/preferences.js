@@ -43,23 +43,8 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     meta_tags_button_side: "right",
     card_contrast_mode: "off",
     active_card_size_mode: "default",
-    category_overflow_height: 250,
+    category_overflow_grouping: "alpha",
 };
-
-export const CATEGORY_OVERFLOW_HEIGHT_MIN = 120;
-export const CATEGORY_OVERFLOW_HEIGHT_MAX = 900;
-
-export function normalizeCategoryOverflowHeight(value, fallback = DEFAULT_PROMPT_UI_PREFS.category_overflow_height) {
-    const raw = Number(value);
-    const safeFallback = Number(fallback);
-    const base = Number.isFinite(raw)
-        ? raw
-        : (Number.isFinite(safeFallback) ? safeFallback : DEFAULT_PROMPT_UI_PREFS.category_overflow_height);
-    return Math.max(
-        CATEGORY_OVERFLOW_HEIGHT_MIN,
-        Math.min(CATEGORY_OVERFLOW_HEIGHT_MAX, Math.round(base)),
-    );
-}
 
 export function normalizeDisplayMode(mode, fallback = "compact") {
     const normalized = String(mode || "").toLowerCase();
@@ -133,10 +118,6 @@ export function normalizeUiPrefs(uiPrefs = {}) {
     merged.active_thumbnail_size_px = getActiveThumbnailSizePx(merged);
     merged.bars_size_scale = getBarsSizeScale(merged);
     merged.card_manager_card_size_px = getCardManagerCardSizePx(merged);
-    merged.category_overflow_height = normalizeCategoryOverflowHeight(
-        merged.category_overflow_height,
-        DEFAULT_PROMPT_UI_PREFS.category_overflow_height,
-    );
 
     return merged;
 }

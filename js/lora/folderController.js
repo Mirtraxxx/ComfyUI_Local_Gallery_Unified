@@ -8,11 +8,12 @@ export function createLoraFolderController({
     folderStrip,
     folderOverflow,
     folderOverflowChips,
-    folderPullTab,
+    folderMoreBtn,
     getVisiblePinnedFolderCount,
     saveStateAndFetch,
 }) {
     let folderOverflowOpen = false;
+    let folderSearchQuery = "";
     let folderDragState = null;
     let suppressFolderClickUntil = 0;
     const getFolderLabel = (folder) => {
@@ -131,15 +132,60 @@ export function createLoraFolderController({
             folderStrip.appendChild(buildFolderButton(folder, index));
         });
          folderOverflowChips.innerHTML = "";
-        overflowFolders.forEach((folder, index) => {
-            folderOverflowChips.appendChild(buildFolderButton(folder, index + visiblePinned.length, true));
+        const overflowButtons = overflowFolders.map((folder, index) =>
+            buildFolderButton(folder, index + visiblePinned.length, true)
+        );
+
+        const searchRow = document.createElement("div");
+        searchRow.className = "lora-folder-search-row";
+        const searchInput = document.createElement("input");
+        searchInput.className = "lora-folder-search-input";
+        searchInput.type = "search";
+        searchInput.placeholder = "Search folders";
+        searchInput.autocomplete = "off";
+        searchInput.spellcheck = false;
+        searchInput.value = folderSearchQuery;
+        searchRow.appendChild(searchInput);
+        folderOverflowChips.appendChild(searchRow);
+
+        const grid = document.createElement("div");
+        grid.className = "lora-folder-overflow-grid";
+        overflowButtons.forEach(button => grid.appendChild(button));
+        folderOverflowChips.appendChild(grid);
+
+        const emptyState = document.createElement("div");
+        emptyState.className = "lora-folder-search-empty";
+        emptyState.textContent = "No folders match your search.";
+        emptyState.hidden = true;
+        emptyState.setAttribute("role", "status");
+        folderOverflowChips.appendChild(emptyState);
+
+        const applySearch = () => {
+            const query = folderSearchQuery.trim().toLocaleLowerCase();
+            let visibleCount = 0;
+            grid.querySelectorAll(".lora-folder-pill").forEach(button => {
+                const matches = !query || button.dataset.folder.toLocaleLowerCase().includes(query);
+                button.hidden = !matches;
+                if (matches) visibleCount += 1;
+            });
+            emptyState.hidden = visibleCount !== 0;
+        };
+        searchInput.addEventListener("input", () => {
+            folderSearchQuery = searchInput.value;
+            applySearch();
         });
+        searchInput.addEventListener("search", () => {
+            folderSearchQuery = searchInput.value;
+            applySearch();
+        });
+        applySearch();
+
          const hasOverflow = overflowFolders.length > 0;
         folderOverflow.classList.toggle("open", hasOverflow && folderOverflowOpen);
-        if (folderPullTab) {
-            folderPullTab.style.display = hasOverflow ? "flex" : "none";
-            folderPullTab.classList.toggle("open", hasOverflow && folderOverflowOpen);
-            folderPullTab.setAttribute("aria-expanded", String(hasOverflow && folderOverflowOpen));
+        if (folderMoreBtn) {
+            folderMoreBtn.hidden = !hasOverflow;
+            folderMoreBtn.classList.toggle("open", hasOverflow && folderOverflowOpen);
+            folderMoreBtn.setAttribute("aria-expanded", String(hasOverflow && folderOverflowOpen));
         }
     };
      let activeLoraFolderContextMenu = null;

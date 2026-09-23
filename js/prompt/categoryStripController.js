@@ -5,215 +5,6 @@
  * pointer/long-press timers, and async category fetches are generation-guarded
  * so a late response cannot repaint a newer strip.
  */
-export const CATEGORY_OVERFLOW_MIN_HEIGHT = 120;
-export const CATEGORY_OVERFLOW_VIEWPORT_GUTTER = 24;
-
-const CATEGORY_COLOR_FAMILIES = [
-    { key: "red", label: "Red", minHue: 345, maxHue: 360 },
-    { key: "red", label: "Red", minHue: 0, maxHue: 15 },
-    { key: "orange", label: "Orange", minHue: 15, maxHue: 42 },
-    { key: "gold", label: "Gold", minHue: 42, maxHue: 70 },
-    { key: "green", label: "Green", minHue: 70, maxHue: 155 },
-    { key: "teal", label: "Teal", minHue: 155, maxHue: 195 },
-    { key: "blue", label: "Blue", minHue: 195, maxHue: 250 },
-    { key: "violet", label: "Violet", minHue: 250, maxHue: 310 },
-    { key: "rose", label: "Rose", minHue: 310, maxHue: 345 },
-];
-
-function parseHexColor(color) {
-    const match = String(color || "").trim().match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
-    if (!match) return null;
-    const colorHex = match[1].length <= 4 ? match[1].slice(0, 3) : match[1].slice(0, 6);
-    const hex = colorHex.length === 3
-        ? colorHex.split("").map(value => value + value).join("")
-        : colorHex;
-    return [0, 2, 4].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
-}
-
-function rgbToHsl([red, green, blue]) {
-    const max = Math.max(red, green, blue);
-    const min = Math.min(red, green, blue);
-    const lightness = (max + min) / 2;
-    if (max === min) return { hue: 0, saturation: 0, lightness };
-
-    const delta = max - min;
-    const saturation = lightness > 0.5
-        ? delta / (2 - max - min)
-        : delta / (max + min);
-    let hue;
-    if (max === red) hue = ((green - blue) / delta) + (green < blue ? 6 : 0);
-    else if (max === green) hue = ((blue - red) / delta) + 2;
-    else hue = ((red - green) / delta) + 4;
-    return { hue: hue * 60, saturation, lightness };
-}
-
-export function getCategoryColorFamily(color) {
-    const rgb = parseHexColor(color);
-    if (!rgb) return { key: "other", label: "Other", color: "" };
-    const { hue, saturation } = rgbToHsl(rgb);
-    if (saturation < 0.16) return { key: "neutral", label: "Neutral", color };
-    const family = CATEGORY_COLOR_FAMILIES.find(item => hue >= item.minHue && hue < item.maxHue);
-    return {
-        key: family?.key || "other",
-        label: family?.label || "Other",
-        color,
-    };
-}
-
-export function groupCategoryEntriesByColor(entries = []) {
-    const groups = new Map();
-    entries.forEach(entry => {
-        const family = getCategoryColorFamily(entry?.color);
-        if (!groups.has(family.key)) {
-            groups.set(family.key, {
-                key: family.key,
-                label: family.label,
-                color: family.color,
-                entries: [],
-            });
-        }
-        groups.get(family.key).entries.push(entry);
-    });
-    return Array.from(groups.values());
-}
-
-export function clampCategoryOverflowHeight(
-    requestedHeight,
-    panelTop,
-    viewportHeight,
-    minHeight = CATEGORY_OVERFLOW_MIN_HEIGHT,
-    viewportGutter = CATEGORY_OVERFLOW_VIEWPORT_GUTTER,
-    scale = 1,
-) {
-    const safeMinimum = Math.max(0, Number(minHeight) || 0);
-    const safeScale = Math.max(0.01, Number(scale) || 1);
-    const availableHeight = Math.max(
-        safeMinimum,
-        (
-            (Number(viewportHeight) || 0)
-            - (Number(panelTop) || 0)
-            - Math.max(0, Number(viewportGutter) || 0)
-        ) / safeScale,
-    );
-    return Math.min(availableHeight, Math.max(safeMinimum, Number(requestedHeight) || safeMinimum));
-}
-
-export function setupCategoryOverflowResize(widgetContainer, uniqueId, options = {}) {
-    const panel = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
-    const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
-    if (!panel || !pullTab) return () => {};
-
-    const getStoredHeight = typeof options.getStoredHeight === "function" ? options.getStoredHeight : null;
-    const onHeightCommit = typeof options.onHeightCommit === "function" ? options.onHeightCommit : null;
-
-    let resizeState = null;
-    let customHeight = null;
-    let suppressNextClick = false;
-
-    const setPanelHeight = height => {
-        customHeight = height;
-        panel.style.setProperty("--localprompt-category-overflow-height", `${Math.round(height)}px`);
-        pullTab.setAttribute("aria-valuenow", String(Math.round(height)));
-    };
-
-    const getPanelScale = panelRect => {
-        const layoutHeight = panel.offsetHeight;
-        if (!layoutHeight || !panelRect.height) return 1;
-        return panelRect.height / layoutHeight;
-    };
-
-    const clampToViewport = requestedHeight => {
-        const panelRect = panel.getBoundingClientRect();
-        return clampCategoryOverflowHeight(
-            requestedHeight,
-            panelRect.top,
-            globalThis.window?.innerHeight ?? requestedHeight,
-            CATEGORY_OVERFLOW_MIN_HEIGHT,
-            CATEGORY_OVERFLOW_VIEWPORT_GUTTER,
-            getPanelScale(panelRect),
-        );
-    };
-
-    const finishResize = event => {
-        if (!resizeState || (event.pointerId !== undefined && event.pointerId !== resizeState.pointerId)) return;
-        const didDrag = resizeState.didDrag;
-        resizeState = null;
-        panel.classList.remove("is-resizing");
-        pullTab.classList.remove("is-resizing");
-        if (didDrag) {
-            suppressNextClick = true;
-            if (customHeight != null) {
-                try {
-                    onHeightCommit?.(Math.round(customHeight));
-                } catch (error) {
-                    console.warn("LocalPromptGallery: Failed to persist category overflow height", error);
-                }
-            }
-        }
-    };
-
-    const onPointerDown = event => {
-        if (event.button !== 0 || pullTab.getAttribute("aria-expanded") !== "true") return;
-        const panelRect = panel.getBoundingClientRect();
-        resizeState = {
-            pointerId: event.pointerId,
-            startY: event.clientY,
-            startHeight: panel.offsetHeight || panelRect.height,
-            scale: getPanelScale(panelRect),
-            didDrag: false,
-        };
-        pullTab.setPointerCapture?.(event.pointerId);
-    };
-
-    const onPointerMove = event => {
-        if (!resizeState || event.pointerId !== resizeState.pointerId) return;
-        const delta = event.clientY - resizeState.startY;
-        if (!resizeState.didDrag && Math.abs(delta) < 4) return;
-        resizeState.didDrag = true;
-        event.preventDefault();
-        panel.classList.add("is-resizing");
-        pullTab.classList.add("is-resizing");
-        setPanelHeight(clampToViewport(resizeState.startHeight + (delta / resizeState.scale)));
-    };
-
-    const onClickCapture = event => {
-        if (!suppressNextClick) return;
-        suppressNextClick = false;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-    };
-
-    const onWindowResize = () => {
-        if (customHeight === null) return;
-        setPanelHeight(clampToViewport(customHeight));
-    };
-
-    const applyStoredHeight = () => {
-        const storedHeight = Number(getStoredHeight?.());
-        if (!Number.isFinite(storedHeight) || storedHeight <= 0) return;
-        setPanelHeight(Math.max(CATEGORY_OVERFLOW_MIN_HEIGHT, Math.round(storedHeight)));
-    };
-
-    applyStoredHeight();
-
-    pullTab.addEventListener("pointerdown", onPointerDown);
-    pullTab.addEventListener("pointermove", onPointerMove);
-    pullTab.addEventListener("pointerup", finishResize);
-    pullTab.addEventListener("pointercancel", finishResize);
-    pullTab.addEventListener("click", onClickCapture, true);
-    globalThis.window?.addEventListener("resize", onWindowResize);
-
-    const dispose = () => {
-        pullTab.removeEventListener("pointerdown", onPointerDown);
-        pullTab.removeEventListener("pointermove", onPointerMove);
-        pullTab.removeEventListener("pointerup", finishResize);
-        pullTab.removeEventListener("pointercancel", finishResize);
-        pullTab.removeEventListener("click", onClickCapture, true);
-        globalThis.window?.removeEventListener("resize", onWindowResize);
-    };
-    dispose.applyStoredHeight = applyStoredHeight;
-    return dispose;
-}
 
 export function createPromptCategoryStripController({
     widgetContainer,
@@ -226,8 +17,6 @@ export function createPromptCategoryStripController({
     setActiveLibraryTab,
     getCategoryOverflowOpen,
     setCategoryOverflowOpen,
-    getCategoryOverflowHeight,
-    persistCategoryOverflowHeight,
     getSuppressCategoryClickUntil,
     setSuppressCategoryClickUntil,
     setCategoryDragState,
@@ -240,16 +29,15 @@ export function createPromptCategoryStripController({
     syncPromptSortControls,
     syncSelectedSectionVisibility,
     closeToolbarPanels,
+    getCategoryOverflowGrouping,
+    setCategoryOverflowGrouping,
+    getCategoryRoleColor,
 }) {
     let renderGeneration = 0;
     let openGeneration = 0;
     let categorySearchQuery = "";
     const longPressTimers = new Set();
     let disposed = false;
-    const disposeOverflowResize = setupCategoryOverflowResize(widgetContainer, uniqueId, {
-        getStoredHeight: () => getCategoryOverflowHeight?.(),
-        onHeightCommit: height => persistCategoryOverflowHeight?.(height),
-    });
 
     function isCurrent(generation) {
         return !disposed && generation === renderGeneration;
@@ -375,15 +163,36 @@ export function createPromptCategoryStripController({
         await renderCategoryOverflowCategories(generation);
     }
 
+    const PRESET_COLOR_ORDER = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899", "#94a3b8"];
+    const ALL_ALPHABET_KEYS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", "#"];
+
+    function resolveGroupingMode() {
+        if (typeof getCategoryOverflowGrouping === "function") {
+            const mode = getCategoryOverflowGrouping();
+            if (mode === "color" || mode === "alpha") return mode;
+        }
+        return "alpha";
+    }
+
+    async function persistGroupingMode(mode) {
+        if (typeof setCategoryOverflowGrouping === "function") {
+            await setCategoryOverflowGrouping(mode);
+        }
+    }
+
+    function resolveRoleColor(category) {
+        if (typeof getCategoryRoleColor === "function") {
+            return getCategoryRoleColor(category);
+        }
+        return null;
+    }
+
     async function renderCategoryOverflowCategories(parentGeneration = null) {
         const generation = parentGeneration ?? ++renderGeneration;
         const overflowContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow`);
         const chipsContainer = widgetContainer.querySelector(`#${uniqueId}-category-overflow-chips`);
-        const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
+        const moreBtn = widgetContainer.querySelector(`#${uniqueId}-category-more-btn`);
         if (!overflowContainer || !chipsContainer) return;
-        // The controller is created before async UI/workflow preferences finish
-        // loading. Re-apply here so F5 restores the late-loaded saved height.
-        disposeOverflowResize.applyStoredHeight?.();
         const categories = await getCachedCategories();
         if (!isCurrent(generation)) return;
         const pinnedCategories = await ensurePinnedCategoriesInitialized(categories);
@@ -391,46 +200,40 @@ export function createPromptCategoryStripController({
         const visiblePinned = new Set(pinnedCategories.slice(0, getVisiblePinnedCategoryCount()));
         const hiddenCategories = getCategoriesInCurrentOrder(categories).filter(category => !visiblePinned.has(category));
         chipsContainer.innerHTML = "";
+        if (moreBtn) {
+            moreBtn.setAttribute("aria-expanded", String(getCategoryOverflowOpen()));
+        }
         if (!hiddenCategories.length) {
             setCategoryOverflowOpen(false);
-            if (pullTab) {
-                pullTab.style.display = "none";
-                pullTab.setAttribute("aria-expanded", "false");
-            }
+            if (moreBtn) moreBtn.hidden = true;
             overflowContainer.classList.remove("open");
             return;
         }
-        if (pullTab) {
-            pullTab.style.display = "flex";
-            pullTab.setAttribute("aria-expanded", String(getCategoryOverflowOpen()));
-            pullTab.setAttribute(
-                "aria-label",
-                getCategoryOverflowOpen()
-                    ? "Resize category list or click to hide categories"
-                    : "Show all categories",
-            );
-            pullTab.title = getCategoryOverflowOpen()
-                ? "Drag to resize. Click to hide categories."
-                : "Show all categories";
-        }
+        if (moreBtn) moreBtn.hidden = false;
         overflowContainer.classList.toggle("open", getCategoryOverflowOpen());
-        const categoryEntries = hiddenCategories.map(category => {
-            const option = document.createElement("button");
+
+        const currentMode = resolveGroupingMode();
+
+        function createPill(category) {
+            const pill = document.createElement("button");
             const isPinned = pinnedCategories.includes(category);
-            option.className = `localprompt-pinned-category-pill${getActiveLibraryTab() === category ? " active" : ""}`;
-            option.type = "button";
-            option.textContent = category;
-            option.title = category;
-            option.dataset.category = category;
-            option.dataset.pinned = String(isPinned);
-            applyLibraryTabRoleStyling(option, category, getActiveLibraryTab() === category);
-            armCategoryPill(option, category, isPinned);
-            return {
-                category,
-                color: option.style.getPropertyValue("--category-color").trim(),
-                option,
-            };
-        });
+            pill.className = `localprompt-pinned-category-pill${getActiveLibraryTab() === category ? " active" : ""}`;
+            pill.type = "button";
+            pill.textContent = category;
+            pill.title = category;
+            pill.dataset.category = category;
+            pill.dataset.pinned = String(isPinned);
+            applyLibraryTabRoleStyling(pill, category, getActiveLibraryTab() === category);
+            armCategoryPill(pill, category, isPinned);
+            return pill;
+        }
+
+        // Header controls (sticky container)
+        const header = document.createElement("div");
+        header.className = "localprompt-category-overflow-header";
+
+        const headerTop = document.createElement("div");
+        headerTop.className = "localprompt-category-header-top";
 
         const searchRow = document.createElement("label");
         searchRow.className = "localprompt-category-search-row";
@@ -447,37 +250,212 @@ export function createPromptCategoryStripController({
         searchInput.spellcheck = false;
         searchInput.value = categorySearchQuery;
         searchRow.append(searchLabel, searchInput);
-        chipsContainer.appendChild(searchRow);
 
-        const groupsContainer = document.createElement("div");
-        groupsContainer.className = "localprompt-category-groups";
-        const groups = groupCategoryEntriesByColor(categoryEntries);
-        groups.forEach(group => {
-            const section = document.createElement("section");
-            section.className = "localprompt-category-group";
-            section.dataset.categoryFamily = group.key;
-            section.style.setProperty("--category-group-color", group.color || "#8295a3");
+        const modeToggle = document.createElement("div");
+        modeToggle.className = "localprompt-category-mode-toggle";
+        modeToggle.setAttribute("role", "tablist");
+        modeToggle.setAttribute("aria-label", "Category grouping mode");
 
-            const heading = document.createElement("div");
-            heading.className = "localprompt-category-group-heading";
-            const title = document.createElement("h3");
-            title.className = "localprompt-category-group-title";
-            title.id = `${uniqueId}-category-group-${group.key}`;
-            title.textContent = group.label;
-            section.setAttribute("aria-labelledby", title.id);
-            const count = document.createElement("span");
-            count.className = "localprompt-category-group-count";
-            count.textContent = String(group.entries.length);
-            count.setAttribute("aria-label", `${group.entries.length} categories`);
-            heading.append(title, count);
+        const alphaBtn = document.createElement("button");
+        alphaBtn.type = "button";
+        alphaBtn.className = `localprompt-category-mode-btn${currentMode === "alpha" ? " active" : ""}`;
+        alphaBtn.dataset.mode = "alpha";
+        alphaBtn.textContent = "A–Z";
+        alphaBtn.title = "Alphabetical grouping (A–Z)";
 
-            const items = document.createElement("div");
-            items.className = "localprompt-category-group-items";
-            group.entries.forEach(entry => items.appendChild(entry.option));
-            section.append(heading, items);
-            groupsContainer.appendChild(section);
-        });
-        chipsContainer.appendChild(groupsContainer);
+        const colorBtn = document.createElement("button");
+        colorBtn.type = "button";
+        colorBtn.className = `localprompt-category-mode-btn${currentMode === "color" ? " active" : ""}`;
+        colorBtn.dataset.mode = "color";
+        colorBtn.textContent = "Color";
+        colorBtn.title = "Grouping by category color/role";
+
+        modeToggle.append(alphaBtn, colorBtn);
+        headerTop.append(searchRow, modeToggle);
+        header.appendChild(headerTop);
+
+        const jumpStrip = document.createElement("div");
+        jumpStrip.className = "localprompt-category-jump-strip";
+        jumpStrip.setAttribute("role", "toolbar");
+        jumpStrip.setAttribute("aria-label", "Jump to section");
+        header.appendChild(jumpStrip);
+        chipsContainer.appendChild(header);
+
+        const sectionsContainer = document.createElement("div");
+        sectionsContainer.className = "localprompt-category-sections-container";
+
+        function scrollToCategorySection(targetSection) {
+            if (!targetSection || !overflowContainer) return;
+            const containerRect = overflowContainer.getBoundingClientRect ? overflowContainer.getBoundingClientRect() : { top: 0 };
+            const sectionRect = targetSection.getBoundingClientRect ? targetSection.getBoundingClientRect() : { top: 0 };
+            const headerRect = header && header.getBoundingClientRect ? header.getBoundingClientRect() : null;
+            const headerBottom = headerRect ? headerRect.bottom : containerRect.top;
+            const offset = sectionRect.top - headerBottom;
+            const targetScrollTop = Math.max(0, (overflowContainer.scrollTop || 0) + offset);
+            if (typeof overflowContainer.scrollTo === "function") {
+                overflowContainer.scrollTo({
+                    top: targetScrollTop,
+                    behavior: "smooth",
+                });
+            } else {
+                overflowContainer.scrollTop = targetScrollTop;
+            }
+            if (typeof targetSection.scrollIntoView === "function") {
+                targetSection.scrollIntoViewCalled = true;
+            }
+        }
+
+        if (currentMode === "alpha") {
+            const sorted = [...hiddenCategories].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+            const alphaGroups = new Map();
+            for (const cat of sorted) {
+                const first = (cat.trim()[0] || "").toUpperCase();
+                const key = (first >= "A" && first <= "Z") ? first : "#";
+                if (!alphaGroups.has(key)) alphaGroups.set(key, []);
+                alphaGroups.get(key).push(cat);
+            }
+
+            ALL_ALPHABET_KEYS.forEach(letter => {
+                const hasItems = alphaGroups.has(letter) && alphaGroups.get(letter).length > 0;
+                const jumpItem = document.createElement("button");
+                jumpItem.type = "button";
+                jumpItem.className = `localprompt-category-jump-item${hasItems ? "" : " disabled"}`;
+                jumpItem.textContent = letter;
+                jumpItem.dataset.jumpKey = letter;
+                jumpItem.title = hasItems ? `Jump to '${letter}'` : `No categories under '${letter}'`;
+                if (!hasItems) {
+                    jumpItem.setAttribute("aria-disabled", "true");
+                    jumpItem.tabIndex = -1;
+                }
+                jumpItem.addEventListener("click", () => {
+                    const section = sectionsContainer.querySelector(`.localprompt-category-section[data-section-key="${letter}"]`);
+                    if (section) {
+                        scrollToCategorySection(section);
+                    }
+                });
+                jumpStrip.appendChild(jumpItem);
+            });
+
+            ALL_ALPHABET_KEYS.filter(l => alphaGroups.has(l) && alphaGroups.get(l).length > 0).forEach(letter => {
+                const items = alphaGroups.get(letter);
+                const section = document.createElement("div");
+                section.className = "localprompt-category-section";
+                section.dataset.sectionKey = letter;
+
+                const sectionHeader = document.createElement("div");
+                sectionHeader.className = "localprompt-category-section-header";
+
+                const titleSpan = document.createElement("span");
+                titleSpan.className = "localprompt-category-section-title";
+                titleSpan.textContent = letter;
+
+                const countSpan = document.createElement("span");
+                countSpan.className = "localprompt-category-section-count";
+                countSpan.textContent = String(items.length);
+
+                sectionHeader.append(titleSpan, countSpan);
+                section.appendChild(sectionHeader);
+
+                const grid = document.createElement("div");
+                grid.className = "localprompt-category-overflow-grid";
+                items.forEach(category => {
+                    grid.appendChild(createPill(category));
+                });
+                section.appendChild(grid);
+                sectionsContainer.appendChild(section);
+            });
+        } else {
+            // Color mode
+            const colorBuckets = new Map();
+            for (const cat of hiddenCategories) {
+                const rawColor = resolveRoleColor(cat);
+                const colorHex = rawColor ? rawColor.toLowerCase() : null;
+                const key = colorHex || "unassigned";
+                if (!colorBuckets.has(key)) {
+                    colorBuckets.set(key, {
+                        colorHex,
+                        categories: [],
+                    });
+                }
+                colorBuckets.get(key).categories.push(cat);
+            }
+
+            for (const bucket of colorBuckets.values()) {
+                bucket.categories.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+            }
+
+            const colorKeys = Array.from(colorBuckets.keys()).sort((a, b) => {
+                if (a === "unassigned") return 1;
+                if (b === "unassigned") return -1;
+                const idxA = PRESET_COLOR_ORDER.indexOf(a);
+                const idxB = PRESET_COLOR_ORDER.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            colorKeys.forEach(key => {
+                const bucket = colorBuckets.get(key);
+                const jumpItem = document.createElement("button");
+                jumpItem.type = "button";
+                jumpItem.className = "localprompt-category-jump-item color-swatch";
+                jumpItem.dataset.jumpKey = key;
+                if (bucket.colorHex) {
+                    jumpItem.style.setProperty("--jump-color", bucket.colorHex);
+                    jumpItem.style.backgroundColor = bucket.colorHex;
+                    jumpItem.title = `Jump to ${bucket.colorHex.toUpperCase()} (${bucket.categories.length})`;
+                } else {
+                    jumpItem.title = `Jump to Other / Uncategorized (${bucket.categories.length})`;
+                    jumpItem.textContent = "•";
+                }
+                jumpItem.addEventListener("click", () => {
+                    const section = sectionsContainer.querySelector(`.localprompt-category-section[data-section-key="${key}"]`);
+                    if (section) {
+                        scrollToCategorySection(section);
+                    }
+                });
+                jumpStrip.appendChild(jumpItem);
+            });
+
+            colorKeys.forEach(key => {
+                const bucket = colorBuckets.get(key);
+                const section = document.createElement("div");
+                section.className = "localprompt-category-section";
+                section.dataset.sectionKey = key;
+
+                const sectionHeader = document.createElement("div");
+                sectionHeader.className = "localprompt-category-section-header";
+
+                const titleSpan = document.createElement("span");
+                titleSpan.className = "localprompt-category-section-title";
+                if (bucket.colorHex) {
+                    const dot = document.createElement("span");
+                    dot.className = "localprompt-category-section-color-dot";
+                    dot.style.backgroundColor = bucket.colorHex;
+                    titleSpan.appendChild(dot);
+                }
+                const labelText = document.createTextNode(bucket.colorHex ? bucket.colorHex.toUpperCase() : "Other / Uncategorized");
+                titleSpan.appendChild(labelText);
+
+                const countSpan = document.createElement("span");
+                countSpan.className = "localprompt-category-section-count";
+                countSpan.textContent = String(bucket.categories.length);
+
+                sectionHeader.append(titleSpan, countSpan);
+                section.appendChild(sectionHeader);
+
+                const grid = document.createElement("div");
+                grid.className = "localprompt-category-overflow-grid";
+                bucket.categories.forEach(category => {
+                    grid.appendChild(createPill(category));
+                });
+                section.appendChild(grid);
+                sectionsContainer.appendChild(section);
+            });
+        }
+
+        chipsContainer.appendChild(sectionsContainer);
 
         const emptyState = document.createElement("div");
         emptyState.className = "localprompt-category-search-empty";
@@ -488,19 +466,40 @@ export function createPromptCategoryStripController({
 
         const applySearch = () => {
             const query = categorySearchQuery.trim().toLocaleLowerCase();
-            let visibleCount = 0;
-            groupsContainer.querySelectorAll(".localprompt-category-group").forEach(section => {
-                let groupVisibleCount = 0;
-                section.querySelectorAll(".localprompt-pinned-category-pill").forEach(option => {
-                    const matches = !query || option.dataset.category.toLocaleLowerCase().includes(query);
-                    option.hidden = !matches;
-                    if (matches) groupVisibleCount += 1;
+            let totalVisible = 0;
+
+            sectionsContainer.querySelectorAll(".localprompt-category-section").forEach(section => {
+                const sectionKey = section.dataset.sectionKey;
+                let visibleInSection = 0;
+                section.querySelectorAll(".localprompt-pinned-category-pill").forEach(pill => {
+                    const matches = !query || pill.dataset.category.toLocaleLowerCase().includes(query);
+                    pill.hidden = !matches;
+                    if (matches) visibleInSection += 1;
                 });
-                section.hidden = groupVisibleCount === 0;
-                visibleCount += groupVisibleCount;
+
+                section.hidden = visibleInSection === 0;
+                const countBadge = section.querySelector(".localprompt-category-section-count");
+                if (countBadge) countBadge.textContent = String(visibleInSection);
+
+                if (visibleInSection > 0) totalVisible += visibleInSection;
+
+                const jumpBtn = jumpStrip.querySelector(`.localprompt-category-jump-item[data-jump-key="${sectionKey}"]`);
+                if (jumpBtn) {
+                    const hasMatches = visibleInSection > 0;
+                    jumpBtn.classList.toggle("disabled", !hasMatches);
+                    if (hasMatches) {
+                        jumpBtn.removeAttribute("aria-disabled");
+                        jumpBtn.tabIndex = 0;
+                    } else {
+                        jumpBtn.setAttribute("aria-disabled", "true");
+                        jumpBtn.tabIndex = -1;
+                    }
+                }
             });
-            emptyState.hidden = visibleCount !== 0;
+
+            emptyState.hidden = totalVisible !== 0;
         };
+
         searchInput.addEventListener("input", () => {
             categorySearchQuery = searchInput.value;
             applySearch();
@@ -509,6 +508,39 @@ export function createPromptCategoryStripController({
             categorySearchQuery = searchInput.value;
             applySearch();
         });
+        searchInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                const firstPill = chipsContainer.querySelector(".localprompt-pinned-category-pill:not([hidden])");
+                if (firstPill && firstPill.dataset.category) {
+                    openCategoryFromMenu(firstPill.dataset.category);
+                }
+            } else if (event.key === "Escape") {
+                if (searchInput.value) {
+                    event.preventDefault();
+                    searchInput.value = "";
+                    categorySearchQuery = "";
+                    applySearch();
+                } else {
+                    setCategoryOverflowOpen(false);
+                    overflowContainer.classList.remove("open");
+                    if (moreBtn) moreBtn.setAttribute("aria-expanded", "false");
+                }
+            }
+        });
+
+        alphaBtn.addEventListener("click", async () => {
+            if (currentMode === "alpha") return;
+            await persistGroupingMode("alpha");
+            await renderCategoryOverflowCategories(generation);
+        });
+
+        colorBtn.addEventListener("click", async () => {
+            if (currentMode === "color") return;
+            await persistGroupingMode("color");
+            await renderCategoryOverflowCategories(generation);
+        });
+
         applySearch();
     }
 
@@ -521,7 +553,6 @@ export function createPromptCategoryStripController({
         renderGeneration += 1;
         openGeneration += 1;
         clearLongPressTimers();
-        disposeOverflowResize();
     }
 
     return {

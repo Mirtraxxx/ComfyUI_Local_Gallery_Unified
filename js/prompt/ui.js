@@ -871,6 +871,8 @@ const UnifiedPromptGalleryNode = {
             hoverPreview.className = 'localprompt-hover-preview';
             document.body.appendChild(hoverPreview);
             let toolbarOutsideClickHandler = null;
+            let toolbarOutsidePointerDownHandler = null;
+            let removeToolbarOutsidePointerDownHandler = null;
             let activeCategoryContextMenu = null;
             let categoryDragState = null;
             let suppressCategoryClickUntil = 0;
@@ -884,6 +886,8 @@ const UnifiedPromptGalleryNode = {
             const globalKeydownHandler = (event) => {
                 if (event.key === "Escape") {
                     closeCategoryContextMenu();
+                    closeToolbarPanels();
+                    closeDisplayOptionsPopover();
                     if (categoryDragState) {
                         categoryDragState.pill.classList.remove("pinned-dragging");
                         categoryDragState.pill.releasePointerCapture?.(categoryDragState.pointerId);
@@ -1023,6 +1027,10 @@ const UnifiedPromptGalleryNode = {
                     document.removeEventListener("click", toolbarOutsideClickHandler);
                     toolbarOutsideClickHandler = null;
                 }
+                if (toolbarOutsidePointerDownHandler) {
+                    removeToolbarOutsidePointerDownHandler();
+                    toolbarOutsidePointerDownHandler = null;
+                }
                 if (queuedLibraryDrawerTimer) {
                     clearTimeout(queuedLibraryDrawerTimer);
                     queuedLibraryDrawerTimer = null;
@@ -1088,9 +1096,9 @@ const UnifiedPromptGalleryNode = {
                 if (overflow && overflow !== exceptPanel) {
                     categoryOverflowOpen = false;
                     overflow.classList.remove("open");
-                    const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
-                    if (pullTab) {
-                        pullTab.setAttribute("aria-expanded", "false");
+                    const moreBtn = widgetContainer.querySelector(`#${uniqueId}-category-more-btn`);
+                    if (moreBtn) {
+                        moreBtn.setAttribute("aria-expanded", "false");
                     }
                 }
                 syncAutoHideToolbarState();
@@ -1485,16 +1493,6 @@ const UnifiedPromptGalleryNode = {
                 setActiveLibraryTab: value => { activeLibraryTab = value; },
                 getCategoryOverflowOpen: () => categoryOverflowOpen,
                 setCategoryOverflowOpen: value => { categoryOverflowOpen = !!value; },
-                getCategoryOverflowHeight: () => node_instance.uiPrefs?.category_overflow_height,
-                persistCategoryOverflowHeight: height => {
-                    const nextHeight = Math.round(Number(height));
-                    if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
-                    if (node_instance.uiPrefs.category_overflow_height === nextHeight) return;
-                    node_instance.uiPrefs.category_overflow_height = nextHeight;
-                    UnifiedPromptGalleryNode.saveUiPrefs(node_instance.uiPrefs, node_instance).catch(error => {
-                        console.warn("LocalPromptGallery: Failed to save category overflow height", error);
-                    });
-                },
                 getSuppressCategoryClickUntil: () => suppressCategoryClickUntil,
                 setSuppressCategoryClickUntil: value => { suppressCategoryClickUntil = value; },
                 setCategoryDragState: value => { categoryDragState = value; },
@@ -1507,6 +1505,13 @@ const UnifiedPromptGalleryNode = {
                 syncPromptSortControls,
                 syncSelectedSectionVisibility,
                 closeToolbarPanels,
+                getCategoryOverflowGrouping: () => node_instance.uiPrefs?.category_overflow_grouping || "alpha",
+                setCategoryOverflowGrouping: async (mode) => {
+                    if (!node_instance.uiPrefs) node_instance.uiPrefs = {};
+                    node_instance.uiPrefs.category_overflow_grouping = mode;
+                    await saveUiPrefs();
+                },
+                getCategoryRoleColor,
             });
 
             let activeStackController = null;
@@ -2996,9 +3001,9 @@ const UnifiedPromptGalleryNode = {
 
                 // ========== NEW BUTTON HANDLERS ==========
 
-                const pullTab = widgetContainer.querySelector(`#${uniqueId}-category-pull-tab`);
-                if (pullTab) {
-                    pullTab.addEventListener("click", async (event) => {
+                const moreBtn = widgetContainer.querySelector(`#${uniqueId}-category-more-btn`);
+                if (moreBtn) {
+                    moreBtn.addEventListener("click", async (event) => {
                         event.preventDefault();
                         event.stopPropagation();
                         categoryOverflowOpen = !categoryOverflowOpen;
@@ -3040,11 +3045,62 @@ const UnifiedPromptGalleryNode = {
                     });
                 }
 
-                toolbarOutsideClickHandler = () => {
+                const isInsideToolbarOrPopover = (event) => {
+                    const target = event?.target;
+                    if (target instanceof Node) {
+                        if (
+                            target.closest?.(`#${uniqueId}-category-overflow`)
+                            || target.closest?.(`#${uniqueId}-category-more-btn`)
+                            || target.closest?.(`#${uniqueId}-meta-tags-panel`)
+                            || target.closest?.(`#${uniqueId}-meta-tags-btn`)
+                            || target.closest?.(`#${uniqueId}-size-controls`)
+                            || target.closest?.(`#${uniqueId}-size-toggle-btn`)
+                            || target.closest?.(".localprompt-dropdown-panel")
+                            || target.closest?.(".localprompt-display-options-popover")
+                            || target.closest?.(".localprompt-category-ctx-menu")
+                        ) {
+                            return true;
+                        }
+                    }
+                    const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+                    for (const el of path) {
+                        if (el instanceof Element) {
+                            if (
+                                el.id === `${uniqueId}-category-overflow`
+                                || el.id === `${uniqueId}-category-more-btn`
+                                || el.id === `${uniqueId}-meta-tags-panel`
+                                || el.id === `${uniqueId}-meta-tags-btn`
+                                || el.id === `${uniqueId}-size-controls`
+                                || el.id === `${uniqueId}-size-toggle-btn`
+                                || el.classList?.contains("localprompt-dropdown-panel")
+                                || el.classList?.contains("localprompt-display-options-popover")
+                                || el.classList?.contains("localprompt-category-ctx-menu")
+                            ) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                };
+
+                toolbarOutsideClickHandler = (event) => {
+                    if (isInsideToolbarOrPopover(event)) return;
                     closeToolbarPanels();
                     closeDisplayOptionsPopover();
                 };
                 document.addEventListener("click", toolbarOutsideClickHandler);
+
+                toolbarOutsidePointerDownHandler = (event) => {
+                    if (isInsideToolbarOrPopover(event)) return;
+                    closeToolbarPanels();
+                    closeDisplayOptionsPopover();
+                };
+                document.addEventListener("pointerdown", toolbarOutsidePointerDownHandler, { capture: true });
+
+                removeToolbarOutsidePointerDownHandler = () => {
+                    document.removeEventListener("pointerdown", toolbarOutsidePointerDownHandler, true);
+                };
+
 
                 bindAddMetaTagButton();
 

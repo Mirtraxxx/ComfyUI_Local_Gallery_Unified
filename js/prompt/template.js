@@ -24,6 +24,13 @@ export function getPromptTemplate(uniqueId) {
                                     <div class="localprompt-pinned-first-row" id="${uniqueId}-pinned-first-row">
                                         <div class="localprompt-pinned-category-wrapper" id="${uniqueId}-pinned-category-wrapper">
                                             <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
+                                            <button class="localprompt-pinned-category-pill localprompt-category-more-btn" id="${uniqueId}-category-more-btn" type="button" hidden
+                                                aria-expanded="false" aria-controls="${uniqueId}-category-overflow"
+                                                title="Show all categories" aria-label="Show all categories">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                            </button>
                                         </div>
                                         <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
                                             <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Hidden Prompts" aria-label="Hidden Prompts">
@@ -50,9 +57,6 @@ export function getPromptTemplate(uniqueId) {
                                         <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
                                             <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
                                         </div>
-                                        <button class="localprompt-category-pull-tab" id="${uniqueId}-category-pull-tab" type="button" aria-expanded="false" aria-controls="${uniqueId}-category-overflow" aria-label="Show all categories" title="Show all categories. Drag when open to resize.">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                        </button>
                                     </div>
                                 </div>
                                 <select id="${uniqueId}-category-select" style="display: none;"><option value="">All Categories</option></select>
