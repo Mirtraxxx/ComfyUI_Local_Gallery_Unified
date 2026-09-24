@@ -13,8 +13,9 @@ function ensureSwitchStyles() {
             right: 8px;
             z-index: 220;
             display: inline-flex;
+            flex-direction: column;
+            gap: 7px;
             align-items: center;
-            justify-content: center;
             width: 31px;
             height: 68px;
             min-width: 31px;
@@ -33,8 +34,6 @@ function ensureSwitchStyles() {
             transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .unified-gallery-edge-switch[data-target-tab="prompt"] {
-            left: 8px;
-            right: auto;
             border-color: rgba(255, 179, 111, 0.44);
             background:
                 linear-gradient(180deg, rgba(255, 164, 86, 0.24), rgba(229, 98, 188, 0.12)),
@@ -50,21 +49,24 @@ function ensureSwitchStyles() {
         .unified-gallery-edge-switch[data-target-tab="prompt"]:hover {
             border-color: rgba(255, 211, 163, 0.82);
             box-shadow: 0 10px 28px rgba(255, 137, 75, 0.20), inset 0 1px 0 rgba(255,255,255,0.18);
-            transform: translateY(-50%) translateX(2px) scale(1.04);
         }
         .unified-gallery-edge-switch:focus-visible {
             outline: 2px solid rgba(113, 237, 150, 0.72);
             outline-offset: 2px;
         }
         .unified-gallery-edge-switch svg {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             fill: none;
             stroke: currentColor;
             stroke-width: 1.8;
             stroke-linecap: round;
             stroke-linejoin: round;
             pointer-events: none;
+        }
+        .unified-gallery-edge-switch .unified-gallery-switch-icon {
+            width: 16px;
+            height: 16px;
         }
         .unified-gallery-edge-switch::after {
             content: attr(data-target-label);
@@ -88,27 +90,11 @@ function ensureSwitchStyles() {
             opacity: 1;
             transform: translate(0, -50%);
         }
-        .unified-gallery-edge-switch[data-target-tab="prompt"]::after {
-            left: calc(100% + 8px);
-            right: auto;
-            transform: translate(3px, -50%);
-        }
-        .unified-gallery-edge-switch[data-target-tab="prompt"]:hover::after,
-        .unified-gallery-edge-switch[data-target-tab="prompt"]:focus-visible::after {
-            transform: translate(0, -50%);
-        }
         .unified-gallery-edge-switch.unified-gallery-handle-arrived {
             animation: unified-gallery-handle-arrive-right 0.16s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .unified-gallery-edge-switch[data-target-tab="prompt"].unified-gallery-handle-arrived {
-            animation-name: unified-gallery-handle-arrive-left;
-        }
         @keyframes unified-gallery-handle-arrive-right {
             from { transform: translateY(-50%) translateX(7px); }
-            to { transform: translateY(-50%) translateX(0); }
-        }
-        @keyframes unified-gallery-handle-arrive-left {
-            from { transform: translateY(-50%) translateX(-7px); }
             to { transform: translateY(-50%) translateX(0); }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -135,8 +121,10 @@ function createGallerySwitchButton({ targetTab, transitionToTab }) {
     button.title = actionLabel;
     button.setAttribute("aria-label", actionLabel);
     button.innerHTML = targetTab === "lora"
-        ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"></path><path d="m13 6 6 6-6 6"></path></svg>`
-        : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6"></path><path d="m11 6-6 6 6 6"></path></svg>`;
+        ? `<svg class="unified-gallery-switch-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>`
+          + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"></path><path d="m13 6 6 6-6 6"></path></svg>`
+        : `<svg class="unified-gallery-switch-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h12"></path><path d="M4 18h15"></path></svg>`
+          + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6"></path><path d="m11 6-6 6 6 6"></path></svg>`;
     button.addEventListener("click", () => transitionToTab(targetTab, button));
     return button;
 }
