@@ -684,7 +684,9 @@ function downloadTextFile(content, filename) {
     anchor.href = url;
     anchor.download = filename;
     anchor.click();
-    URL.revokeObjectURL(url);
+    // The download starts asynchronously; revoking in the same turn can
+    // abort it. Give the browser a beat before releasing the URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function updateWildcardTokenPreview(dialog, filenameValue) {

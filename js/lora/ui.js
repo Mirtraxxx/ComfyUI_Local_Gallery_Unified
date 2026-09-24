@@ -1,7 +1,7 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
 import { api } from "../../../scripts/api.js";
 import * as loraApi from "../api/loraApi.js";
-import { escapeHtml } from "../shared/dom.js";
+import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js";
 import { createOperationFeedback } from "../shared/operationFeedback.js?v=operation-feedback-20260809-3";
 import { createEventListenerRegistry } from "../shared/events.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
@@ -868,20 +868,37 @@ const UnifiedLoraGalleryNode = {
             };
 
             const rememberedStrengthTimers = new Map();
+            const saveRememberedWeight = (loraName) => {
+                // Read the live selection at fire time so a removed or replaced LoRA never
+                // writes a detached object's weights onto the current row with that name.
+                const item = this.loraData.find(entry => entry.lora === loraName);
+                if (!item || !getLoraMetadataByName(loraName)?.remember_strength) return;
+                const payload = {
+                    saved_strength: item.strength ?? 1,
+                    saved_strength_clip: item.strength_clip ?? item.strength ?? 1,
+                };
+                UnifiedLoraGalleryNode.updateMetadata(loraName, payload)
+                    .then(() => updateCachedLoraMetadata(loraName, payload))
+                    .catch(error => {
+                        console.error("LocalLoraGallery: Failed to save remembered strength:", error);
+                        operationFeedback.error(error?.message || "Could not save remembered strength");
+                    });
+            };
             const persistRememberedWeight = (item) => {
                 if (!getLoraMetadataByName(item.lora)?.remember_strength) return;
                 const loraName = item.lora;
                 clearTimeout(rememberedStrengthTimers.get(loraName));
                 rememberedStrengthTimers.set(loraName, setTimeout(() => {
                     rememberedStrengthTimers.delete(loraName);
-                    const payload = {
-                        saved_strength: item.strength ?? 1,
-                        saved_strength_clip: item.strength_clip ?? item.strength ?? 1,
-                    };
-                    UnifiedLoraGalleryNode.updateMetadata(loraName, payload)
-                        .then(() => updateCachedLoraMetadata(loraName, payload))
-                        .catch(() => {});
+                    saveRememberedWeight(loraName);
                 }, 500));
+            };
+            const flushRememberedStrengthTimers = () => {
+                if (!rememberedStrengthTimers.size) return;
+                rememberedStrengthTimers.forEach(timer => clearTimeout(timer));
+                const pendingNames = [...rememberedStrengthTimers.keys()];
+                rememberedStrengthTimers.clear();
+                pendingNames.forEach(saveRememberedWeight);
             };
             
             const activeStackController = createLoraActiveStackController({
@@ -1033,8 +1050,26 @@ const UnifiedLoraGalleryNode = {
                 reconcileNameSearch();
             };
 
+            let lastReconciledQuery = "";
+            let nameSearchFillGeneration = 0;
+            const fillNameSearchResults = async (generation) => {
+                // A query can hide most of the first page, so keep loading pages until the
+                // viewport overflows or the catalog is exhausted; scroll-driven loading alone
+                // would never fire while the filtered list is shorter than the viewport.
+                let fetched = await fetchAndRender(false);
+                while (fetched && generation === nameSearchFillGeneration
+                    && this.currentPage < this.totalPages
+                    && galleryEl.scrollHeight <= galleryEl.clientHeight + 400) {
+                    fetched = await fetchAndRender(true);
+                }
+            };
             const reconcileNameSearch = () => {
                 const query = searchInput.value.trim().toLowerCase();
+                if (query !== lastReconciledQuery) {
+                    lastReconciledQuery = query;
+                    nameSearchFillGeneration += 1;
+                    void fillNameSearchResults(nameSearchFillGeneration);
+                }
                 galleryEl.querySelectorAll(".locallora-lora-card").forEach(card => {
                     card.hidden = Boolean(query && !card.dataset.loraName.toLowerCase().includes(query));
                 });
@@ -1284,7 +1319,7 @@ const UnifiedLoraGalleryNode = {
                 }
             };
 
-            const { getEditingLorasData, renderMetadataEditor } = createLoraMetadataController({
+            const { getEditingLorasData, renderMetadataEditor, commitStrengthMemoryEdits } = createLoraMetadataController({
                 nodeInstance: this,
                 metadataEditor,
                 selectedCountEl,
@@ -1395,7 +1430,9 @@ const UnifiedLoraGalleryNode = {
                 await Promise.all([loadPresets(), fetchAndRender()]);
 
                 let needs_refetch = false;
-                if (initialState.filter_folder && folderFilterSelect.querySelector(`option[value="${initialState.filter_folder}"]`)) {
+                const savedFolderOption = Array.from(folderFilterSelect.options)
+                    .find(option => option.value === initialState.filter_folder);
+                if (initialState.filter_folder && savedFolderOption) {
                     if (folderFilterSelect.value !== initialState.filter_folder) {
                         folderFilterSelect.value = initialState.filter_folder;
                         renderFolderPills();
@@ -1467,6 +1504,9 @@ const UnifiedLoraGalleryNode = {
                 globalListeners.listen(document, "pointerdown", (event) => {
                     if (!metadataEditor.classList.contains("visible")) return;
                     if (metadataEditor.contains(event.target)) return;
+                    // Commit typed strength-memory values before the editing selection is
+                    // cleared; a number input's change event fires after pointerdown.
+                    void commitStrengthMemoryEdits();
                     if (event.target.closest?.(`#${uniqueId} .edit-tags-btn, #${uniqueId} .lora-active-preview-btn`)) return;
                     clearMetadataEditing();
                 });
@@ -1522,8 +1562,9 @@ const UnifiedLoraGalleryNode = {
                             const card = findGalleryCardByLoraName(loraName);
                             if (card) {
                                 card.dataset.downloadUrl = newUrl;
+                                const safeUrl = sanitizeHttpUrl(newUrl);
                                 let linkBtn = card.querySelector('.lora-card-link-btn');
-                                if (newUrl) {
+                                if (safeUrl) {
                                     if (!linkBtn) {
                                         linkBtn = document.createElement('a');
                                         linkBtn.className = 'card-btn lora-card-link-btn';
@@ -1531,10 +1572,11 @@ const UnifiedLoraGalleryNode = {
                                         linkBtn.setAttribute('aria-label', 'Open download page');
                                         linkBtn.innerHTML = loraIconSvg.link;
                                         linkBtn.target = '_blank';
+                                        linkBtn.rel = 'noopener noreferrer';
                                         linkBtn.addEventListener("click", (event) => event.stopPropagation());
                                         card.prepend(linkBtn);
                                     }
-                                    linkBtn.href = newUrl;
+                                    linkBtn.href = safeUrl;
                                 } else if (linkBtn) {
                                     linkBtn.remove();
                                 }
@@ -1932,9 +1974,8 @@ const UnifiedLoraGalleryNode = {
                     });
                     folderController.cancelDrag();
                     activeStackController.dispose();
+                    flushRememberedStrengthTimers();
                     operationFeedback.dispose();
-                    rememberedStrengthTimers.forEach(timer => clearTimeout(timer));
-                    rememberedStrengthTimers.clear();
                     closeLoraFolderContextMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };

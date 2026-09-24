@@ -9,7 +9,7 @@ import {
     ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX,
     ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
 } from "../js/prompt/constants.js";
-import { getActiveSidebarWidth, getActiveSidebarWidthBounds } from "../js/prompt/helpers.js";
+import { clampActiveSidebarWidth, getActiveSidebarWidth, getActiveSidebarWidthBounds } from "../js/prompt/helpers.js";
 import { getPromptStyles } from "../js/prompt/styles.js";
 
 const CLAMP_PATTERN =
@@ -57,7 +57,7 @@ test("drag bounds never exceed the width CSS is able to paint", () => {
     assert.equal(large.maxWidth, ACTIVE_SIDEBAR_WIDTH_LARGE_MAX);
 });
 
-test("a stored sidebar width is clamped into the painted range for its mode", () => {
+test("a stored sidebar width survives mode switches and clamps only when painted", () => {
     const compactPrefs = {
         active_display_mode: "compact",
         active_card_size_mode: "default",
@@ -67,13 +67,22 @@ test("a stored sidebar width is clamped into the painted range for its mode", ()
         active_card_size_mode: "large",
     };
 
-    // Values saved while the sidebar was in the other mode must not leak past
-    // the clamp that CSS applies for the current mode.
-    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 900 }, compactPrefs), ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX);
-    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 120 }, compactPrefs), ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN);
-    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 420 }, compactPrefs), 420);
-    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 400 }, largePrefs), ACTIVE_SIDEBAR_WIDTH_LARGE_MIN);
-    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 1200 }, largePrefs), ACTIVE_SIDEBAR_WIDTH_LARGE_MAX);
+    // The getter returns the raw stored width so a large-mode width survives a
+    // compact-mode load; painting clamps it into the current mode's range.
+    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 900 }, compactPrefs), 900);
+    assert.equal(getActiveSidebarWidth({ active_sidebar_width: 120 }, compactPrefs), 120);
+    assert.equal(
+        clampActiveSidebarWidth(900, getActiveSidebarWidthBounds(1400, 1400, {}, compactPrefs)),
+        ACTIVE_SIDEBAR_WIDTH_NORMAL_MAX,
+    );
+    assert.equal(
+        clampActiveSidebarWidth(120, getActiveSidebarWidthBounds(1400, 1400, {}, compactPrefs)),
+        ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
+    );
+    assert.equal(
+        clampActiveSidebarWidth(400, getActiveSidebarWidthBounds(1400, 1400, {}, largePrefs)),
+        ACTIVE_SIDEBAR_WIDTH_LARGE_MIN,
+    );
 });
 
 test("an unset sidebar width falls back to the mode default", () => {

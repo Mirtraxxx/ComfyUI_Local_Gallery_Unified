@@ -300,22 +300,28 @@ export function createPromptCategoryStripController({
             } else {
                 overflowContainer.scrollTop = targetScrollTop;
             }
-            if (typeof targetSection.scrollIntoView === "function") {
-                targetSection.scrollIntoViewCalled = true;
-            }
         }
 
         if (currentMode === "alpha") {
             const sorted = [...hiddenCategories].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
             const alphaGroups = new Map();
             for (const cat of sorted) {
-                const first = (cat.trim()[0] || "").toUpperCase();
-                const key = (first >= "A" && first <= "Z") ? first : "#";
+                // Bucket on Unicode letters so accented and non-Latin names
+                // get their own section instead of all landing in "#".
+                const first = cat.trim()[0] || "";
+                const key = /^\p{L}$/u.test(first) ? first.toUpperCase() : "#";
                 if (!alphaGroups.has(key)) alphaGroups.set(key, []);
                 alphaGroups.get(key).push(cat);
             }
 
-            ALL_ALPHABET_KEYS.forEach(letter => {
+            // Jump keys: the fixed A-Z/# strip plus any non-ASCII letter
+            // groups that exist.
+            const jumpKeys = [...ALL_ALPHABET_KEYS];
+            for (const key of alphaGroups.keys()) {
+                if (!jumpKeys.includes(key)) jumpKeys.push(key);
+            }
+
+            jumpKeys.forEach(letter => {
                 const hasItems = alphaGroups.has(letter) && alphaGroups.get(letter).length > 0;
                 const jumpItem = document.createElement("button");
                 jumpItem.type = "button";
@@ -336,7 +342,7 @@ export function createPromptCategoryStripController({
                 jumpStrip.appendChild(jumpItem);
             });
 
-            ALL_ALPHABET_KEYS.filter(l => alphaGroups.has(l) && alphaGroups.get(l).length > 0).forEach(letter => {
+            jumpKeys.filter(l => alphaGroups.has(l) && alphaGroups.get(l).length > 0).forEach(letter => {
                 const items = alphaGroups.get(letter);
                 const section = document.createElement("div");
                 section.className = "localprompt-category-section";
@@ -516,6 +522,9 @@ export function createPromptCategoryStripController({
                     openCategoryFromMenu(firstPill.dataset.category);
                 }
             } else if (event.key === "Escape") {
+                // The field handled Escape; keep the document-level handler
+                // from closing the whole toolbar panel.
+                event.stopPropagation();
                 if (searchInput.value) {
                     event.preventDefault();
                     searchInput.value = "";

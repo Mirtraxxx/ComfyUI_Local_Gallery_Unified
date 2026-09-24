@@ -185,7 +185,17 @@ export function createDisplayPreferencesController({
         const contrastClasses = ["contrast-off", "contrast-dim-inactive", "contrast-dim-by-default"];
         contrastClasses.forEach(cls => widgetContainer.classList.remove(cls));
         widgetContainer.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
-        document.querySelectorAll(".localprompt-modal-overlay, .localprompt-workspace-panel").forEach(modal => {
+        // Restyle only this node's own surfaces. A document-wide query
+        // would restyle other nodes' open dialogs, and a node loading
+        // later would overwrite the class on them.
+        const owned = `[data-card-manager-owner="${uniqueId}"]`;
+        const surfaces = [
+            ...widgetContainer.querySelectorAll(".localprompt-modal-overlay, .localprompt-workspace-panel"),
+            ...document.body.querySelectorAll(
+                `.localprompt-modal-overlay${owned}, .localprompt-workspace-panel${owned}, ${owned} .localprompt-modal-overlay, ${owned} .localprompt-workspace-panel`
+            ),
+        ];
+        surfaces.forEach(modal => {
             contrastClasses.forEach(cls => modal.classList.remove(cls));
             modal.classList.add(`contrast-${mode.replace(/_/g, "-")}`);
         });

@@ -358,8 +358,7 @@ export async function renderPromptBuilderDrawer({
         return card && container.contains(card) ? card : null;
     };
 
-    let draggedPinnedId = null;
-    let dragReordered = false;
+    let pinnedPointerDrag = null;
     let selectedPointerDrag = null;
     let pointerMoveFrame = null;
     let pendingPointerMove = null;
@@ -383,18 +382,12 @@ export async function renderPromptBuilderDrawer({
             return null;
         }
 
+        // Swap only when the pointer is directly over a card; a release over
+        // a gap cancels the reorder instead of grabbing the nearest card.
         const directTarget = cards.find(({ rect }) => {
             return dragCenterX >= rect.left && dragCenterX <= rect.right && dragCenterY >= rect.top && dragCenterY <= rect.bottom;
         });
-        if (directTarget) return directTarget.card;
-
-        return cards.reduce((nearest, { card, rect }) => {
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
-            if (!nearest || distance < nearest.distance) return { card, distance };
-            return nearest;
-        }, null)?.card || null;
+        return directTarget ? directTarget.card : null;
     };
 
     const swapSelectedPromptOrder = (fromPromptId, toPromptId) => {
@@ -497,49 +490,19 @@ export async function renderPromptBuilderDrawer({
 
         if (tabName === "pinned" && !isSelected) {
             chip.classList.add("pinned-draggable");
-            chip.draggable = true;
-            chip.dataset.promptId = promptId;
-            chip.addEventListener("dragstart", (event) => {
+            chip.addEventListener("pointerdown", event => {
+                if (event.button !== 0) return;
+                if (event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
                 event.stopPropagation();
-                draggedPinnedId = promptId;
-                dragReordered = false;
-                chip.classList.add("pinned-dragging");
-                if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("application/x-localpromptgallery-pinned", promptId);
-                }
-            });
-            chip.addEventListener("dragover", (event) => {
-                if (!draggedPinnedId || draggedPinnedId === promptId) return;
-                event.preventDefault();
-                event.stopPropagation();
-                chip.classList.add("pinned-drop-target");
-                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-            });
-            chip.addEventListener("dragleave", () => {
-                chip.classList.remove("pinned-drop-target");
-            });
-            chip.addEventListener("drop", async (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                chip.classList.remove("pinned-drop-target");
-                if (!draggedPinnedId || draggedPinnedId === promptId) return;
-
-                const nextOrder = visibleUnselectedPinnedIds.filter(id => id !== draggedPinnedId);
-                const targetIndex = nextOrder.indexOf(promptId);
-                nextOrder.splice(targetIndex, 0, draggedPinnedId);
-                const hiddenPinnedIds = getPinnedOrder().filter(id => !visibleUnselectedPinnedIds.includes(id) && id !== draggedPinnedId);
-
-                dragReordered = true;
-                await persistPinnedOrder([...nextOrder, ...hiddenPinnedIds]);
-                await rerenderLibraryDrawer(tabName);
-            });
-            chip.addEventListener("dragend", () => {
-                chip.classList.remove("pinned-dragging", "pinned-drop-target");
-                draggedPinnedId = null;
-                if (dragReordered) {
-                    nodeInstance._suppressPinnedClickUntil = Date.now() + 150;
-                }
+                pinnedPointerDrag = {
+                    chip,
+                    promptId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    active: false,
+                    pointerId: event.pointerId,
+                };
+                chip.setPointerCapture?.(event.pointerId);
             });
         }
 
@@ -625,7 +588,7 @@ export async function renderPromptBuilderDrawer({
     container.dataset.renderedTab = tabName;
     container.dataset.renderedSortMode = sortMode;
 
-    if (canPointerReorderManualCards || selectedIdStrings.size > 0) {
+    if (canPointerReorderManualCards || selectedIdStrings.size > 0 || (tabName === "pinned" && visibleUnselectedPinnedIds.length > 0)) {
         const updateSelectedPointerTarget = event => {
             clearManualDropTargets();
             const targetCard = getSelectedSwapTarget(selectedPointerDrag, event.clientX, event.clientY);
@@ -674,20 +637,22 @@ export async function renderPromptBuilderDrawer({
                 return;
             }
 
-            if (!pointerManualDrag) return;
-            const distance = Math.hypot(event.clientX - pointerManualDrag.startX, event.clientY - pointerManualDrag.startY);
-            if (!pointerManualDrag.active && distance < 8) return;
+            const cardDrag = pointerManualDrag || pinnedPointerDrag;
+            if (!cardDrag) return;
+            const distance = Math.hypot(event.clientX - cardDrag.startX, event.clientY - cardDrag.startY);
+            if (!cardDrag.active && distance < 8) return;
 
-            if (!pointerManualDrag.active) {
-                pointerManualDrag.active = true;
-                pointerManualDrag.chip.classList.add("pinned-dragging");
+            if (!cardDrag.active) {
+                cardDrag.active = true;
+                cardDrag.chip.classList.add("pinned-dragging");
                 suppressManualClickUntil = Date.now() + 200;
+                if (pinnedPointerDrag) nodeInstance._suppressPinnedClickUntil = Date.now() + 200;
             }
 
             event.preventDefault();
             event.stopPropagation();
             const targetCard = getPromptBuilderCardAtPoint(event.clientX, event.clientY);
-            if (targetCard && targetCard !== pointerManualDrag.chip) {
+            if (targetCard && targetCard !== cardDrag.chip) {
                 setManualDropTarget(targetCard);
             } else {
                 setManualDropTarget(null);
@@ -715,9 +680,11 @@ export async function renderPromptBuilderDrawer({
                 return;
             }
 
-            if (!pointerManualDrag) return;
-            const dragState = pointerManualDrag;
+            const dragState = pointerManualDrag || pinnedPointerDrag;
+            if (!dragState) return;
+            const isPinnedDrag = Boolean(pinnedPointerDrag);
             pointerManualDrag = null;
+            pinnedPointerDrag = null;
 
             dragState.chip.classList.remove("pinned-dragging");
             dragState.chip.releasePointerCapture?.(dragState.pointerId);
@@ -732,6 +699,17 @@ export async function renderPromptBuilderDrawer({
 
             if (!targetCard || targetCard === dragState.chip) {
                 clearManualDropTargets();
+                return;
+            }
+
+            if (isPinnedDrag) {
+                const nextOrder = visibleUnselectedPinnedIds.filter(id => id !== dragState.promptId);
+                const targetIndex = nextOrder.indexOf(targetCard.dataset.promptId);
+                nextOrder.splice(targetIndex, 0, dragState.promptId);
+                const hiddenPinnedIds = getPinnedOrder().filter(id => !visibleUnselectedPinnedIds.includes(id) && id !== dragState.promptId);
+                nodeInstance._suppressPinnedClickUntil = Date.now() + 250;
+                await persistPinnedOrder([...nextOrder, ...hiddenPinnedIds]);
+                await rerenderLibraryDrawer(tabName);
                 return;
             }
 
@@ -753,10 +731,12 @@ export async function renderPromptBuilderDrawer({
 
         const onPointerCancel = () => {
             clearSelectedPointerDrag();
-            if (pointerManualDrag) {
-                pointerManualDrag.chip.classList.remove("pinned-dragging");
-                pointerManualDrag.chip.releasePointerCapture?.(pointerManualDrag.pointerId);
+            if (pointerManualDrag || pinnedPointerDrag) {
+                const dragState = pointerManualDrag || pinnedPointerDrag;
+                dragState.chip.classList.remove("pinned-dragging");
+                dragState.chip.releasePointerCapture?.(dragState.pointerId);
                 pointerManualDrag = null;
+                pinnedPointerDrag = null;
             }
             clearManualDropTargets();
         };

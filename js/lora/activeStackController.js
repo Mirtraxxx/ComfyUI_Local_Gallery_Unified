@@ -334,6 +334,29 @@ export function createLoraActiveStackController({
                 updateSelection();
             });
 
+            const syncStrengthMemoryInputs = () => {
+                // A weight tick must not rebuild the details editor: that would discard
+                // unsaved trigger words / source URL text and rewrite inputs mid-edit.
+                // Only refresh the strength-memory inputs that are not focused.
+                if (!metadataEditor.classList.contains("visible")) return;
+                const editingName = nodeInstance.activeEditingLoraName || (
+                    nodeInstance.selectedLoraNamesForEditing.size === 1
+                        ? [...nodeInstance.selectedLoraNamesForEditing][0]
+                        : null
+                );
+                if (editingName !== item.lora) return;
+                const loraSource = nodeInstance.availableLoras.find(lora => lora.name === item.lora)
+                    || nodeInstance.loraData.find(entry => entry.lora === item.lora);
+                if (!loraSource?.remember_strength) return;
+                const modelInput = metadataEditor.querySelector(".strength-memory-model-input");
+                const clipInput = metadataEditor.querySelector(".strength-memory-clip-input");
+                if (modelInput && document.activeElement !== modelInput) {
+                    modelInput.value = formatLoraWeight(nodeInstance.loraData[index].strength ?? 1);
+                }
+                if (clipInput && document.activeElement !== clipInput) {
+                    clipInput.value = formatLoraWeight(nodeInstance.loraData[index].strength_clip ?? nodeInstance.loraData[index].strength ?? 1);
+                }
+            };
             const bindWeightWheel = (selector, field, min, max, getCurrentValue) => {
                 const valueElement = element.querySelector(selector);
                 valueElement?.addEventListener("wheel", event => {
@@ -348,7 +371,7 @@ export function createLoraActiveStackController({
                     nodeInstance.loraData[index][field] = nextValue;
                     valueElement.textContent = formatLoraWeight(nextValue);
                     updateSelection();
-                    if (metadataEditor.classList.contains("visible")) renderMetadataEditor();
+                    syncStrengthMemoryInputs();
                     persistRememberedWeight?.(item);
                 }, { passive: false });
             };

@@ -164,7 +164,7 @@ export function createLoraFolderController({
             const query = folderSearchQuery.trim().toLocaleLowerCase();
             let visibleCount = 0;
             grid.querySelectorAll(".lora-folder-pill").forEach(button => {
-                const matches = !query || button.dataset.folder.toLocaleLowerCase().includes(query);
+                const matches = !query || getFolderLabel(button.dataset.folder).toLocaleLowerCase().includes(query);
                 button.hidden = !matches;
                 if (matches) visibleCount += 1;
             });

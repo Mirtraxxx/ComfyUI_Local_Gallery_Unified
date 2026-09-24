@@ -201,14 +201,13 @@ export function getActiveSidebarWidthBoundsForMode(isLarge) {
 
 export function getActiveSidebarWidth(properties, uiPrefs, fallbackWidth = ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT) {
     const isLarge = isActiveSidebarLarge(uiPrefs);
-    const bounds = getActiveSidebarWidthBoundsForMode(isLarge);
     const rawWidth = Number(properties?.active_sidebar_width ?? uiPrefs?.active_sidebar_width);
-    const resolvedWidth = Number.isFinite(rawWidth)
+    // Return the raw stored width so a large-mode width survives a
+    // compact-mode load; callers clamp for painting (CSS and
+    // applyActiveSidebarWidthPreference).
+    return Number.isFinite(rawWidth)
         ? rawWidth
         : (isLarge ? ACTIVE_SIDEBAR_WIDTH_LARGE_DEFAULT : fallbackWidth);
-    // CSS paints with clamp(bounds.min, var(...), bounds.max). Clamping here too
-    // keeps a stored width honest instead of silently exceeding what is drawn.
-    return Math.min(bounds.max, Math.max(bounds.min, Math.round(resolvedWidth)));
 }
 
 export function getActiveSidebarWidthBounds(shellWidth, nodeWidth, options = {}, uiPrefs = null) {

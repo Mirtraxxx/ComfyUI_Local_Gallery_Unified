@@ -22,8 +22,18 @@ function normalizePresetPrompt(presetPrompt) {
 
 async function resolvePresetSelection(galleryNode, presetName, presetData) {
     let presetSelection = Array.isArray(presetData.selection) ? presetData.selection : [];
-    const promptNamesToResolve = presetSelection
-        .map(prompt => String(prompt.prompt_text || prompt.name || "").trim())
+
+    // Entries with a stored prompt_id are already resolved. Only id-less
+    // entries go through get-or-create, looked up by card name (not the
+    // full prompt body, which metadata saves leave in prompt_text).
+    const hasStoredId = prompt => Boolean(String(prompt.prompt_id || prompt.id || "").trim());
+    const missingIds = presetSelection.filter(prompt => !hasStoredId(prompt));
+    if (!missingIds.length) {
+        return presetSelection;
+    }
+
+    const promptNamesToResolve = missingIds
+        .map(prompt => String(prompt.name || prompt.prompt_text || "").trim())
         .filter(Boolean);
 
     if (!promptNamesToResolve.length) {
@@ -41,7 +51,10 @@ async function resolvePresetSelection(galleryNode, presetName, presetData) {
     let repairedPreset = false;
 
     presetSelection = presetSelection.map(presetPrompt => {
-        const lookupName = String(presetPrompt.prompt_text || presetPrompt.name || "").trim().toLowerCase();
+        if (hasStoredId(presetPrompt)) {
+            return presetPrompt;
+        }
+        const lookupName = String(presetPrompt.name || presetPrompt.prompt_text || "").trim().toLowerCase();
         const resolvedPrompt = resolvedByName.get(lookupName);
         if (!resolvedPrompt) {
             return presetPrompt;

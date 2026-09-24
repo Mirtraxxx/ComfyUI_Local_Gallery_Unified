@@ -325,20 +325,25 @@ export function createLoraMetadataController({
         );
         const payload = { saved_strength: model, saved_strength_clip: clip };
         const activeItem = getActiveSelectionItem(loraName);
-        if (strengthMemoryEnableInput.checked && activeItem) {
-            activeItem.strength = model;
-            if (!nodeInstance.isModelOnly) activeItem.strength_clip = clip;
-            renderSelectedList();
-            updateSelection();
-        }
+        let saved = false;
         try {
             await updateMetadata(loraName, payload);
-            updateCachedLoraMetadata(loraName, payload);
+            saved = true;
         } catch (error) {
             operationFeedback?.error(error?.message || "Could not save remembered strengths");
-        } finally {
-            renderStrengthMemoryRow(singleLora);
         }
+        if (saved) {
+            updateCachedLoraMetadata(loraName, payload);
+            // Apply the remembered strengths to the active stack only after the save
+            // succeeds, so a failed save leaves the previous strengths in place.
+            if (strengthMemoryEnableInput.checked && activeItem) {
+                activeItem.strength = model;
+                if (!nodeInstance.isModelOnly) activeItem.strength_clip = clip;
+                renderSelectedList();
+                updateSelection();
+            }
+        }
+        renderStrengthMemoryRow(singleLora);
     };
 
     strengthMemoryModelInput.addEventListener("change", commitStrengthMemoryEdits);
@@ -386,5 +391,5 @@ export function createLoraMetadataController({
         }
     });
 
-    return { getEditingLorasData, renderMetadataEditor };
+    return { getEditingLorasData, renderMetadataEditor, commitStrengthMemoryEdits };
 }

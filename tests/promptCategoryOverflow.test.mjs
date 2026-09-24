@@ -81,7 +81,6 @@ function createMockElement(tagName = "div") {
         textContent: "",
         title: "",
         id: "",
-        scrollIntoViewCalled: false,
         get className() {
             return Array.from(classListSet).join(" ");
         },
@@ -133,8 +132,9 @@ function createMockElement(tagName = "div") {
             const handlers = listeners.get(event.type) || [];
             handlers.forEach(h => h(event));
         },
-        scrollIntoView() {
-            element.scrollIntoViewCalled = true;
+        scrollToCalls: [],
+        scrollTo(options) {
+            element.scrollToCalls.push(options);
         },
         querySelector(selector) {
             return element.querySelectorAll(selector)[0] || null;
@@ -291,11 +291,12 @@ test("createPromptCategoryStripController renders Alphabetical sections and jump
         const enabledLetters = jumpItems.filter(j => !j.classList.contains("disabled")).map(j => j.dataset.jumpKey);
         assert.deepEqual(enabledLetters, ["C", "D", "E", "F", "H", "M", "P", "#"]);
 
-        // Clicking jump item calls scrollIntoView on target section
+        // Clicking a jump item scrolls the overflow container toward the section
         const cSection = chipsContainer.querySelector(`.localprompt-category-section[data-section-key="C"]`);
         const cJump = jumpItems.find(j => j.dataset.jumpKey === "C");
         cJump.dispatchEvent({ type: "click" });
-        assert.equal(cSection.scrollIntoViewCalled, true);
+        assert.equal(overflowContainer.scrollToCalls.length, 1);
+        assert.equal(typeof overflowContainer.scrollToCalls[0].top, "number");
 
         // Search filtering test:
         searchInput.value = "pose";

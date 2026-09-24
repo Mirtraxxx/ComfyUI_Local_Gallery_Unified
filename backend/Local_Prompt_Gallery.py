@@ -142,16 +142,19 @@ def _flush_wildcard_cycle_state(generation=None):
             _schedule_wildcard_cycle_state_flush(pending, delay=_CYCLE_STATE_BUSY_RETRY_DELAY)
             return
 
+        # Merge under the JSON lock over a fresh disk read so concurrent UI
+        # prefs saves are not clobbered by a stale snapshot. Clear the pending
+        # record only after the save returns so a failed write keeps its state.
         with _json_file_lock:
             pending = _pending_wildcard_cycle_state
             if pending is None:
                 return
             if generation is not None and generation != _cycle_state_flush_generation:
                 return
+            prefs = load_ui_prefs()
+            prefs["wildcard_cycle_state"] = pending
+            save_ui_prefs(prefs)
             _pending_wildcard_cycle_state = None
-        prefs = load_ui_prefs()
-        prefs["wildcard_cycle_state"] = pending
-        save_ui_prefs(prefs)
     except Exception as e:
         print(f"LocalPromptGallery: failed to flush wildcard cycle state: {e}")
     finally:
@@ -325,11 +328,25 @@ def generate_unique_prompt_id(metadata, name):
         counter += 1
     return prompt_id
 
+def _safe_thumbnail_path(prompt_id, ext):
+    """Resolve a thumbnail path inside THUMBNAILS_DIR; None if it would escape."""
+    prompt_id = str(prompt_id or "")
+    if not prompt_id or any(ch in prompt_id for ch in ("/", "\\", ":")):
+        return None
+    base = os.path.abspath(THUMBNAILS_DIR)
+    path = os.path.abspath(os.path.join(base, f"{prompt_id}{ext}"))
+    try:
+        if os.path.commonpath([base, path]) != base:
+            return None
+    except ValueError:
+        return None
+    return path
+
 def find_thumbnail_paths(prompt_id):
     return [
-        os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+        path
         for ext in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS
-        if os.path.exists(os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}"))
+        if (path := _safe_thumbnail_path(prompt_id, ext)) is not None and os.path.exists(path)
     ]
 
 def backup_and_remove_thumbnail(path):
@@ -359,7 +376,9 @@ def assign_thumbnail_files(metadata, prompt_id, filename, subfolder='', folder_t
         raise ValueError(f"Unsupported file type: {ext or '(none)'}")
 
     old_thumbnail_paths = find_thumbnail_paths(prompt_id)
-    target_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+    target_path = _safe_thumbnail_path(prompt_id, ext)
+    if target_path is None:
+        raise ValueError(f"Unsafe thumbnail path for prompt: {prompt_id}")
     temp_target_path = f"{target_path}.{int(time.time() * 1000)}.{threading.get_ident()}.tmp"
     try:
         shutil.copy2(source_path, temp_target_path)
@@ -408,6 +427,8 @@ def _sanitize_wildcard_relpath(filename):
     for part in normalized.split("/"):
         part = part.strip()
         if not part or part in (".", ".."):
+            return None
+        if ":" in part:
             return None
         parts.append(part)
     return "/".join(parts)
@@ -788,28 +809,30 @@ def normalize_ui_prefs(raw_prefs):
 
 def load_ui_prefs():
     global _ui_prefs_cache, _ui_prefs_mtime
-    try:
-        current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
-        if _ui_prefs_cache is not None and current_mtime == _ui_prefs_mtime:
-            return copy.deepcopy(_ui_prefs_cache)
-        prefs = load_json_file(UI_PREFS_FILE, UI_PREF_DEFAULTS)
-    except Exception:
-        prefs = copy.deepcopy(UI_PREF_DEFAULTS)
-        current_mtime = 0
-    normalized = normalize_ui_prefs(prefs)
-    if normalized != prefs:
-        save_json_file(normalized, UI_PREFS_FILE)
-        current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
-    _ui_prefs_cache = normalized
-    _ui_prefs_mtime = current_mtime
-    return copy.deepcopy(normalized)
+    with _json_file_lock:
+        try:
+            current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
+            if _ui_prefs_cache is not None and current_mtime == _ui_prefs_mtime:
+                return copy.deepcopy(_ui_prefs_cache)
+            prefs = load_json_file(UI_PREFS_FILE, UI_PREF_DEFAULTS)
+        except Exception:
+            prefs = copy.deepcopy(UI_PREF_DEFAULTS)
+            current_mtime = 0
+        normalized = normalize_ui_prefs(prefs)
+        if normalized != prefs:
+            save_json_file(normalized, UI_PREFS_FILE)
+            current_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
+        _ui_prefs_cache = normalized
+        _ui_prefs_mtime = current_mtime
+        return copy.deepcopy(normalized)
 
 def save_ui_prefs(data):
     global _ui_prefs_cache, _ui_prefs_mtime
-    normalized = normalize_ui_prefs(data)
-    save_json_file(normalized, UI_PREFS_FILE)
-    _ui_prefs_cache = normalized
-    _ui_prefs_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
+    with _json_file_lock:
+        normalized = normalize_ui_prefs(data)
+        save_json_file(normalized, UI_PREFS_FILE)
+        _ui_prefs_cache = normalized
+        _ui_prefs_mtime = os.path.getmtime(UI_PREFS_FILE) if os.path.exists(UI_PREFS_FILE) else 0
 def load_presets():
     presets = load_json_file(PRESETS_FILE, {}, strict=True)
     if not isinstance(presets, dict):
@@ -1406,16 +1429,26 @@ def _apply_bulk_text_operation(current, operation):
 
     lowered = current.casefold()
     lowered_find = find.casefold()
+    if not lowered_find:
+        return current
+    # Map each folded position back to its original offset so a match whose
+    # folded length differs from the source span (e.g. "ß" -> "ss") replaces
+    # exactly the matched characters.
+    origin = []
+    for offset, char in enumerate(current):
+        origin.extend([offset] * max(1, len(char.casefold())))
     result = []
-    cursor = 0
+    fold_cursor = 0
+    orig_cursor = 0
     while True:
-        match_index = lowered.find(lowered_find, cursor)
+        match_index = lowered.find(lowered_find, fold_cursor)
         if match_index < 0:
-            result.append(current[cursor:])
+            result.append(current[orig_cursor:])
             return "".join(result)
-        result.append(current[cursor:match_index])
+        result.append(current[orig_cursor:origin[match_index]])
         result.append(replacement)
-        cursor = match_index + len(find)
+        orig_cursor = origin[match_index + len(lowered_find) - 1] + 1
+        fold_cursor = match_index + len(lowered_find)
 
 
 def _apply_bulk_operations(prompt_data, operations):
@@ -1948,7 +1981,9 @@ async def upload_thumbnail_endpoint(request):
             old_thumbnail_paths = find_thumbnail_paths(prompt_id)
 
             # Save new thumbnail
-            thumb_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
+            thumb_path = _safe_thumbnail_path(prompt_id, ext)
+            if thumb_path is None:
+                return web.json_response({"status": "error", "message": "Invalid prompt id"}, status=400)
             temp_thumb_path = f"{thumb_path}.{int(time.time() * 1000)}.tmp"
             try:
                 with open(temp_thumb_path, 'wb') as f:
@@ -2128,10 +2163,9 @@ async def assign_thumbnails_batch_endpoint(request):
 async def serve_thumbnail(request):
     try:
         prompt_id = request.match_info['prompt_id']
-        
         for ext in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS:
-            thumb_path = os.path.join(THUMBNAILS_DIR, f"{prompt_id}{ext}")
-            if os.path.exists(thumb_path):
+            thumb_path = _safe_thumbnail_path(prompt_id, ext)
+            if thumb_path is not None and os.path.exists(thumb_path):
                 return web.FileResponse(thumb_path)
         
         return web.Response(status=404)
@@ -2297,14 +2331,15 @@ async def save_preset_endpoint(request):
         if not name:
             return web.json_response({"status": "error", "message": "Preset name is required"}, status=400)
         
-        presets = load_presets()
-        presets[name] = {
-            "selection": data.get("selection", []),
-            "wildcard_mode": data.get("wildcard_mode", "off"),
-            "wildcard_categories": data.get("wildcard_categories", []),
-            "wildcard_auto_attach_thumbnail": data.get("wildcard_auto_attach_thumbnail", "off"),
-        }
-        save_presets(presets)
+        with _json_file_lock:
+            presets = load_presets()
+            presets[name] = {
+                "selection": data.get("selection", []),
+                "wildcard_mode": data.get("wildcard_mode", "off"),
+                "wildcard_categories": data.get("wildcard_categories", []),
+                "wildcard_auto_attach_thumbnail": data.get("wildcard_auto_attach_thumbnail", "off"),
+            }
+            save_presets(presets)
         
         return web.json_response({"status": "ok", "message": f"Preset '{name}' saved"})
     except Exception as e:
@@ -2351,13 +2386,14 @@ async def delete_preset_endpoint(request):
         if not name:
             return web.json_response({"status": "error", "message": "Preset name is required"}, status=400)
         
-        presets = load_presets()
-        
-        if name not in presets:
-            return web.json_response({"status": "error", "message": f"Preset '{name}' not found"}, status=404)
-        
-        del presets[name]
-        save_presets(presets)
+        with _json_file_lock:
+            presets = load_presets()
+
+            if name not in presets:
+                return web.json_response({"status": "error", "message": f"Preset '{name}' not found"}, status=404)
+
+            del presets[name]
+            save_presets(presets)
         
         return web.json_response({"status": "ok", "message": f"Preset '{name}' deleted"})
     except Exception as e:
@@ -2504,9 +2540,15 @@ async def export_wildcard_category_endpoint(request):
                 "content": content,
             })
 
-        wildcards_dir = get_comfy_wildcards_dir()
+        wildcards_dir = os.path.abspath(get_comfy_wildcards_dir())
         os.makedirs(wildcards_dir, exist_ok=True)
-        save_path = os.path.join(wildcards_dir, f"{rel_path.replace('/', os.sep)}.txt")
+        save_path = os.path.abspath(os.path.join(wildcards_dir, f"{rel_path.replace('/', os.sep)}.txt"))
+        try:
+            contained = os.path.commonpath([wildcards_dir, save_path]) == wildcards_dir
+        except ValueError:
+            contained = False
+        if not contained:
+            return web.json_response({"status": "error", "message": "Invalid wildcard filename"}, status=400)
         save_dir = os.path.dirname(save_path)
         if save_dir:
             os.makedirs(save_dir, exist_ok=True)
@@ -2864,8 +2906,11 @@ class LocalPromptGallery:
         if wildcard_cycle_state_changed:
             # Keep cycle progress in the in-memory prefs cache immediately, but
             # debounce the disk write so long sequential queues do not thrash prefs I/O.
-            prefs["wildcard_cycle_state"] = wildcard_cycle_state
-            _ui_prefs_cache = copy.deepcopy(prefs)
+            # Merge only the cycle state so prefs saved during the run are kept.
+            with _json_file_lock:
+                if _ui_prefs_cache is None:
+                    load_ui_prefs()
+                _ui_prefs_cache["wildcard_cycle_state"] = wildcard_cycle_state
             _schedule_wildcard_cycle_state_flush(wildcard_cycle_state)
         
         return {

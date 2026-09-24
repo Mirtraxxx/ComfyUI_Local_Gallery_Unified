@@ -785,7 +785,9 @@ const UnifiedPromptGalleryNode = {
                 if (!force && cachedCategoriesPromise) {
                     return cachedCategoriesPromise;
                 }
-                cachedCategoriesPromise = UnifiedPromptGalleryNode.getCategories()
+                // Fetch through the raw API so a failed request rejects
+                // instead of being cached as an empty list.
+                cachedCategoriesPromise = promptApi.getCategories()
                     .then(categories => {
                         cachedCategories = Array.isArray(categories) ? categories : [];
                         return cachedCategories;
@@ -1463,7 +1465,15 @@ const UnifiedPromptGalleryNode = {
             }
 
             async function savePinnedCategories(nextPinnedCategories) {
-                const allCategories = await getCachedCategories();
+                let allCategories;
+                try {
+                    allCategories = await getCachedCategories();
+                } catch (error) {
+                    // A failed category fetch must not rewrite the pin set
+                    // against an unknown list.
+                    console.error("LocalPromptGallery: category fetch failed while saving pins:", error);
+                    return;
+                }
                 const categorySet = new Set(allCategories);
                 node_instance.uiPrefs.pinned_categories = [...new Set(
                     (nextPinnedCategories || [])
@@ -1594,13 +1604,12 @@ const UnifiedPromptGalleryNode = {
             function setupVisiblePinnedCategoryCountControl() {
                 const slider = widgetContainer.querySelector(`#${uniqueId}-display-visible-categories-slider`);
                 if (!slider) return;
-                slider.addEventListener("input", async () => {
-                    const nextCount = normalizeVisiblePinnedCategoryCount(slider.value);
+                // Serialize slider updates: rapid input events must not
+                // interleave their category fetches and saves, or the strip
+                // can end up with fewer pills than the knob claims.
+                let pinnedCountUpdate = Promise.resolve();
+                async function applyVisiblePinnedCategoryCount(nextCount) {
                     const previousCount = getVisiblePinnedCategoryCount();
-                    node_instance.uiPrefs.visible_pinned_category_count = nextCount;
-                    slider.value = String(nextCount);
-                    const countVal = widgetContainer.querySelector(`#${uniqueId}-display-categories-count-val`);
-                    if (countVal) countVal.textContent = String(nextCount);
                     if (nextCount > previousCount) {
                         // Widen the strip first: pull the next discovered categories into
                         // the pinned set so the knob never shows fewer pills than it could.
@@ -1617,6 +1626,16 @@ const UnifiedPromptGalleryNode = {
                     await renderPinnedCategoryStrip();
                     await renderCategoryOverflowCategories();
                     queueVisiblePinnedCategorySave();
+                }
+                slider.addEventListener("input", () => {
+                    const nextCount = normalizeVisiblePinnedCategoryCount(slider.value);
+                    node_instance.uiPrefs.visible_pinned_category_count = nextCount;
+                    slider.value = String(nextCount);
+                    const countVal = widgetContainer.querySelector(`#${uniqueId}-display-categories-count-val`);
+                    if (countVal) countVal.textContent = String(nextCount);
+                    pinnedCountUpdate = pinnedCountUpdate
+                        .then(() => applyVisiblePinnedCategoryCount(nextCount))
+                        .catch(() => {});
                 });
                 syncVisiblePinnedCategoryCountControl();
             }
@@ -2030,7 +2049,14 @@ const UnifiedPromptGalleryNode = {
             if (addTabBtn) {
                 addTabBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const categories = await getCachedCategories();
+                    let categories;
+                    try {
+                        categories = await getCachedCategories();
+                    } catch (error) {
+                        console.error("LocalPromptGallery: Error fetching categories:", error);
+                        showAlert("No categories available to add.");
+                        return;
+                    }
                     if (!categories || categories.length === 0) {
                         showAlert("No categories available to add.");
                         return;

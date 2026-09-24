@@ -13,6 +13,7 @@ import copy
 import shutil
 import secrets
 import tempfile
+import threading
 import time
 
 from PIL import Image, ImageOps
@@ -61,6 +62,10 @@ MAX_JSON_BACKUPS = 10
 _LORA_INVENTORY_CACHE = None
 _EXECUTION_METADATA_CACHE = {"signature": None, "data": None}
 _UI_STATE_LOCK = asyncio.Lock()
+# Metadata and preset files are read/modified/saved from both async routes and
+# synchronous node execution, so a reentrant threading lock serializes both.
+_METADATA_LOCK = threading.RLock()
+_PRESETS_LOCK = threading.RLock()
 INVENTORY_FAST_CHECK_SECONDS = 0.75
 INVENTORY_DEEP_CHECK_SECONDS = 5.0
 
@@ -145,8 +150,7 @@ def load_json_file(file_path, default_data=None):
 
 def save_json_file(data, file_path):
     if file_path in JSON_LOAD_FAILED_FILES:
-        print(f"Refusing to save {file_path} because it failed to load and no usable backup was found.")
-        return
+        raise RuntimeError(f"Refusing to save {file_path} because it failed to load and no usable backup was found.")
 
     temp_path = None
     try:
@@ -164,12 +168,12 @@ def save_json_file(data, file_path):
 
         os.replace(temp_path, file_path)
     except Exception as e:
-        print(f"Error saving {file_path}: {e}")
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except Exception:
                 pass
+        raise RuntimeError(f"Error saving {file_path}: {e}") from e
 
 def _file_signature(file_path):
     try:
@@ -460,55 +464,56 @@ def _lora_root_signature(roots):
     return tuple((os.path.normcase(os.path.abspath(root)), _file_signature(root)) for root in roots)
 
 def _build_lora_inventory(lora_files, lora_roots, generation):
-    metadata = load_metadata()
-    basename_index = build_metadata_basename_index(metadata)
-    metadata_changed = False
-    folders = set()
-    entries = []
-    normalized_roots = [(root, os.path.normcase(os.path.abspath(root))) for root in lora_roots]
+    with _METADATA_LOCK:
+        metadata = load_metadata()
+        basename_index = build_metadata_basename_index(metadata)
+        metadata_changed = False
+        folders = set()
+        entries = []
+        normalized_roots = [(root, os.path.normcase(os.path.abspath(root))) for root in lora_roots]
 
-    for lora in lora_files:
-        lora_full_path = folder_paths.get_full_path("loras", lora)
-        if not lora_full_path:
-            continue
-        normalized_path = os.path.normcase(os.path.abspath(lora_full_path))
-        root = next((candidate for candidate, normalized_root in normalized_roots
-                     if normalized_path.startswith(normalized_root + os.sep) or normalized_path == normalized_root), None)
-        if root is None:
-            continue
-        relative_path = os.path.relpath(os.path.dirname(lora_full_path), root)
-        folder = "." if relative_path == "." else relative_path
-        folders.add(folder)
-        lora_meta, changed = get_metadata_for_lora(
-            metadata, lora, lora_full_path, basename_index=basename_index,
-        )
-        metadata_changed = metadata_changed or changed
-        try:
-            file_stat = os.stat(lora_full_path)
-            mtime = file_stat.st_mtime
-            file_revision = (file_stat.st_mtime_ns, file_stat.st_size)
-        except OSError:
-            mtime = 0
-            file_revision = None
-        preview_url, preview_type = get_lora_preview_asset_info(lora)
-        entries.append({
-            "name": lora,
-            "folder": folder,
-            "name_sort": lora.lower(),
-            "mtime": mtime,
-            "file_revision": file_revision,
-            "preview_url": preview_url or "",
-            "preview_type": preview_type,
-            "tags": list(lora_meta.get("tags", [])),
-            "trigger_words": lora_meta.get("trigger_words", ""),
-            "trigger_presets": copy.deepcopy(lora_meta.get("trigger_presets", {})),
-            "download_url": lora_meta.get("download_url", ""),
-            "remember_strength": bool(lora_meta.get("remember_strength", False)),
-            "saved_strength": float(lora_meta.get("saved_strength", 1.0)),
-            "saved_strength_clip": float(lora_meta.get("saved_strength_clip", lora_meta.get("saved_strength", 1.0))),
-        })
-    if metadata_changed:
-        save_metadata(metadata)
+        for lora in lora_files:
+            lora_full_path = folder_paths.get_full_path("loras", lora)
+            if not lora_full_path:
+                continue
+            normalized_path = os.path.normcase(os.path.abspath(lora_full_path))
+            root = next((candidate for candidate, normalized_root in normalized_roots
+                         if normalized_path.startswith(normalized_root + os.sep) or normalized_path == normalized_root), None)
+            if root is None:
+                continue
+            relative_path = os.path.relpath(os.path.dirname(lora_full_path), root)
+            folder = "." if relative_path == "." else relative_path
+            folders.add(folder)
+            lora_meta, changed = get_metadata_for_lora(
+                metadata, lora, lora_full_path, basename_index=basename_index,
+            )
+            metadata_changed = metadata_changed or changed
+            try:
+                file_stat = os.stat(lora_full_path)
+                mtime = file_stat.st_mtime
+                file_revision = (file_stat.st_mtime_ns, file_stat.st_size)
+            except OSError:
+                mtime = 0
+                file_revision = None
+            preview_url, preview_type = get_lora_preview_asset_info(lora)
+            entries.append({
+                "name": lora,
+                "folder": folder,
+                "name_sort": lora.lower(),
+                "mtime": mtime,
+                "file_revision": file_revision,
+                "preview_url": preview_url or "",
+                "preview_type": preview_type,
+                "tags": list(lora_meta.get("tags", [])),
+                "trigger_words": lora_meta.get("trigger_words", ""),
+                "trigger_presets": copy.deepcopy(lora_meta.get("trigger_presets", {})),
+                "download_url": lora_meta.get("download_url", ""),
+                "remember_strength": bool(lora_meta.get("remember_strength", False)),
+                "saved_strength": float(lora_meta.get("saved_strength", 1.0)),
+                "saved_strength_clip": float(lora_meta.get("saved_strength_clip", lora_meta.get("saved_strength", 1.0))),
+            })
+        if metadata_changed:
+            save_metadata(metadata)
     now = time.monotonic()
     return {
         "generation": generation,
@@ -553,21 +558,22 @@ async def sync_civitai_metadata(request):
         if not lora_full_path:
             return web.json_response({"status": "error", "message": "LoRA file not found"}, status=404)
 
-        metadata = load_metadata()
-        lora_meta, metadata_changed = get_metadata_for_lora(metadata, lora_name, lora_full_path, ensure_hash=True, create_missing=True)
-        
-        model_hash = lora_meta.get('hash')
-        if not model_hash:
-            print(f"Local Lora Gallery: Calculating hash for {lora_name}...")
-            model_hash = calculate_sha256(lora_full_path)
-            if model_hash:
-                lora_meta['hash'] = model_hash
-                metadata_changed = True
-            else:
-                 return web.json_response({"status": "error", "message": "Failed to calculate hash"}, status=500)
+        with _METADATA_LOCK:
+            metadata = load_metadata()
+            lora_meta, metadata_changed = get_metadata_for_lora(metadata, lora_name, lora_full_path, ensure_hash=True, create_missing=True)
 
-        if metadata_changed:
-            save_metadata(metadata)
+            model_hash = lora_meta.get('hash')
+            if not model_hash:
+                print(f"Local Lora Gallery: Calculating hash for {lora_name}...")
+                model_hash = calculate_sha256(lora_full_path)
+                if model_hash:
+                    lora_meta['hash'] = model_hash
+                    metadata_changed = True
+                else:
+                    raise ValueError("Failed to calculate hash")
+
+            if metadata_changed:
+                save_metadata(metadata)
 
         civitai_version_url = f"{CIVITAI_API_BASE_URL}/api/v1/model-versions/by-hash/{model_hash}"
         async with aiohttp.ClientSession() as session:
@@ -652,29 +658,31 @@ async def sync_civitai_metadata(request):
 
             trained_words = civitai_version_data.get('trainedWords', [])
             # Network and download operations above may take long enough for a user to
-            # edit metadata concurrently. Reload before saving so sync only merges its
-            # own fields instead of overwriting the newer file with a stale snapshot.
-            metadata = load_metadata()
-            lora_meta, _ = get_metadata_for_lora(
-                metadata,
-                lora_name,
-                lora_full_path,
-                ensure_hash=False,
-                create_missing=True,
-            )
-            lora_meta['hash'] = model_hash
-            if trained_words:
-                lora_meta['trigger_words'] = ", ".join(trained_words)
-            
-            lora_meta['download_url'] = f"{CIVITAI_WEB_BASE_URL}/models/{model_id}"
+            # edit metadata concurrently. Reload under the metadata lock so sync only
+            # merges its own fields instead of overwriting the newer file with a stale
+            # snapshot.
+            with _METADATA_LOCK:
+                metadata = load_metadata()
+                lora_meta, _ = get_metadata_for_lora(
+                    metadata,
+                    lora_name,
+                    lora_full_path,
+                    ensure_hash=False,
+                    create_missing=True,
+                )
+                lora_meta['hash'] = model_hash
+                if trained_words:
+                    lora_meta['trigger_words'] = ", ".join(trained_words)
 
-            # tags = set(lora_meta.get('tags', []))
-            # if 'tags' in civitai_model_data:
-            #     for tag in civitai_model_data['tags']:
-            #         tags.add(tag)
-            # lora_meta['tags'] = sorted(list(tags))
-            
-            save_metadata(metadata)
+                lora_meta['download_url'] = f"{CIVITAI_WEB_BASE_URL}/models/{model_id}"
+
+                # tags = set(lora_meta.get('tags', []))
+                # if 'tags' in civitai_model_data:
+                #     for tag in civitai_model_data['tags']:
+                #         tags.add(tag)
+                # lora_meta['tags'] = sorted(list(tags))
+
+                save_metadata(metadata)
             
             new_local_url, new_preview_type = get_lora_preview_asset_info(lora_name)
             
@@ -702,9 +710,10 @@ async def save_preset(request):
         if not preset_name or not preset_data:
             return web.json_response({"status": "error", "message": "Missing preset name or data"}, status=400)
         
-        presets = load_presets()
-        presets[preset_name] = preset_data
-        save_presets(presets)
+        with _PRESETS_LOCK:
+            presets = load_presets()
+            presets[preset_name] = preset_data
+            save_presets(presets)
         return web.json_response({"status": "ok", "presets": presets})
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -717,10 +726,11 @@ async def delete_preset(request):
         if not preset_name:
             return web.json_response({"status": "error", "message": "Missing preset name"}, status=400)
         
-        presets = load_presets()
-        if preset_name in presets:
-            del presets[preset_name]
-            save_presets(presets)
+        with _PRESETS_LOCK:
+            presets = load_presets()
+            if preset_name in presets:
+                del presets[preset_name]
+                save_presets(presets)
         return web.json_response({"status": "ok", "presets": presets})
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -804,23 +814,44 @@ async def get_preview_image(request):
     filename = request.query.get('filename')
     lora_name = request.query.get('lora_name')
 
-    if not filename or not lora_name or ".." in filename or "/" in filename or "\\" in filename:
+    if not filename or not lora_name:
         return web.Response(status=403)
-    
+
     try:
         lora_name_decoded = urllib.parse.unquote_plus(lora_name)
         filename_decoded = urllib.parse.unquote_plus(filename)
 
+        if not filename_decoded or os.path.isabs(filename_decoded):
+            return web.Response(status=403)
+        if "/" in filename_decoded or "\\" in filename_decoded:
+            return web.Response(status=403)
+        if any(segment == ".." for segment in filename_decoded.split("/")):
+            return web.Response(status=403)
+
         lora_full_path = folder_paths.get_full_path("loras", lora_name_decoded)
         if not lora_full_path:
             return web.Response(status=404, text=f"Lora '{lora_name_decoded}' not found.")
-        
-        image_path = os.path.join(os.path.dirname(lora_full_path), filename_decoded)
+
+        lora_dir = os.path.dirname(os.path.abspath(lora_full_path))
+        image_path = os.path.abspath(os.path.join(lora_dir, filename_decoded))
+        try:
+            contained = os.path.commonpath([lora_dir, image_path]) == lora_dir
+        except ValueError:
+            contained = False
+        if not contained:
+            return web.Response(status=403)
+
+        # Known previews are the LoRA's own base name with a media extension.
+        preview_base, _ = os.path.splitext(os.path.basename(lora_full_path))
+        stem, ext = os.path.splitext(filename_decoded)
+        if stem != preview_base or ext.lower() not in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS:
+            return web.Response(status=404, text=f"Preview '{filename_decoded}' not found.")
+
         if os.path.exists(image_path):
             return web.FileResponse(image_path)
         else:
             return web.Response(status=404, text=f"Preview '{filename_decoded}' not found.")
-            
+
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
@@ -913,35 +944,36 @@ async def update_lora_metadata(request):
             return web.json_response({"status": "error", "message": "Missing lora_name"}, status=400)
         
         lora_full_path = folder_paths.get_full_path("loras", lora_name)
-        metadata = load_metadata()
-        lora_meta, _ = get_metadata_for_lora(metadata, lora_name, lora_full_path, ensure_hash=bool(lora_full_path), create_missing=True)
-        
-        if tags is not None:
-            lora_meta['tags'] = [str(tag).strip() for tag in tags if str(tag).strip()]
-        
-        if trigger_words is not None:
-            lora_meta['trigger_words'] = str(trigger_words)
-            
-        trigger_presets = data.get("trigger_presets")
-        if trigger_presets is not None:
-            lora_meta['trigger_presets'] = trigger_presets
+        with _METADATA_LOCK:
+            metadata = load_metadata()
+            lora_meta, _ = get_metadata_for_lora(metadata, lora_name, lora_full_path, ensure_hash=bool(lora_full_path), create_missing=True)
 
-        if download_url is not None:
-            lora_meta['download_url'] = str(download_url)
+            if tags is not None:
+                lora_meta['tags'] = [str(tag).strip() for tag in tags if str(tag).strip()]
 
-        remember_strength = data.get("remember_strength")
-        if remember_strength is not None:
-            lora_meta['remember_strength'] = bool(remember_strength)
+            if trigger_words is not None:
+                lora_meta['trigger_words'] = str(trigger_words)
 
-        saved_strength = data.get("saved_strength")
-        if saved_strength is not None:
-            lora_meta['saved_strength'] = float(saved_strength)
+            trigger_presets = data.get('trigger_presets')
+            if trigger_presets is not None:
+                lora_meta['trigger_presets'] = trigger_presets
 
-        saved_strength_clip = data.get("saved_strength_clip")
-        if saved_strength_clip is not None:
-            lora_meta['saved_strength_clip'] = float(saved_strength_clip)
+            if download_url is not None:
+                lora_meta['download_url'] = str(download_url)
 
-        save_metadata(metadata)
+            remember_strength = data.get('remember_strength')
+            if remember_strength is not None:
+                lora_meta['remember_strength'] = bool(remember_strength)
+
+            saved_strength = data.get('saved_strength')
+            if saved_strength is not None:
+                lora_meta['saved_strength'] = float(saved_strength)
+
+            saved_strength_clip = data.get('saved_strength_clip')
+            if saved_strength_clip is not None:
+                lora_meta['saved_strength_clip'] = float(saved_strength_clip)
+
+            save_metadata(metadata)
         return web.json_response({"status": "ok"})
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1100,9 +1132,13 @@ class BaseLoraGallery:
 
             lora_name = config['lora']
             lora_full_path = folder_paths.get_full_path("loras", lora_name)
-            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
-            if metadata_changed:
-                save_metadata(all_metadata)
+            with _METADATA_LOCK:
+                lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+                if metadata_changed:
+                    try:
+                        save_metadata(all_metadata)
+                    except Exception as e:
+                        print(f"LocalLoraGallery: Failed to persist migrated metadata: {e}")
 
             triggers = cls._get_trigger_words_for_config(lora_meta, config)
             if triggers:
@@ -1123,9 +1159,13 @@ class BaseLoraGallery:
                 continue
             lora_name = config['lora']
             lora_full_path = folder_paths.get_full_path("loras", lora_name)
-            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
-            if metadata_changed:
-                save_metadata(all_metadata)
+            with _METADATA_LOCK:
+                lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+                if metadata_changed:
+                    try:
+                        save_metadata(all_metadata)
+                    except Exception as e:
+                        print(f"LocalLoraGallery: Failed to persist migrated metadata: {e}")
             
             triggers = cls._get_trigger_words_for_config(lora_meta, config)
                     
@@ -1225,9 +1265,13 @@ class LocalLoraGallery(BaseLoraGallery):
             enabled_count += 1
             lora_name = config['lora']
             lora_full_path = folder_paths.get_full_path("loras", lora_name)
-            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
-            if metadata_changed:
-                save_metadata(all_metadata)
+            with _METADATA_LOCK:
+                lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+                if metadata_changed:
+                    try:
+                        save_metadata(all_metadata)
+                    except Exception as e:
+                        print(f"LocalLoraGallery: Failed to persist migrated metadata: {e}")
             triggers = self._get_trigger_words_for_config(lora_meta, config)
             metadata_name = os.path.splitext(os.path.basename(lora_name))[0]
 
@@ -1296,13 +1340,14 @@ class LocalLoraGallery(BaseLoraGallery):
             lora_name = config['lora']
 
             lora_full_path = folder_paths.get_full_path("loras", lora_name)
-            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
-            if metadata_changed:
-                save_metadata(all_metadata)
+            with _METADATA_LOCK:
+                lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+                if metadata_changed:
+                    try:
+                        save_metadata(all_metadata)
+                    except Exception as e:
+                        print(f"LocalLoraGallery: Failed to persist migrated metadata: {e}")
             triggers = self._get_trigger_words_for_config(lora_meta, config)
-                    
-            if triggers:
-                trigger_words_list.append(triggers)
 
             try:
                 strength_model = self._float_config_value(config, 'strength', 1.0)
@@ -1317,6 +1362,8 @@ class LocalLoraGallery(BaseLoraGallery):
                     current_model, current_clip = loader_instance.load_lora(current_model, current_clip, lora_name, strength_model, strength_clip)
 
                 applied_count += 1
+                if triggers:
+                    trigger_words_list.append(triggers)
             except Exception as e:
                 print(f"LocalLoraGallery: Failed to load LoRA '{lora_name}': {e}")
 
@@ -1374,13 +1421,14 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
             lora_name = config['lora']
 
             lora_full_path = folder_paths.get_full_path("loras", lora_name)
-            lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
-            if metadata_changed:
-                save_metadata(all_metadata)
+            with _METADATA_LOCK:
+                lora_meta, metadata_changed = get_metadata_for_lora(all_metadata, lora_name, lora_full_path)
+                if metadata_changed:
+                    try:
+                        save_metadata(all_metadata)
+                    except Exception as e:
+                        print(f"LocalLoraGalleryModelOnly: Failed to persist migrated metadata: {e}")
             triggers = self._get_trigger_words_for_config(lora_meta, config)
-                    
-            if triggers:
-                trigger_words_list.append(triggers)
 
             try:
                 strength_model = self._float_config_value(config, 'strength', 1.0)
@@ -1393,6 +1441,8 @@ class LocalLoraGalleryModelOnly(BaseLoraGallery):
                     (current_model,) = loader_instance.load_lora_model_only(current_model, lora_name, strength_model)
 
                 applied_count += 1
+                if triggers:
+                    trigger_words_list.append(triggers)
             except Exception as e:
                 print(f"LocalLoraGalleryModelOnly: Failed to load LoRA '{lora_name}': {e}")
 

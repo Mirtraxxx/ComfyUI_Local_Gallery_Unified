@@ -456,10 +456,15 @@ export async function showCardManagerModal({
     }
 
     function handleFullscreenKeydown(event) {
-        if (event.key === "Escape" && isFullscreen) {
-            event.preventDefault();
-            setFullscreen(false);
-        }
+        if (event.key !== "Escape" || !isFullscreen) return;
+        // Nested dialogs and menus handle their own Escape; do not exit
+        // fullscreen on the same keystroke.
+        const openNested = root.querySelectorAll(
+            ".localprompt-modal-overlay:not(.localprompt-card-manager-fullscreen), .localprompt-context-menu"
+        );
+        if (openNested.length > 0) return;
+        event.preventDefault();
+        setFullscreen(false);
     }
 
     document.addEventListener("keydown", handleFullscreenKeydown);
@@ -723,16 +728,27 @@ export async function showCardManagerModal({
 
             item.querySelector(".favorite-btn").addEventListener("click", async (event) => {
                 event.stopPropagation();
-                const button = event.target;
+                const button = event.currentTarget;
                 const wasFavorited = button.classList.contains("favorited");
                 button.classList.toggle("favorited", !wasFavorited);
+                button.setAttribute("aria-pressed", String(!wasFavorited));
 
-                galleryNode.toggleFavorite(prompt.id).then(async (result) => {
-                    if (result?.status === "ok") {
-                        await syncPinnedOrderForFavorite(prompt.id, result.favorite);
-                    }
-                    refreshAllSections();
-                });
+                let result;
+                try {
+                    result = await galleryNode.toggleFavorite(prompt.id);
+                } catch {
+                    result = null;
+                }
+                if (result?.status === "ok") {
+                    button.classList.toggle("favorited", !!result.favorite);
+                    button.setAttribute("aria-pressed", String(!!result.favorite));
+                    await syncPinnedOrderForFavorite(prompt.id, result.favorite);
+                } else {
+                    // Server did not confirm; restore the previous visual state.
+                    button.classList.toggle("favorited", wasFavorited);
+                    button.setAttribute("aria-pressed", String(wasFavorited));
+                }
+                refreshAllSections();
             });
 
             attachInfoPopup(item, prompt, { getSurfaceHost });

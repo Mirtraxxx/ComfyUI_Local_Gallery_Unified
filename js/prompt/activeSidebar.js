@@ -126,15 +126,18 @@ export function applyActiveSidebarWidthPreference({
     nodeInstance,
     activeSidebarWidthWidget,
 }) {
+    const storedWidth = getActiveSidebarWidth({ nodeInstance });
     const width = clampActiveSidebarWidth({
         widgetContainer,
         nodeInstance,
-        width: getActiveSidebarWidth({ nodeInstance }),
+        width: storedWidth,
     });
+    // Paint the clamped width; persist the raw stored width so switching card
+    // size modes does not destroy a width outside the other mode's bounds.
     widgetContainer.style.setProperty("--localprompt-active-sidebar-width", `${width}px`);
-    nodeInstance.uiPrefs.active_sidebar_width = width;
-    nodeInstance.properties.active_sidebar_width = width;
-    if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = width;
+    nodeInstance.uiPrefs.active_sidebar_width = storedWidth;
+    nodeInstance.properties.active_sidebar_width = storedWidth;
+    if (activeSidebarWidthWidget) activeSidebarWidthWidget.value = storedWidth;
 }
 
 export function isActiveSidebarOpen({ nodeInstance }) {
@@ -262,18 +265,12 @@ export async function renderActiveSidebar({
             return null;
         }
 
+        // Swap only when the pointer is directly over a card; a release over
+        // a gap cancels the reorder instead of grabbing the nearest card.
         const directTarget = cards.find(({ rect }) => {
             return dragCenterX >= rect.left && dragCenterX <= rect.right && dragCenterY >= rect.top && dragCenterY <= rect.bottom;
         });
-        if (directTarget) return directTarget.card;
-
-        return cards.reduce((nearest, { card, rect }) => {
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const distance = Math.hypot(dragCenterX - centerX, dragCenterY - centerY);
-            if (!nearest || distance < nearest.distance) return { card, distance };
-            return nearest;
-        }, null)?.card || null;
+        return directTarget ? directTarget.card : null;
     };
 
     const swapActivePrompts = async (fromPromptId, toPromptId) => {
@@ -322,8 +319,8 @@ export async function renderActiveSidebar({
                 document.removeEventListener("pointerup", onPointerUp, true);
                 document.removeEventListener("pointercancel", onPointerCancel, true);
                 window.removeEventListener("blur", onPointerCancel);
-                if (container.__localpromptActiveSidebarDragCleanup === cleanup) {
-                    container.__localpromptActiveSidebarDragCleanup = null;
+                if (scrollHost.__localpromptActiveSidebarDragCleanup === cleanup) {
+                    scrollHost.__localpromptActiveSidebarDragCleanup = null;
                 }
             };
 
@@ -387,8 +384,8 @@ export async function renderActiveSidebar({
             document.addEventListener("pointerup", onPointerUp, true);
             document.addEventListener("pointercancel", onPointerCancel, true);
             window.addEventListener("blur", onPointerCancel);
-            container.__localpromptActiveSidebarDragCleanup?.();
-            container.__localpromptActiveSidebarDragCleanup = cleanup;
+            scrollHost.__localpromptActiveSidebarDragCleanup?.();
+            scrollHost.__localpromptActiveSidebarDragCleanup = cleanup;
         });
     };
 
