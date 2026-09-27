@@ -1169,9 +1169,6 @@ export const PROMPT_STYLES = `
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
-    .localprompt-container-wrapper.localprompt-sampling-quiet video {
-        visibility: hidden !important;
-    }
     .localprompt-chip-thumb.pinned-managed .managed-thumb-media {
         position: absolute;
         inset: 2px;

@@ -6,6 +6,7 @@ const helpersUrl = new URL("../js/prompt/helpers.js", import.meta.url);
 const libraryUrl = new URL("../js/prompt/library.js", import.meta.url);
 const activeSidebarUrl = new URL("../js/prompt/activeSidebar.js", import.meta.url);
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
+const stylesUrl = new URL("../js/prompt/styles.js", import.meta.url);
 
 test("prompt preview renderer emits browser-safe video thumbnails", async () => {
     const { buildPromptPreviewMediaHtml } = await import(helpersUrl);
@@ -33,4 +34,22 @@ test("all current prompt card surfaces bind video preview playback", async () =>
     }
     assert.match(library, /buildPromptPreviewMediaHtml\(prompt\)/);
     assert.match(activeSidebar, /buildPromptPreviewMediaHtml\(prompt\)/);
+});
+
+test("sampling quiet mode keeps video thumbnails visible while dropping blur", async () => {
+    const { PROMPT_STYLES } = await import(stylesUrl);
+    const quietRules = [...PROMPT_STYLES.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+        .filter((match) => match[1].includes("localprompt-sampling-quiet"))
+        .map((match) => ({ selector: match[1], body: match[2] }));
+
+    assert.ok(quietRules.length > 0, "quiet mode must keep a GPU-saving rule");
+    assert.ok(
+        quietRules.some((rule) => /backdrop-filter:\s*none/.test(rule.body)),
+        "quiet mode must keep dropping panel blur",
+    );
+    for (const rule of quietRules) {
+        if (/(^|[\s,])video([\s,]|$)/.test(rule.selector)) {
+            assert.doesNotMatch(rule.body, /visibility/, "video thumbnails must stay visible while sampling");
+        }
+    }
 });
