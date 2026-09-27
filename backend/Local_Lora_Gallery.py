@@ -818,8 +818,10 @@ async def get_preview_image(request):
         return web.Response(status=403)
 
     try:
-        lora_name_decoded = urllib.parse.unquote_plus(lora_name)
-        filename_decoded = urllib.parse.unquote_plus(filename)
+        # aiohttp already percent-decodes query params; decoding again would
+        # destroy filenames that legitimately contain "%20" (Civitai downloads).
+        lora_name_decoded = lora_name
+        filename_decoded = filename
 
         if not filename_decoded or os.path.isabs(filename_decoded):
             return web.Response(status=403)
