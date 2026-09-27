@@ -17,9 +17,11 @@ from contextlib import AbstractContextManager
 try:
     from .value_utils import bounded_int, finite_float, parse_json_list
     from .prompt_stats import build_prompt_stats, query_prompt_stats
+    from .card_thumbnails import RESIZABLE_EXTENSIONS, card_thumbnail_path, remove_card_thumbnails, snap_card_width
 except ImportError:
     from value_utils import bounded_int, finite_float, parse_json_list
     from prompt_stats import build_prompt_stats, query_prompt_stats
+    from card_thumbnails import RESIZABLE_EXTENSIONS, card_thumbnail_path, remove_card_thumbnails, snap_card_width
 
 NODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(NODE_DIR, "..", "data", "prompt_gallery"))
@@ -30,6 +32,7 @@ UI_STATE_FILE = os.path.join(DATA_DIR, "prompt_gallery_ui_state.json")
 PRESETS_FILE = os.path.join(DATA_DIR, "prompt_gallery_presets.json")
 UI_PREFS_FILE = os.path.join(DATA_DIR, "prompt_gallery_prefs.json")
 THUMBNAILS_DIR = os.path.join(DATA_DIR, "prompt_thumbnails")
+CARD_THUMBNAILS_DIR = os.path.join(DATA_DIR, "card_thumbnail_cache")
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 
 # Module-level cache
@@ -351,6 +354,7 @@ def backup_and_remove_thumbnail(path):
         timestamp = time.strftime("%Y%m%d-%H%M%S") + f"-{int((time.time() % 1) * 1000):03d}"
         target = os.path.join(DELETED_THUMBNAILS_DIR, f"{timestamp}-{os.path.basename(path)}")
         shutil.move(path, target)
+        remove_card_thumbnails(CARD_THUMBNAILS_DIR, path)
     except Exception as e:
         print(f"Error moving thumbnail backup {path}: {e}")
 
@@ -2130,9 +2134,15 @@ async def assign_thumbnails_batch_endpoint(request):
 async def serve_thumbnail(request):
     try:
         prompt_id = request.match_info['prompt_id']
+        width = snap_card_width(request.query.get('w'))
         for ext in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS:
             thumb_path = _safe_thumbnail_path(prompt_id, ext)
             if thumb_path is not None and os.path.exists(thumb_path):
+                if width and ext in RESIZABLE_EXTENSIONS:
+                    try:
+                        thumb_path = await asyncio.to_thread(card_thumbnail_path, thumb_path, CARD_THUMBNAILS_DIR, width)
+                    except (OSError, ValueError) as e:
+                        print(f"Error resizing thumbnail {thumb_path}, serving original: {e}")
                 return web.FileResponse(thumb_path)
 
         return web.Response(status=404)
