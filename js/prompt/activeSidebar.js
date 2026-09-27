@@ -152,16 +152,14 @@ export function applyActiveSidebarPreference({
 }) {
     const sidebar = widgetContainer.querySelector(`#${uniqueId}-active-sidebar`);
     const toggleBtn = widgetContainer.querySelector(`#${uniqueId}-active-toggle`);
-    const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
     const isOpen = isActiveSidebarOpen({ nodeInstance });
-    
+
     if (sidebar) {
         sidebar.classList.toggle("active", isOpen);
         const activeDisplay = nodeInstance.uiPrefs?.active_display_mode || nodeInstance.uiPrefs?.display_mode || "compact";
         const isLargeMode = nodeInstance.uiPrefs?.active_card_size_mode === "large" && activeDisplay === "thumbnails";
         sidebar.classList.toggle("large-mode", isLargeMode);
     }
-    if (splitter) splitter.classList.toggle("active", isOpen);
     if (toggleBtn) {
         toggleBtn.classList.toggle("active", isOpen);
         toggleBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");

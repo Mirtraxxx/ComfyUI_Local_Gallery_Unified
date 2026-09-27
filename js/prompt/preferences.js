@@ -1,8 +1,5 @@
 import {
     ACTIVE_SIDEBAR_WIDTH_NORMAL_DEFAULT,
-    BARS_SIZE_SCALE_DEFAULT,
-    BARS_SIZE_SCALE_MAX,
-    BARS_SIZE_SCALE_MIN,
     CARD_MANAGER_CARD_SIZE_DEFAULT,
     CARD_MANAGER_CARD_SIZE_MAX,
     CARD_MANAGER_CARD_SIZE_MIN,
@@ -10,7 +7,6 @@ import {
     THUMBNAIL_SIZE_LEGACY_PRESETS,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
-    VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT,
 } from "./constants.js";
 import {
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
@@ -21,15 +17,12 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     display_mode: "thumbnails",
     cards_display_mode: "thumbnails",
     active_display_mode: "compact",
-    library_tab_layout: "scroll",
     thumbnail_size: "medium",
     thumbnail_size_px: THUMBNAIL_SIZE_DEFAULT,
     active_thumbnail_size_px: 110,
     card_manager_card_size_px: CARD_MANAGER_CARD_SIZE_DEFAULT,
-    bars_size_scale: BARS_SIZE_SCALE_DEFAULT,
     library_tabs: ["pinned"],
     pinned_categories: null,
-    visible_pinned_category_count: VISIBLE_PINNED_CATEGORY_COUNT_DEFAULT,
     pinned_order: [],
     prompt_manual_orders: {},
     category_colors: {},
@@ -40,10 +33,8 @@ export const DEFAULT_PROMPT_UI_PREFS = {
     promote_selected_prompts: true,
     prompt_sort_mode: "manual",
     prompt_sort_modes: {},
-    meta_tags_button_side: "right",
     card_contrast_mode: "off",
     active_card_size_mode: "default",
-    category_overflow_grouping: "alpha",
 };
 
 export function normalizeDisplayMode(mode, fallback = "compact") {
@@ -83,12 +74,6 @@ export function getActiveThumbnailSizePx(uiPrefs = {}) {
     });
 }
 
-export function getBarsSizeScale(uiPrefs = {}) {
-    const raw = Number(uiPrefs?.bars_size_scale ?? BARS_SIZE_SCALE_DEFAULT);
-    if (!Number.isFinite(raw)) return BARS_SIZE_SCALE_DEFAULT;
-    return Math.max(BARS_SIZE_SCALE_MIN, Math.min(BARS_SIZE_SCALE_MAX, Math.round(raw)));
-}
-
 export function getCardManagerCardSizePx(uiPrefs = {}) {
     const raw = Number(uiPrefs?.card_manager_card_size_px ?? CARD_MANAGER_CARD_SIZE_DEFAULT);
     if (!Number.isFinite(raw)) return CARD_MANAGER_CARD_SIZE_DEFAULT;
@@ -116,7 +101,6 @@ export function normalizeUiPrefs(uiPrefs = {}) {
     merged.active_card_size_mode = source.active_card_size_mode === "large" ? "large" : "default";
     merged.thumbnail_size_px = getThumbnailSizePx(merged);
     merged.active_thumbnail_size_px = getActiveThumbnailSizePx(merged);
-    merged.bars_size_scale = getBarsSizeScale(merged);
     merged.card_manager_card_size_px = getCardManagerCardSizePx(merged);
 
     return merged;

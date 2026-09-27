@@ -34,7 +34,7 @@ Restart ComfyUI. No external Python dependencies beyond ComfyUI's own stack (`PI
 
 1. Add the **`Local Gallery: Prompt + LoRA`** node between your model and sampler.
 2. Inputs: `model`, `clip`, optional `seed`.
-3. Open the node UI (tabs for **Prompt** and **LoRA**) to build your prompt card stack and LoRA stack.
+3. Use the **Prompts | LoRAs** switch at the left of the top bar to build your prompt card stack and LoRA stack.
 4. Outputs:
    - `MODEL` / `CLIP` — model with selected LoRAs applied
    - `lora_trigger_words` — trigger words for the active LoRAs
@@ -52,7 +52,7 @@ data/prompt_gallery/   # prompt cards, thumbnails, presets, wildcards
 data/lora_gallery/     # LoRA metadata, presets, thumbnails
 ```
 
-Back these up before migrating or cleaning up.
+Back these up before migrating or cleaning up. `data/prompt_gallery/card_thumbnail_cache/` only holds downscaled copies for the card grids and can be deleted at any time; it is rebuilt on demand.
 
 ## Legacy compatibility
 
@@ -62,7 +62,7 @@ This node bundles the standalone **Local Prompt Gallery** and **Local LoRA Galle
 
 ```powershell
 # JS checks
-node --check <changed-js-files>
+node --input-type=module --check < <changed-js-file>
 node --test tests/*.test.mjs
 
 # Python checks

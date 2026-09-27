@@ -1,7 +1,7 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
 import { parseJsonOr, stringifyJsonOr } from "../shared/json.js";
-import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
+import { createModalSurface } from "../shared/modalSurfaces.js";
 
 function createPresetSurface({ workspaceContainer, onClose }) {
     return createModalSurface({ workspaceContainer, onWorkspaceClose: onClose });
@@ -141,14 +141,13 @@ function renderPresetRow({
     const modeLabel = preset.wildcard_mode === "on" ? "Wildcard" : "Manual";
 
     row.innerHTML = `
-        <div class="localprompt-preset-icon">P</div>
-        <div style="flex: 1; min-width: 0;">
-            <div style="font-size: 13px; color: #f2f2f2; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(preset.name)}</div>
-            <div style="font-size: 10px; color: #8f98a3;">${modeLabel} ${selectionCount} prompts, ${categoryCount} categories</div>
+        <div class="localprompt-preset-info">
+            <div class="localprompt-preset-name">${escapeHtml(preset.name)}</div>
+            <div class="lg-note">${modeLabel} · ${selectionCount} prompts · ${categoryCount} categories</div>
         </div>
-        <button class="load-preset-btn localprompt-btn localprompt-preset-load" style="padding: 6px 12px; font-size: 11px;">Load</button>
-        <button class="edit-preset-btn localprompt-btn localprompt-preset-edit" style="padding: 6px 12px; font-size: 11px;">Edit</button>
-        <button class="delete-preset-btn localprompt-btn localprompt-preset-delete" style="padding: 6px 12px; font-size: 11px;">Delete</button>
+        <button class="lg-text-btn load-preset-btn" type="button">Load</button>
+        <button class="lg-text-btn edit-preset-btn" type="button">Edit</button>
+        <button class="lg-text-btn danger delete-preset-btn" type="button">Delete</button>
     `;
 
     row.querySelector(".load-preset-btn").addEventListener("click", () => loadPreset(preset, overlay));
@@ -163,12 +162,9 @@ function renderPresetRow({
         }
 
         const comboHeader = overlay.querySelector("#combo-header");
-        if (comboHeader) {
-            comboHeader.textContent = "Edit Preset Combo";
-            comboHeader.style.color = "#aaddff";
-        }
+        if (comboHeader) comboHeader.textContent = "Edit preset from prompt list";
         const comboBtn = overlay.querySelector("#create-combo-btn");
-        if (comboBtn) comboBtn.textContent = "Update & Load Combo";
+        if (comboBtn) comboBtn.textContent = "Update & load";
     });
 
     row.querySelector(".delete-preset-btn").addEventListener("click", async () => {
@@ -217,44 +213,37 @@ export async function showPresetsModal({
     onClose = null,
     librarySubnavHtml = "",
 }) {
-    const surface = createPresetSurface({ workspaceContainer, onClose });
-    const { root, close, isWorkspace } = surface;
+    const { root, close } = createPresetSurface({ workspaceContainer, onClose });
     root.innerHTML = `
-        <div class="localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}" style="width: 450px;">
-            ${isWorkspace ? "" : `<div class="localprompt-modal-header">
-                <div class="localprompt-workspace-title">
-                    <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--preset" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></svg></span>Presets <span class="localprompt-title-status" aria-hidden="true"></span></h3>
-                </div>
-                <button class="localprompt-modal-close" title="Close">x</button>
-            </div>`}
-            ${isWorkspace ? librarySubnavHtml : ""}
-            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
-                <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-preset-management" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;"><span class="localprompt-section-icon" aria-hidden="true">⌑</span>Preset Management</h4>
-                    <div class="localprompt-preset-save-row" style="display: flex; gap: 8px; margin-bottom: 12px;">
-                        <input type="text" id="preset-name-input" placeholder="Preset name..." style="flex: 1; padding: 10px 12px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px;">
-                        <button id="save-preset-btn" class="localprompt-btn active" style="padding: 10px 16px;">Save Current</button>
+        <div class="localprompt-modal localprompt-workspace-page">
+            ${librarySubnavHtml}
+            <div class="localprompt-workspace-body">
+                <section class="localprompt-workspace-section lg-form">
+                    <h4>New preset</h4>
+                    <label class="lg-field">Preset name
+                        <input class="lg-input" type="text" id="preset-name-input" placeholder="e.g. Portrait base">
+                    </label>
+                    <div class="lg-actions">
+                        <button class="lg-text-btn primary" id="save-preset-btn" type="button">Save current stack</button>
                     </div>
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-combo-preset" style="margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 12px;">
-                    <h4 id="combo-header" style="margin: 0 0 8px 0; color: #ddd; font-size: 12px;"><span class="localprompt-section-icon" aria-hidden="true">✧</span>Combo Preset</h4>
-                    <p style="font-size: 10px; color: #aaa; margin: 0 0 8px 0;">Paste comma-separated prompts to automatically create cards and a preset for them.</p>
-                    <textarea id="combo-prompts-input" placeholder="e.g. parted bangs, elf, very long hair" style="width: 100%; height: 74px; padding: 10px 12px; background: #111820; border: 1px solid #3b4652; color: #ddd; border-radius: 7px; resize: vertical; margin-bottom: 10px;"></textarea>
-                    <button id="create-combo-btn" class="localprompt-btn active" style="width: 100%; padding: 10px;">Create & Load Combo</button>
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-saved-presets" style="margin-bottom: 0;">
-                    <div class="localprompt-saved-presets-title" style="margin-bottom: 10px; font-size: 13px; color: #e8e8e8; font-weight: 600;"><span class="localprompt-section-icon" aria-hidden="true">▱</span>Saved Presets</div>
+                </section>
+                <section class="localprompt-workspace-section lg-form">
+                    <h4 id="combo-header">From a prompt list</h4>
+                    <p class="lg-note">Paste comma-separated prompts. Missing cards are created, then the list is saved under the name above and loaded.</p>
+                    <textarea class="lg-input" id="combo-prompts-input" rows="3" placeholder="e.g. parted bangs, elf, very long hair"></textarea>
+                    <div class="lg-actions">
+                        <button class="lg-text-btn" id="create-combo-btn" type="button">Create & load</button>
+                    </div>
+                </section>
+                <section class="localprompt-workspace-section lg-form">
+                    <h4>Saved presets</h4>
                     <div id="presets-list" class="localprompt-presets-list">
-                        <div style="color: #666; font-size: 11px; text-align: center; padding: 20px;">Loading...</div>
+                        <p class="lg-empty">Loading...</p>
                     </div>
-                </div>
+                </section>
             </div>
         </div>
     `;
-
-    const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
-    closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) bindBackdropClose(root, close);
 
     const presetsList = root.querySelector("#presets-list");
     const presetNameInput = root.querySelector("#preset-name-input");
@@ -312,7 +301,7 @@ export async function showPresetsModal({
         const presets = await galleryNode.getPresets();
 
         if (presets.length === 0) {
-            presetsList.innerHTML = '<div style="color: #666; font-size: 11px; text-align: center; padding: 20px;">No presets saved yet</div>';
+            presetsList.innerHTML = '<p class="lg-empty">No presets saved yet.</p>';
             return;
         }
 
@@ -416,11 +405,7 @@ export async function showPresetsModal({
                 comboPromptsInput.value = "";
 
                 const comboHeader = root.querySelector("#combo-header");
-                if (comboHeader) {
-                    comboHeader.textContent = "Combo Preset";
-                    comboHeader.style.color = "#ddd";
-                }
-                createComboBtn.textContent = "Create & Load Combo";
+                if (comboHeader) comboHeader.textContent = "From a prompt list";
 
                 try {
                     await renderPresetsList();
@@ -448,7 +433,7 @@ export async function showPresetsModal({
                 showAlert("Error: " + error.message);
             }
         } finally {
-            createComboBtn.textContent = "Create & Load Combo";
+            createComboBtn.textContent = "Create & load";
             createComboBtn.disabled = false;
         }
     });

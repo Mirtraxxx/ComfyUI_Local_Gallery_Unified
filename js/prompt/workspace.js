@@ -6,7 +6,6 @@ export function createPromptWorkspaceController({
     clearLibraryNavActiveState,
     syncSelectedSectionVisibility,
     renderPinnedCategoryStrip,
-    getActiveLibraryTab,
     setActiveLibraryTab,
     showBrowseWorkspace,
     showPresetsWorkspace,
@@ -48,6 +47,8 @@ export function createPromptWorkspaceController({
         if (mode === "gallery") detachLibraryShellHandler();
         host.innerHTML = "";
         host.classList.toggle("active", mode !== "gallery");
+        // Workspace pages carry their own navigation, so the category bar steps aside.
+        widgetContainer.querySelector(".localprompt-container")?.classList.toggle("workspace-focus", mode !== "gallery");
         if (mode !== "gallery") {
             closeActiveSidebarForWorkspaceMode();
             setActiveLibraryTab(null);
@@ -84,6 +85,7 @@ export function createPromptWorkspaceController({
                 ${navItems.map(item => `
                     <button class="localprompt-library-subnav-item${item.key === activePage ? " active" : ""}" data-library-page="${item.key}" type="button">${item.label}</button>
                 `).join("")}
+                <button class="lg-text-btn localprompt-library-shell-close" data-library-close type="button">Back to gallery</button>
             </nav>
         `;
     }
@@ -95,13 +97,6 @@ export function createPromptWorkspaceController({
 
         host.innerHTML = `
             <div class="localprompt-library-shell">
-                <header class="localprompt-library-shell-header">
-                    <div class="localprompt-library-shell-brand">
-                        <strong>Prompt Library</strong>
-                        <span>Cards, presets, and wildcard files</span>
-                    </div>
-                    <button class="localprompt-library-shell-close" data-library-close type="button">Back to gallery</button>
-                </header>
                 <div class="localprompt-library-shell-content" id="${uniqueId}-library-workspace-content"></div>
             </div>
         `;

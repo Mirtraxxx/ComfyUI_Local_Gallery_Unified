@@ -1,7 +1,6 @@
 import {
     getActiveDisplayMode as resolveActiveDisplayMode,
     getActiveThumbnailSizePx as resolveActiveThumbnailSizePx,
-    getBarsSizeScale as resolveBarsSizeScale,
     getCardManagerCardSizePx as resolveCardManagerCardSizePx,
     getCardsDisplayMode as resolveCardsDisplayMode,
     getThumbnailSizePx as resolveThumbnailSizePx,
@@ -25,8 +24,8 @@ export function createDisplayPreferencesController({
     nodeInstance,
     activeLibraryTab,
     renderLibraryDrawer,
-    renderGallery,
     renderActiveSidebar,
+    applyActiveSidebarPreference,
     saveUiPrefs,
     bindMainSortSelect,
 }) {
@@ -37,7 +36,6 @@ export function createDisplayPreferencesController({
 
     function getThumbnailSizePx() { return resolveThumbnailSizePx(nodeInstance.uiPrefs); }
     function getActiveThumbnailSizePx() { return resolveActiveThumbnailSizePx(nodeInstance.uiPrefs); }
-    function getBarsSizeScale() { return resolveBarsSizeScale(nodeInstance.uiPrefs); }
     function getCardManagerCardSizePx() { return resolveCardManagerCardSizePx(nodeInstance.uiPrefs); }
     function getActiveDisplayMode() { return resolveActiveDisplayMode(nodeInstance.uiPrefs); }
     function getCardsDisplayMode() { return resolveCardsDisplayMode(nodeInstance.uiPrefs); }
@@ -90,43 +88,36 @@ export function createDisplayPreferencesController({
     }
 
     function syncDisplayOptionAvailability() {
-        const sections = [
-            {
-                mode: getActiveDisplayMode(),
-                slider: widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`),
-                control: widgetContainer.querySelector(`#${uniqueId}-active-size-control`),
-            },
-            {
-                mode: getCardsDisplayMode(),
-                slider: widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`),
-                control: widgetContainer.querySelector(`#${uniqueId}-cards-size-control`),
-            },
-        ];
-        sections.forEach(({ mode, slider, control }) => {
-            const enabled = mode === "thumbnails";
-            if (slider) slider.disabled = !enabled;
-            if (control) {
-                control.classList.toggle("disabled", !enabled);
-                control.title = enabled ? "Thumbnail size" : "Only available in Thumbnails mode";
-            }
+        [
+            [getActiveDisplayMode(), `#${uniqueId}-active-thumbnail-size-slider`],
+            [getCardsDisplayMode(), `#${uniqueId}-thumbnail-size-slider`],
+        ].forEach(([mode, selector]) => {
+            const slider = widgetContainer.querySelector(selector);
+            if (!slider) return;
+            slider.disabled = mode !== "thumbnails";
+            slider.title = slider.disabled ? "Only available in Thumbnails mode" : "Thumbnail size";
         });
+        const wideInput = widgetContainer.querySelector(`#${uniqueId}-active-wide`);
+        if (wideInput) wideInput.disabled = getActiveDisplayMode() !== "thumbnails";
     }
 
     function syncThumbnailSizeSliders() {
         const cardSlider = widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`);
         const activeSlider = widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`);
-        const barsSlider = widgetContainer.querySelector(`#${uniqueId}-bars-size-slider`);
         const cardManagerSlider = widgetContainer.querySelector(`#${uniqueId}-card-manager-size-slider`);
         const cardModeSelect = widgetContainer.querySelector(`#${uniqueId}-cards-display-mode`);
         const activeModeSelect = widgetContainer.querySelector(`#${uniqueId}-active-display-mode`);
         if (cardSlider) cardSlider.value = String(getThumbnailSizePx());
         syncResponsiveThumbnailBounds();
-        if (barsSlider) barsSlider.value = String(getBarsSizeScale());
         if (cardManagerSlider) cardManagerSlider.value = String(getCardManagerCardSizePx());
         if (cardModeSelect) cardModeSelect.value = getCardsDisplayMode();
         if (activeModeSelect) activeModeSelect.value = getActiveDisplayMode();
-        const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
-        if (contrastSelect) contrastSelect.value = nodeInstance.uiPrefs.card_contrast_mode || "off";
+        const dimInput = widgetContainer.querySelector(`#${uniqueId}-dim-unselected`);
+        if (dimInput) dimInput.checked = (nodeInstance.uiPrefs.card_contrast_mode || "off") !== "off";
+        const wideInput = widgetContainer.querySelector(`#${uniqueId}-active-wide`);
+        if (wideInput) wideInput.checked = nodeInstance.uiPrefs.active_card_size_mode === "large";
+        const hoverOpenInput = widgetContainer.querySelector(`#${uniqueId}-active-hover-open`);
+        if (hoverOpenInput) hoverOpenInput.checked = nodeInstance.uiPrefs.active_sidebar_hover_open !== false;
         syncDisplayOptionAvailability();
     }
 
@@ -142,14 +133,6 @@ export function createDisplayPreferencesController({
         syncThumbnailSizeSliders();
     }
 
-    function applyBarsSizeScalePreference(scale = getBarsSizeScale()) {
-        nodeInstance.uiPrefs.bars_size_scale = scale;
-        if (widgetContainer) {
-            widgetContainer.style.setProperty('--localprompt-bar-scale', `${scale / 100}`);
-        }
-        syncThumbnailSizeSliders();
-    }
-
     function applyCardManagerCardSizePreference(sizePx = getCardManagerCardSizePx()) {
         const normalizedSize = resolveCardManagerCardSizePx({ card_manager_card_size_px: sizePx });
         nodeInstance.uiPrefs.card_manager_card_size_px = normalizedSize;
@@ -160,24 +143,6 @@ export function createDisplayPreferencesController({
             grid.style.setProperty("--localprompt-card-manager-fullscreen-card-width", `${fullscreenSize}px`);
         });
         syncThumbnailSizeSliders();
-    }
-
-    function applyActiveBorderThemePreference() {
-        const theme = nodeInstance.uiPrefs.active_border_theme || "default";
-        const themeClasses = [
-            "zip-theme-default", "zip-theme-cyberpunk", "zip-theme-sunset", "zip-theme-aurora",
-            "zip-theme-ice", "zip-theme-fire-ice", "zip-theme-golden-mint", "zip-theme-rainbow-sync",
-            "zip-theme-rainbow-split", "zip-theme-custom",
-        ];
-        themeClasses.forEach(cls => widgetContainer.classList.remove(cls));
-        widgetContainer.classList.add(`zip-theme-${theme}`);
-        if (theme === "custom") {
-            widgetContainer.style.setProperty('--localprompt-zip-color-1', nodeInstance.uiPrefs.active_border_custom_1 || "#ff0000");
-            widgetContainer.style.setProperty('--localprompt-zip-color-2', nodeInstance.uiPrefs.active_border_custom_2 || "#0000ff");
-        } else {
-            widgetContainer.style.removeProperty('--localprompt-zip-color-1');
-            widgetContainer.style.removeProperty('--localprompt-zip-color-2');
-        }
     }
 
     function applyCardContrastModePreference() {
@@ -213,7 +178,6 @@ export function createDisplayPreferencesController({
     function setupThumbnailSizeSliders() {
         const cardSlider = widgetContainer.querySelector(`#${uniqueId}-thumbnail-size-slider`);
         const activeSlider = widgetContainer.querySelector(`#${uniqueId}-active-thumbnail-size-slider`);
-        const barsSlider = widgetContainer.querySelector(`#${uniqueId}-bars-size-slider`);
         const cardManagerSlider = widgetContainer.querySelector(`#${uniqueId}-card-manager-size-slider`);
         const cardManagerResetButton = widgetContainer.querySelector(`#${uniqueId}-card-manager-size-reset`);
         const cardModeSelect = widgetContainer.querySelector(`#${uniqueId}-cards-display-mode`);
@@ -244,17 +208,6 @@ export function createDisplayPreferencesController({
                 saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save active thumbnail size", error));
             });
         }
-        if (barsSlider) {
-            barsSlider.value = String(getBarsSizeScale());
-            barsSlider.addEventListener('input', () => {
-                applyBarsSizeScalePreference(Number(barsSlider.value));
-                queueThumbnailSizeSave();
-            });
-            barsSlider.addEventListener('change', () => {
-                applyBarsSizeScalePreference(Number(barsSlider.value));
-                saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save bars size scale", error));
-            });
-        }
         if (cardManagerSlider) {
             cardManagerSlider.value = String(getCardManagerCardSizePx());
             cardManagerSlider.addEventListener('input', () => {
@@ -279,7 +232,6 @@ export function createDisplayPreferencesController({
                 nodeInstance.uiPrefs.display_mode = nodeInstance.uiPrefs.cards_display_mode;
                 syncThumbnailSizeSliders();
                 if (activeLibraryTab()) await renderLibraryDrawer(activeLibraryTab());
-                renderGallery();
                 saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save cards display mode", error));
             });
         }
@@ -288,19 +240,32 @@ export function createDisplayPreferencesController({
             activeModeSelect.addEventListener('change', async () => {
                 nodeInstance.uiPrefs.active_display_mode = normalizeDisplayMode(activeModeSelect.value, "compact");
                 syncThumbnailSizeSliders();
+                applyActiveSidebarPreference();
                 await renderActiveSidebar();
                 saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save active display mode", error));
             });
         }
-        const contrastSelect = widgetContainer.querySelector(`#${uniqueId}-card-contrast-select`);
-        if (contrastSelect) {
-            contrastSelect.value = nodeInstance.uiPrefs.card_contrast_mode || "off";
-            contrastSelect.addEventListener('change', () => {
-                nodeInstance.uiPrefs.card_contrast_mode = contrastSelect.value;
+        const dimInput = widgetContainer.querySelector(`#${uniqueId}-dim-unselected`);
+        if (dimInput) {
+            dimInput.addEventListener('change', () => {
+                nodeInstance.uiPrefs.card_contrast_mode = dimInput.checked ? "dim_inactive" : "off";
                 applyCardContrastModePreference();
                 saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save card contrast mode", error));
             });
         }
+        const wideInput = widgetContainer.querySelector(`#${uniqueId}-active-wide`);
+        if (wideInput) {
+            wideInput.addEventListener('change', async () => {
+                nodeInstance.uiPrefs.active_card_size_mode = wideInput.checked ? "large" : "default";
+                applyActiveSidebarPreference();
+                await renderActiveSidebar();
+                saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save active card size", error));
+            });
+        }
+        widgetContainer.querySelector(`#${uniqueId}-active-hover-open`)?.addEventListener('change', event => {
+            nodeInstance.uiPrefs.active_sidebar_hover_open = event.target.checked;
+            saveUiPrefs().catch(error => console.warn("LocalPromptGallery: Failed to save active hover preference", error));
+        });
         bindMainSortSelect();
         if (typeof ResizeObserver === "function") {
             responsiveSizingObserver = new ResizeObserver(scheduleResponsiveThumbnailBoundsSync);
@@ -309,7 +274,7 @@ export function createDisplayPreferencesController({
                 widgetContainer.querySelector(`#${uniqueId}-active-sidebar`),
             ].filter(Boolean).forEach(target => responsiveSizingObserver.observe(target));
         }
-        applyBarsSizeScalePreference();
+        syncThumbnailSizeSliders();
         scheduleResponsiveThumbnailBoundsSync();
         syncDisplayOptionAvailability();
     }
@@ -327,7 +292,6 @@ export function createDisplayPreferencesController({
     return {
         getThumbnailSizePx,
         getActiveThumbnailSizePx,
-        getBarsSizeScale,
         getCardManagerCardSizePx,
         getActiveDisplayMode,
         getCardsDisplayMode,
@@ -336,9 +300,7 @@ export function createDisplayPreferencesController({
         syncDisplayOptionAvailability,
         applyThumbnailSizePreference,
         applyActiveThumbnailSizePreference,
-        applyBarsSizeScalePreference,
         applyCardManagerCardSizePreference,
-        applyActiveBorderThemePreference,
         applyCardContrastModePreference,
         queueThumbnailSizeSave,
         setupThumbnailSizeSliders,

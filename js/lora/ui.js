@@ -1,8 +1,7 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
 import { api } from "../../../scripts/api.js";
 import * as loraApi from "../api/loraApi.js";
-import { escapeHtml, sanitizeHttpUrl } from "../shared/dom.js";
-import { createOperationFeedback } from "../shared/operationFeedback.js?v=operation-feedback-20260809-3";
+import { createOperationFeedback } from "../shared/operationFeedback.js";
 import { createEventListenerRegistry } from "../shared/events.js";
 import { cloneJsonOr, readSelectionArray, writeSelectionArray } from "../shared/json.js";
 import {
@@ -11,29 +10,31 @@ import {
 } from "../shared/workflowProfile.js";
 import {
     LORA_DISPLAY_LIMITS,
-    LORA_BAR_SIZE_CLASSES,
     clampInteger,
     getLoraActiveCardControlScale,
-    normalizeBarsSizeScale,
-    normalizeLoraContrastMode,
     normalizeLoraDisplayMode,
     normalizeLoraDisplayState,
     normalizeLoraSortMode,
-    normalizeVisiblePinnedFolderCount,
 } from "./displayState.js";
 import { buildLoraCardHtml } from "./renderers.js";
 import { getResponsiveLoraBrowserCardLayout } from "./browserCardLayout.js";
 import { createLoraActiveStackController } from "./activeStackController.js";
 import { createLoraMetadataController } from "./metadataEditor.js";
-import { createLoraFolderController } from "./folderController.js";
+import { createLoraFolderController, getFolderLabel } from "./folderController.js";
 import { syncLoraWithCivitai } from "./civitaiSync.js";
 import { buildLoraSelectionEntry } from "./selectionEntry.js";
 import { normalizeLoraLotteryConfig, readLoraLotteryConfig } from "./lotteryState.js";
 import { setupLoraPresetControls } from "./presetControls.js";
 import { toSerializableLoraSelection } from "./selectionState.js";
 import { setupLoraStateWidgets } from "./stateWidgets.js";
-import { getLoraStyles } from "./styles.js";
-import { getLoraReferenceUxStyles } from "./referenceUx.js";
+import { LORA_STYLES } from "./styles.js";
+import { getLoraTemplate } from "./template.js";
+import { ensureStyleSheet } from "../shared/styleSheet.js";
+import { closePillMenu } from "../shared/pillMenu.js";
+import { CHROME_STYLES } from "../shared/chrome.js";
+import { createPopoverGroup } from "../shared/popovers.js";
+import { createAutoHideBar } from "../shared/autoHideBar.js";
+import { icon } from "../shared/icons.js";
 
 export function createLoraGalleryLifecycle(app) {
 const UnifiedLoraGalleryNode = {
@@ -42,7 +43,7 @@ const UnifiedLoraGalleryNode = {
     currentPage: 1,
     totalPages: 1,
     lastOutput: null,
-    
+
     async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], per_page = 50, sort_mode = "az") {
         this.isLoading = true;
         try {
@@ -81,20 +82,19 @@ const UnifiedLoraGalleryNode = {
             const result = onNodeCreated?.apply(this, arguments);
 
             setupLoraStateWidgets({ nodeInstance: this });
-            
-            const HEADER_HEIGHT = 90;
+
             const MIN_NODE_WIDTH = 600;
+            const MIN_NODE_HEIGHT = 350;
 
             this.size = [700, 600];
             this.loraData = [];
             this.availableLoras = [];
-            this.isModelOnly = nodeData.name.includes("ModelOnly");
             this.selectedLoraNamesForEditing = new Set();
             this.activeEditingLoraName = null;
             this.loraUiState = {};
 
             const widgetContainer = document.createElement("div");
-            widgetContainer.className = "locallora-container-wrapper";
+            widgetContainer.className = "locallora-container-wrapper lg-root";
             this.addDOMWidget("lora_gallery", "div", widgetContainer, {});
             const globalListeners = createEventListenerRegistry();
 
@@ -110,274 +110,10 @@ const UnifiedLoraGalleryNode = {
 
             const uniqueId = `locallora-gallery-${this.id}`;
             widgetContainer.id = `${uniqueId}-wrapper`;
-            widgetContainer.innerHTML = `
-                ${getLoraStyles(uniqueId)}
-                ${getLoraReferenceUxStyles(uniqueId)}
-                <div id="${uniqueId}" style="height: 100%;">
-                    <div class="locallora-container">
-                        <div class="locallora-controls">
-                            <div class="locallora-controls-row locallora-primary-controls">
-                                <button class="lora-active-stack-btn empty" type="button" title="Active LoRAs" aria-label="Active LoRAs" aria-pressed="false"><span class="lora-active-stack-count">0</span></button>
-                                <div class="lora-folder-nav">
-                                    <div class="lora-folder-first-row">
-                                        <div class="lora-folder-strip"></div>
-                                        <button class="lora-folder-pill lora-folder-more-btn" type="button" hidden
-                                            aria-expanded="false" aria-controls="${uniqueId}-folder-overflow"
-                                            title="Show all LoRA folders" aria-label="Show all LoRA folders">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                        </button>
-                                    </div>
-                                    <div class="lora-folder-overflow-wrapper">
-                                        <div class="lora-folder-overflow" id="${uniqueId}-folder-overflow">
-                                            <div class="lora-folder-overflow-chips"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="locallora-controls-row locallora-hidden-filters" aria-hidden="true">
-                                <button class="toggle-all-btn">Toggle All</button>
-                                <button class="clear-all-btn" title="Clear all selected LoRAs">Clear All</button>
-                                <button class="toggle-gallery-btn" title="Toggle Gallery">Hide Gallery</button>
-                            </div>
-                            
-                            <div class="locallora-metadata-editor" aria-label="LoRA details editor">
-                                <div class="lora-metadata-editor-header">
-                                    <div class="lora-metadata-editor-heading">
-                                        <strong class="lora-metadata-editor-title">Selected LoRA</strong>
-                                        <span class="lora-metadata-editor-selection"><span class="selected-count">0</span><span class="lora-metadata-editor-selection-label"> selected</span></span>
-                                    </div>
-                                    <div class="lora-metadata-editor-actions">
-                                        <div class="lora-thumbnail-editor-action">
-                                            <button class="use-last-output-thumbnail-btn" type="button" disabled>
-                                                <span class="lora-thumbnail-action-icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.6-4.6a2 2 0 0 1 2.8 0L16 16"></path><path d="M14 14l1.6-1.6a2 2 0 0 1 2.8 0L21 15"></path><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle></svg>
-                                                </span>
-                                                <span class="lora-thumbnail-action-label">Use last result</span>
-                                            </button>
-                                            <span class="lora-thumbnail-action-status" aria-live="polite"></span>
-                                        </div>
-                                        <button class="lora-metadata-editor-close" type="button" aria-label="Close LoRA details" title="Close">×</button>
-                                    </div>
-                                </div>
-                                <div class="lora-metadata-editor-grid">
-                                    <label class="lora-metadata-field trigger-editor-row" style="display:none;">
-                                        <span>Trigger words</span>
-                                        <input type="text" class="trigger-editor-input" placeholder="Words added when this LoRA is used">
-                                    </label>
-                                    <label class="lora-metadata-field url-editor-row" style="display:none;">
-                                        <span>Source URL</span>
-                                        <input type="text" class="url-editor-input" placeholder="Civitai or download page">
-                                    </label>
-                                </div>
-                                <div class="lora-metadata-field strength-memory-editor-row" style="display:none;">
-                                    <label class="strength-memory-enable-label">
-                                        <input type="checkbox" class="strength-memory-enable-input">
-                                        <span>Remember strengths</span>
-                                    </label>
-                                    <small>Re-select this LoRA with these strengths.</small>
-                                    <div class="strength-memory-controls">
-                                        <label class="strength-memory-control">
-                                            <span>Model</span>
-                                            <input type="number" class="strength-memory-model-input" step="0.05" min="-10" max="10" value="1">
-                                        </label>
-                                        <label class="strength-memory-control strength-memory-clip-control">
-                                            <span>CLIP</span>
-                                            <input type="number" class="strength-memory-clip-input" step="0.05" min="-2" max="2" value="1">
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="lora-metadata-field trigger-preset-editor-row" style="display:none;">
-                                    <button class="lora-trigger-preset-editor-toggle" type="button" aria-expanded="false">
-                                        <span class="lora-metadata-field-label">
-                                            <span>Trigger presets <span class="lora-trigger-preset-count"></span></span>
-                                            <small>Alternate trigger word sets</small>
-                                        </span>
-                                        <span class="lora-trigger-preset-toggle-icon" aria-hidden="true">⌄</span>
-                                    </button>
-                                    <div class="lora-trigger-preset-content" hidden>
-                                        <div class="trigger-preset-list"></div>
-                                        <div class="lora-trigger-preset-form">
-                                            <input type="text" class="trigger-preset-name-input" placeholder="Preset name">
-                                            <input type="text" class="trigger-preset-value-input" placeholder="Trigger words">
-                                            <button class="add-trigger-preset-btn" type="button">Add preset</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+            ensureStyleSheet("locallora-styles", LORA_STYLES);
+            ensureStyleSheet("localgallery-chrome", CHROME_STYLES);
+            widgetContainer.innerHTML = getLoraTemplate(uniqueId);
 
-                            <select class="folder-filter-select">
-                                <option value="">All Folders</option>
-                            </select>
-                        </div>
-                        <div class="locallora-body-shell">
-                            <aside class="locallora-active-sidebar" id="${uniqueId}-active-sidebar">
-                                <div class="locallora-active-sidebar-header">
-                                    <div class="locallora-active-sidebar-title">
-                                        <span>Active LoRAs</span>
-                                        <span id="${uniqueId}-active-count">0 selected</span>
-                                    </div>
-                                    <button class="lora-active-clear-btn" type="button" title="Clear all selected LoRAs">Clear All</button>
-                                </div>
-                                <div class="locallora-active-sidebar-content">
-                                    <div class="locallora-active-chips" id="${uniqueId}-active-chips"></div>
-                                </div>
-                                <div class="locallora-active-splitter" id="${uniqueId}-active-splitter"></div>
-                            </aside>
-                            <div class="locallora-gallery-pane">
-                                <div class="locallora-gallery"><p>Loading LoRAs...</p></div>
-                            </div>
-                        </div>
-                        <div class="locallora-bottom-bar">
-                            <div class="lora-execution-controls">
-                                <button class="lora-execution-mode-btn" type="button" data-mode="stack" title="Stack enabled LoRAs onto one model">
-                                    <span class="lora-execution-mode-icon" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="3" y="4" width="7" height="16" rx="1.5"></rect>
-                                            <rect x="14" y="4" width="7" height="16" rx="1.5"></rect>
-                                            <path d="M10 9h4M10 15h4"></path>
-                                        </svg>
-                                    </span>
-                                    <span class="lora-execution-mode-label">Stack</span>
-                                </button>
-                                <label class="lora-compare-strengths-control" title="Comma-separated strengths used for every selected LoRA" hidden>
-                                    <span>Strengths</span>
-                                    <input class="lora-compare-strengths-input" type="text" value="1.0" placeholder="0.8, 1.0" spellcheck="false">
-                                </label>
-                            </div>
-                            <div class="lora-lottery-anchor">
-                                <button class="lora-action-btn lora-lottery-btn" type="button" title="Configure a random LoRA for every run" aria-label="Configure LoRA lottery" aria-expanded="false">
-                                    <span aria-hidden="true">RND</span>
-                                </button>
-                                <div class="lora-lottery-popover" style="display: none;">
-                                    <div class="lora-lottery-heading">
-                                        <strong>Run lottery</strong>
-                                        <span>Draw one LoRA on every queue.</span>
-                                    </div>
-                                    <label class="lora-lottery-enabled">
-                                        <input class="lora-lottery-enabled-input" type="checkbox">
-                                        <span>Enable lottery</span>
-                                    </label>
-                                    <label class="lora-lottery-field">
-                                        <span>Category</span>
-                                        <select class="lora-lottery-folder-select">
-                                            <option value="">All folders</option>
-                                        </select>
-                                    </label>
-                                    <div class="lora-lottery-strengths">
-                                        <label class="lora-lottery-field">
-                                            <span>Model</span>
-                                            <input class="lora-lottery-strength-input" type="number" value="1" step="0.05">
-                                        </label>
-                                        <label class="lora-lottery-field">
-                                            <span>CLIP</span>
-                                            <input class="lora-lottery-clip-strength-input" type="number" value="1" step="0.05">
-                                        </label>
-                                    </div>
-                                    <p class="lora-lottery-status" aria-live="polite">Off. Your Active Stack is unchanged.</p>
-                                </div>
-                            </div>
-                            <div class="lora-search-anchor">
-                                <button class="lora-action-btn lora-search-btn" type="button" title="Search LoRAs by name" aria-label="Search LoRAs by name" aria-expanded="false" aria-controls="${uniqueId}-search-popover">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-                                </button>
-                                <div class="lora-search-popover" id="${uniqueId}-search-popover" style="display: none;">
-                                    <input type="search" class="search-input" placeholder="Search LoRAs..." aria-label="Search LoRAs by name" autocomplete="off">
-                                    <button class="lora-search-clear-btn" type="button" title="Clear search" aria-label="Clear search">&times;</button>
-                                </div>
-                            </div>
-                            <button class="lora-action-btn save-preset-btn" title="Save current stack as preset" aria-label="Save LoRA preset">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
-                            </button>
-                            <div class="locallora-preset-container">
-                                <button class="lora-action-btn load-preset-btn" title="Load a saved preset" aria-label="Load LoRA preset">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg>
-                                </button>
-                                <div class="preset-dropdown"></div>
-                            </div>
-                            <div class="lora-display-options-anchor">
-                                <button class="lora-action-btn lora-settings-btn lora-display-options-btn" title="Display options" aria-label="Display options">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 8h4"></path><path d="M18 16h4"></path></svg>
-                                </button>
-                                <div class="lora-display-options-popover" style="display: none;">
-                                    <div class="lora-display-options-panel">
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">ACTIVE</div>
-                                            <select class="lora-display-mode-select lora-active-display-mode" title="Active display mode">
-                                                <option value="thumbnails">Thumbnails</option>
-                                                <option value="compact">Compact</option>
-                                            </select>
-                                            <label class="lora-thumbnail-size-control lora-active-size-control" title="Active LoRA thumbnail size">
-                                                <span>-</span>
-                                                <input class="lora-active-thumbnail-size-slider" type="range" min="72" max="156" step="1">
-                                                <span>+</span>
-                                            </label>
-                                            <label class="lora-checkbox-option-label" title="Enable large card layout for active LoRAs">
-                                                <input type="checkbox" class="lora-active-large-cards-checkbox">
-                                                Large LoRA Cards
-                                            </label>
-                                            <label class="lora-checkbox-option-label" title="Show separate CLIP strength controls on active LoRAs">
-                                                <input type="checkbox" class="lora-show-clip-weights-checkbox">
-                                                Show CLIP weights
-                                            </label>
-                                        </section>
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">CARDS</div>
-                                            <select class="lora-display-mode-select lora-cards-display-mode" title="Cards display mode">
-                                                <option value="thumbnails">Thumbnails</option>
-                                                <option value="compact">Compact</option>
-                                            </select>
-                                            <label class="lora-thumbnail-size-control lora-cards-size-control" title="LoRA card thumbnail size">
-                                                <span>-</span>
-                                                <input class="lora-thumbnail-size-slider" type="range" min="112" max="260" step="1">
-                                                <span>+</span>
-                                            </label>
-                                            <label class="lora-checkbox-option-label" title="Move selected LoRAs to the beginning of the loaded cards">
-                                                <input type="checkbox" class="lora-move-active-to-top-checkbox">
-                                                Move active LoRAs to top
-                                            </label>
-                                        </section>
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">BAR SIZE</div>
-                                            <select class="lora-display-mode-select lora-bars-size-select" title="Top and bottom bar size">
-                                                <option value="75">Compact</option>
-                                                <option value="100">Normal</option>
-                                                <option value="125">Large</option>
-                                                <option value="150">XL</option>
-                                            </select>
-                                        </section>
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">CONTRAST</div>
-                                            <select class="lora-display-mode-select lora-card-contrast-select" title="Card contrast mode">
-                                                <option value="off">Off (Default)</option>
-                                                <option value="dim_inactive">Dim Inactive</option>
-                                                <option value="dim_by_default">Dim by Default</option>
-                                            </select>
-                                        </section>
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">SORT CARDS</div>
-                                            <select class="lora-display-mode-select lora-sort-select" title="Sort LoRA cards">
-                                                <option value="az">A to Z</option>
-                                                <option value="za">Z to A</option>
-                                                <option value="newest">Newest first</option>
-                                                <option value="oldest">Oldest first</option>
-                                            </select>
-                                        </section>
-                                        <section class="lora-display-section">
-                                            <div class="lora-display-section-title">FOLDERS: <span class="lora-visible-folders-count-val">8</span></div>
-                                            <label class="lora-thumbnail-size-control lora-folders-count-control" title="Visible pinned folders count">
-                                                <span>1</span>
-                                                <input class="lora-visible-folders-slider" type="range" min="1" max="20" step="1">
-                                                <span>20</span>
-                                            </label>
-                                        </section>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
             const mainContainer = widgetContainer.querySelector(".locallora-container");
             const selectedListEl = widgetContainer.querySelector(`#${uniqueId}-active-chips`);
             const galleryEl = widgetContainer.querySelector(".locallora-gallery");
@@ -395,9 +131,7 @@ const UnifiedLoraGalleryNode = {
             const strengthMemoryRow = widgetContainer.querySelector(".strength-memory-editor-row");
             const strengthMemoryEnableInput = widgetContainer.querySelector(".strength-memory-enable-input");
             const strengthMemoryModelInput = widgetContainer.querySelector(".strength-memory-model-input");
-            const strengthMemoryClipControl = widgetContainer.querySelector(".strength-memory-clip-control");
             const strengthMemoryClipInput = widgetContainer.querySelector(".strength-memory-clip-input");
-            const toggleGalleryBtn = widgetContainer.querySelector(".toggle-gallery-btn");
             const activeStackBtn = widgetContainer.querySelector(".lora-active-stack-btn");
             const activeStackCount = widgetContainer.querySelector(".lora-active-stack-count");
             const selectedCountEl = widgetContainer.querySelector(".selected-count");
@@ -413,20 +147,21 @@ const UnifiedLoraGalleryNode = {
             const folderFilterSelect = widgetContainer.querySelector(".folder-filter-select");
             const folderStrip = widgetContainer.querySelector(".lora-folder-strip");
             const folderOverflow = widgetContainer.querySelector(".lora-folder-overflow");
-            const folderOverflowChips = widgetContainer.querySelector(".lora-folder-overflow-chips");
             const folderMoreBtn = widgetContainer.querySelector(".lora-folder-more-btn");
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
+            const presetPopover = widgetContainer.querySelector(".lora-preset-popover");
+            const presetNameInput = widgetContainer.querySelector(".lora-preset-name-input");
+            const bottomBar = widgetContainer.querySelector(".locallora-bottom-bar");
             const operationFeedback = createOperationFeedback({
-                host: widgetContainer.querySelector(".locallora-bottom-bar"),
-                before: widgetContainer.querySelector(".lora-execution-controls"),
+                host: bottomBar,
+                before: bottomBar.querySelector(".lg-spacer").nextElementSibling,
                 readyMessage: "Ready",
             });
             this.operationFeedback = operationFeedback;
             const displayOptionsBtn = widgetContainer.querySelector(".lora-display-options-btn");
             const displayOptionsPopover = widgetContainer.querySelector(".lora-display-options-popover");
-            const searchAnchor = widgetContainer.querySelector(".lora-search-anchor");
             const searchBtn = widgetContainer.querySelector(".lora-search-btn");
             const searchPopover = widgetContainer.querySelector(".lora-search-popover");
             const clearNameSearchBtn = widgetContainer.querySelector(".lora-search-clear-btn");
@@ -434,7 +169,6 @@ const UnifiedLoraGalleryNode = {
             const executionModeLabel = widgetContainer.querySelector(".lora-execution-mode-label");
             const compareStrengthsControl = widgetContainer.querySelector(".lora-compare-strengths-control");
             const compareStrengthsInput = widgetContainer.querySelector(".lora-compare-strengths-input");
-            const lotteryAnchor = widgetContainer.querySelector(".lora-lottery-anchor");
             const lotteryBtn = widgetContainer.querySelector(".lora-lottery-btn");
             const lotteryPopover = widgetContainer.querySelector(".lora-lottery-popover");
             const lotteryEnabledInput = widgetContainer.querySelector(".lora-lottery-enabled-input");
@@ -443,20 +177,19 @@ const UnifiedLoraGalleryNode = {
             const lotteryClipStrengthInput = widgetContainer.querySelector(".lora-lottery-clip-strength-input");
             const lotteryStatus = widgetContainer.querySelector(".lora-lottery-status");
             let lotteryFolderValue = "";
-            const getLoraChromeHeight = () => {
-                const controlsEl = widgetContainer.querySelector(".locallora-controls");
-                const bottomBarEl = widgetContainer.querySelector(".locallora-bottom-bar");
-                return (controlsEl?.offsetHeight || 0) + (bottomBarEl?.offsetHeight || 0);
-            };
-            const getVisiblePinnedFolderCount = () => normalizeVisiblePinnedFolderCount(
-                this.loraUiState?.visible_pinned_folder_count,
-            );
             const getLoraDisplayState = () => normalizeLoraDisplayState(this.loraUiState);
+            const autoHideBar = createAutoHideBar(widgetContainer, bottomBar, () => getLoraDisplayState().auto_hide_toolbars);
+            const popovers = createPopoverGroup(widgetContainer, {
+                onChange: panel => {
+                    if (panel === folderOverflow) panel.querySelector("input")?.focus();
+                    else if (panel === searchPopover) searchInput.focus();
+                    autoHideBar.sync();
+                },
+            });
             const syncExecutionControls = () => {
                 const mode = this.properties?.lora_execution_mode === "compare" ? "compare" : "stack";
                 const strengths = String(this.properties?.lora_compare_strengths || "1.0");
                 executionModeBtn.dataset.mode = mode;
-                executionModeBtn.classList.toggle("compare", mode === "compare");
                 executionModeBtn.title = mode === "compare"
                     ? "Compare each enabled LoRA independently from the base model"
                     : "Stack enabled LoRAs onto one model";
@@ -479,7 +212,7 @@ const UnifiedLoraGalleryNode = {
                     : "";
                 lotteryStrengthInput.value = String(config.strength);
                 lotteryClipStrengthInput.value = String(config.strength_clip);
-                lotteryBtn.classList.toggle("has-preset", config.enabled);
+                lotteryBtn.classList.toggle("active", config.enabled);
                 lotteryBtn.setAttribute("aria-label", config.enabled
                     ? "LoRA lottery enabled. Configure lottery"
                     : "Configure LoRA lottery");
@@ -528,7 +261,6 @@ const UnifiedLoraGalleryNode = {
                     folder_colors: this.loraUiState.folder_colors,
                     pinned_folders: this.loraUiState.pinned_folders,
                     folder_order: this.loraUiState.folder_order,
-                    visible_pinned_folder_count: this.loraUiState.visible_pinned_folder_count,
                     ...getLoraDisplayState(),
                     ...extraState,
                 };
@@ -563,58 +295,22 @@ const UnifiedLoraGalleryNode = {
                 return persistLoraUiState();
             };
 
-            const syncDisplayOptionAvailability = () => {
-                const state = getLoraDisplayState();
-                const activeSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
-                const activeControl = widgetContainer.querySelector(".lora-active-size-control");
-                const cardSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
-                const cardControl = widgetContainer.querySelector(".lora-cards-size-control");
-                const activeEnabled = state.active_display_mode === "thumbnails";
-                const cardsEnabled = state.cards_display_mode === "thumbnails";
-                if (activeSlider) activeSlider.disabled = !activeEnabled;
-                if (activeControl) {
-                    activeControl.classList.toggle("disabled", !activeEnabled);
-                    activeControl.title = activeEnabled ? "Active LoRA thumbnail size" : "Only available in Thumbnails mode";
-                }
-                if (cardSlider) cardSlider.disabled = !cardsEnabled;
-                if (cardControl) {
-                    cardControl.classList.toggle("disabled", !cardsEnabled);
-                    cardControl.title = cardsEnabled ? "LoRA card thumbnail size" : "Only available in Thumbnails mode";
-                }
-            };
-
             const syncDisplayOptionControls = () => {
                 const state = getLoraDisplayState();
-                const activeModeSelect = widgetContainer.querySelector(".lora-active-display-mode");
-                const cardsModeSelect = widgetContainer.querySelector(".lora-cards-display-mode");
-                const contrastSelect = widgetContainer.querySelector(".lora-card-contrast-select");
-                const sortSelect = widgetContainer.querySelector(".lora-sort-select");
-                const foldersSlider = widgetContainer.querySelector(".lora-visible-folders-slider");
                 const activeThumbnailSlider = widgetContainer.querySelector(".lora-active-thumbnail-size-slider");
                 const cardThumbnailSlider = widgetContainer.querySelector(".lora-thumbnail-size-slider");
-                const barsSizeSelect = widgetContainer.querySelector(".lora-bars-size-select");
-                if (activeModeSelect) activeModeSelect.value = state.active_display_mode;
-                if (cardsModeSelect) cardsModeSelect.value = state.cards_display_mode;
-                if (contrastSelect) contrastSelect.value = state.card_contrast_mode;
-                if (sortSelect) sortSelect.value = state.sort_mode;
-                if (foldersSlider) foldersSlider.value = getVisiblePinnedFolderCount();
-                if (activeThumbnailSlider) activeThumbnailSlider.value = state.active_thumbnail_size_px;
-                if (cardThumbnailSlider) cardThumbnailSlider.value = state.thumbnail_size_px;
-                if (barsSizeSelect) barsSizeSelect.value = String(state.bars_size_scale);
-                const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
-                if (foldersCountVal) foldersCountVal.textContent = getVisiblePinnedFolderCount();
-                const largeCardsCheckbox = widgetContainer.querySelector(".lora-active-large-cards-checkbox");
-                if (largeCardsCheckbox) {
-                    largeCardsCheckbox.checked = state.active_card_size_mode === "large";
-                }
-                const showClipWeightsCheckbox = widgetContainer.querySelector(".lora-show-clip-weights-checkbox");
-                if (showClipWeightsCheckbox) {
-                    showClipWeightsCheckbox.checked = state.show_clip_weights;
-                }
-                const moveActiveToTopCheckbox = widgetContainer.querySelector(".lora-move-active-to-top-checkbox");
-                if (moveActiveToTopCheckbox) {
-                    moveActiveToTopCheckbox.checked = state.move_active_loras_to_top;
-                }
+                widgetContainer.querySelector(".lora-active-display-mode").value = state.active_display_mode;
+                widgetContainer.querySelector(".lora-cards-display-mode").value = state.cards_display_mode;
+                widgetContainer.querySelector(".lora-sort-select").value = state.sort_mode;
+                activeThumbnailSlider.value = state.active_thumbnail_size_px;
+                activeThumbnailSlider.disabled = state.active_display_mode !== "thumbnails";
+                cardThumbnailSlider.value = state.thumbnail_size_px;
+                cardThumbnailSlider.disabled = state.cards_display_mode !== "thumbnails";
+                widgetContainer.querySelector(".lora-active-large-cards-checkbox").checked = state.active_card_size_mode === "large";
+                widgetContainer.querySelector(".lora-show-clip-weights-checkbox").checked = state.show_clip_weights;
+                widgetContainer.querySelector(".lora-move-active-to-top-checkbox").checked = state.move_active_loras_to_top;
+                widgetContainer.querySelector(".lora-dim-unselected-checkbox").checked = state.card_contrast_mode === "dim_inactive";
+                widgetContainer.querySelector(".lora-auto-hide-bar-checkbox").checked = state.auto_hide_toolbars;
             };
 
             const applyLoraDisplayState = () => {
@@ -623,8 +319,7 @@ const UnifiedLoraGalleryNode = {
                 mainContainer.classList.toggle("active-mode-compact", state.active_display_mode === "compact");
                 mainContainer.classList.toggle("cards-mode-thumbnails", state.cards_display_mode === "thumbnails");
                 mainContainer.classList.toggle("cards-mode-compact", state.cards_display_mode === "compact");
-                ["contrast-off", "contrast-dim-inactive", "contrast-dim-by-default"].forEach(cls => mainContainer.classList.remove(cls));
-                mainContainer.classList.add(`contrast-${state.card_contrast_mode.replace(/_/g, "-")}`);
+                mainContainer.classList.toggle("contrast-dim-inactive", state.card_contrast_mode === "dim_inactive");
                 mainContainer.style.setProperty("--lora-card-thumb-size", `${state.thumbnail_size_px}px`);
                 mainContainer.style.setProperty("--lora-card-min-width", `${Math.max(118, Math.round(state.thumbnail_size_px * 0.78))}px`);
                 mainContainer.style.setProperty("--lora-active-thumb-size", `${state.active_thumbnail_size_px}px`);
@@ -636,15 +331,13 @@ const UnifiedLoraGalleryNode = {
                     * (state.active_card_size_mode === "large" ? 1.32 : 1);
                 mainContainer.style.setProperty("--lora-active-card-control-scale", activeCardControlScale.toFixed(3));
                 mainContainer.style.setProperty("--locallora-active-sidebar-width", `${state.active_sidebar_width}px`);
-                const barsSizeClass = LORA_BAR_SIZE_CLASSES[state.bars_size_scale] || "";
-                mainContainer.classList.remove("bars-compact", "bars-large", "bars-xl");
-                if (barsSizeClass) mainContainer.classList.add(barsSizeClass);
                 const sidebarEl = widgetContainer.querySelector(".locallora-active-sidebar");
                 if (sidebarEl) {
                     sidebarEl.classList.toggle("large-mode", state.active_card_size_mode === "large");
                 }
                 scheduleBrowserCardLayout();
                 syncDisplayOptionControls();
+                autoHideBar.sync();
             };
 
             const splitter = widgetContainer.querySelector(`#${uniqueId}-active-splitter`);
@@ -694,7 +387,6 @@ const UnifiedLoraGalleryNode = {
                     folder_colors: this.loraUiState.folder_colors,
                     pinned_folders: this.loraUiState.pinned_folders,
                     folder_order: this.loraUiState.folder_order,
-                    visible_pinned_folder_count: this.loraUiState.visible_pinned_folder_count,
                     ...getLoraDisplayState(),
                 };
                 this.loraUiState = { ...this.loraUiState, ...stateToSave };
@@ -711,17 +403,13 @@ const UnifiedLoraGalleryNode = {
                 folderFilterSelect,
                 folderStrip,
                 folderOverflow,
-                folderOverflowChips,
                 folderMoreBtn,
-                getVisiblePinnedFolderCount,
+                closeOverflow: () => popovers.close(),
+                persistState: () => persistLoraUiState(),
                 saveStateAndFetch,
             });
             const {
-                getFolderOptions,
-                getFoldersInCurrentOrder,
                 renderFolderPills,
-                closeLoraFolderContextMenu,
-                isContextMenuTarget,
                 onLoraFolderPointerMove,
                 onLoraFolderPointerUp,
                 onLoraFolderPointerCancel,
@@ -761,10 +449,12 @@ const UnifiedLoraGalleryNode = {
             };
 
             const updatePresetButtonText = (presetName = null) => {
-                loadPresetBtn.classList.toggle("has-preset", Boolean(presetName));
+                loadPresetBtn.classList.toggle("active", Boolean(presetName));
                 loadPresetBtn.dataset.currentPreset = presetName || "";
-                loadPresetBtn.title = presetName ? `Current Preset: ${presetName}` : "Load a saved preset";
-                loadPresetBtn.setAttribute("aria-label", presetName ? `Load LoRA preset. Current: ${presetName}` : "Load LoRA preset");
+                loadPresetBtn.title = presetName ? `Presets (current: ${presetName})` : "Presets";
+                presetDropdown.querySelectorAll(".lora-preset-load").forEach(button => {
+                    button.classList.toggle("active", button.dataset.presetName === presetName);
+                });
             };
 
             const closeActiveStack = () => {
@@ -776,14 +466,6 @@ const UnifiedLoraGalleryNode = {
             const clearAllLoras = () => {
                 this.loraData = [];
                 closeActiveStack();
-                if (mainContainer.classList.contains("gallery-collapsed")) {
-                    setTimeout(() => {
-                        const contentHeight = getLoraChromeHeight();
-                        if (!contentHeight) return;
-                        this.size[1] = contentHeight + HEADER_HEIGHT;
-                        this.setDirtyCanvas(true, true);
-                    }, 0);
-                }
                 renderSelectedList();
                 updateSelection();
                 syncGallerySelectionSoon();
@@ -900,7 +582,7 @@ const UnifiedLoraGalleryNode = {
                 rememberedStrengthTimers.clear();
                 pendingNames.forEach(saveRememberedWeight);
             };
-            
+
             const activeStackController = createLoraActiveStackController({
                 nodeInstance: this,
                 widgetContainer,
@@ -910,9 +592,7 @@ const UnifiedLoraGalleryNode = {
                 mainContainer,
                 metadataEditor,
                 uniqueId,
-                headerHeight: HEADER_HEIGHT,
                 getLoraDisplayState,
-                getLoraChromeHeight,
                 closeActiveStack,
                 clearMetadataEditing,
                 findGalleryCardByLoraName,
@@ -932,7 +612,7 @@ const UnifiedLoraGalleryNode = {
                 edit: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>',
                 alert: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>',
             };
-            
+
             const syncWithCivitai = (loraName, card) => syncLoraWithCivitai({
                 loraName,
                 card,
@@ -998,7 +678,7 @@ const UnifiedLoraGalleryNode = {
 
                 lorasToRender.forEach(lora => {
                     if (append && existingCardNames.has(lora.name)) return;
-                    
+
                     const isSelectedLora = this.loraData.some(item => item.lora === lora.name);
                     const card = document.createElement("div");
                     card.className = `locallora-lora-card${isSelectedLora ? " selected-flow" : ""}`;
@@ -1009,7 +689,7 @@ const UnifiedLoraGalleryNode = {
 
                     const isSelectedForEditing = this.selectedLoraNamesForEditing.has(lora.name);
                     card.innerHTML = buildLoraCardHtml(lora, isSelectedLora, isSelectedForEditing, getLoraDisplayState().cards_display_mode === "compact", loraIconSvg);
-                    
+
                     setupLoraPresetControls(card, lora, {
                         nodeInstance: this,
                         widgetContainer,
@@ -1022,7 +702,7 @@ const UnifiedLoraGalleryNode = {
                         img.onerror = (e) => { e.target.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; };
                     }
                     galleryEl.appendChild(card);
-                    
+
                     card.querySelector(".lora-card-link-btn")?.addEventListener("click", e => e.stopPropagation());
                     card.querySelector(".sync-civitai-btn").addEventListener("click", e => {
                         e.stopPropagation();
@@ -1124,7 +804,7 @@ const UnifiedLoraGalleryNode = {
                     });
                 });
             };
-            
+
             const fetchAndRender = async (append = false) => {
                 if (this.isLoading) {
                     pendingFetchAfterLoad = pendingFetchAfterLoad === false ? false : append;
@@ -1174,138 +854,111 @@ const UnifiedLoraGalleryNode = {
             let foldersRendered = false;
             const renderFolders = (folders) => {
                 if (foldersRendered) return;
-                
-                // Second normalization pass:
-                const validOptions = new Set(["", ...folders]);
-                
-                // Filter out non-existent folders
-                if (Array.isArray(this.loraUiState.pinned_folders)) {
-                    this.loraUiState.pinned_folders = this.loraUiState.pinned_folders.filter(f => validOptions.has(f));
-                } else {
-                    this.loraUiState.pinned_folders = [];
-                }
-                
-                if (Array.isArray(this.loraUiState.folder_order)) {
-                    this.loraUiState.folder_order = this.loraUiState.folder_order.filter(f => validOptions.has(f));
-                } else {
-                    this.loraUiState.folder_order = [];
-                }
-
-                // If empty or missing, populate with first visible count from ["", ...folders]
-                const maxVisible = getVisiblePinnedFolderCount();
-                if (this.loraUiState.pinned_folders.length === 0) {
-                    const defaultPinned = ["", ...folders].slice(0, maxVisible);
-                    this.loraUiState.pinned_folders = defaultPinned;
-                } else if (this.loraUiState.pinned_folders.length < maxVisible) {
-                    const pinnedSet = new Set(this.loraUiState.pinned_folders);
-                    const ordered = getFoldersInCurrentOrder(folders);
-                    const allFoldersOrdered = ["", ...ordered];
-                    for (const folder of allFoldersOrdered) {
-                        if (pinnedSet.size >= maxVisible) break;
-                        pinnedSet.add(folder);
-                    }
-                    this.loraUiState.pinned_folders = [...pinnedSet];
-                }
-
+                folderController.syncFolders(folders);
                 const currentVal = folderFilterSelect.value;
                 folderFilterSelect.innerHTML = `<option value="">All Folders</option>`;
                 lotteryFolderSelect.innerHTML = `<option value="">All folders</option>`;
-                
-                const orderedFolders = getFoldersInCurrentOrder(folders);
-                orderedFolders.forEach(folder => {
-                    const option = document.createElement('option');
+                folderController.getFoldersInCurrentOrder(folders).forEach(folder => {
+                    const option = document.createElement("option");
                     option.value = folder;
-                    option.textContent = folder === "." ? "Root" : folder.replaceAll('\\', '/');
+                    option.textContent = getFolderLabel(folder);
                     folderFilterSelect.appendChild(option);
                     lotteryFolderSelect.appendChild(option.cloneNode(true));
                 });
                 folderFilterSelect.value = currentVal;
-                lotteryFolderValue = validOptions.has(lotteryFolderValue) ? lotteryFolderValue : "";
-                lotteryFolderSelect.value = validOptions.has(lotteryFolderValue)
-                    ? lotteryFolderValue
-                    : "";
+                if (!folders.includes(lotteryFolderValue)) lotteryFolderValue = "";
+                lotteryFolderSelect.value = lotteryFolderValue;
                 renderFolderPills();
                 if (folders.length > 0) foldersRendered = true;
             };
 
-            const renderPresets = (presets) => {
-                presetDropdown.innerHTML = '';
-                for (const name in presets) {
-                    const presetLink = document.createElement('a');
-                    presetLink.href = '#';
-                    presetLink.dataset.presetName = name;
-
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = name;
-                    presetLink.appendChild(nameSpan);
-
-                    const deleteBtn = document.createElement('span');
-                    deleteBtn.className = 'delete-preset-btn';
-                    deleteBtn.textContent = 'x';
-                    deleteBtn.title = 'Delete Preset';
-                    deleteBtn.onclick = async (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if (confirmAction(`Are you sure you want to delete preset "${name}"?`)) {
-                            deleteBtn.style.pointerEvents = "none";
-                            operationFeedback.pending(`Deleting preset "${name}"...`);
-                            try {
-                                const data = await loraApi.deletePreset(name);
-                                renderPresets(data.presets);
-                                operationFeedback.success(`Preset "${name}" deleted`);
-                            } catch (error) {
-                                operationFeedback.error(error?.message || "Could not delete LoRA preset");
-                            } finally {
-                                deleteBtn.style.pointerEvents = "";
-                            }
-                        }
-                    };
-                    presetLink.appendChild(deleteBtn);
-                    
-                    presetLink.onclick = async (e) => {
-                        e.preventDefault();
-                        operationFeedback.pending(`Applying preset "${name}"...`);
-                        this.loraData = cloneJsonOr(presets[name], []);
-
-                        renderSelectedList();
-
-                        setTimeout(() => {
-                            const HEADER_HEIGHT = 90;
-                            const requiredTopHeight = getLoraChromeHeight();
-
-                            if (mainContainer.classList.contains("gallery-collapsed")) {
-                                this.size[1] = requiredTopHeight + HEADER_HEIGHT;
-                            } else {
-                                const galleryHeight = galleryEl.clientHeight;
-                                const newTotalHeight = requiredTopHeight + galleryHeight + HEADER_HEIGHT;
-
-                                if (newTotalHeight > this.size[1]) {
-                                    this.size[1] = newTotalHeight;
-                                    this.expandedHeight = newTotalHeight;
-                                }
-                            }
-                            this.setDirtyCanvas(true, true);
-                        }, 0);
-
-                        updateSelection();
-                        const refreshed = await fetchAndRender(false);
-                        renderSelectedList();
-                        presetDropdown.style.display = 'none';
-
-                        updatePresetButtonText(name);
-                        if (refreshed) {
-                            operationFeedback.success(`Preset "${name}" applied to workflow`);
-                        } else {
-                            operationFeedback.warning(`Preset "${name}" applied. Gallery refresh failed.`, {
-                                action: () => fetchAndRender(false),
-                                actionLabel: "Retry",
-                            });
-                        }
-                    };
-                    presetDropdown.appendChild(presetLink);
+            const applyPreset = async (name, stack) => {
+                popovers.close();
+                operationFeedback.pending(`Applying preset "${name}"...`);
+                this.loraData = cloneJsonOr(stack, []);
+                renderSelectedList();
+                updateSelection();
+                const refreshed = await fetchAndRender(false);
+                renderSelectedList();
+                updatePresetButtonText(name);
+                if (refreshed) {
+                    operationFeedback.success(`Preset "${name}" applied to workflow`);
+                } else {
+                    operationFeedback.warning(`Preset "${name}" applied. Gallery refresh failed.`, {
+                        action: () => fetchAndRender(false),
+                        actionLabel: "Retry",
+                    });
                 }
             };
-            
+
+            const deletePreset = async (name, button) => {
+                if (!confirmAction(`Delete preset "${name}"?`)) return;
+                button.disabled = true;
+                operationFeedback.pending(`Deleting preset "${name}"...`);
+                try {
+                    const data = await loraApi.deletePreset(name);
+                    if (loadPresetBtn.dataset.currentPreset === name) updatePresetButtonText(null);
+                    renderPresets(data.presets);
+                    operationFeedback.success(`Preset "${name}" deleted`);
+                } catch (error) {
+                    button.disabled = false;
+                    operationFeedback.error(error?.message || "Could not delete LoRA preset");
+                }
+            };
+
+            const renderPresets = (presets) => {
+                const rows = Object.keys(presets).map(name => {
+                    const row = document.createElement("div");
+                    row.className = "lora-preset-row";
+                    const loadBtn = document.createElement("button");
+                    loadBtn.type = "button";
+                    loadBtn.className = "lora-preset-load";
+                    loadBtn.classList.toggle("active", loadPresetBtn.dataset.currentPreset === name);
+                    loadBtn.dataset.presetName = name;
+                    loadBtn.textContent = name;
+                    loadBtn.title = `Replace the active stack with "${name}"`;
+                    loadBtn.addEventListener("click", () => applyPreset(name, presets[name]));
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.type = "button";
+                    deleteBtn.className = "lg-icon-btn";
+                    deleteBtn.title = `Delete "${name}"`;
+                    deleteBtn.setAttribute("aria-label", `Delete preset ${name}`);
+                    deleteBtn.innerHTML = icon("close");
+                    deleteBtn.addEventListener("click", () => deletePreset(name, deleteBtn));
+                    row.append(loadBtn, deleteBtn);
+                    return row;
+                });
+                if (!rows.length) {
+                    const empty = document.createElement("p");
+                    empty.className = "lg-empty";
+                    empty.textContent = "No presets yet.";
+                    rows.push(empty);
+                }
+                presetDropdown.replaceChildren(...rows);
+            };
+
+            const syncSavePresetButton = () => {
+                savePresetBtn.disabled = !presetNameInput.value.trim() || this.loraData.length === 0;
+            };
+
+            const savePreset = async () => {
+                const presetName = presetNameInput.value.trim();
+                if (!presetName || this.loraData.length === 0) return;
+                savePresetBtn.disabled = true;
+                operationFeedback.pending(`Saving preset "${presetName}"...`);
+                try {
+                    const data = await loraApi.savePreset(presetName, this.loraData);
+                    presetNameInput.value = "";
+                    updatePresetButtonText(presetName);
+                    renderPresets(data.presets);
+                    operationFeedback.success(`Preset "${presetName}" saved to gallery`);
+                } catch (error) {
+                    operationFeedback.error(error?.message || "Could not save LoRA preset");
+                } finally {
+                    syncSavePresetButton();
+                }
+            };
+
             const loadPresets = async () => {
                 try {
                     const presets = await loraApi.getPresets();
@@ -1344,11 +997,11 @@ const UnifiedLoraGalleryNode = {
                 strengthMemoryRow,
                 strengthMemoryEnableInput,
                 strengthMemoryModelInput,
-                strengthMemoryClipControl,
                 strengthMemoryClipInput,
                 getLoraMetadataByName,
                 updateCachedLoraMetadata,
                 findGalleryCardByLoraName,
+                linkIconSvg: loraIconSvg.link,
                 updateMetadata: (...args) => UnifiedLoraGalleryNode.updateMetadata(...args),
                 getLastOutput: () => UnifiedLoraGalleryNode.lastOutput,
                 assignThumbnail: (...args) => loraApi.assignThumbnail(...args),
@@ -1359,8 +1012,7 @@ const UnifiedLoraGalleryNode = {
                 onClose: clearMetadataEditing,
             });
             this.initializeNode = async () => {
-                let initialState = { 
-                    is_collapsed: false, 
+                let initialState = {
                     filter_folder: "",
                     active_display_mode: "thumbnails",
                     cards_display_mode: "thumbnails",
@@ -1371,9 +1023,7 @@ const UnifiedLoraGalleryNode = {
                     move_active_loras_to_top: true,
                     show_clip_weights: true,
                     folder_colors: {},
-                    pinned_folders: [],
                     folder_order: [],
-                    visible_pinned_folder_count: 8,
                 };
 
                 try {
@@ -1402,23 +1052,14 @@ const UnifiedLoraGalleryNode = {
                         if (loadedState.folder_colors && typeof loadedState.folder_colors !== "object") {
                             loadedState.folder_colors = {};
                         }
-                        if (loadedState.pinned_folders && !Array.isArray(loadedState.pinned_folders)) {
-                            loadedState.pinned_folders = [];
-                        }
                         if (loadedState.folder_order && !Array.isArray(loadedState.folder_order)) {
                             loadedState.folder_order = [];
                         }
-                        if (loadedState.visible_pinned_folder_count !== undefined) {
-                            // Route through the shared normalizer so the slider bounds,
-                            // the load path, and the save path can never drift apart.
-                            loadedState.visible_pinned_folder_count = normalizeVisiblePinnedFolderCount(loadedState.visible_pinned_folder_count);
-                        }
                     }
                     initialState = { ...initialState, ...loadedState };
-                } catch(e) { 
-                    console.error("LocalLoraGallery: Failed to get initial UI state.", e); 
+                } catch(e) {
+                    console.error("LocalLoraGallery: Failed to get initial UI state.", e);
                 }
-                initialState.is_collapsed = false;
                 this.loraUiState = { ...initialState };
                 writeWorkflowProfileSection(this, "lora_ui", this.loraUiState);
                 applyLoraDisplayState();
@@ -1441,24 +1082,11 @@ const UnifiedLoraGalleryNode = {
                 }
 
                 renderSelectedList();
-                
-                if (initialState.is_collapsed) {
-                    setTimeout(() => {
-                        const contentHeight = getLoraChromeHeight();
-                        if (!contentHeight) return;
-                        this.size[1] = contentHeight + HEADER_HEIGHT;
-                        mainContainer.classList.add("gallery-collapsed");
-                        toggleGalleryBtn.textContent = "Show Gallery";
-                        this.setDirtyCanvas(true, true);
-                    }, 0);
-                }
 
                 if (needs_refetch) {
                     await fetchAndRender();
                 }
             };
-
-            this.expandedHeight = this.size[1];
 
             const bindEventListeners = () => {
                 executionModeBtn?.addEventListener("click", () => {
@@ -1475,19 +1103,14 @@ const UnifiedLoraGalleryNode = {
                     compareStrengthsInput.value = strengths;
                 });
 
-                const setLotteryOpen = (isOpen) => {
-                    lotteryPopover.style.display = isOpen ? "flex" : "none";
-                    lotteryBtn.setAttribute("aria-expanded", String(isOpen));
-                    lotteryBtn.classList.toggle("active", isOpen);
-                };
-                lotteryBtn?.addEventListener("click", (event) => {
-                    event.stopPropagation();
-                    const shouldOpen = lotteryPopover.style.display !== "flex";
-                    presetDropdown.style.display = "none";
-                    displayOptionsPopover.style.display = "none";
-                    displayOptionsBtn.classList.remove("active");
-                    setLotteryOpen(shouldOpen);
+                popovers.register(folderMoreBtn, folderOverflow, renderFolderPills);
+                popovers.register(searchBtn, searchPopover);
+                popovers.register(loadPresetBtn, presetPopover, () => {
+                    syncSavePresetButton();
+                    return loadPresets();
                 });
+                popovers.register(lotteryBtn, lotteryPopover);
+                popovers.register(displayOptionsBtn, displayOptionsPopover, syncDisplayOptionControls);
                 [lotteryEnabledInput, lotteryFolderSelect, lotteryStrengthInput, lotteryClipStrengthInput]
                     .forEach(control => control?.addEventListener("change", () => {
                         if (control === lotteryFolderSelect) lotteryFolderValue = lotteryFolderSelect.value;
@@ -1511,169 +1134,13 @@ const UnifiedLoraGalleryNode = {
                     clearMetadataEditing();
                 });
 
-                addTriggerPresetBtn.addEventListener("click", async (e) => {
-                    e.preventDefault();
-                    const editingLoras = getEditingLorasData();
-                    if (editingLoras.length !== 1) return;
-                    const name = triggerPresetNameInput.value.trim();
-                    const val = triggerPresetValueInput.value.trim();
-                    if (!name || !val) return;
-                    
-                    const loraName = editingLoras[0].name;
-                    const loraInDataSource = getLoraMetadataByName(loraName);
-                    if (!loraInDataSource) return;
-                    
-                    const newPresets = { ...(loraInDataSource.trigger_presets || {}) };
-                    newPresets[name] = val;
-                    addTriggerPresetBtn.disabled = true;
-                    operationFeedback.pending(`Saving trigger preset "${name}"...`);
-                    try {
-                        await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_presets: newPresets });
-                        updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
-                        triggerPresetNameInput.value = "";
-                        triggerPresetValueInput.value = "";
-                        addTriggerPresetBtn.textContent = "Add preset";
-                        renderMetadataEditor();
-                        renderCurrentView();
-                        renderSelectedList();
-                        operationFeedback.success(`Trigger preset "${name}" saved to gallery`);
-                    } catch (error) {
-                        operationFeedback.error(error?.message || "Could not save trigger preset");
-                    } finally {
-                        addTriggerPresetBtn.disabled = false;
-                    }
+                presetNameInput.addEventListener("input", syncSavePresetButton);
+                presetNameInput.addEventListener("keydown", (event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    void savePreset();
                 });
-
-                urlEditorInput.addEventListener("keydown", async (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const editingLoras = getEditingLorasData();
-                        if (editingLoras.length !== 1) return;
-
-                        const singleLora = editingLoras[0];
-                        const loraName = singleLora.name;
-                        const newUrl = urlEditorInput.value.trim();
-                        urlEditorInput.disabled = true;
-                        operationFeedback.pending("Saving LoRA download URL...");
-                        try {
-                            await UnifiedLoraGalleryNode.updateMetadata(loraName, { download_url: newUrl });
-                            updateCachedLoraMetadata(loraName, { download_url: newUrl });
-
-                            const card = findGalleryCardByLoraName(loraName);
-                            if (card) {
-                                card.dataset.downloadUrl = newUrl;
-                                const safeUrl = sanitizeHttpUrl(newUrl);
-                                let linkBtn = card.querySelector('.lora-card-link-btn');
-                                if (safeUrl) {
-                                    if (!linkBtn) {
-                                        linkBtn = document.createElement('a');
-                                        linkBtn.className = 'card-btn lora-card-link-btn';
-                                        linkBtn.title = 'Open download page';
-                                        linkBtn.setAttribute('aria-label', 'Open download page');
-                                        linkBtn.innerHTML = loraIconSvg.link;
-                                        linkBtn.target = '_blank';
-                                        linkBtn.rel = 'noopener noreferrer';
-                                        linkBtn.addEventListener("click", (event) => event.stopPropagation());
-                                        card.prepend(linkBtn);
-                                    }
-                                    linkBtn.href = safeUrl;
-                                } else if (linkBtn) {
-                                    linkBtn.remove();
-                                }
-                            }
-
-                            urlEditorInput.style.backgroundColor = "#2a5";
-                            setTimeout(() => { urlEditorInput.style.backgroundColor = ""; }, 500);
-                            operationFeedback.success("LoRA download URL saved to gallery");
-                        } catch (error) {
-                            operationFeedback.error(error?.message || "Could not save LoRA download URL");
-                        } finally {
-                            urlEditorInput.disabled = false;
-                        }
-                    }
-                });
-
-                triggerEditorInput.addEventListener("keydown", async (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const editingLoras = getEditingLorasData();
-                        if (editingLoras.length !== 1) return;
-
-                        const singleLora = editingLoras[0];
-                        const loraName = singleLora.name;
-                        const newTriggers = triggerEditorInput.value.trim();
-                        triggerEditorInput.disabled = true;
-                        operationFeedback.pending("Saving LoRA trigger words...");
-                        try {
-                            await UnifiedLoraGalleryNode.updateMetadata(loraName, { trigger_words: newTriggers });
-                            updateCachedLoraMetadata(loraName, { trigger_words: newTriggers });
-
-                            const card = findGalleryCardByLoraName(loraName);
-                            if (card) {
-                                card.dataset.triggerWords = newTriggers;
-                                const triggerDisplayEl = card.querySelector('.lora-card-triggers');
-                                if (triggerDisplayEl) {
-                                    triggerDisplayEl.textContent = newTriggers || 'No triggers';
-                                    triggerDisplayEl.title = newTriggers;
-                                }
-                            }
-                            triggerEditorInput.style.backgroundColor = "#2a5";
-                            setTimeout(() => { triggerEditorInput.style.backgroundColor = ""; }, 500);
-                            operationFeedback.success("LoRA trigger words saved to gallery");
-                        } catch (error) {
-                            operationFeedback.error(error?.message || "Could not save LoRA trigger words");
-                        } finally {
-                            triggerEditorInput.disabled = false;
-                        }
-                    }
-                });
-                
-                widgetContainer.querySelector(".clear-all-btn").addEventListener("click", clearAllLoras);
-                
-                folderFilterSelect.addEventListener("change", () => {
-                    folderController.overflowOpen = false;
-                    renderFolderPills();
-                    saveStateAndFetch();
-                });
-                folderMoreBtn?.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    folderController.toggleOverflow();
-                    renderFolderPills();
-                });
-                savePresetBtn.addEventListener("click", async () => {
-                    const presetName = prompt("Enter a name for this preset:", "");
-                    if (presetName && this.loraData.length > 0) {
-                        savePresetBtn.disabled = true;
-                        operationFeedback.pending(`Saving preset "${presetName}"...`);
-                        try {
-                            const data = await loraApi.savePreset(presetName, this.loraData);
-                            renderPresets(data.presets);
-                            operationFeedback.success(`Preset "${presetName}" saved to gallery`);
-                        } catch (error) {
-                            operationFeedback.error(error?.message || "Could not save LoRA preset");
-                        } finally {
-                            savePresetBtn.disabled = false;
-                        }
-                    }
-                });
-
-                loadPresetBtn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    presetDropdown.style.display = presetDropdown.style.display === 'block' ? 'none' : 'block';
-                    if (presetDropdown.style.display === 'block') {
-                        displayOptionsPopover.style.display = 'none';
-                        displayOptionsBtn.classList.remove("active");
-                    }
-                });
-
-                displayOptionsBtn?.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    const shouldOpen = displayOptionsPopover.style.display !== "block";
-                    presetDropdown.style.display = "none";
-                    displayOptionsPopover.style.display = shouldOpen ? "block" : "none";
-                    displayOptionsBtn.classList.toggle("active", shouldOpen);
-                    if (shouldOpen) syncDisplayOptionControls();
-                });
+                savePresetBtn.addEventListener("click", savePreset);
 
                 widgetContainer.querySelector(".lora-active-display-mode")?.addEventListener("change", (event) => {
                     this.loraUiState.active_display_mode = normalizeLoraDisplayMode(event.target.value);
@@ -1715,9 +1182,15 @@ const UnifiedLoraGalleryNode = {
                     });
                 });
 
-                widgetContainer.querySelector(".lora-card-contrast-select")?.addEventListener("change", (event) => {
-                    this.loraUiState.card_contrast_mode = normalizeLoraContrastMode(event.target.value);
+                widgetContainer.querySelector(".lora-dim-unselected-checkbox").addEventListener("change", (event) => {
+                    this.loraUiState.card_contrast_mode = event.target.checked ? "dim_inactive" : "off";
                     applyLoraDisplayState();
+                    queueLoraDisplayStateSave();
+                });
+
+                widgetContainer.querySelector(".lora-auto-hide-bar-checkbox").addEventListener("change", (event) => {
+                    this.loraUiState.auto_hide_toolbars = event.target.checked;
+                    autoHideBar.sync();
                     queueLoraDisplayStateSave();
                 });
 
@@ -1768,40 +1241,11 @@ const UnifiedLoraGalleryNode = {
                     await flushLoraDisplayStateSave();
                 });
 
-                widgetContainer.querySelector(".lora-bars-size-select")?.addEventListener("change", async (event) => {
-                    this.loraUiState.bars_size_scale = normalizeBarsSizeScale(event.target.value);
-                    applyLoraDisplayState();
-                    await flushLoraDisplayStateSave();
-                });
-
                 widgetContainer.querySelector(".lora-sort-select")?.addEventListener("change", async (event) => {
                     this.loraUiState.sort_mode = normalizeLoraSortMode(event.target.value);
                     syncDisplayOptionControls();
                     await persistLoraUiState({ sort_mode: this.loraUiState.sort_mode });
                     await fetchAndRender(false);
-                });
-
-                widgetContainer.querySelector(".lora-visible-folders-slider")?.addEventListener("input", (event) => {
-                    const count = parseInt(event.target.value, 10);
-                    const oldCount = getVisiblePinnedFolderCount();
-                    this.loraUiState.visible_pinned_folder_count = normalizeVisiblePinnedFolderCount(count);
-                    
-                    const foldersCountVal = widgetContainer.querySelector(".lora-visible-folders-count-val");
-                    if (foldersCountVal) foldersCountVal.textContent = this.loraUiState.visible_pinned_folder_count;
-                    
-                    if (count > oldCount) {
-                        const discovered = getFolderOptions();
-                        const ordered = getFoldersInCurrentOrder(discovered);
-                        const pinned = new Set(this.loraUiState.pinned_folders || []);
-                        for (const folder of ordered) {
-                            if (pinned.size >= count) break;
-                            pinned.add(folder);
-                        }
-                        this.loraUiState.pinned_folders = [...pinned];
-                    }
-                    
-                    renderFolderPills();
-                    queueLoraDisplayStateSave();
                 });
 
                 activeStackBtn.addEventListener("click", () => {
@@ -1816,41 +1260,6 @@ const UnifiedLoraGalleryNode = {
                     clearAllLoras();
                 });
 
-                toggleGalleryBtn.addEventListener("click", () => {
-                    const isCollapsing = !mainContainer.classList.contains("gallery-collapsed");
-                    
-                    if (isCollapsing) {
-                        this.expandedHeight = this.size[1];
-                        const contentHeight = getLoraChromeHeight();
-                        this.size[1] = contentHeight + HEADER_HEIGHT;
-                        mainContainer.classList.add("gallery-collapsed");
-                        toggleGalleryBtn.textContent = "Show Gallery";
-                    } else {
-                        this.size[1] = this.expandedHeight;
-                        mainContainer.classList.remove("gallery-collapsed");
-                        toggleGalleryBtn.textContent = "Hide Gallery";
-                    }
-                    
-                    persistLoraUiState({ is_collapsed: isCollapsing });
-                });
-
-                widgetContainer.querySelector(".toggle-all-btn").addEventListener("click", () => {
-                    const allOn = this.loraData.every(item => item.on);
-                    this.loraData.forEach(item => item.on = !allOn);
-                    renderSelectedList();
-                    updateSelection();
-                });
-
-                const setNameSearchOpen = (isOpen) => {
-                    searchPopover.style.display = isOpen ? "flex" : "none";
-                    searchBtn.setAttribute("aria-expanded", String(isOpen));
-                    searchBtn.classList.toggle("active", isOpen || Boolean(searchInput.value));
-                    if (isOpen) requestAnimationFrame(() => searchInput.focus());
-                };
-
-                searchBtn.addEventListener("click", () => {
-                    setNameSearchOpen(searchPopover.style.display === "none");
-                });
                 let nameSearchTimer = null;
                 const queueNameSearchReconciliation = (immediate = false) => {
                     if (nameSearchTimer) clearTimeout(nameSearchTimer);
@@ -1863,34 +1272,21 @@ const UnifiedLoraGalleryNode = {
                 };
                 searchInput.addEventListener("input", () => {
                     searchBtn.classList.toggle("active", Boolean(searchInput.value));
+                    clearNameSearchBtn.hidden = !searchInput.value;
                     queueNameSearchReconciliation();
                 });
                 searchInput.addEventListener("keydown", (event) => {
-                    if (event.key === "Escape") {
-                        setNameSearchOpen(false);
-                        searchBtn.focus();
-                    }
+                    if (event.key === "Escape") searchBtn.focus();
                 });
+                clearNameSearchBtn.hidden = true;
                 clearNameSearchBtn.addEventListener("click", () => {
                     searchInput.value = "";
-                    searchBtn.classList.add("active");
+                    searchBtn.classList.remove("active");
+                    clearNameSearchBtn.hidden = true;
                     queueNameSearchReconciliation(true);
                     searchInput.focus();
                 });
                 globalListeners.listen(document, 'click', (e) => {
-                    if (presetDropdown && !loadPresetBtn.contains(e.target) && !presetDropdown.contains(e.target)) {
-                       presetDropdown.style.display = 'none';
-                    }
-                    if (displayOptionsPopover && !e.target.closest?.(`#${uniqueId} .lora-display-options-anchor`)) {
-                        displayOptionsPopover.style.display = "none";
-                        displayOptionsBtn?.classList.remove("active");
-                    }
-                    if (searchPopover && !searchAnchor.contains(e.target)) {
-                        setNameSearchOpen(false);
-                    }
-                    if (lotteryPopover && !lotteryAnchor.contains(e.target)) {
-                        setLotteryOpen(false);
-                    }
                     const hitPortaledPresetMenu = Boolean(
                         e.target.closest?.(".lora-trigger-preset-popover-portal"),
                     );
@@ -1899,10 +1295,6 @@ const UnifiedLoraGalleryNode = {
                         && !e.target.closest?.(`#${uniqueId} .lora-active-stack-btn, #${uniqueId}-active-sidebar`)
                     ) {
                         closeActiveStack();
-                    }
-                    if (!e.target.closest?.(`#${uniqueId} .lora-folder-nav`)) {
-                        folderController.overflowOpen = false;
-                        renderFolderPills();
                     }
                     if (
                         !hitPortaledPresetMenu
@@ -1914,24 +1306,9 @@ const UnifiedLoraGalleryNode = {
                     }
                 });
 
-                const globalLoraPointerDownHandler = (event) => {
-                    if (!isContextMenuTarget(event.target)) {
-                        closeLoraFolderContextMenu();
-                    }
-                };
-                const globalLoraKeydownHandler = (event) => {
-                    if (event.key === "Escape") {
-                        closeLoraFolderContextMenu();
-                        folderController.cancelDrag();
-                    }
-                };
-                const globalLoraResizeHandler = () => {
-                    closeLoraFolderContextMenu();
-                };
-
-                globalListeners.listen(document, "pointerdown", globalLoraPointerDownHandler, { capture: true });
-                globalListeners.listen(document, "keydown", globalLoraKeydownHandler);
-                globalListeners.listen(window, "resize", globalLoraResizeHandler);
+                globalListeners.listen(document, "keydown", event => {
+                    if (event.key === "Escape") folderController.cancelDrag();
+                });
                 globalListeners.listen(window, "pointermove", onLoraFolderPointerMove);
                 globalListeners.listen(window, "pointerup", onLoraFolderPointerUp);
                 globalListeners.listen(window, "pointercancel", onLoraFolderPointerCancel);
@@ -1972,21 +1349,19 @@ const UnifiedLoraGalleryNode = {
                         popover._restoreLoraPresetPopover?.();
                         if (popover.isConnected && !widgetContainer.contains(popover)) popover.remove();
                     });
-                    folderController.cancelDrag();
+                    folderController.dispose();
+                    popovers.dispose();
+                    autoHideBar.dispose();
                     activeStackController.dispose();
                     flushRememberedStrengthTimers();
                     operationFeedback.dispose();
-                    closeLoraFolderContextMenu();
+                    closePillMenu();
                     if (originalOnRemoved) originalOnRemoved.call(this);
                 };
             };
 
             this.onResize = function(size) {
-                const dynamicMinHeight = getLoraChromeHeight() + HEADER_HEIGHT;
-                if (!mainContainer.classList.contains("gallery-collapsed")) {
-                    this.expandedHeight = size[1];
-                }
-                if (size[1] < dynamicMinHeight) size[1] = dynamicMinHeight;
+                if (size[1] < MIN_NODE_HEIGHT) size[1] = MIN_NODE_HEIGHT;
                 if (size[0] < MIN_NODE_WIDTH) size[0] = MIN_NODE_WIDTH;
             };
 

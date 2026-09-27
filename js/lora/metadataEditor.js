@@ -1,4 +1,6 @@
 import { LORA_WEIGHT_LIMITS, formatLoraWeight } from "./weights.js";
+import { icon } from "../shared/icons.js";
+import { sanitizeHttpUrl } from "../shared/dom.js";
 
 /** Owns the LoRA metadata editor while delegating persistence and gallery refreshes to the node. */
 export function createLoraMetadataController({
@@ -26,11 +28,11 @@ export function createLoraMetadataController({
     strengthMemoryRow,
     strengthMemoryEnableInput,
     strengthMemoryModelInput,
-    strengthMemoryClipControl,
     strengthMemoryClipInput,
     getLoraMetadataByName,
     updateCachedLoraMetadata,
     findGalleryCardByLoraName,
+    linkIconSvg,
     updateMetadata,
     getLastOutput,
     assignThumbnail,
@@ -125,7 +127,6 @@ export function createLoraMetadataController({
         strengthMemoryClipInput.value = formatLoraWeight(clipValue);
         strengthMemoryModelInput.disabled = !remembered;
         strengthMemoryClipInput.disabled = !remembered;
-        strengthMemoryClipControl.hidden = nodeInstance.isModelOnly;
         strengthMemoryRow.style.display = "flex";
     };
      const renderMetadataEditor = () => {
@@ -173,33 +174,21 @@ export function createLoraMetadataController({
                 }
                 for (const [pName, pVal] of presetEntries) {
                     const row = document.createElement("div");
-                    row.style.display = "flex";
-                    row.style.gap = "4px";
-                    row.style.width = "100%";
+                    row.className = "lora-trigger-preset-row";
 
                     const nameSpan = document.createElement("span");
-                    nameSpan.style.width = "80px";
-                    nameSpan.style.fontSize = "10px";
-                    nameSpan.style.color = "#ccc";
-                    nameSpan.style.overflow = "hidden";
-                    nameSpan.style.textOverflow = "ellipsis";
+                    nameSpan.className = "lora-trigger-preset-row-name";
                     nameSpan.textContent = pName;
 
                     const valSpan = document.createElement("span");
-                    valSpan.style.flexGrow = "1";
-                    valSpan.style.fontSize = "10px";
-                    valSpan.style.color = "#aaa";
-                    valSpan.style.overflow = "hidden";
-                    valSpan.style.textOverflow = "ellipsis";
+                    valSpan.className = "lora-trigger-preset-row-value";
                     valSpan.textContent = pVal;
 
                     const editBtn = document.createElement("button");
+                    editBtn.className = "lg-text-btn";
+                    editBtn.type = "button";
                     editBtn.textContent = "Edit";
-                    editBtn.title = "Edit Preset";
-                    editBtn.style.padding = "0 4px";
-                    editBtn.style.background = "none";
-                    editBtn.style.border = "none";
-                    editBtn.style.cursor = "pointer";
+                    editBtn.title = "Edit preset";
                     editBtn.onclick = (e) => {
                         e.stopPropagation();
                         triggerPresetNameInput.value = pName;
@@ -208,13 +197,11 @@ export function createLoraMetadataController({
                     };
 
                     const rmBtn = document.createElement("button");
-                    rmBtn.textContent = "x";
-                    rmBtn.title = "Remove Preset";
-                    rmBtn.style.padding = "0 4px";
-                    rmBtn.style.background = "none";
-                    rmBtn.style.border = "none";
-                    rmBtn.style.color = "#f55";
-                    rmBtn.style.cursor = "pointer";
+                    rmBtn.className = "lg-icon-btn";
+                    rmBtn.type = "button";
+                    rmBtn.innerHTML = icon("close");
+                    rmBtn.title = "Remove preset";
+                    rmBtn.setAttribute("aria-label", "Remove preset");
                     rmBtn.onclick = async (e) => {
                         e.stopPropagation();
                         const newPresets = { ...loraInDataSource.trigger_presets };
@@ -338,7 +325,7 @@ export function createLoraMetadataController({
             // succeeds, so a failed save leaves the previous strengths in place.
             if (strengthMemoryEnableInput.checked && activeItem) {
                 activeItem.strength = model;
-                if (!nodeInstance.isModelOnly) activeItem.strength_clip = clip;
+                activeItem.strength_clip = clip;
                 renderSelectedList();
                 updateSelection();
             }
@@ -388,6 +375,119 @@ export function createLoraMetadataController({
             useLastOutputThumbnailBtn.classList.remove("loading");
             useLastOutputThumbnailBtn.disabled = !getLastOutput()?.filename;
             thumbnailActionLabel.textContent = "Use last result";
+        }
+    });
+
+    addTriggerPresetBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const editingLoras = getEditingLorasData();
+        if (editingLoras.length !== 1) return;
+        const name = triggerPresetNameInput.value.trim();
+        const val = triggerPresetValueInput.value.trim();
+        if (!name || !val) return;
+
+        const loraName = editingLoras[0].name;
+        const loraInDataSource = getLoraMetadataByName(loraName);
+        if (!loraInDataSource) return;
+
+        const newPresets = { ...(loraInDataSource.trigger_presets || {}) };
+        newPresets[name] = val;
+        addTriggerPresetBtn.disabled = true;
+        operationFeedback?.pending(`Saving trigger preset "${name}"...`);
+        try {
+            await updateMetadata(loraName, { trigger_presets: newPresets });
+            updateCachedLoraMetadata(loraName, { trigger_presets: newPresets });
+            triggerPresetNameInput.value = "";
+            triggerPresetValueInput.value = "";
+            addTriggerPresetBtn.textContent = "Add preset";
+            renderMetadataEditor();
+            renderCurrentView();
+            renderSelectedList();
+            operationFeedback?.success(`Trigger preset "${name}" saved to gallery`);
+        } catch (error) {
+            operationFeedback?.error(error?.message || "Could not save trigger preset");
+        } finally {
+            addTriggerPresetBtn.disabled = false;
+        }
+    });
+
+    urlEditorInput.addEventListener("keydown", async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const editingLoras = getEditingLorasData();
+            if (editingLoras.length !== 1) return;
+
+            const singleLora = editingLoras[0];
+            const loraName = singleLora.name;
+            const newUrl = urlEditorInput.value.trim();
+            urlEditorInput.disabled = true;
+            operationFeedback?.pending("Saving LoRA download URL...");
+            try {
+                await updateMetadata(loraName, { download_url: newUrl });
+                updateCachedLoraMetadata(loraName, { download_url: newUrl });
+
+                const card = findGalleryCardByLoraName(loraName);
+                if (card) {
+                    card.dataset.downloadUrl = newUrl;
+                    const safeUrl = sanitizeHttpUrl(newUrl);
+                    let linkBtn = card.querySelector('.lora-card-link-btn');
+                    if (safeUrl) {
+                        if (!linkBtn) {
+                            linkBtn = document.createElement('a');
+                            linkBtn.className = 'card-btn lora-card-link-btn';
+                            linkBtn.title = 'Open download page';
+                            linkBtn.setAttribute('aria-label', 'Open download page');
+                            linkBtn.innerHTML = linkIconSvg;
+                            linkBtn.target = '_blank';
+                            linkBtn.rel = 'noopener noreferrer';
+                            linkBtn.addEventListener("click", (event) => event.stopPropagation());
+                            card.prepend(linkBtn);
+                        }
+                        linkBtn.href = safeUrl;
+                    } else if (linkBtn) {
+                        linkBtn.remove();
+                    }
+                }
+
+                operationFeedback?.success("LoRA download URL saved to gallery");
+            } catch (error) {
+                operationFeedback?.error(error?.message || "Could not save LoRA download URL");
+            } finally {
+                urlEditorInput.disabled = false;
+            }
+        }
+    });
+
+    triggerEditorInput.addEventListener("keydown", async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const editingLoras = getEditingLorasData();
+            if (editingLoras.length !== 1) return;
+
+            const singleLora = editingLoras[0];
+            const loraName = singleLora.name;
+            const newTriggers = triggerEditorInput.value.trim();
+            triggerEditorInput.disabled = true;
+            operationFeedback?.pending("Saving LoRA trigger words...");
+            try {
+                await updateMetadata(loraName, { trigger_words: newTriggers });
+                updateCachedLoraMetadata(loraName, { trigger_words: newTriggers });
+
+                const card = findGalleryCardByLoraName(loraName);
+                if (card) {
+                    card.dataset.triggerWords = newTriggers;
+                    const triggerDisplayEl = card.querySelector('.lora-card-triggers');
+                    if (triggerDisplayEl) {
+                        triggerDisplayEl.textContent = newTriggers || 'No triggers';
+                        triggerDisplayEl.title = newTriggers;
+                    }
+                }
+                operationFeedback?.success("LoRA trigger words saved to gallery");
+            } catch (error) {
+                operationFeedback?.error(error?.message || "Could not save LoRA trigger words");
+            } finally {
+                triggerEditorInput.disabled = false;
+            }
         }
     });
 

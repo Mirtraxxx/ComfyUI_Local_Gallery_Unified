@@ -17,26 +17,19 @@ async function listJavaScriptFiles(directory) {
     return nested.flat();
 }
 
-test("each internal module uses one consolidated cache URL", async () => {
+// A query string makes the browser load a second, separate instance of a module
+// whenever two importers disagree on it, so internal imports use plain paths.
+test("internal module imports have no cache-busting query strings", async () => {
     const files = await listJavaScriptFiles(jsRoot);
-    const urlsByModule = new Map();
+    const offenders = [];
 
     for (const file of files) {
         const source = await readFile(file, "utf8");
-        const specifiers = source.matchAll(/(?:from\s+|import\s*\(\s*)["']([^"']+\.js(?:\?[^"']*)?)["']/g);
+        const specifiers = source.matchAll(/(?:from\s+|import\s*\(\s*)["']([^"']+\.js\?[^"']*)["']/g);
         for (const [, specifier] of specifiers) {
-            if (!specifier.startsWith(".")) continue;
-            const [modulePath, query = ""] = specifier.split("?");
-            const normalized = path.normalize(path.resolve(path.dirname(file), modulePath));
-            const urls = urlsByModule.get(normalized) || new Set();
-            urls.add(`${normalized}${query ? `?${query}` : ""}`);
-            urlsByModule.set(normalized, urls);
-
+            if (specifier.startsWith(".")) offenders.push(`${path.relative(jsRoot, file)}: ${specifier}`);
         }
     }
 
-    const duplicates = [...urlsByModule]
-        .filter(([, urls]) => urls.size > 1)
-        .map(([modulePath, urls]) => `${path.relative(jsRoot, modulePath)}: ${[...urls].join(", ")}`);
-    assert.deepEqual(duplicates, []);
+    assert.deepEqual(offenders, []);
 });

@@ -5,9 +5,11 @@
 - One primary ComfyUI node: `LocalGalleryPromptLora` (`Local Gallery: Prompt + LoRA`).
 - The node applies selected LoRAs, builds the visible prompt, then appends enabled hidden prompts.
 - Backend entrypoints: `Local_Gallery_Unified.py`, `backend/Local_Prompt_Gallery.py`, and
-  `backend/Local_Lora_Gallery.py`.
+  `backend/Local_Lora_Gallery.py`. `backend/card_thumbnails.py` serves downscaled WebP card
+  thumbnails (`/prompt/thumbnail/{id}?w=`), cached in `data/prompt_gallery/card_thumbnail_cache/`.
 - Frontend entrypoint: `js/Local_Gallery_Unified.js`; Prompt and LoRA tabs are coordinated by
-  `js/prompt/ui.js` and `js/lora/ui.js`.
+  `js/prompt/ui.js` and `js/lora/ui.js`. `js/tabs.js` mounts the Prompts | LoRAs switch at the
+  start of each gallery's top bar.
 - Prefer the smallest feature-owning module. Keep refactors feature- or bug-driven.
 
 ## Non-Negotiable Contracts
@@ -27,6 +29,19 @@
 - Bundled Prompt and LoRA routes register unconditionally. Bundled standalone node mappings are
   exposed only when the matching legacy sibling installation is absent; preserve this behavior.
 
+## Shared Chrome
+
+- Anything a user sees on both tabs (bars, buttons, pills, popovers, sidebar surface, forms,
+  dialogs, menus) is styled once in `js/shared/chrome.js` as `lg-*` classes and `--lg-*` tokens,
+  scoped under `.lg-root`. Side sheets (`js/prompt/styles.js`, `js/lora/styles.js`) style only
+  their own content (cards, stacks, workspace pages) and must use the `--lg-*` tokens.
+- Overlays and menus mounted on `document.body` sit outside the node, so they carry `lg-root`
+  themselves (`createCenteredOverlay`, prompt context menus, Card Manager dialogs).
+- The LoRA sheet is inserted after the chrome sheet, so `.locallora-root .x` rules beat chrome
+  rules of equal specificity: delete conflicting visual properties instead of overriding them.
+- Shared behavior helpers: `popovers.js`, `autoHideBar.js`, `pillStrip.js`, `pillMenu.js`,
+  `icons.js` (one stroke icon set).
+
 ## Prompt UI Map
 
 Confirm the visible surface before editing; several card UIs look alike.
@@ -38,11 +53,13 @@ Confirm the visible surface before editing; several card UIs look alike.
 - **Active Stack** — selected prompt sidebar: `js/prompt/activeSidebar.js` and
   `js/prompt/activeStackController.js`.
 - **Hidden Prompts** — injected text outside the visible stack: `js/prompt/metaTags.js`.
-- **Library Workspace** — management shell/navigation: `js/prompt/workspace.js`.
+- **Library Workspace** — management shell/navigation: `js/prompt/workspace.js`; pages come from
+  `browse.js` (Cards), `presets.js`, and `dialogs.js` (Add, Import, Export, Upload, Edit).
+- **Category strip** — pinned pills, overflow list, and pill drag: `js/prompt/categoryStripController.js`.
+- Shared Prompt state and API wrappers (plus the wildcard auto-attach queue):
+  `js/prompt/galleryNode.js`; per-scope sort modes and manual orders: `js/prompt/sortOrder.js`.
 - `library` in older code usually means **Prompt Builder**, while `browse` usually means
   **Card Manager**.
-- `js/prompt/gallery.js` is a separate older renderer path; verify that it is actually the surface
-  being changed.
 - Avoid native HTML drag/drop in card surfaces because ComfyUI may treat drops as workflow imports.
 
 ## LoRA UI Map
@@ -64,9 +81,9 @@ Confirm the visible surface before editing; several card UIs look alike.
 Run checks proportional to the change:
 
 ```powershell
-node --check <changed-js-files>
+node --input-type=module --check < <changed-js-file>   # plain --check misses ESM errors
 node --test tests\*.test.mjs
-python -m py_compile Local_Gallery_Unified.py __init__.py backend\Local_Prompt_Gallery.py backend\Local_Lora_Gallery.py
+python -m py_compile Local_Gallery_Unified.py __init__.py backend\Local_Prompt_Gallery.py backend\Local_Lora_Gallery.py backend\card_thumbnails.py
 python -m unittest discover -s tests -p 'test_*.py'
 git diff --check
 ```

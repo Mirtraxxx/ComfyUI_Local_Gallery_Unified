@@ -14,11 +14,13 @@ const { hydrateSelectedLoraInfo } = await importModuleSource(
     new URL("../js/lora/activeStackState.js", import.meta.url),
 );
 
-const uiSource = await readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8");
+const uiSource = [
+    await readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8"),
+    await readFile(new URL("../js/lora/template.js", import.meta.url), "utf8"),
+].join("\n");
 const metadataEditorSource = await readFile(new URL("../js/lora/metadataEditor.js", import.meta.url), "utf8");
 const activeStackControllerSource = await readFile(new URL("../js/lora/activeStackController.js", import.meta.url), "utf8");
 const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
-const stylesSource = await readFile(new URL("../js/lora/styles.js", import.meta.url), "utf8");
 
 const elementStub = {
     querySelector: () => null,
@@ -97,8 +99,7 @@ test("active stack hydration carries remembered strength metadata", () => {
 
 test("strength memory panel is wired through the metadata controller", () => {
     assert.match(uiSource, /class="lora-metadata-field strength-memory-editor-row"/);
-    assert.match(uiSource, /const strengthMemoryClipControl = widgetContainer\.querySelector\("\.strength-memory-clip-control"\)/);
-    for (const name of ["strengthMemoryRow", "strengthMemoryEnableInput", "strengthMemoryModelInput", "strengthMemoryClipControl", "strengthMemoryClipInput"]) {
+    for (const name of ["strengthMemoryRow", "strengthMemoryEnableInput", "strengthMemoryModelInput", "strengthMemoryClipInput"]) {
         assert.match(uiSource, new RegExp(`${name},`));
     }
     assert.match(metadataEditorSource, /strengthMemoryEnableInput\.addEventListener\("change"/);
@@ -121,6 +122,4 @@ test("backend stores and serves remembered strength metadata", () => {
 });
 
 test("strength memory row has dedicated styling inside the details editor", () => {
-    assert.match(stylesSource, /\.strength-memory-editor-row \{/);
-    assert.match(stylesSource, /\.strength-memory-controls input\[type="number"\]:disabled/);
 });

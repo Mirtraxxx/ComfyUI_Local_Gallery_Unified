@@ -28,6 +28,32 @@ function installOutsideClickDismiss(menu, { includeSubmenu = false, delay = 0 } 
     }, delay);
 }
 
+// Menus mount on document.body (or a fullscreen surface), so they carry
+// lg-root for the shared tokens and use the chrome lg-menu look.
+function openMenu(items, x, y, host = document.body) {
+    closePromptContextMenus();
+    const menu = document.createElement("div");
+    menu.className = "lg-root lg-menu localprompt-context-menu";
+    menu.style.position = "fixed";
+    menu.style.zIndex = "110000";
+    for (const { label, disabled, danger, run } of items) {
+        const item = document.createElement("div");
+        item.className = `menu-item${disabled ? " disabled" : ""}${danger ? " danger" : ""}`;
+        item.textContent = label;
+        item.addEventListener("click", async () => {
+            if (disabled) return;
+            closePromptContextMenus();
+            await run();
+        });
+        menu.appendChild(item);
+    }
+    host.appendChild(menu);
+    const rect = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+    return menu;
+}
+
 export function showPromptActionContextMenu({
     prompt,
     x,
@@ -42,69 +68,14 @@ export function showPromptActionContextMenu({
         return;
     }
     const normalizedPrompt = { ...prompt, id: promptId };
-
-    closePromptContextMenus();
-
-    const menu = document.createElement("div");
-    menu.className = "localprompt-context-menu";
-    menu.style.cssText = `
-        position: fixed;
-        left: ${x}px;
-        top: ${y}px;
-        background: #2a2a2a;
-        border: 1px solid #555;
-        border-radius: 6px;
-        padding: 4px 0;
-        z-index: 110000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-        min-width: 150px;
-    `;
-
-    const menuItems = [
-        { label: "Edit Prompt", action: "edit" },
-        { label: "Upload Thumbnail", action: "thumbnail" },
-        {
-            label: "Use Last Result as Thumbnail",
-            action: "use_last_output",
-            disabled: !hasLastOutput,
-        },
-        { label: "Toggle Favorite", action: "favorite" },
-        { label: "Delete Prompt", action: "delete" },
-    ];
-
-    menuItems.forEach(({ label, action, disabled }) => {
-        const item = document.createElement("div");
-        item.textContent = label;
-        item.style.cssText = `
-            padding: 8px 16px;
-            cursor: ${disabled ? "default" : "pointer"};
-            font-size: 12px;
-            color: ${disabled ? "#555" : "#ddd"};
-        `;
-        item.addEventListener("mouseenter", () => {
-            if (!disabled) {
-                item.style.background = "#3a3a3a";
-            }
-        });
-        item.addEventListener("mouseleave", () => item.style.background = "transparent");
-        item.addEventListener("click", async () => {
-            if (disabled) return;
-            closePromptContextMenus();
-            await actions[action]?.(normalizedPrompt);
-        });
-        menu.appendChild(item);
-    });
-
-    (surfaceHost?.isConnected ? surfaceHost : document.body).appendChild(menu);
-
-    const menuRect = menu.getBoundingClientRect();
-    if (x + menuRect.width > window.innerWidth) {
-        menu.style.left = `${window.innerWidth - menuRect.width - 10}px`;
-    }
-    if (y + menuRect.height > window.innerHeight) {
-        menu.style.top = `${window.innerHeight - menuRect.height - 10}px`;
-    }
-
+    const run = action => () => actions[action]?.(normalizedPrompt);
+    const menu = openMenu([
+        { label: "Edit prompt", run: run("edit") },
+        { label: "Upload thumbnail", run: run("thumbnail") },
+        { label: "Use last result as thumbnail", disabled: !hasLastOutput, run: run("use_last_output") },
+        { label: "Toggle favorite", run: run("favorite") },
+        { label: "Delete prompt", danger: true, run: run("delete") },
+    ], x, y, surfaceHost?.isConnected ? surfaceHost : document.body);
     installOutsideClickDismiss(menu, { includeSubmenu: true, delay: 10 });
 }
 
@@ -115,48 +86,10 @@ export function showPromptContextMenu({
     showUploadThumbnailDialog,
     deletePromptWithConfirm,
 }) {
-    closePromptContextMenus();
-
-    const menu = document.createElement("div");
-    menu.className = "localprompt-context-menu";
-    menu.style.cssText = `
-        position: fixed;
-        left: ${event.clientX}px;
-        top: ${event.clientY}px;
-        background: #2a2a2a;
-        border: 1px solid #555;
-        border-radius: 4px;
-        padding: 4px 0;
-        z-index: 110000;
-        min-width: 150px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    `;
-
-    const options = [
-        { label: "Edit", action: () => showEditPromptDialog(prompt) },
-        { label: "Upload Thumbnail", action: () => showUploadThumbnailDialog(prompt) },
-        { label: "Delete", action: () => deletePromptWithConfirm(prompt) },
-    ];
-
-    options.forEach(option => {
-        const item = document.createElement("div");
-        item.textContent = option.label;
-        item.style.cssText = `
-            padding: 8px 16px;
-            cursor: pointer;
-            font-size: 12px;
-            color: #ddd;
-        `;
-        item.addEventListener("mouseenter", () => item.style.background = "#3a3a3a");
-        item.addEventListener("mouseleave", () => item.style.background = "transparent");
-        item.addEventListener("click", () => {
-            closePromptContextMenus();
-            option.action();
-        });
-        menu.appendChild(item);
-    });
-
-    document.body.appendChild(menu);
-
+    const menu = openMenu([
+        { label: "Edit", run: () => showEditPromptDialog(prompt) },
+        { label: "Upload thumbnail", run: () => showUploadThumbnailDialog(prompt) },
+        { label: "Delete", danger: true, run: () => deletePromptWithConfirm(prompt) },
+    ], event.clientX, event.clientY);
     installOutsideClickDismiss(menu);
 }

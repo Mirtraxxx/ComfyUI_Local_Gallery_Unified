@@ -14,9 +14,7 @@ export function createLoraActiveStackController({
     mainContainer,
     metadataEditor,
     uniqueId,
-    headerHeight,
     getLoraDisplayState,
-    getLoraChromeHeight,
     closeActiveStack,
     clearMetadataEditing,
     findGalleryCardByLoraName,
@@ -257,7 +255,6 @@ export function createLoraActiveStackController({
                 item,
                 index,
                 lora,
-                nodeInstance.isModelOnly,
                 isCompact,
                 displayState.show_clip_weights,
             );
@@ -398,12 +395,6 @@ export function createLoraActiveStackController({
                 renderSelectedList();
                 updateSelection();
                 syncGallerySelection();
-                if (mainContainer.classList.contains("gallery-collapsed")) {
-                    setTimeout(() => {
-                        nodeInstance.size[1] = getLoraChromeHeight() + headerHeight;
-                        nodeInstance.setDirtyCanvas(true, true);
-                    }, 0);
-                }
                 updatePresetButtonText(null);
             };
 

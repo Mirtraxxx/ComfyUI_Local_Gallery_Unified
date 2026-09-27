@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const promptUiUrl = new URL("../js/prompt/ui.js", import.meta.url);
+const promptGalleryNodeUrl = new URL("../js/prompt/galleryNode.js", import.meta.url);
 const promptApiUrl = new URL("../js/api/promptApi.js", import.meta.url);
 
 test("Prompt Stats is exposed through the Prompt gallery node API", async () => {
     const [uiSource, apiSource] = await Promise.all([
-        readFile(promptUiUrl, "utf8"),
+        readFile(promptGalleryNodeUrl, "utf8"),
         readFile(promptApiUrl, "utf8"),
     ]);
 

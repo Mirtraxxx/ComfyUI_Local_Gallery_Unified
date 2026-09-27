@@ -1,7 +1,8 @@
 import { confirmAction, showAlert } from "../shared/nativeDialogs.js";
-import { bindBackdropClose, createModalSurface } from "../shared/modalSurfaces.js";
+import { createModalSurface } from "../shared/modalSurfaces.js";
 import {
     bindPromptPreviewVideo,
+    cardImageUrl,
     createPromptActionButton,
 } from "./helpers.js";
 import { escapeHtml } from "../shared/dom.js";
@@ -60,13 +61,13 @@ function updateCategoryActionButtons(overlay, categoryValue) {
 function openBulkDeleteDialog({ prompts = [], selectedCount = 0, surfaceHost = null }) {
     return new Promise((resolve) => {
         const overlay = document.createElement("div");
-        overlay.className = "localprompt-modal-overlay localprompt-bulk-delete-overlay";
+        overlay.className = "lg-root localprompt-modal-overlay localprompt-bulk-delete-overlay";
         const previewItems = prompts.slice(0, 6).map((prompt) => {
             const safeName = escapeHtml(prompt?.name || "Untitled card");
             const previewHtml = prompt?.preview_type === "video" && prompt?.preview_url
                 ? `<video src="${escapeHtml(prompt.preview_url)}" muted playsinline preload="metadata" aria-label="${safeName}"></video>`
                 : prompt?.preview_url
-                    ? `<img src="${escapeHtml(prompt.preview_url)}" alt="" loading="eager" decoding="async">`
+                    ? `<img src="${escapeHtml(cardImageUrl(prompt.preview_url))}" alt="" loading="eager" decoding="async">`
                     : `<div class="localprompt-bulk-delete-placeholder">No preview</div>`;
             return `
                 <div class="localprompt-bulk-delete-card">
@@ -91,8 +92,8 @@ function openBulkDeleteDialog({ prompts = [], selectedCount = 0, surfaceHost = n
                     <p class="localprompt-bulk-delete-warning">Metadata will be removed. Existing thumbnail backup behavior will be preserved.</p>
                 </div>
                 <div class="localprompt-modal-footer localprompt-bulk-delete-footer">
-                    <button type="button" class="localprompt-btn" data-bulk-delete-cancel>Cancel</button>
-                    <button type="button" class="localprompt-btn localprompt-bulk-danger-btn" data-bulk-delete-confirm>Delete ${selectedCount} card${selectedCount === 1 ? "" : "s"}</button>
+                    <button type="button" class="lg-text-btn" data-bulk-delete-cancel>Cancel</button>
+                    <button type="button" class="lg-text-btn danger" data-bulk-delete-confirm>Delete ${selectedCount} card${selectedCount === 1 ? "" : "s"}</button>
                 </div>
             </div>
         `;
@@ -123,7 +124,7 @@ function openBulkDeleteDialog({ prompts = [], selectedCount = 0, surfaceHost = n
 function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, currentCategory = "", surfaceHost = null }) {
     return new Promise((resolve) => {
         const overlay = document.createElement("div");
-        overlay.className = "localprompt-modal-overlay localprompt-bulk-move-overlay";
+        overlay.className = "lg-root localprompt-modal-overlay localprompt-bulk-move-overlay";
         overlay.innerHTML = `
             <div class="localprompt-modal localprompt-bulk-move-dialog" role="dialog" aria-modal="true" aria-labelledby="bulk-move-title">
                 <div class="localprompt-modal-header">
@@ -135,16 +136,16 @@ function openBulkMoveDialog({ categories = [], counts = {}, selectedCount = 0, c
                 </div>
                 <div class="localprompt-modal-content localprompt-bulk-move-content">
                     <label class="localprompt-field-label" for="bulk-move-category">Destination category</label>
-                    <select id="bulk-move-category" class="localprompt-browse-select"></select>
+                    <select id="bulk-move-category" class="lg-select localprompt-browse-select"></select>
                     <div class="localprompt-bulk-move-new-row" hidden>
                         <label class="localprompt-field-label" for="bulk-move-new-category">New category name</label>
-                        <input id="bulk-move-new-category" class="localprompt-browse-input" type="text" maxlength="80" placeholder="e.g. Lighting">
+                        <input id="bulk-move-new-category" class="lg-input localprompt-browse-input" type="text" maxlength="80" placeholder="e.g. Lighting">
                     </div>
                     <p class="localprompt-bulk-move-preview" id="bulk-move-preview"></p>
                 </div>
                 <div class="localprompt-modal-footer">
-                    <button type="button" class="localprompt-btn" data-bulk-move-cancel>Cancel</button>
-                    <button type="button" class="localprompt-btn primary" data-bulk-move-confirm>Move cards</button>
+                    <button type="button" class="lg-text-btn" data-bulk-move-cancel>Cancel</button>
+                    <button type="button" class="lg-text-btn primary" data-bulk-move-confirm>Move cards</button>
                 </div>
             </div>
         `;
@@ -235,7 +236,7 @@ function buildPromptCardHtml(prompt, hasPreview, { management = false } = {}) {
     const previewHtml = hasPreview && prompt.preview_type === "video"
         ? `<video src="${escapeHtml(prompt.preview_url)}" muted playsinline preload="metadata" aria-label="${safeName}"></video>`
         : hasPreview
-            ? `<img src="${escapeHtml(prompt.preview_url)}" alt="${safeName}" loading="lazy" decoding="async">`
+            ? `<img src="${escapeHtml(cardImageUrl(prompt.preview_url))}" alt="${safeName}" loading="lazy" decoding="async">`
             : "No Preview";
     return `
         ${management ? `<span class="localprompt-card-select-indicator" aria-hidden="true"></span>` : ""}
@@ -252,7 +253,6 @@ function buildPromptCardHtml(prompt, hasPreview, { management = false } = {}) {
 }
 
 export async function showCardManagerModal({
-    app,
     nodeInstance,
     galleryNode,
     ownerId = "",
@@ -280,42 +280,34 @@ export async function showCardManagerModal({
     let bulkQuerySelection = null;
     let lastBrowseData = null;
     const surface = createBrowseSurface({ workspaceContainer, onClose });
-    const { root, close: closeSurface, isWorkspace } = surface;
+    const { root, close: closeSurface } = surface;
     const contrastMode = (nodeInstance?.uiPrefs?.card_contrast_mode || "off").replace(/_/g, "-");
     root.classList.add(`contrast-${contrastMode}`);
     root.innerHTML = `
-        <div class="localprompt-browse-page localprompt-modal${isWorkspace ? " localprompt-workspace-page" : ""}">
-            ${isWorkspace ? "" : `
-                <div class="localprompt-modal-header">
-                    <div class="localprompt-workspace-title">
-                        <h3><span class="localprompt-workspace-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h10M7 13h7"></path><path d="M1 8v8M23 8v8"></path></svg></span>Cards</h3>
-                    </div>
-                    <button class="localprompt-modal-close" title="Close">x</button>
-                </div>
-            `}
-            ${isWorkspace ? librarySubnavHtml : ""}
-            <div class="${isWorkspace ? "localprompt-workspace-body" : "localprompt-modal-content"}">
+        <div class="localprompt-browse-page localprompt-modal localprompt-workspace-page">
+            ${librarySubnavHtml}
+            <div class="localprompt-workspace-body">
                 <div class="localprompt-browse-toolbar">
                     <div class="localprompt-browse-toolbar-row localprompt-browse-toolbar-row-primary">
                         <label class="localprompt-browse-search" aria-label="Search cards">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-                            <input type="text" id="browse-filter" class="localprompt-browse-input" placeholder="Search cards...">
+                            <input type="text" id="browse-filter" class="lg-input localprompt-browse-input" placeholder="Search cards...">
                         </label>
-                        <select id="browse-category" class="localprompt-browse-select"></select>
-                        <select id="browse-sort" class="localprompt-sort-select localprompt-browse-sort-select" title="Sort cards">
+                        <select id="browse-category" class="lg-select localprompt-browse-select"></select>
+                        <select id="browse-sort" class="lg-select localprompt-browse-sort-select" title="Sort cards">
                             <option value="manual">Manual / stored order</option>
                             <option value="newest">Newest first</option>
                             <option value="oldest">Oldest first</option>
                             <option value="az">A to Z</option>
                             <option value="za">Z to A</option>
                         </select>
-                        <button id="browse-manage-toggle" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Manage cards in this grid" aria-pressed="false"><span>Manage</span></button>
-                        <button id="browse-stats" class="localprompt-btn localprompt-browse-toolbar-btn" type="button" title="Open card statistics">Stats</button>
-                        <button id="browse-fullscreen-toggle" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-icon-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
+                        <button id="browse-manage-toggle" class="lg-text-btn" type="button" title="Manage cards in this grid" aria-pressed="false"><span>Manage</span></button>
+                        <button id="browse-stats" class="lg-text-btn" type="button" title="Open card statistics">Stats</button>
+                        <button id="browse-fullscreen-toggle" class="lg-text-btn" type="button" title="Expand Card Manager to the full ComfyUI screen" aria-label="Full screen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>Full screen</span></button>
                         <div id="browse-category-actions" class="localprompt-browse-category-actions" role="group" aria-label="Selected category actions" style="display: none;">
-                        <button id="browse-rename-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Rename category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"></path><path d="m14.5 6.5 3 3"></path></svg><span>Rename</span></button>
-                        <button id="browse-export-category" class="localprompt-btn localprompt-browse-toolbar-btn" style="display: none;" title="Export category to wildcard .txt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg><span>Export TXT</span></button>
-                        <button id="browse-delete-category" class="localprompt-btn localprompt-browse-toolbar-btn localprompt-browse-danger-btn" style="display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
+                        <button id="browse-rename-category" class="lg-text-btn" style="display: none;" title="Rename category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"></path><path d="m14.5 6.5 3 3"></path></svg><span>Rename</span></button>
+                        <button id="browse-export-category" class="lg-text-btn" style="display: none;" title="Export category to wildcard .txt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg><span>Export TXT</span></button>
+                        <button id="browse-delete-category" class="lg-text-btn danger" style="display: none;" title="Delete entire category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"></path></svg><span>Delete</span></button>
                         </div>
                     </div>
                 </div>
@@ -324,36 +316,34 @@ export async function showCardManagerModal({
                     <span id="browse-bulk-summary" class="localprompt-bulk-summary">Select cards to manage</span>
                     <span id="browse-bulk-status" class="localprompt-bulk-status" role="status" aria-live="polite"></span>
                     <div class="localprompt-bulk-action-group localprompt-bulk-selection-actions" role="group" aria-label="Selection actions">
-                    <button id="browse-select-visible" class="localprompt-btn">Select page</button>
-                    <button id="browse-select-all-results" class="localprompt-btn">Select all matching</button>
+                    <button id="browse-select-visible" class="lg-text-btn">Select page</button>
+                    <button id="browse-select-all-results" class="lg-text-btn">Select all matching</button>
                     </div>
                     </div>
                     <div class="localprompt-bulk-action-group localprompt-bulk-edit-actions" role="group" aria-label="Edit selected cards">
-                    <button id="browse-edit-selected" class="localprompt-btn primary">Edit…</button>
-                    <button id="browse-move-selected" class="localprompt-btn primary">Move to…</button>
-                    <button id="browse-pin-selected" class="localprompt-btn">Pin/Unpin…</button>
-                    <button id="browse-rename-sequential" class="localprompt-btn" title="Rename selected cards 001, 002, 003 in wildcard import order">Rename Sequentially</button>
+                    <button id="browse-edit-selected" class="lg-text-btn primary">Edit…</button>
+                    <button id="browse-move-selected" class="lg-text-btn primary">Move to…</button>
+                    <button id="browse-pin-selected" class="lg-text-btn">Pin/Unpin…</button>
+                    <button id="browse-rename-sequential" class="lg-text-btn" title="Rename selected cards 001, 002, 003 in wildcard import order">Rename Sequentially</button>
                     </div>
                     <div class="localprompt-bulk-action-group localprompt-bulk-cleanup-actions" role="group" aria-label="Clear or delete selection">
-                    <button id="browse-clear-selected" class="localprompt-btn">Clear</button>
-                    <button id="browse-delete-selected" class="localprompt-btn localprompt-bulk-danger-btn">Delete</button>
-                    <button id="browse-manage-done" class="localprompt-btn">Done</button>
+                    <button id="browse-clear-selected" class="lg-text-btn">Clear</button>
+                    <button id="browse-delete-selected" class="lg-text-btn danger">Delete</button>
                     </div>
                 </div>
                 <div id="browse-gallery-grid" class="localprompt-gallery-grid"></div>
             </div>
-            <div class="${isWorkspace ? "localprompt-workspace-footer " : ""}localprompt-browse-footer">
+            <div class="localprompt-workspace-footer localprompt-browse-footer">
                 <div class="localprompt-browse-pagination-pill">
-                    <button id="browse-prev" class="localprompt-btn">Prev</button>
+                    <button id="browse-prev" class="lg-text-btn">Prev</button>
                     <span id="browse-page-info" class="localprompt-browse-page-info">Page 1 of 1</span>
-                    <button id="browse-next" class="localprompt-btn">Next</button>
+                    <button id="browse-next" class="lg-text-btn">Next</button>
                 </div>
             </div>
         </div>
     `;
 
-    const closeBtn = root.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close");
-    const workspaceBody = root.querySelector(isWorkspace ? ".localprompt-workspace-body" : ".localprompt-modal-content");
+    const workspaceBody = root.querySelector(".localprompt-workspace-body");
     const filterInput = root.querySelector("#browse-filter");
     const categorySelect = root.querySelector("#browse-category");
     const statsBtn = root.querySelector("#browse-stats");
@@ -370,7 +360,6 @@ export async function showCardManagerModal({
     const pinSelectedBtn = root.querySelector("#browse-pin-selected");
     const clearSelectedBtn = root.querySelector("#browse-clear-selected");
     const deleteSelectedBtn = root.querySelector("#browse-delete-selected");
-    const manageDoneBtn = root.querySelector("#browse-manage-done");
     const bulkStatus = root.querySelector("#browse-bulk-status");
     const grid = root.querySelector("#browse-gallery-grid");
     const prevBtn = root.querySelector("#browse-prev");
@@ -435,6 +424,7 @@ export async function showCardManagerModal({
     function setFullscreen(nextState) {
         isFullscreen = Boolean(nextState);
         root.classList.toggle("localprompt-card-manager-fullscreen", isFullscreen);
+        root.classList.toggle("lg-root", isFullscreen);
         if (isFullscreen) {
             document.body.appendChild(root);
             getSurfaceHost();
@@ -471,19 +461,17 @@ export async function showCardManagerModal({
     updateFullscreenButton();
     applySavedCardManagerCardSize();
 
-    if (isWorkspace) {
-        root.addEventListener("click", (event) => {
-            const libraryPageButton = event.target.closest?.("[data-library-page]");
-            if (!libraryPageButton || !isFullscreen || forwardingLibraryNavigation) return;
+    root.addEventListener("click", (event) => {
+        const libraryPageButton = event.target.closest?.("[data-library-page]");
+        if (!libraryPageButton || !isFullscreen || forwardingLibraryNavigation) return;
 
-            // The workspace controller owns these actions through event delegation on
-            // the original host, so put the panel back before forwarding the click.
-            forwardingLibraryNavigation = true;
-            setFullscreen(false);
-            libraryPageButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-            forwardingLibraryNavigation = false;
-        });
-    }
+        // The workspace controller owns these actions through event delegation on
+        // the original host, so put the panel back before forwarding the click.
+        forwardingLibraryNavigation = true;
+        setFullscreen(false);
+        libraryPageButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        forwardingLibraryNavigation = false;
+    });
 
     async function loadBrowseCategoryOptions(selectedCategory = "") {
         const summary = typeof galleryNode.getCategorySummary === "function"
@@ -503,7 +491,7 @@ export async function showCardManagerModal({
         );
     }
 
-    if (isWorkspace && workspaceBody) {
+    if (workspaceBody) {
         workspaceBody.addEventListener("scroll", () => {
             const nextScrollTop = workspaceBody.scrollTop;
             const scrollDelta = nextScrollTop - lastScrollTop;
@@ -766,8 +754,6 @@ export async function showCardManagerModal({
         });
     }
 
-    closeBtn?.addEventListener("click", close);
-    if (!isWorkspace) bindBackdropClose(root, close);
 
     fullscreenToggleBtn?.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -778,7 +764,6 @@ export async function showCardManagerModal({
     if (sortSelect) sortSelect.value = getSortMode({ category: categorySelect.value || "" });
 
     manageToggleBtn?.addEventListener("click", () => setBrowseManageMode(!browseManageMode));
-    manageDoneBtn?.addEventListener("click", () => setBrowseManageMode(false));
 
     selectVisibleBtn?.addEventListener("click", () => {
         const promptsById = new Map((lastBrowseData?.prompts || []).map(prompt => [String(prompt.id), prompt]));
@@ -1170,5 +1155,3 @@ export async function showCardManagerModal({
         refresh: () => loadBrowseGallery(currentPage),
     };
 }
-
-export const showBrowseModal = showCardManagerModal;

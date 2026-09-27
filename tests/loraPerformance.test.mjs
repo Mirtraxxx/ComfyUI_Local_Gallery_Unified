@@ -8,7 +8,7 @@ const rendererSource = await readFile(new URL("../js/lora/renderers.js", import.
 const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
 
 test("display slider release persists without requesting another gallery fetch", () => {
-    for (const slider of ["lora-active-thumbnail-size-slider", "lora-thumbnail-size-slider", "lora-bars-size-select"]) {
+    for (const slider of ["lora-active-thumbnail-size-slider", "lora-thumbnail-size-slider"]) {
         const marker = `widgetContainer.querySelector(".${slider}")?.addEventListener("change"`;
         const start = uiSource.indexOf(marker);
         assert.ok(start >= 0, `missing ${slider} change handler`);

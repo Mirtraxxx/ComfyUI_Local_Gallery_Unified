@@ -62,68 +62,10 @@ export function normalizePromptText(rawText) {
     return cleaned.join(", ");
 }
 
-export function hexToRgba(hex, alpha) {
-    if (!hex || typeof hex !== "string") return `rgba(255,255,255,${alpha})`;
-    let normalized = hex.trim().replace("#", "");
-    if (normalized.length === 3) {
-        normalized = normalized.split("").map(char => char + char).join("");
-    }
-    if (normalized.length !== 6) return `rgba(255,255,255,${alpha})`;
-    const intValue = Number.parseInt(normalized, 16);
-    if (Number.isNaN(intValue)) return `rgba(255,255,255,${alpha})`;
-    const r = (intValue >> 16) & 255;
-    const g = (intValue >> 8) & 255;
-    const b = intValue & 255;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-export function parseHexColor(hex) {
-    if (!hex || typeof hex !== "string") return null;
-    let normalized = hex.trim().replace("#", "");
-    if (normalized.length === 3) {
-        normalized = normalized.split("").map(char => char + char).join("");
-    }
-    if (normalized.length !== 6) return null;
-    const intValue = Number.parseInt(normalized, 16);
-    if (Number.isNaN(intValue)) return null;
-    return {
-        r: (intValue >> 16) & 255,
-        g: (intValue >> 8) & 255,
-        b: intValue & 255,
-    };
-}
-
-export function getNearestPaletteColor(color, palette, fallback = "#6c757d") {
-    const source = parseHexColor(color);
-    if (!source || !palette?.length) return palette?.[0] || fallback;
-
-    let bestColor = palette[0];
-    let bestDistance = Number.POSITIVE_INFINITY;
-    palette.forEach(candidate => {
-        const parsed = parseHexColor(candidate);
-        if (!parsed) return;
-        const distance =
-            ((parsed.r - source.r) ** 2) +
-            ((parsed.g - source.g) ** 2) +
-            ((parsed.b - source.b) ** 2);
-        if (distance < bestDistance) {
-            bestDistance = distance;
-            bestColor = candidate;
-        }
-    });
-    return bestColor;
-}
-
 export function clampThumbnailSize(rawSize, fallbackSize, minSize, maxSize) {
     const normalizedSize = Math.round(Number.isFinite(rawSize) ? rawSize : fallbackSize);
     return Math.max(minSize, Math.min(maxSize, normalizedSize));
 }
-
-// The Prompt UI deliberately lays out at 125% and is scaled back to 80% so
-// controls remain usable inside a ComfyUI node. DOM client widths are already
-// in that unscaled layout space; this factor is only for the node-size fallback
-// used before a surface has been measured.
-export const PROMPT_LAYOUT_NODE_WIDTH_FACTOR = 1.25;
 
 export function getResponsiveThumbnailSizeBounds({
     availableWidth,
@@ -136,9 +78,7 @@ export function getResponsiveThumbnailSizeBounds({
     const fallbackNodeWidth = Number(nodeWidth);
     const layoutWidth = Number.isFinite(measuredWidth) && measuredWidth > 0
         ? measuredWidth
-        : (Number.isFinite(fallbackNodeWidth) && fallbackNodeWidth > 0
-            ? fallbackNodeWidth * PROMPT_LAYOUT_NODE_WIDTH_FACTOR
-            : 0);
+        : (Number.isFinite(fallbackNodeWidth) && fallbackNodeWidth > 0 ? fallbackNodeWidth : 0);
     const safeMin = Math.max(1, Math.round(Number(minSize) || 1));
     const safeMax = Math.max(safeMin, Math.round(Number(maxSize) || safeMin));
 
@@ -365,9 +305,15 @@ export function createPromptActionButton({
     return `<button class="${className}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"${pressedAttr}${extraAttrs ? ` ${extraAttrs}` : ""}>${createPromptActionIcon(icon)}</button>`;
 }
 
+// Card grids load a downscaled copy (see backend/card_thumbnails.py); hover and
+// lightbox previews keep the original file.
+export function cardImageUrl(url) {
+    return `${url}${url.includes("?") ? "&" : "?"}w=640`;
+}
+
 export function buildPromptPreviewMediaHtml(prompt, { wrapperClass = "", noPreviewText = "", autoplay = false } = {}) {
     if (prompt?.preview_type === "image" && prompt.preview_url) {
-        const imageHtml = `<img src="${escapeHtml(prompt.preview_url)}" alt="${escapeHtml(prompt.name || "")}" loading="lazy" decoding="async">`;
+        const imageHtml = `<img src="${escapeHtml(cardImageUrl(prompt.preview_url))}" alt="${escapeHtml(prompt.name || "")}" loading="lazy" decoding="async">`;
         return wrapperClass ? `<div class="${wrapperClass}">${imageHtml}</div>` : imageHtml;
     }
 

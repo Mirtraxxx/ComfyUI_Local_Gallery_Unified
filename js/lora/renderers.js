@@ -76,12 +76,11 @@ export function buildSelectedPreviewHtml(lora) {
     return `<img src="${escapeHtml(previewUrl)}" loading="eager" decoding="async">`;
 }
 
-export function buildSelectedLoraItemHtml(item, index, lora, isModelOnly, isCompact, showClipWeights = true) {
+export function buildSelectedLoraItemHtml(item, index, lora, isCompact, showClipWeights = true) {
     const formattedModelWeight = formatLoraWeight(item.strength ?? 1.0);
-    const showClipStrength = !isModelOnly && showClipWeights;
     const modelLabelHtml = showClipWeights ? `<span class="lora-strength-label">M</span>` : "";
-    
-    const clipStrengthHtml = showClipStrength ? `
+
+    const clipStrengthHtml = showClipWeights ? `
         <div class="lora-strength-chip" title="CLIP strength (Scroll to adjust)">
             <span class="lora-strength-label">C</span>
             <span class="managed-weight-val selected-strength-clip" tabindex="0" title="Scroll to adjust CLIP strength">${formatLoraWeight(item.strength_clip ?? item.strength ?? 1.0)}</span>
@@ -143,7 +142,7 @@ export function buildLoraCardHtml(lora, isSelected, isSelectedEdit, isCompact, s
     } else {
         mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
     }
-    
+
     const safeDownloadUrl = sanitizeHttpUrl(lora.download_url);
     const linkBtnHTML = safeDownloadUrl ? `<a href="${escapeHtml(safeDownloadUrl)}" target="_blank" rel="noopener noreferrer" class="card-btn lora-card-link-btn" title="Open download page" aria-label="Open download page">${svgs.link || ""}</a>` : '';
 

@@ -1,5 +1,6 @@
 import { showAlert } from "../shared/nativeDialogs.js";
 import { escapeHtml } from "../shared/dom.js";
+import { icon } from "../shared/icons.js";
 import {
     createCenteredOverlay,
     createDialogPanel,
@@ -29,41 +30,10 @@ async function populateCategoryDatalist(galleryNode, datalist) {
 
 const FROM_LAST_OUTPUT_NEW_CATEGORY = "__new_category__";
 
-export async function showFromLastOutputDialog({
-    galleryNode,
-    nodeInstance,
-    getPromptSourceNode = null,
-    insertPromptIntoCurrentGallery = null,
-    loadPromptsForGallery = null,
-    loadCategories = null,
-    refreshAllSections = null,
-    onRefresh = null,
-    operationFeedback = null,
-    workspaceContainer = null,
-    onClose = null,
-}) {
-    return await showAddPromptDialog({
-        galleryNode,
-        nodeInstance,
-        getPromptSourceNode,
-        insertPromptIntoCurrentGallery,
-        loadPromptsForGallery,
-        loadCategories,
-        refreshAllSections,
-        onRefresh,
-        operationFeedback,
-        workspaceContainer,
-        onClose,
-        initialTab: "from_last_output",
-    });
-}
-
 export async function showAddPromptDialog({
     galleryNode,
     nodeInstance,
     getPromptSourceNode = null,
-    insertPromptIntoCurrentGallery = null,
-    loadPromptsForGallery = null,
     loadCategories = null,
     refreshAllSections = null,
     onRefresh = null,
@@ -83,18 +53,12 @@ export async function showAddPromptDialog({
         const previewUrl = hasLastOutput ? buildLastOutputPreviewUrl(galleryNode.lastOutput) : "";
         const activeTab = initialTab === "from_last_output" ? "from_last_output" : "direct";
 
-        const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+        const { dialog, close } = createWorkspaceDialogSurface({
             workspaceContainer,
             onClose,
             width: 560,
         });
-
-        if (isWorkspace) {
-            dialog.classList.add("localprompt-from-output-page", "localprompt-add-prompt-page");
-        } else {
-            dialog.classList.add("localprompt-add-prompt-dialog");
-            dialog.style.padding = "16px";
-        }
+        dialog.classList.add("localprompt-from-output-page", "localprompt-add-prompt-page");
 
         const categoryOptions = ['<option value="">Uncategorized</option>']
             .concat(categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
@@ -102,98 +66,77 @@ export async function showAddPromptDialog({
             .join("");
 
         dialog.innerHTML = `
-            <div class="${isWorkspace ? "localprompt-workspace-header" : "localprompt-modal-header"}" style="${isWorkspace ? "" : "margin: -16px -16px 12px;"}">
-                <div class="localprompt-workspace-title">
-                    <h3>Add New Prompt</h3>
-                    ${isWorkspace ? "<p>Add a new prompt card directly or capture from the latest generated output.</p>" : ""}
-                </div>
-                ${isWorkspace ? "" : '<button class="localprompt-modal-close" title="Close">x</button>'}
-            </div>
-            <nav class="localprompt-library-subnav localprompt-add-prompt-tabs" aria-label="Add prompt sections" style="margin-bottom: 12px; padding: 0;">
+            <nav class="localprompt-library-subnav localprompt-add-prompt-tabs" aria-label="Add prompt sections">
                 <button class="localprompt-library-subnav-item${activeTab === "direct" ? " active" : ""}" data-add-tab="direct" type="button">New Prompt</button>
                 <button class="localprompt-library-subnav-item${activeTab === "from_last_output" ? " active" : ""}" data-add-tab="from_last_output" type="button">From Last Output</button>
+                <button class="lg-text-btn localprompt-library-shell-close" data-library-close type="button">Back to gallery</button>
             </nav>
-            <div id="add-prompt-direct-panel" class="${isWorkspace ? "localprompt-workspace-body" : ""}" style="${activeTab === "direct" ? "" : "display: none;"}">
-                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <div style="min-width: 0;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
-                        <input type="text" id="new-prompt-name" placeholder="e.g. Cinematic Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+            <div id="add-prompt-direct-panel" class="localprompt-workspace-body"${activeTab === "direct" ? "" : ' style="display: none;"'}>
+                <div class="localprompt-workspace-section lg-form">
+                    <div class="lg-grid-2">
+                        <label class="lg-field">Card name
+                            <input class="lg-input" type="text" id="new-prompt-name" placeholder="e.g. Cinematic Lighting">
+                        </label>
+                        <label class="lg-field">Category
+                            <select class="lg-select" id="new-prompt-category">${categoryOptions}</select>
+                        </label>
                     </div>
-                    <div style="min-width: 0;">
-                        <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
-                        <select id="new-prompt-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                            ${categoryOptions}
-                        </select>
-                    </div>
+                    <label class="lg-field" id="new-prompt-new-category-row" hidden>New category name
+                        <input class="lg-input" type="text" id="new-prompt-new-category" maxlength="80" placeholder="e.g. Lighting">
+                    </label>
+                    <label class="lg-field">Prompt text
+                        <textarea class="lg-input" id="new-prompt-text" rows="8" placeholder="The actual prompt text..."></textarea>
+                    </label>
                 </div>
-                <div id="new-prompt-new-category-row" hidden style="margin-bottom: 10px;">
-                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="new-prompt-new-category">New category name</label>
-                    <input type="text" id="new-prompt-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="margin-bottom: 8px;">
-                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
-                    <textarea id="new-prompt-text" rows="8" placeholder="The actual prompt text..." style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-                </div>
-                <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
-                    <button id="new-prompt-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-                    <button id="new-prompt-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Create Prompt</button>
+                <div class="localprompt-workspace-footer lg-actions">
+                    <button class="lg-text-btn" id="new-prompt-cancel" type="button">Cancel</button>
+                    <button class="lg-text-btn primary" id="new-prompt-save" type="button">Create Prompt</button>
                 </div>
             </div>
-            <div id="add-prompt-output-panel" class="${isWorkspace ? "localprompt-workspace-body" : ""}" style="${activeTab === "from_last_output" ? "" : "display: none;"}">
+            <div id="add-prompt-output-panel" class="localprompt-workspace-body"${activeTab === "from_last_output" ? "" : ' style="display: none;"'}>
                 ${!hasLastOutput ? `
-                    <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="padding: 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; text-align: center; color: #aaa; font-size: 12px; margin-bottom: 12px;">
-                        <p style="margin: 0 0 6px; font-weight: bold; color: #ddd; font-size: 13px;">No Previous Output Found</p>
-                        <p style="margin: 0;">Run a generation in ComfyUI first to capture the generated image thumbnail and prompt text, or use the <strong>New Prompt</strong> tab above to write a prompt directly.</p>
+                    <div class="localprompt-workspace-section">
+                        <p class="lg-callout"><strong>No previous output found</strong>Run a generation in ComfyUI first to capture its thumbnail and prompt text, or write a prompt in the New Prompt tab.</p>
                     </div>
                 ` : !sourceNode ? `
-                    <div class="${isWorkspace ? "localprompt-workspace-section" : ""}" style="padding: 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; text-align: center; color: #aaa; font-size: 12px; margin-bottom: 12px;">
-                        <p style="margin: 0 0 6px; font-weight: bold; color: #ddd; font-size: 13px;">No Prompt Source Selected</p>
-                        <p style="margin: 0;">Select your Show Text node first in ComfyUI and click Pick Prompt Source, or use the <strong>New Prompt</strong> tab above.</p>
+                    <div class="localprompt-workspace-section">
+                        <p class="lg-callout"><strong>No prompt source selected</strong>Select your Show Text node in ComfyUI and click Pick Prompt Source, or write a prompt in the New Prompt tab.</p>
                     </div>
                 ` : `
-                <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-details" : ""}" style="display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: flex-start; margin-bottom: 12px;">
-                    <div class="localprompt-from-output-preview-wrap" style="width: 104px;">
-                        <div class="localprompt-from-output-preview" style="width: 104px; height: 104px; border-radius: 6px; overflow: hidden; border: 1px solid #555; background: #1a1a1a;">
-                            <img src="${escapeHtml(previewUrl)}" alt="Last output preview" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                        </div>
+                <div class="localprompt-workspace-section localprompt-from-output-details">
+                    <div class="localprompt-from-output-preview">
+                        <img src="${escapeHtml(previewUrl)}" alt="Last output preview">
                     </div>
-                    <div class="localprompt-from-output-fields" style="min-width: 0;">
-                        <div style="margin-bottom: 10px;">
-                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Card Name</label>
-                            <input type="text" id="from-last-output-name" value="${escapeHtml(defaultOutputCardName)}" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
-                            <div style="min-width: 0;">
-                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Name Default</label>
-                                <select id="from-last-output-name-default" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
+                    <div class="lg-form">
+                        <label class="lg-field">Card name
+                            <input class="lg-input" type="text" id="from-last-output-name" value="${escapeHtml(defaultOutputCardName)}">
+                        </label>
+                        <div class="lg-grid-2">
+                            <label class="lg-field">Name default
+                                <select class="lg-select" id="from-last-output-name-default">
                                     <option value="time" ${defaultNameMode === "time" ? "selected" : ""}>Time</option>
                                     <option value="blank" ${defaultNameMode === "blank" ? "selected" : ""}>Blank</option>
                                 </select>
-                            </div>
-                            <div style="min-width: 0;">
-                                <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Category</label>
-                                <select id="from-last-output-category" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                                    ${categoryOptions}
-                                </select>
-                            </div>
+                            </label>
+                            <label class="lg-field">Category
+                                <select class="lg-select" id="from-last-output-category">${categoryOptions}</select>
+                            </label>
                         </div>
-                        <div id="from-last-output-new-category-row" hidden style="margin-top: 10px;">
-                            <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;" for="from-last-output-new-category">New category name</label>
-                            <input type="text" id="from-last-output-new-category" maxlength="80" placeholder="e.g. Lighting" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box;">
-                        </div>
+                        <label class="lg-field" id="from-last-output-new-category-row" hidden>New category name
+                            <input class="lg-input" type="text" id="from-last-output-new-category" maxlength="80" placeholder="e.g. Lighting">
+                        </label>
                     </div>
                 </div>
-                <div class="${isWorkspace ? "localprompt-workspace-section localprompt-from-output-prompt-section" : ""}" style="margin-bottom: 8px;">
-                    <label style="display: block; margin-bottom: 4px; color: #ddd; font-size: 12px;">Prompt Text</label>
-                    <textarea id="from-last-output-prompt" rows="8" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-                    <div class="localprompt-from-output-source" style="min-height: 16px; color: #999; font-size: 11px; margin-top: 8px;">
-                        Using prompt source: ${escapeHtml(sourceNode?.title || sourceNode?.type || `Node ${sourceNode?.id || ""}`)}
-                    </div>
+                <div class="localprompt-workspace-section lg-form">
+                    <label class="lg-field">Prompt text
+                        <textarea class="lg-input" id="from-last-output-prompt" rows="8"></textarea>
+                    </label>
+                    <p class="lg-note">Using prompt source: ${escapeHtml(sourceNode?.title || sourceNode?.type || `Node ${sourceNode?.id || ""}`)}</p>
                 </div>
                 `}
-                <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
-                    <button id="from-last-output-cancel" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-                    ${hasLastOutput && sourceNode ? `<button id="from-last-output-save" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Save</button>` : ""}
+                <div class="localprompt-workspace-footer lg-actions">
+                    <button class="lg-text-btn" id="from-last-output-cancel" type="button">Cancel</button>
+                    ${hasLastOutput && sourceNode ? '<button class="lg-text-btn primary" id="from-last-output-save" type="button">Save</button>' : ""}
                 </div>
             </div>
         `;
@@ -278,8 +221,7 @@ export async function showAddPromptDialog({
             });
         });
 
-        // Close bindings
-        dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
+        dialog.querySelector("[data-library-close]").addEventListener("click", close);
         directCancelBtn?.addEventListener("click", close);
         outputCancelBtn?.addEventListener("click", close);
 
@@ -345,11 +287,6 @@ export async function showAddPromptDialog({
                     if (onRefresh) {
                         await onRefresh();
                     } else {
-                        if (insertPromptIntoCurrentGallery && result.prompt) {
-                            insertPromptIntoCurrentGallery(result.prompt);
-                        } else {
-                            await loadPromptsForGallery?.(1);
-                        }
                         await refreshAllSections?.();
                     }
                 } catch (refreshError) {
@@ -384,7 +321,6 @@ export async function showAddPromptDialog({
             }
 
             outputSaveBtn.disabled = true;
-            outputSaveBtn.style.opacity = "0.6";
             outputSaveBtn.textContent = "Saving...";
             operationFeedback?.pending("Creating prompt from last output...");
 
@@ -430,9 +366,6 @@ export async function showAddPromptDialog({
                     if (onRefresh) {
                         await onRefresh();
                     } else {
-                        if (!insertPromptIntoCurrentGallery || !insertPromptIntoCurrentGallery(createResult.prompt)) {
-                            await loadPromptsForGallery?.(1);
-                        }
                         await refreshAllSections?.();
                     }
                 } catch (refreshError) {
@@ -446,7 +379,6 @@ export async function showAddPromptDialog({
                 operationFeedback?.error(error?.message || "Could not create prompt from last output");
                 showAlert(`Error: ${error.message}`);
                 outputSaveBtn.disabled = false;
-                outputSaveBtn.style.opacity = "1";
                 outputSaveBtn.textContent = "Save";
             }
         });
@@ -461,7 +393,6 @@ export async function showEditPromptDialog({
     galleryNode,
     updateLocalPromptAfterMetadataSave,
     loadCategories,
-    loadPromptsForGallery,
     refreshAllSections,
     onRefresh = null,
     operationFeedback = null,
@@ -473,52 +404,36 @@ export async function showEditPromptDialog({
     }
 
     const overlay = createCenteredOverlay();
-    overlay.classList.add("localprompt-edit-prompt-overlay");
-    const dialog = document.createElement("div");
-    dialog.className = "localprompt-edit-prompt-dialog";
+    const dialog = createDialogPanel(720);
+    dialog.classList.add("localprompt-edit-prompt-dialog");
 
     dialog.innerHTML = `
-        <div class="localprompt-edit-prompt-header">
-            <div class="localprompt-edit-prompt-title">
-                <span class="localprompt-edit-prompt-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                    </svg>
-                </span>
-                <div>
-                    <h3>Edit Prompt</h3>
-                    <p>Update card details and prompt text</p>
-                </div>
-            </div>
-            <button id="edit-close-btn" class="localprompt-edit-prompt-close" type="button" aria-label="Close">&times;</button>
+        <div class="lg-row">
+            <h3 class="lg-dialog-title">Edit prompt</h3>
+            <span class="lg-spacer"></span>
+            <button class="lg-icon-btn" id="edit-close-btn" type="button" aria-label="Close">${icon("close")}</button>
         </div>
-        <div class="localprompt-edit-prompt-body">
-            <label class="localprompt-edit-prompt-field">
-                <span>Name</span>
-                <input type="text" id="edit-prompt-name" value="${escapeHtml(prompt.name)}">
+        <div class="lg-grid-2">
+            <label class="lg-field">Name
+                <input class="lg-input" type="text" id="edit-prompt-name" value="${escapeHtml(prompt.name)}">
             </label>
-            <label class="localprompt-edit-prompt-field">
-                <span>Category</span>
-                <input type="text" id="edit-prompt-category" value="${escapeHtml(prompt.category || "")}" placeholder="e.g., Hair, Clothing, Poses" list="edit-category-datalist">
-            </label>
-            <datalist id="edit-category-datalist"></datalist>
-            <label class="localprompt-edit-prompt-field localprompt-edit-prompt-text-field">
-                <span>Prompt Text</span>
-                <textarea id="edit-prompt-text" spellcheck="false">${escapeHtml(prompt.prompt_text || "")}</textarea>
+            <label class="lg-field">Category
+                <input class="lg-input" type="text" id="edit-prompt-category" value="${escapeHtml(prompt.category || "")}" placeholder="e.g. Hair, Clothing, Poses" list="edit-category-datalist">
             </label>
         </div>
-        <div class="localprompt-edit-prompt-footer">
-            <div class="localprompt-edit-prompt-status">
+        <datalist id="edit-category-datalist"></datalist>
+        <label class="lg-field">Prompt text
+            <textarea class="lg-input localprompt-edit-prompt-text" id="edit-prompt-text" rows="12" spellcheck="false">${escapeHtml(prompt.prompt_text || "")}</textarea>
+        </label>
+        <div class="lg-row">
+            <span class="lg-note localprompt-edit-prompt-status">
                 <span class="localprompt-edit-prompt-dot" id="edit-status-dot"></span>
-                <span id="edit-status-label">Changes not saved</span>
-                <span class="localprompt-edit-prompt-divider"></span>
+                <span id="edit-status-label">Changes not saved</span> ·
                 <span id="edit-character-count">0 characters</span>
-            </div>
-            <div class="localprompt-edit-prompt-actions">
-                <button id="edit-cancel-btn" class="localprompt-edit-prompt-secondary" type="button">Cancel</button>
-                <button id="edit-save-btn" class="localprompt-edit-prompt-primary" type="button">Save</button>
-            </div>
+            </span>
+            <span class="lg-spacer"></span>
+            <button class="lg-text-btn" id="edit-cancel-btn" type="button">Cancel</button>
+            <button class="lg-text-btn primary" id="edit-save-btn" type="button">Save</button>
         </div>
     `;
 
@@ -577,7 +492,6 @@ export async function showEditPromptDialog({
                 if (onRefresh) {
                     await onRefresh();
                 } else {
-                    await loadPromptsForGallery(galleryNode.currentPage);
                     await refreshAllSections();
                 }
             } catch (refreshError) {
@@ -598,7 +512,7 @@ export async function showEditPromptDialog({
 export function showUploadThumbnailDialog({
     prompt,
     galleryNode,
-    loadPromptsForGallery,
+    refreshAllSections = null,
     onRefresh = null,
     operationFeedback = null,
 }) {
@@ -612,13 +526,11 @@ export function showUploadThumbnailDialog({
     const dialog = createDialogPanel(400);
 
     dialog.innerHTML = `
-        <h3 style="margin: 0 0 16px 0; color: #ddd;">Upload Thumbnail for "${escapeHtml(prompt.name)}"</h3>
-        <div style="margin-bottom: 16px;">
-            <input type="file" id="thumbnail-file-input" accept="image/*,video/*" style="width: 100%; padding: 8px; background: #1a1a1a; color: #ddd; border: 1px solid #555; border-radius: 4px;">
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-            <button id="upload-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button id="upload-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Upload</button>
+        <h3 class="lg-dialog-title">Upload thumbnail for "${escapeHtml(prompt.name)}"</h3>
+        <input class="lg-input" type="file" id="thumbnail-file-input" accept="image/*,video/*">
+        <div class="lg-actions">
+            <button class="lg-text-btn" id="upload-cancel-btn" type="button">Cancel</button>
+            <button class="lg-text-btn primary" id="upload-save-btn" type="button">Upload</button>
         </div>
     `;
 
@@ -652,7 +564,7 @@ export function showUploadThumbnailDialog({
                 if (onRefresh) {
                     await onRefresh();
                 } else {
-                    await loadPromptsForGallery(galleryNode.currentPage);
+                    await refreshAllSections?.();
                 }
             } catch (refreshError) {
                 operationFeedback?.warning("Thumbnail saved. View refresh failed.", {
@@ -713,56 +625,32 @@ export async function showExportDialog({
     });
 
     dialog.innerHTML = `
-         ${isWorkspace ? "" : `<div class="localprompt-modal-header" style="margin: -20px -20px 16px;">
-             <div class="localprompt-workspace-title">
-                 <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--export" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M8 7l4-4 4 4"></path><path d="M5 12v9h14v-9"></path></svg></span>Export TXT</h3>
-             </div>
-             <button class="localprompt-modal-close" title="Close">x</button>
-         </div>`}
-         ${isWorkspace ? librarySubnavHtml : ""}
-         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-             <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-export-form" style="margin-bottom: 12px;">
-                 <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
-                     Export one category as a wildcard-style .txt file with one prompt per line.
-                 </p>
-                 <div style="margin-bottom: 12px;">
-                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category</label>
-                     <select id="export-category-select" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;"></select>
-                 </div>
-                 <div style="margin-bottom: 12px;">
-                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Wildcard Filename</label>
-                     <input type="text" id="export-filename-input" placeholder="e.g. MyCategory or Folder/MyCategory" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
-                     <div style="font-size: 10px; color: #888; margin-top: 4px;">Saved as <code>.txt</code>. Subfolders are supported.</div>
-                 </div>
-                 <div style="margin-bottom: 12px;">
-                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Destination</label>
-                     <select id="export-destination-select" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
-                         <option value="comfy">Save to ComfyUI wildcards folder</option>
-                         <option value="download">Download .txt file</option>
-                     </select>
-                 </div>
-                 <div class="localprompt-form-note" style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;">
-                     Wildcard token: <code id="export-wildcard-token">__filename__</code>
-                 </div>
-             </div>
-             <div id="export-status" style="
-                 margin: 12px 0;
-                 padding: 8px;
-                 background: #151515;
-                 border: 1px solid #444;
-                 border-radius: 4px;
-                 min-height: 40px;
-                 font-size: 11px;
-                 color: #aaa;
-                 white-space: pre-wrap;
-                 display: none;
-             "></div>
-         </div>
-         <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
-             <button id="export-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-             <button id="export-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Export</button>
-         </div>
-     `;
+        ${isWorkspace ? librarySubnavHtml : '<h3 class="lg-dialog-title">Export TXT</h3>'}
+        <div class="${isWorkspace ? "localprompt-workspace-body" : "lg-form"}">
+            <div class="${isWorkspace ? "localprompt-workspace-section " : ""}lg-form">
+                <p class="lg-note">Export one category as a wildcard-style .txt file with one prompt per line.</p>
+                <label class="lg-field">Category
+                    <select class="lg-select" id="export-category-select"></select>
+                </label>
+                <label class="lg-field">Wildcard filename
+                    <input class="lg-input" type="text" id="export-filename-input" placeholder="e.g. MyCategory or Folder/MyCategory">
+                    <span>Saved as .txt. Subfolders are supported.</span>
+                </label>
+                <label class="lg-field">Destination
+                    <select class="lg-select" id="export-destination-select">
+                        <option value="comfy">Save to ComfyUI wildcards folder</option>
+                        <option value="download">Download .txt file</option>
+                    </select>
+                </label>
+                <p class="lg-note">Wildcard token: <code id="export-wildcard-token">__filename__</code></p>
+            </div>
+            <div class="lg-status" id="export-status" hidden></div>
+        </div>
+        <div class="${isWorkspace ? "localprompt-workspace-footer " : ""}lg-actions">
+            <button class="lg-text-btn" id="export-cancel-btn" type="button">Cancel</button>
+            <button class="lg-text-btn primary" id="export-save-btn" type="button">Export</button>
+        </div>
+    `;
 
     const categorySelect = dialog.querySelector("#export-category-select");
     const filenameInput = dialog.querySelector("#export-filename-input");
@@ -798,12 +686,11 @@ export async function showExportDialog({
     syncFilenameFromCategory();
 
     const updateStatus = (message, isError = false) => {
-        statusDiv.style.display = "block";
+        statusDiv.hidden = false;
         statusDiv.textContent = message;
-        statusDiv.style.color = isError ? "#ff6b6b" : "#aaa";
+        statusDiv.classList.toggle("error", isError);
     };
 
-    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
     cancelBtn.addEventListener("click", close);
 
     saveBtn.addEventListener("click", async () => {
@@ -817,7 +704,6 @@ export async function showExportDialog({
         }
 
         saveBtn.disabled = true;
-        saveBtn.style.opacity = "0.5";
 
         try {
             updateStatus("Exporting wildcard file...");
@@ -840,7 +726,6 @@ export async function showExportDialog({
             operationFeedback?.error(error?.message || "Could not export wildcard file");
         } finally {
             saveBtn.disabled = false;
-            saveBtn.style.opacity = "1";
         }
     });
 }
@@ -848,7 +733,6 @@ export async function showExportDialog({
 export async function showImportDialog({
     galleryNode,
     loadCategories,
-    loadPromptsForGallery,
     refreshAllSections = null,
     onRefresh = null,
     operationFeedback = null,
@@ -856,54 +740,32 @@ export async function showImportDialog({
     onClose = null,
     librarySubnavHtml = "",
 }) {
-    const { dialog, close, isWorkspace } = createWorkspaceDialogSurface({
+    const { dialog, close } = createWorkspaceDialogSurface({
         workspaceContainer,
         onClose,
         width: 450,
     });
 
     dialog.innerHTML = `
-         ${isWorkspace ? "" : `<div class="localprompt-modal-header" style="margin: -20px -20px 16px;">
-             <div class="localprompt-workspace-title">
-                 <h3><span class="localprompt-workspace-heading-icon localprompt-workspace-heading-icon--import" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"></path><path d="M14 2v5h5M12 11v7M9 15l3 3 3-3"></path></svg></span>Import TXT</h3>
-             </div>
-             <button class="localprompt-modal-close" title="Close">x</button>
-         </div>`}
-         ${isWorkspace ? librarySubnavHtml : ""}
-         <div class="${isWorkspace ? "localprompt-workspace-body" : ""}">
-             <div class="${isWorkspace ? "localprompt-workspace-section " : ""}localprompt-import-form" style="margin-bottom: 12px;">
-                 <p style="font-size: 11px; color: #aaa; margin: 0 0 12px;">
-                     Import a wildcard-style .txt file. Each line will become one prompt card in a new category.
-                 </p>
-                 <div style="margin-bottom: 12px;">
-                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Select File</label>
-                     <input type="file" id="import-file-input" accept=".txt" style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;">
-                 </div>
-                 <div style="margin-bottom: 12px;">
-                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #ddd;">Category Name</label>
-                     <input type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." style="width: 100%; padding: 10px; background: #111820; color: #ddd; border: 1px solid #3b4652; border-radius: 7px;" list="import-category-datalist">
-                     <datalist id="import-category-datalist"></datalist>
-                 </div>
-                 <div class="localprompt-form-note" style="font-size: 11px; color: #999; padding: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;"><span class="localprompt-section-icon" aria-hidden="true">✧</span><strong>Import behavior:</strong> Create new category</div>
-             </div>
-             <div id="import-status" style="
-                 margin: 12px 0;
-                 padding: 8px;
-                 background: #151515;
-                 border: 1px solid #444;
-                 border-radius: 4px;
-                 min-height: 40px;
-                 font-size: 11px;
-                 color: #aaa;
-                 white-space: pre-wrap;
-                 display: none;
-             "></div>
-         </div>
-         <div class="${isWorkspace ? "localprompt-workspace-footer" : ""}" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: ${isWorkspace ? "0" : "16px"};">
-             <button id="import-cancel-btn" style="padding: 8px 16px; background: #3a3a3a; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
-             <button id="import-save-btn" style="padding: 8px 16px; background: #4a7c4a; color: #fff; border: 1px solid #5a9c5a; border-radius: 4px; cursor: pointer;">Import</button>
-         </div>
-     `;
+        ${librarySubnavHtml}
+        <div class="localprompt-workspace-body">
+            <div class="localprompt-workspace-section lg-form">
+                <p class="lg-note">Import a wildcard-style .txt file. Each line becomes one prompt card in a new category.</p>
+                <label class="lg-field">File
+                    <input class="lg-input" type="file" id="import-file-input" accept=".txt">
+                </label>
+                <label class="lg-field">Category name
+                    <input class="lg-input" type="text" id="import-category-input" placeholder="e.g. Wildcards, Styles, etc." list="import-category-datalist">
+                    <datalist id="import-category-datalist"></datalist>
+                </label>
+            </div>
+            <div class="lg-status" id="import-status" hidden></div>
+        </div>
+        <div class="localprompt-workspace-footer lg-actions">
+            <button class="lg-text-btn" id="import-cancel-btn" type="button">Cancel</button>
+            <button class="lg-text-btn primary" id="import-save-btn" type="button">Import</button>
+        </div>
+    `;
 
     await populateCategoryDatalist(galleryNode, dialog.querySelector("#import-category-datalist"));
 
@@ -914,12 +776,11 @@ export async function showImportDialog({
     const statusDiv = dialog.querySelector("#import-status");
 
     const updateStatus = (message, isError = false) => {
-        statusDiv.style.display = "block";
+        statusDiv.hidden = false;
         statusDiv.textContent = message;
-        statusDiv.style.color = isError ? "#ff6b6b" : "#aaa";
+        statusDiv.classList.toggle("error", isError);
     };
 
-    dialog.querySelector(isWorkspace ? ".localprompt-workspace-back" : ".localprompt-modal-close")?.addEventListener("click", close);
     cancelBtn.addEventListener("click", close);
 
     saveBtn.addEventListener("click", async () => {
@@ -936,7 +797,6 @@ export async function showImportDialog({
         }
 
         saveBtn.disabled = true;
-        saveBtn.style.opacity = "0.5";
 
         try {
             updateStatus("Uploading file...");
@@ -963,7 +823,6 @@ export async function showImportDialog({
                 if (onRefresh) {
                     await onRefresh();
                 } else {
-                    await loadPromptsForGallery(1);
                     await refreshAllSections?.();
                 }
             } catch (refreshError) {
@@ -978,7 +837,6 @@ export async function showImportDialog({
             updateStatus("Error: " + error.message, true);
             operationFeedback?.error(error?.message || "Could not import prompt cards");
             saveBtn.disabled = false;
-            saveBtn.style.opacity = "1";
         }
     });
 }

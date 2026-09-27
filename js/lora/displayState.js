@@ -1,5 +1,5 @@
 const DISPLAY_MODES = new Set(["thumbnails", "compact"]);
-const CONTRAST_MODES = new Set(["off", "dim_inactive", "dim_by_default"]);
+const CONTRAST_MODES = new Set(["off", "dim_inactive"]);
 const SORT_MODES = new Set(["az", "za", "newest", "oldest"]);
 
 export const LORA_DISPLAY_LIMITS = Object.freeze({
@@ -9,21 +9,6 @@ export const LORA_DISPLAY_LIMITS = Object.freeze({
     cardThumbnailMax: 260,
     sidebarMin: 300,
     sidebarMax: 720,
-    // Kept identical to the Prompt gallery's visible_pinned_category_count
-    // window (see js/prompt/constants.js): same knob, same reach.
-    visibleFolderMin: 1,
-    visibleFolderMax: 20,
-});
-
-// Discrete top/bottom bar size steps. `bars_size_scale` stores the nominal
-// step value; the matching CSS class carries the per-step geometry.
-export const LORA_BAR_SIZE_PRESETS = Object.freeze([75, 100, 125, 150]);
-export const LORA_BAR_SIZE_DEFAULT = 100;
-export const LORA_BAR_SIZE_CLASSES = Object.freeze({
-    75: "bars-compact",
-    100: "",
-    125: "bars-large",
-    150: "bars-xl",
 });
 
 function normalizeChoice(value, allowed, fallback) {
@@ -42,30 +27,12 @@ export function normalizeLoraDisplayMode(value) {
 }
 
 export function normalizeLoraContrastMode(value) {
-    return normalizeChoice(value, CONTRAST_MODES, "off");
+    // "dim_by_default" was a third mode before the setting became a checkbox.
+    return value === "dim_by_default" ? "dim_inactive" : normalizeChoice(value, CONTRAST_MODES, "off");
 }
 
 export function normalizeLoraSortMode(value) {
     return normalizeChoice(value, SORT_MODES, "az");
-}
-
-export function normalizeVisiblePinnedFolderCount(value) {
-    return clampInteger(
-        value,
-        LORA_DISPLAY_LIMITS.visibleFolderMin,
-        LORA_DISPLAY_LIMITS.visibleFolderMax,
-        8,
-    );
-}
-
-export function normalizeBarsSizeScale(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return LORA_BAR_SIZE_DEFAULT;
-    let nearest = LORA_BAR_SIZE_DEFAULT;
-    for (const preset of LORA_BAR_SIZE_PRESETS) {
-        if (Math.abs(preset - number) < Math.abs(nearest - number)) nearest = preset;
-    }
-    return nearest;
 }
 
 export function getLoraActiveCardControlScale(value) {
@@ -102,9 +69,9 @@ export function normalizeLoraDisplayState(uiState = {}) {
             LORA_DISPLAY_LIMITS.sidebarMax,
             450,
         ),
-        bars_size_scale: normalizeBarsSizeScale(uiState.bars_size_scale),
         move_active_loras_to_top: uiState.move_active_loras_to_top !== false,
         active_card_size_mode: uiState.active_card_size_mode === "large" ? "large" : "default",
         show_clip_weights: uiState.show_clip_weights !== false,
+        auto_hide_toolbars: uiState.auto_hide_toolbars === true,
     };
 }

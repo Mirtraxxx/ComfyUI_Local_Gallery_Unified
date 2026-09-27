@@ -23,29 +23,6 @@ function buildWeightMap(savedData) {
     return categoryMap;
 }
 
-function createWeightButton(className, label) {
-    const button = document.createElement("button");
-    button.className = className;
-    button.type = "button";
-    button.textContent = label;
-    button.style.cssText = "width: 20px; height: 20px; background: #3a3a3a; border: 1px solid #555; color: #ddd; border-radius: 3px; cursor: pointer;";
-    return button;
-}
-
-function createExportButton(onExport) {
-    const button = document.createElement("button");
-    button.className = "wc-export-btn";
-    button.type = "button";
-    button.title = "Export category to wildcard .txt";
-    button.textContent = "Export";
-    button.style.cssText = "padding: 2px 6px; font-size: 10px; background: #2f4f2f; border: 1px solid #4a7c4a; color: #ddd; border-radius: 3px; cursor: pointer;";
-    button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        onExport();
-    });
-    return button;
-}
-
 function createCategoryRow(category, categoryMap, onChange, onExport) {
     const savedCategory = categoryMap[category];
     const isChecked = Boolean(savedCategory);
@@ -53,68 +30,47 @@ function createCategoryRow(category, categoryMap, onChange, onExport) {
     const autoAttach = isChecked ? savedCategory.autoAttach : false;
 
     const row = document.createElement("div");
-    row.style.cssText = "display: flex; align-items: center; gap: 6px; padding: 4px 0;";
+    row.className = "localprompt-wc-row";
     row.dataset.category = category;
+    row.innerHTML = `
+        <label class="lg-check localprompt-wc-name"><input type="checkbox" class="wc-enabled"><span></span></label>
+        <label class="lg-check localprompt-wc-update" title="Update this category's selected card with the generated image"><input type="checkbox" class="wc-auto-attach"><span>Update</span></label>
+        <div class="localprompt-wc-weight">
+            <button class="lg-icon-btn wc-minus" type="button" aria-label="Lower weight">&minus;</button>
+            <span class="wc-weight"></span>
+            <button class="lg-icon-btn wc-plus" type="button" aria-label="Raise weight">+</button>
+        </div>
+        ${typeof onExport === "function" ? '<button class="lg-text-btn wc-export-btn" type="button" title="Export category to wildcard .txt">Export</button>' : ""}
+    `;
+    row.querySelector(".localprompt-wc-name span").textContent = category;
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
+    const checkbox = row.querySelector(".wc-enabled");
+    const autoAttachCheckbox = row.querySelector(".wc-auto-attach");
+    const weightControls = row.querySelector(".localprompt-wc-weight");
+    const weightLabel = row.querySelector(".wc-weight");
     checkbox.checked = isChecked;
-    checkbox.style.cursor = "pointer";
-
-    const autoAttachLabel = document.createElement("label");
-    autoAttachLabel.title = "Update this category's selected card with the generated image";
-    autoAttachLabel.style.cssText = "display: inline-flex; align-items: center; gap: 3px; color: #aaa; font-size: 10px; white-space: nowrap; cursor: pointer;";
-    const autoAttachCheckbox = document.createElement("input");
-    autoAttachCheckbox.type = "checkbox";
-    autoAttachCheckbox.className = "wc-auto-attach";
     autoAttachCheckbox.checked = autoAttach;
     autoAttachCheckbox.disabled = !isChecked;
-    autoAttachCheckbox.style.cssText = "margin: 0; accent-color: #55a66b; cursor: pointer;";
-    const autoAttachText = document.createElement("span");
-    autoAttachText.textContent = "Update";
-    autoAttachLabel.append(autoAttachCheckbox, autoAttachText);
-
-    const label = document.createElement("span");
-    label.textContent = category;
-    label.style.cssText = "flex: 1; font-size: 11px; color: #ddd;";
-
-    const weightControls = document.createElement("div");
-    weightControls.className = "weight-controls";
-    weightControls.style.cssText = `display: ${isChecked ? "flex" : "none"}; align-items: center; gap: 4px;`;
-
-    const minus = createWeightButton("wc-minus", "-");
-    const weightLabel = document.createElement("span");
-    weightLabel.className = "wc-weight";
+    weightControls.hidden = !isChecked;
     weightLabel.textContent = weight.toFixed(1);
-    weightLabel.style.cssText = "font-size: 10px; color: #aaa; min-width: 24px; text-align: center;";
-    const plus = createWeightButton("wc-plus", "+");
-
-    weightControls.append(minus, weightLabel, plus);
-    row.append(checkbox, label, autoAttachLabel, weightControls);
-    if (typeof onExport === "function") {
-        row.appendChild(createExportButton(() => onExport(category)));
-    }
 
     checkbox.addEventListener("change", () => {
-        weightControls.style.display = checkbox.checked ? "flex" : "none";
+        weightControls.hidden = !checkbox.checked;
         autoAttachCheckbox.disabled = !checkbox.checked;
         onChange();
     });
-
     autoAttachCheckbox.addEventListener("change", onChange);
 
-    minus.addEventListener("click", () => {
-        let nextWeight = parseFloat(weightLabel.textContent);
-        nextWeight = Math.max(0.1, Math.round((nextWeight - 0.1) * 10) / 10);
+    const stepWeight = (delta) => {
+        const nextWeight = Math.min(2.0, Math.max(0.1, Math.round((parseFloat(weightLabel.textContent) + delta) * 10) / 10));
         weightLabel.textContent = nextWeight.toFixed(1);
         onChange();
-    });
-
-    plus.addEventListener("click", () => {
-        let nextWeight = parseFloat(weightLabel.textContent);
-        nextWeight = Math.min(2.0, Math.round((nextWeight + 0.1) * 10) / 10);
-        weightLabel.textContent = nextWeight.toFixed(1);
-        onChange();
+    };
+    row.querySelector(".wc-minus").addEventListener("click", () => stepWeight(-0.1));
+    row.querySelector(".wc-plus").addEventListener("click", () => stepWeight(0.1));
+    row.querySelector(".wc-export-btn")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onExport(category);
     });
 
     return row;
@@ -123,7 +79,7 @@ function createCategoryRow(category, categoryMap, onChange, onExport) {
 function collectSelectedCategories(categoryList) {
     const selected = [];
     categoryList.querySelectorAll("[data-category]").forEach(row => {
-        const checkbox = row.querySelector('input[type="checkbox"]');
+        const checkbox = row.querySelector(".wc-enabled");
         if (checkbox?.checked) {
             const weight = parseFloat(row.querySelector(".wc-weight")?.textContent) || 1.0;
             selected.push({
@@ -143,25 +99,22 @@ export async function showWildcardsModal({
     saveWildcardState,
     onExportCategory = null,
 }) {
-    const { root: overlay, close } = createModalSurface({});
+    const { root: overlay, close } = createModalSurface({ overlayClassName: "lg-root localprompt-modal-overlay" });
     overlay.innerHTML = `
-        <div class="localprompt-modal" style="width: 450px;">
+        <div class="localprompt-modal localprompt-wc-modal">
             <div class="localprompt-modal-header">
-                <h3>Select Categories</h3>
-                <button class="localprompt-modal-close">x</button>
+                <h3>Wildcard categories</h3>
+                <button class="localprompt-modal-close" type="button" aria-label="Close">&times;</button>
             </div>
-            <div class="localprompt-modal-content">
-                <div style="margin-bottom: 8px; color: #aaa; font-size: 11px;">Select wildcard categories and choose which selected categories update their cards with the generated image.</div>
-                <div id="wc-categories-section">
-                    <div id="wc-category-list" style="max-height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; padding: 8px;"></div>
-                </div>
+            <div class="localprompt-modal-content lg-form">
+                <p class="lg-note">Checked categories each contribute one card per run. "Update" also saves the generated image as that card's thumbnail.</p>
+                <div id="wc-category-list" class="localprompt-wc-list"></div>
             </div>
         </div>
     `;
-    const closeBtn = overlay.querySelector(".localprompt-modal-close");
     const categoryList = overlay.querySelector("#wc-category-list");
 
-    closeBtn.addEventListener("click", close);
+    overlay.querySelector(".localprompt-modal-close").addEventListener("click", close);
     bindBackdropClose(overlay, close);
 
     const categories = await getCategories();

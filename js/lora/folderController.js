@@ -1,4 +1,12 @@
-const LORA_FOLDER_COLORS = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8"];
+import { showPillMenu } from "../shared/pillMenu.js";
+import { fitPillStrip, makePill, observePillStrip, renderPillOverflow } from "../shared/pillStrip.js";
+
+const INITIAL_PINNED_FOLDER_COUNT = 8;
+
+export function getFolderLabel(folder) {
+    if (!folder) return "All Folders";
+    return folder === "." ? "Root" : String(folder).replaceAll("\\", "/");
+}
 
 /** Owns LoRA folder navigation, pinning, coloring, and pointer-based reorder state. */
 export function createLoraFolderController({
@@ -7,419 +15,248 @@ export function createLoraFolderController({
     folderFilterSelect,
     folderStrip,
     folderOverflow,
-    folderOverflowChips,
     folderMoreBtn,
-    getVisiblePinnedFolderCount,
+    closeOverflow,
+    persistState,
     saveStateAndFetch,
 }) {
-    let folderOverflowOpen = false;
-    let folderSearchQuery = "";
+    const searchState = { query: "" };
+    const longPressTimers = new Set();
+    const stripObserver = observePillStrip(folderStrip);
     let folderDragState = null;
     let suppressFolderClickUntil = 0;
-    const getFolderLabel = (folder) => {
-        if (!folder) return "All Folders";
-        return folder === "." ? "Root" : String(folder).replaceAll('\\', '/');
-    };
-     const getFolderColor = (folder, index) => {
-        if (nodeInstance.loraUiState.folder_colors && nodeInstance.loraUiState.folder_colors[folder]) {
-            return nodeInstance.loraUiState.folder_colors[folder];
-        }
-        if (!folder) return "#8fb6d9";
-        let hash = 0;
-        String(folder).split("").forEach(char => {
-            hash = ((hash << 5) - hash) + char.charCodeAt(0);
-            hash |= 0;
-        });
-        return LORA_FOLDER_COLORS[Math.abs(hash || index) % LORA_FOLDER_COLORS.length];
-    };
-     const buildFolderButton = (folder, index, isOverflow = false) => {
-        const label = getFolderLabel(folder);
-        const isActive = folderFilterSelect.value === folder;
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `lora-folder-pill${isActive ? " active" : ""}`;
-        button.textContent = label;
-        button.title = label;
-        button.dataset.folder = folder;
-        const isPinned = (nodeInstance.loraUiState.pinned_folders || []).includes(folder);
-        button.dataset.pinned = String(isPinned);
-        const color = getFolderColor(folder, index);
-        button.style.setProperty("--folder-color", color);
-        button.style.setProperty("--folder-glow", `${color}55`);
-        button.addEventListener("click", (e) => {
-            if (Date.now() < suppressFolderClickUntil) {
-                e.stopImmediatePropagation();
-                return;
-            }
-            folderFilterSelect.value = folder;
-            folderOverflowOpen = false;
-            renderFolderPills();
-            saveStateAndFetch();
-        });
-         // Context Menu
-        button.addEventListener("contextmenu", (event) => {
-            event.preventDefault();
-            showLoraFolderContextMenu(event, folder, isPinned);
-        });
-         // Pointer Long Press & Drag setup
-        let longPressTimer = null;
-        let startX = 0;
-        let startY = 0;
-         button.addEventListener("pointerdown", (event) => {
-            if (event.button !== 0) return;
-            if (event.target.closest("button:not(.lora-folder-pill), input, select, textarea")) return;
 
-            startX = event.clientX;
-            startY = event.clientY;
-            if (longPressTimer) clearTimeout(longPressTimer);
-
-            longPressTimer = setTimeout(() => {
-                suppressFolderClickUntil = Date.now() + 250;
-                showLoraFolderContextMenu(event, folder, isPinned);
-            }, 500);
-             folderDragState = {
-                pill: button,
-                folder,
-                isPinned,
-                startX: event.clientX,
-                startY: event.clientY,
-                active: false,
-                pointerId: event.pointerId,
-            };
-            button.setPointerCapture?.(event.pointerId);
-        });
-         button.addEventListener("pointermove", (event) => {
-            if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-         button.addEventListener("pointerup", (event) => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-         button.addEventListener("pointercancel", () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-         if (isOverflow) button.dataset.overflow = "true";
-        return button;
-    };
-     const getFolderOptions = () => Array.from(folderFilterSelect.options).map(option => option.value);
-     const getFoldersInCurrentOrder = (discoveredFolders) => {
+    const getFolderOptions = () => Array.from(folderFilterSelect.options).map(option => option.value);
+    const getFoldersInCurrentOrder = (discoveredFolders) => {
         const folderSet = new Set(discoveredFolders);
         const ordered = (nodeInstance.loraUiState.folder_order || []).filter(f => folderSet.has(f));
         const orderedSet = new Set(ordered);
         return [...ordered, ...discoveredFolders.filter(f => !orderedSet.has(f))];
     };
-     const renderFolderPills = () => {
-        if (!folderStrip || !folderOverflow || !folderOverflowChips) return;
-        const discovered = getFolderOptions();
-        const pinned = nodeInstance.loraUiState.pinned_folders || [];
-        const maxVisible = getVisiblePinnedFolderCount();
 
-        const visiblePinned = pinned.slice(0, maxVisible);
-        const visiblePinnedSet = new Set(visiblePinned);
+    /** Drop pins and order entries for folders that no longer exist; seed pins on first use. */
+    const syncFolders = (folders) => {
+        const valid = new Set(["", ...folders]);
+        const state = nodeInstance.loraUiState;
+        state.folder_order = Array.isArray(state.folder_order) ? state.folder_order.filter(f => valid.has(f)) : [];
+        state.pinned_folders = Array.isArray(state.pinned_folders)
+            ? state.pinned_folders.filter(f => valid.has(f))
+            : ["", ...getFoldersInCurrentOrder(folders)].slice(0, INITIAL_PINNED_FOLDER_COUNT);
+    };
 
-        const orderedAll = getFoldersInCurrentOrder(discovered);
-        const overflowFolders = orderedAll.filter(f => !visiblePinnedSet.has(f));
-         folderStrip.innerHTML = "";
-        visiblePinned.forEach((folder, index) => {
-            folderStrip.appendChild(buildFolderButton(folder, index));
+    const clearLongPressTimers = () => {
+        longPressTimers.forEach(timer => clearTimeout(timer));
+        longPressTimers.clear();
+    };
+
+    const selectFolder = (folder) => {
+        folderFilterSelect.value = folderFilterSelect.value === folder ? "" : folder;
+        closeOverflow();
+        renderFolderPills();
+        saveStateAndFetch();
+    };
+
+    const buildFolderPill = (folder, isPinned) => {
+        const pill = makePill({
+            label: getFolderLabel(folder),
+            color: nodeInstance.loraUiState.folder_colors?.[folder],
+            active: folderFilterSelect.value === folder,
+            pinned: isPinned,
         });
-         folderOverflowChips.innerHTML = "";
-        const overflowButtons = overflowFolders.map((folder, index) =>
-            buildFolderButton(folder, index + visiblePinned.length, true)
-        );
+        pill.classList.add("lora-folder-pill");
+        pill.dataset.folder = folder;
 
-        const searchRow = document.createElement("div");
-        searchRow.className = "lora-folder-search-row";
-        const searchInput = document.createElement("input");
-        searchInput.className = "lora-folder-search-input";
-        searchInput.type = "search";
-        searchInput.placeholder = "Search folders";
-        searchInput.autocomplete = "off";
-        searchInput.spellcheck = false;
-        searchInput.value = folderSearchQuery;
-        searchRow.appendChild(searchInput);
-        folderOverflowChips.appendChild(searchRow);
-
-        const grid = document.createElement("div");
-        grid.className = "lora-folder-overflow-grid";
-        overflowButtons.forEach(button => grid.appendChild(button));
-        folderOverflowChips.appendChild(grid);
-
-        const emptyState = document.createElement("div");
-        emptyState.className = "lora-folder-search-empty";
-        emptyState.textContent = "No folders match your search.";
-        emptyState.hidden = true;
-        emptyState.setAttribute("role", "status");
-        folderOverflowChips.appendChild(emptyState);
-
-        const applySearch = () => {
-            const query = folderSearchQuery.trim().toLocaleLowerCase();
-            let visibleCount = 0;
-            grid.querySelectorAll(".lora-folder-pill").forEach(button => {
-                const matches = !query || getFolderLabel(button.dataset.folder).toLocaleLowerCase().includes(query);
-                button.hidden = !matches;
-                if (matches) visibleCount += 1;
-            });
-            emptyState.hidden = visibleCount !== 0;
+        let longPressTimer = null;
+        let startX = 0;
+        let startY = 0;
+        const clearLongPress = () => {
+            if (!longPressTimer) return;
+            clearTimeout(longPressTimer);
+            longPressTimers.delete(longPressTimer);
+            longPressTimer = null;
         };
-        searchInput.addEventListener("input", () => {
-            folderSearchQuery = searchInput.value;
-            applySearch();
-        });
-        searchInput.addEventListener("search", () => {
-            folderSearchQuery = searchInput.value;
-            applySearch();
-        });
-        applySearch();
 
-         const hasOverflow = overflowFolders.length > 0;
-        folderOverflow.classList.toggle("open", hasOverflow && folderOverflowOpen);
-        if (folderMoreBtn) {
-            folderMoreBtn.hidden = !hasOverflow;
-            folderMoreBtn.classList.toggle("open", hasOverflow && folderOverflowOpen);
-            folderMoreBtn.setAttribute("aria-expanded", String(hasOverflow && folderOverflowOpen));
-        }
+        pill.addEventListener("click", (event) => {
+            if (Date.now() < suppressFolderClickUntil) {
+                event.stopImmediatePropagation();
+                return;
+            }
+            selectFolder(folder);
+        });
+        pill.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            showFolderMenu(event, folder, isPinned);
+        });
+        pill.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0) return;
+            startX = event.clientX;
+            startY = event.clientY;
+            clearLongPress();
+            longPressTimer = setTimeout(() => {
+                longPressTimers.delete(longPressTimer);
+                longPressTimer = null;
+                suppressFolderClickUntil = Date.now() + 250;
+                showFolderMenu(event, folder, isPinned);
+            }, 500);
+            longPressTimers.add(longPressTimer);
+            folderDragState = {
+                pill,
+                folder,
+                startX: event.clientX,
+                startY: event.clientY,
+                active: false,
+                pointerId: event.pointerId,
+            };
+            pill.setPointerCapture?.(event.pointerId);
+        });
+        pill.addEventListener("pointermove", (event) => {
+            if (longPressTimer && Math.hypot(event.clientX - startX, event.clientY - startY) > 5) clearLongPress();
+        });
+        pill.addEventListener("pointerup", clearLongPress);
+        pill.addEventListener("pointercancel", clearLongPress);
+        return pill;
     };
-     let activeLoraFolderContextMenu = null;
-    const closeLoraFolderContextMenu = () => {
-        if (activeLoraFolderContextMenu) {
-            activeLoraFolderContextMenu.remove();
-            activeLoraFolderContextMenu = null;
-        }
+
+    const renderFolderPills = () => {
+        clearLongPressTimers();
+        const folders = getFolderOptions();
+        const pinned = (nodeInstance.loraUiState.pinned_folders || []).filter(f => folders.includes(f));
+        const pinnedSet = new Set(pinned);
+        folderStrip.replaceChildren(...pinned.map(folder => buildFolderPill(folder, true)));
+        fitPillStrip(folderStrip);
+
+        const ordered = [...pinned, ...getFoldersInCurrentOrder(folders).filter(f => !pinnedSet.has(f))];
+        folderMoreBtn.hidden = ordered.length === 0;
+        renderPillOverflow(folderOverflow, ordered.map(folder => buildFolderPill(folder, pinnedSet.has(folder))), {
+            state: searchState,
+            placeholder: "Search folders",
+            emptyText: "No folders match your search.",
+            onPick: pill => selectFolder(pill.dataset.folder),
+            onClose: () => {
+                closeOverflow();
+                folderMoreBtn.focus();
+            },
+        });
     };
-     function showLoraFolderContextMenu(e, folder, isCurrentlyPinned) {
-        closeLoraFolderContextMenu();
 
-        const menu = document.createElement("div");
-        menu.className = "lora-folder-ctx-menu";
-
-        const presetColors = ["#ef4444", "#f97316", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899", "#94a3b8"];
-        const activeColor = nodeInstance.loraUiState.folder_colors?.[folder] || "";
-
-        let colorsHtml = presetColors.map(color => `
-            <button class="color-dot${activeColor === color ? ' active' : ''}" style="background-color: ${color};" data-color="${color}"></button>
-        `).join("");
-
-        menu.innerHTML = `
-            <div class="menu-item pin-toggle-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <span>${isCurrentlyPinned ? "Unpin Folder" : "Pin Folder"}</span>
-            </div>
-            <div class="menu-divider"></div>
-            <div class="menu-header">Folder Color</div>
-            <div class="color-presets-grid">
-                ${colorsHtml}
-            </div>
-            <div class="color-picker-row">
-                <label class="custom-color-picker-label">
-                    <input type="color" class="custom-color-input" value="${activeColor || "#f97316"}">
-                    <span>Custom Color...</span>
-                </label>
-                <button class="reset-color-btn" style="${activeColor ? "" : "display: none;"}">Reset</button>
-            </div>
-        `;
-
-        menu.style.position = "fixed";
-        menu.style.left = `${e.clientX}px`;
-        menu.style.top = `${e.clientY}px`;
-        document.body.appendChild(menu);
-        activeLoraFolderContextMenu = menu;
-
-        const rect = menu.getBoundingClientRect();
-        if (e.clientX + rect.width > window.innerWidth) {
-            menu.style.left = `${window.innerWidth - rect.width - 8}px`;
-        }
-        if (e.clientY + rect.height > window.innerHeight) {
-            menu.style.top = `${window.innerHeight - rect.height - 8}px`;
-        }
-
-        menu.querySelector(".pin-toggle-btn").addEventListener("click", async () => {
-            const discovered = getFolderOptions();
-            let pinned = [...(nodeInstance.loraUiState.pinned_folders || [])];
-            if (isCurrentlyPinned) {
-                pinned = pinned.filter(f => f !== folder);
-            } else {
-                pinned = [...pinned, folder];
-            }
-            nodeInstance.loraUiState.pinned_folders = pinned;
-            await saveStateAndFetch();
-            renderFolderPills();
-            closeLoraFolderContextMenu();
-        });
-
-        menu.querySelectorAll(".color-dot").forEach(dot => {
-            dot.addEventListener("click", async () => {
-                const color = dot.dataset.color;
-                if (!nodeInstance.loraUiState.folder_colors) {
-                    nodeInstance.loraUiState.folder_colors = {};
-                }
-                nodeInstance.loraUiState.folder_colors[folder] = color;
-                await saveStateAndFetch();
+    function showFolderMenu(event, folder, isPinned) {
+        showPillMenu(event, {
+            pinned: isPinned,
+            color: nodeInstance.loraUiState.folder_colors?.[folder] || "",
+            onTogglePin: async () => {
+                const pinned = nodeInstance.loraUiState.pinned_folders || [];
+                nodeInstance.loraUiState.pinned_folders = isPinned ? pinned.filter(f => f !== folder) : [...pinned, folder];
                 renderFolderPills();
-                closeLoraFolderContextMenu();
-            });
-        });
-
-        const customPicker = menu.querySelector(".custom-color-input");
-        customPicker.addEventListener("input", (event) => {
-            menu.querySelector(".reset-color-btn").style.display = "";
-        });
-        customPicker.addEventListener("change", async (event) => {
-            const color = event.target.value;
-            if (!nodeInstance.loraUiState.folder_colors) {
-                nodeInstance.loraUiState.folder_colors = {};
-            }
-            nodeInstance.loraUiState.folder_colors[folder] = color;
-            await saveStateAndFetch();
-            renderFolderPills();
-            closeLoraFolderContextMenu();
-        });
-
-        menu.querySelector(".reset-color-btn").addEventListener("click", async () => {
-            if (nodeInstance.loraUiState.folder_colors) {
-                delete nodeInstance.loraUiState.folder_colors[folder];
-                await saveStateAndFetch();
+                await persistState();
+            },
+            onColor: async color => {
+                const colors = { ...(nodeInstance.loraUiState.folder_colors || {}) };
+                if (color) colors[folder] = color;
+                else delete colors[folder];
+                nodeInstance.loraUiState.folder_colors = colors;
                 renderFolderPills();
-            }
-            closeLoraFolderContextMenu();
+                await persistState();
+            },
         });
     }
-     let lastLoraFolderDragTarget = null;
-    function getLoraFolderPillAtPoint(x, y) {
-        const el = document.elementFromPoint(x, y);
-        return el?.closest(".lora-folder-pill");
-    }
-    function setLoraFolderDragTarget(element) {
-        if (lastLoraFolderDragTarget === element) return;
-        clearLoraFolderDragTargets();
+
+    let lastDragTarget = null;
+    const getFolderPillAtPoint = (x, y) => document.elementFromPoint(x, y)?.closest(".lora-folder-pill");
+    const clearDragTargets = () => {
+        widgetContainer.querySelectorAll(".lora-folder-pill.drag-over").forEach(el => el.classList.remove("drag-over"));
+        lastDragTarget = null;
+    };
+    const setDragTarget = (element) => {
+        if (lastDragTarget === element) return;
+        clearDragTargets();
         if (element) {
             element.classList.add("drag-over");
-            lastLoraFolderDragTarget = element;
+            lastDragTarget = element;
         }
-    }
-    function clearLoraFolderDragTargets() {
-        widgetContainer.querySelectorAll(".lora-folder-pill.drag-over").forEach(el => {
-            el.classList.remove("drag-over");
-        });
-        lastLoraFolderDragTarget = null;
-    }
-     const onLoraFolderPointerMove = async (event) => {
+    };
+
+    const onLoraFolderPointerMove = (event) => {
         if (!folderDragState) return;
         const distance = Math.hypot(event.clientX - folderDragState.startX, event.clientY - folderDragState.startY);
         if (!folderDragState.active && distance < 8) return;
-         if (!folderDragState.active) {
+        if (!folderDragState.active) {
             folderDragState.active = true;
             folderDragState.pill.classList.add("pinned-dragging");
             suppressFolderClickUntil = Date.now() + 200;
         }
-         event.preventDefault();
+        event.preventDefault();
         event.stopPropagation();
-
-        const targetPill = getLoraFolderPillAtPoint(event.clientX, event.clientY);
-        if (targetPill && targetPill !== folderDragState.pill) {
-            setLoraFolderDragTarget(targetPill);
-        } else {
-            setLoraFolderDragTarget(null);
-        }
+        const targetPill = getFolderPillAtPoint(event.clientX, event.clientY);
+        setDragTarget(targetPill && targetPill !== folderDragState.pill ? targetPill : null);
     };
-     const onLoraFolderPointerUp = async (event) => {
+
+    const swapItems = (items, first, second) => {
+        const firstIndex = items.indexOf(first);
+        const secondIndex = items.indexOf(second);
+        if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex) return false;
+        [items[firstIndex], items[secondIndex]] = [items[secondIndex], items[firstIndex]];
+        return true;
+    };
+    const moveBefore = (items, item, target) => {
+        const next = items.filter(entry => entry !== item);
+        const targetIndex = next.indexOf(target);
+        next.splice(targetIndex >= 0 ? targetIndex : next.length, 0, item);
+        return next;
+    };
+
+    const onLoraFolderPointerUp = async (event) => {
         if (!folderDragState) return;
         const dragState = folderDragState;
         folderDragState = null;
-         dragState.pill.classList.remove("pinned-dragging");
+        dragState.pill.classList.remove("pinned-dragging");
         dragState.pill.releasePointerCapture?.(dragState.pointerId);
-         if (!dragState.active) return;
+        if (!dragState.active) return;
         event.preventDefault();
         event.stopPropagation();
         suppressFolderClickUntil = Date.now() + 250;
-         const targetPill = getLoraFolderPillAtPoint(event.clientX, event.clientY) || lastLoraFolderDragTarget;
-        clearLoraFolderDragTargets();
-         if (!targetPill || targetPill === dragState.pill) {
-            return;
-        }
-         const targetFolder = targetPill.dataset.folder;
+
+        const targetPill = getFolderPillAtPoint(event.clientX, event.clientY) || lastDragTarget;
+        clearDragTargets();
+        if (!targetPill || targetPill === dragState.pill) return;
+        const targetFolder = targetPill.dataset.folder;
         const draggedFolder = dragState.folder;
-        if (targetFolder === undefined || draggedFolder === undefined) return;
-         // Determine if target is pinned or unpinned
-        const isTargetPinned = targetPill.dataset.pinned === "true" || targetPill.closest(".lora-folder-strip") !== null;
-        const discovered = getFolderOptions();
 
         let pinned = [...(nodeInstance.loraUiState.pinned_folders || [])];
-        const swapItems = (items, first, second) => {
-            const firstIndex = items.indexOf(first);
-            const secondIndex = items.indexOf(second);
-            if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex) return false;
-            [items[firstIndex], items[secondIndex]] = [items[secondIndex], items[firstIndex]];
-            return true;
-        };
-         if (isTargetPinned) {
-            // Pinned zone drop
-            if (!swapItems(pinned, draggedFolder, targetFolder)) {
-                pinned = pinned.filter(f => f !== draggedFolder);
-                const targetIndex = pinned.indexOf(targetFolder);
-                if (targetIndex >= 0) {
-                    pinned.splice(targetIndex, 0, draggedFolder);
-                } else {
-                    pinned.push(draggedFolder);
-                }
-            }
-            if (!pinned.includes(draggedFolder)) {
-                pinned.push(draggedFolder);
-            }
-            nodeInstance.loraUiState.pinned_folders = pinned;
-            await saveStateAndFetch();
+        if (targetPill.dataset.pinned === "true") {
+            if (!swapItems(pinned, draggedFolder, targetFolder)) pinned = moveBefore(pinned, draggedFolder, targetFolder);
         } else {
-            // Unpinned zone drop
             pinned = pinned.filter(f => f !== draggedFolder);
-            const currentFolders = getFoldersInCurrentOrder(discovered);
-            const unpinnedOrder = currentFolders.filter(f => !pinned.includes(f));
-            if (!swapItems(unpinnedOrder, draggedFolder, targetFolder)) {
-                const nextUnpinned = unpinnedOrder.filter(f => f !== draggedFolder);
-                const targetIndex = nextUnpinned.indexOf(targetFolder);
-                if (targetIndex >= 0) {
-                    nextUnpinned.splice(targetIndex, 0, draggedFolder);
-                } else {
-                    nextUnpinned.push(draggedFolder);
-                }
-                nodeInstance.loraUiState.folder_order = nextUnpinned;
-            } else {
-                nodeInstance.loraUiState.folder_order = unpinnedOrder;
-            }
-            nodeInstance.loraUiState.pinned_folders = pinned;
-            await saveStateAndFetch();
+            const unpinnedOrder = getFoldersInCurrentOrder(getFolderOptions()).filter(f => !pinned.includes(f));
+            nodeInstance.loraUiState.folder_order = swapItems(unpinnedOrder, draggedFolder, targetFolder)
+                ? unpinnedOrder
+                : moveBefore(unpinnedOrder, draggedFolder, targetFolder);
         }
+        nodeInstance.loraUiState.pinned_folders = pinned;
         renderFolderPills();
+        await persistState();
     };
-     const onLoraFolderPointerCancel = () => {
+
+    const cancelDrag = () => {
         if (folderDragState) {
             folderDragState.pill.classList.remove("pinned-dragging");
             folderDragState.pill.releasePointerCapture?.(folderDragState.pointerId);
             folderDragState = null;
         }
-        clearLoraFolderDragTargets();
+        clearDragTargets();
     };
 
-
     return {
-        getFolderOptions,
         getFoldersInCurrentOrder,
+        syncFolders,
         renderFolderPills,
-        closeLoraFolderContextMenu,
-        isContextMenuTarget: target => Boolean(activeLoraFolderContextMenu?.contains(target)),
         onLoraFolderPointerMove,
         onLoraFolderPointerUp,
-        onLoraFolderPointerCancel,
-        cancelDrag: onLoraFolderPointerCancel,
-        toggleOverflow: () => { folderOverflowOpen = !folderOverflowOpen; },
-        get overflowOpen() { return folderOverflowOpen; },
-        set overflowOpen(value) { folderOverflowOpen = Boolean(value); },
+        onLoraFolderPointerCancel: cancelDrag,
+        cancelDrag,
+        dispose() {
+            clearLongPressTimers();
+            cancelDrag();
+            stripObserver.disconnect();
+        },
     };
 }

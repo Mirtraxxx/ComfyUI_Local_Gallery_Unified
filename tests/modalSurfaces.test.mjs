@@ -43,7 +43,8 @@ test("dialog surface composes centered and workspace variants", () => {
     const documentRef = { body, createElement };
     const centered = createWorkspaceDialogSurface({ width: 420, documentRef });
     assert.equal(centered.isWorkspace, false);
-    assert.match(centered.dialog.style.cssText, /width: 420px/);
+    assert.equal(centered.dialog.className, "lg-dialog");
+    assert.equal(centered.dialog.style.width, "420px");
     assert.equal(body.children.length, 1);
 
     const workspace = createElement();

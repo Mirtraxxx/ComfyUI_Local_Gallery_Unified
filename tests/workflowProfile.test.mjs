@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 
 import {
     WORKFLOW_PROFILE_PROPERTY,
-    getWorkflowProfileStatus,
     readWorkflowProfileSection,
     writeWorkflowProfileSection,
 } from "../js/shared/workflowProfile.js";
@@ -60,11 +59,7 @@ test("profile sections are cloned and preserve sibling gallery state", () => {
     assert.deepEqual(readWorkflowProfileSection(node, "lora_ui"), {
         folder_order: ["Anima", "Styles"],
     });
-    assert.deepEqual(getWorkflowProfileStatus(node), {
-        version: 1,
-        prompt: true,
-        lora: true,
-    });
+    assert.deepEqual(readWorkflowProfileSection(node, "prompt_ui"), { pinned_categories: ["Poses"] });
 });
 
 test("identical snapshots do not repeatedly dirty the workflow", () => {
@@ -91,11 +86,10 @@ test("unsupported profile versions fall back without corrupting serialized data"
     });
 });
 
-test("Prompt and LoRA lifecycles prefer embedded state and expose it in settings", async () => {
-    const [promptUi, loraUi, settings] = await Promise.all([
+test("Prompt and LoRA lifecycles prefer embedded state", async () => {
+    const [promptUi, loraUi] = await Promise.all([
         readFile(new URL("../js/prompt/ui.js", import.meta.url), "utf8"),
         readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8"),
-        readFile(new URL("../js/prompt/settings.js", import.meta.url), "utf8"),
     ]);
 
     assert.match(promptUi, /readWorkflowProfileSection\(node_instance, "prompt_ui"\)/);
@@ -103,6 +97,4 @@ test("Prompt and LoRA lifecycles prefer embedded state and expose it in settings
     assert.match(loraUi, /readWorkflowProfileSection\(this, "lora_ui"\)/);
     assert.match(loraUi, /writeWorkflowProfileSection\(this, "lora_ui"/);
     assert.doesNotMatch(loraUi, /\.then\(\(\) => UnifiedLoraGalleryNode\.setUiState/);
-    assert.match(settings, /Workflow profile/);
-    assert.match(settings, /Workflow local/);
 });

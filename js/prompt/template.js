@@ -1,226 +1,156 @@
-import { getPromptStyles } from "./styles.js";
-import { getPromptReferenceUxStyles } from "./referenceUx.js";
 import {
-    BARS_SIZE_SCALE_MAX,
-    BARS_SIZE_SCALE_MIN,
     CARD_MANAGER_CARD_SIZE_MAX,
     CARD_MANAGER_CARD_SIZE_MIN,
     THUMBNAIL_SIZE_MAX,
     THUMBNAIL_SIZE_MIN,
 } from "./constants.js";
+import { icon } from "../shared/icons.js";
+
+const DISPLAY_MODE_OPTIONS = `
+    <option value="thumbnails">Thumbnails</option>
+    <option value="compact">Compact</option>`;
 
 export function getPromptTemplate(uniqueId) {
     return `
-                ${getPromptStyles(uniqueId)}
-                ${getPromptReferenceUxStyles()}
-                <div class="localprompt-container" style="height: 100%;">
-                    <div class="localprompt-workspace">
-                        <div class="localprompt-top-row">
-                            <div class="localprompt-toolbar">
-                                <button class="localprompt-active-side-tab empty" id="${uniqueId}-active-toggle" type="button" title="Active Stack" aria-label="Active Stack" aria-pressed="false">
-                                    <span class="localprompt-active-side-tab-count" id="${uniqueId}-active-tab-count">0</span>
-                                </button>
-                                <div class="localprompt-pinned-categories" id="${uniqueId}-pinned-categories">
-                                    <div class="localprompt-pinned-first-row" id="${uniqueId}-pinned-first-row">
-                                        <div class="localprompt-pinned-category-wrapper" id="${uniqueId}-pinned-category-wrapper">
-                                            <div class="localprompt-pinned-category-strip" id="${uniqueId}-pinned-category-strip"></div>
-                                            <button class="localprompt-pinned-category-pill localprompt-category-more-btn" id="${uniqueId}-category-more-btn" type="button" hidden
-                                                aria-expanded="false" aria-controls="${uniqueId}-category-overflow"
-                                                title="Show all categories" aria-label="Show all categories">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <polyline points="6 9 12 15 18 9"></polyline>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <div class="localprompt-more-category-group align-right" id="${uniqueId}-more-category-group">
-                                            <button class="localprompt-toolbar-button localprompt-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Hidden Prompts" aria-label="Hidden Prompts">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
-                                            </button>
-                                            <div class="localprompt-dropdown-panel localprompt-meta-panel" id="${uniqueId}-meta-tags-panel">
-                                                <div class="localprompt-meta-header">
-                                                    <span class="localprompt-meta-title">Hidden Prompts</span>
-                                                    <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
-                                                </div>
-                                                <div class="localprompt-dropdown-note" style="padding: 2px 0 6px; font-size: 9px; line-height: 1.3; color: rgba(225, 237, 245, 0.45);">
-                                                    Injected into output and kept out of the Active Stack.
-                                                </div>
-                                                <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
-                                                <div class="localprompt-dropdown-divider"></div>
-                                                <button class="localprompt-btn localprompt-meta-add-btn" id="${uniqueId}-add-meta-tag-btn" type="button">+ Add Hidden Prompt</button>
-                                            </div>
-                                            <button class="localprompt-favorite-toggle-btn localprompt-icon-btn" id="${uniqueId}-fav-toggle-btn" type="button" title="Favorites" aria-label="Favorites">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.19L12 17.18l-5.56 2.93 1.06-6.19L3 9.53l6.22-.9L12 3z"></path></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="localprompt-category-overflow-wrapper" id="${uniqueId}-category-overflow-wrapper">
-                                        <div class="localprompt-category-overflow" id="${uniqueId}-category-overflow">
-                                            <div class="localprompt-category-overflow-chips" id="${uniqueId}-category-overflow-chips"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <select id="${uniqueId}-category-select" style="display: none;"><option value="">All Categories</option></select>
-                            </div>
-                        </div>
-                        <div class="localprompt-body-shell">
-                            <aside class="localprompt-active-sidebar" id="${uniqueId}-active-sidebar">
-                                <div class="localprompt-active-sidebar-header">
-                                    <div class="localprompt-active-sidebar-title">
-                                        <span>Active Stack</span>
-                                        <span id="${uniqueId}-active-count">0 selected</span>
-                                    </div>
-                                    <button class="localprompt-btn localprompt-clear-btn" id="${uniqueId}-active-clear-btn" style="padding: 2px 6px; font-size: 9px; background: #4a2a2a; border-color: #6a3a3a;">Clear All</button>
-                                </div>
-                                <div class="localprompt-active-sidebar-content">
-                                    <div class="localprompt-chip-container" id="${uniqueId}-active-chips"></div>
-                                </div>
-                            </aside>
-                            <div class="localprompt-library-pane">
-                                <div class="localprompt-workspace-host" id="${uniqueId}-workspace-host"></div>
-                                <div class="localprompt-library-drawer" id="${uniqueId}-library-drawer">
-                                    <div class="localprompt-chip-container" id="${uniqueId}-library-chips"></div>
-                                </div>
-                            </div>
-                        </div>
+<div class="localprompt-container lg-shell">
+    <div class="localprompt-workspace">
+        <div class="localprompt-top-row lg-bar lg-top">
+            <button class="lg-count empty" id="${uniqueId}-active-toggle" type="button" title="Active prompts" aria-label="Active prompts" aria-pressed="false">
+                ${icon("stack")}<span id="${uniqueId}-active-tab-count">0</span>
+            </button>
+            <div class="lg-strip" id="${uniqueId}-pinned-category-strip"></div>
+            <button class="lg-icon-btn" id="${uniqueId}-category-pull-tab" type="button" hidden title="All categories" aria-label="All categories">${icon("chevronDown")}</button>
+            <span class="lg-sep"></span>
+            <button class="lg-icon-btn" id="${uniqueId}-meta-tags-btn" type="button" title="Hidden prompts" aria-label="Hidden prompts">${icon("tag")}</button>
+            <button class="lg-icon-btn lg-favorite" id="${uniqueId}-fav-toggle-btn" type="button" title="Favorites" aria-label="Favorites">${icon("star")}</button>
+            <div class="lg-overflow" id="${uniqueId}-category-overflow" hidden></div>
+            <div class="lg-popover lg-drop localprompt-meta-panel" id="${uniqueId}-meta-tags-panel" hidden>
+                <div class="lg-popover-head">
+                    <div class="lg-row">
+                        <span class="lg-popover-title">Hidden prompts</span>
+                        <span class="lg-spacer"></span>
+                        <span class="localprompt-meta-save-status" id="${uniqueId}-meta-save-status" aria-live="polite"></span>
                     </div>
-                    <!-- BOTTOM BAR -->
-                    <div class="localprompt-bottom-bar localprompt-action-bar">
-                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-library-btn" title="Library Workspace" aria-label="Library Workspace">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                        </button>
-                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-add-prompt-btn" title="Add New Prompt" aria-label="Add New Prompt">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-                        </button>
-                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-import-btn" title="Import" aria-label="Import">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
-                        </button>
-                        <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-settings-btn" title="Settings" aria-label="Settings">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 8h4"></path><path d="M18 16h4"></path></svg>
-                        </button>
-                        <div class="localprompt-display-options-anchor">
-                            <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-size-toggle-btn" title="Display options" aria-label="Display options">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 8h4"></path><path d="M18 16h4"></path></svg>
-                            </button>
-                            <div class="localprompt-display-options-popover" id="${uniqueId}-size-controls" style="display: none;">
-                                <div class="localprompt-display-options-panel">
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">ACTIVE</div>
-                                        <select id="${uniqueId}-active-display-mode" class="localprompt-display-mode-select" title="Active display mode">
-                                            <option value="thumbnails">Thumbnails</option>
-                                            <option value="compact">Compact</option>
-                                        </select>
-                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-active-size-control" title="Active prompt thumbnail size">
-                                            <span>-</span>
-                                            <input id="${uniqueId}-active-thumbnail-size-slider" type="range" min="${THUMBNAIL_SIZE_MIN}" max="${THUMBNAIL_SIZE_MAX}" step="1">
-                                            <span>+</span>
-                                        </label>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">CARDS</div>
-                                        <select id="${uniqueId}-cards-display-mode" class="localprompt-display-mode-select" title="Cards display mode">
-                                            <option value="thumbnails">Thumbnails</option>
-                                            <option value="compact">Compact</option>
-                                        </select>
-                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-cards-size-control" title="Cards thumbnail size">
-                                            <span>-</span>
-                                            <input id="${uniqueId}-thumbnail-size-slider" type="range" min="${THUMBNAIL_SIZE_MIN}" max="${THUMBNAIL_SIZE_MAX}" step="1">
-                                            <span>+</span>
-                                        </label>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">BAR SIZE</div>
-                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-bars-size-control" title="Top and bottom bar size">
-                                            <span>-</span>
-                                            <input id="${uniqueId}-bars-size-slider" type="range" min="${BARS_SIZE_SCALE_MIN}" max="${BARS_SIZE_SCALE_MAX}" step="1">
-                                            <span>+</span>
-                                        </label>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">CARD MANAGER</div>
-                                        <label class="localprompt-thumbnail-size-control" id="${uniqueId}-card-manager-size-control" title="Card Manager card size">
-                                            <span>-</span>
-                                            <input id="${uniqueId}-card-manager-size-slider" type="range" min="${CARD_MANAGER_CARD_SIZE_MIN}" max="${CARD_MANAGER_CARD_SIZE_MAX}" step="1" aria-label="Card Manager card size">
-                                            <span>+</span>
-                                        </label>
-                                        <button class="localprompt-display-reset-button" id="${uniqueId}-card-manager-size-reset" type="button">Reset card size</button>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">CONTRAST</div>
-                                        <select id="${uniqueId}-card-contrast-select" class="localprompt-display-mode-select" title="Card contrast mode">
-                                            <option value="off">Off (Default)</option>
-                                            <option value="dim_inactive">Dim Inactive</option>
-                                            <option value="dim_by_default">Dim by Default</option>
-                                        </select>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">SORT CARDS</div>
-                                        <select id="${uniqueId}-main-sort-select" class="localprompt-display-mode-select" title="Sort cards">
-                                            <option value="manual">Manual / stored order</option>
-                                            <option value="az">A to Z</option>
-                                            <option value="za">Z to A</option>
-                                            <option value="newest">Newest first</option>
-                                            <option value="oldest">Oldest first</option>
-                                        </select>
-                                    </section>
-                                    <section class="localprompt-display-section">
-                                        <div class="localprompt-display-section-title">CATEGORIES: <span class="localprompt-visible-categories-count-val" id="${uniqueId}-display-categories-count-val">5</span></div>
-                                        <label class="localprompt-thumbnail-size-control" title="Visible pinned categories count">
-                                            <span>1</span>
-                                            <input id="${uniqueId}-display-visible-categories-slider" class="localprompt-visible-categories-slider" type="range" min="1" max="20" step="1" style="width: 100%;">
-                                            <span>20</span>
-                                        </label>
-                                    </section>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="localprompt-btn localprompt-icon-btn localprompt-wildcard-toggle" id="${uniqueId}-wildcard-toggle-btn" title="Wildcard Mode" aria-label="Wildcard Mode">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M8 8h.01"></path><path d="M16 8h.01"></path><path d="M8 16h.01"></path><path d="M16 16h.01"></path><path d="M12 12h.01"></path></svg>
-                        </button>
-                        <div class="localprompt-config-bar collapsed" id="${uniqueId}-config-bar">
-                            <div class="seed-group localprompt-wildcard-row" id="${uniqueId}-wildcard-controls" style="display: none;">
-                                <button class="localprompt-btn localprompt-icon-btn" id="${uniqueId}-wildcards-btn" title="Wildcard Categories" aria-label="Wildcard Categories">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 8 4-8 4-8-4 8-4z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 18 8 4 8-4"></path></svg>
-                                </button>
-                                <button class="localprompt-btn localprompt-wildcard-shuffle-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Shuffle wildcard picks" aria-label="Shuffle wildcard picks">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M16 3h5v5"></path>
-                                        <path d="M4 20 21 3"></path>
-                                        <path d="M21 16v5h-5"></path>
-                                        <path d="m15 15 6 6"></path>
-                                        <path d="m4 4 5 5"></path>
-                                    </svg>
-                                </button>
-                                <div class="comfyui-seed-style">
-                                    <button id="${uniqueId}-seed-dec" class="seed-btn">&lt;</button>
-                                    <span class="seed-label">seed</span>
-                                    <input type="number" id="${uniqueId}-seed-input" class="seed-input" value="0">
-                                    <button id="${uniqueId}-seed-inc" class="seed-btn">&gt;</button>
-                                </div>
-                                <select id="${uniqueId}-control-select" style="padding: 4px; background: #1a1a1a; border: 1px solid #444; color: #ddd; border-radius: 4px; font-size: 11px; margin-left: 4px;">
-                                    <option value="fixed">fixed</option>
-                                    <option value="increment">increment</option>
-                                    <option value="decrement">decrement</option>
-                                    <option value="randomize">randomize</option>
-                                </select>
-                                <label class="localprompt-wildcard-rng-control" title="Wildcard RNG mode">
-                                    <span>RNG</span>
-                                    <select id="${uniqueId}-wildcard-rng-select">
-                                        <option value="seed_stable">Seed-stable</option>
-                                        <option value="shuffle">Shuffle order</option>
-                                        <option value="fresh">Fresh every run</option>
-                                    </select>
-                                </label>
-                                <label class="localprompt-wildcard-auto-attach" title="Use the final generated image as the selected wildcard card thumbnail">
-                                    <input id="${uniqueId}-wildcard-auto-attach" type="checkbox">
-                                    <span>Auto-attach image</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="localprompt-bottom-spacer"></div>
-                        <div class="localprompt-utility-bar">
-                            <div class="localprompt-utility-buttons" id="${uniqueId}-utility-tabs"></div>
-                        </div>
-                    </div>
+                    <p class="lg-note">Added to the output without showing in the active stack.</p>
                 </div>
+                <div class="localprompt-meta-list" id="${uniqueId}-meta-tags-list"></div>
+                <button class="lg-text-btn" id="${uniqueId}-add-meta-tag-btn" type="button">${icon("plus")}Add hidden prompt</button>
+            </div>
+        </div>
+        <div class="localprompt-body-shell">
+            <aside class="localprompt-active-sidebar lg-side" id="${uniqueId}-active-sidebar">
+                <div class="lg-side-head">
+                    <div class="lg-side-title">
+                        <span>Active prompts</span>
+                        <span id="${uniqueId}-active-count">0 selected</span>
+                    </div>
+                    <button class="lg-text-btn danger" id="${uniqueId}-active-clear-btn" type="button">Clear</button>
+                </div>
+                <div class="localprompt-active-sidebar-content">
+                    <div class="localprompt-chip-container" id="${uniqueId}-active-chips"></div>
+                </div>
+            </aside>
+            <div class="localprompt-library-pane">
+                <div class="localprompt-workspace-host" id="${uniqueId}-workspace-host"></div>
+                <div class="localprompt-library-drawer" id="${uniqueId}-library-drawer">
+                    <div class="localprompt-chip-container" id="${uniqueId}-library-chips"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="localprompt-bottom-bar lg-bar lg-bottom">
+        <button class="lg-icon-btn" id="${uniqueId}-library-btn" type="button" title="Library" aria-label="Library">${icon("library")}</button>
+        <button class="lg-icon-btn" id="${uniqueId}-add-prompt-btn" type="button" title="New prompt" aria-label="New prompt">${icon("plus")}</button>
+        <button class="lg-icon-btn" id="${uniqueId}-import-btn" type="button" title="Import" aria-label="Import">${icon("import")}</button>
+        <span class="lg-sep"></span>
+        <div class="lg-anchor">
+            <button class="lg-icon-btn" id="${uniqueId}-wildcard-toggle-btn" type="button" title="Wildcards" aria-label="Wildcards">${icon("dice")}</button>
+            <div class="lg-popover" id="${uniqueId}-wildcard-controls" hidden>
+                <div class="lg-popover-head">
+                    <label class="lg-check"><input id="${uniqueId}-wildcard-enabled" type="checkbox"><span class="lg-popover-title">Wildcard mode</span></label>
+                    <p class="lg-note">Each run picks one card from every wildcard category.</p>
+                </div>
+                <section class="lg-section">
+                    <div class="lg-row">
+                        <button class="lg-text-btn" id="${uniqueId}-wildcards-btn" type="button">${icon("stack")}Categories</button>
+                        <button class="lg-text-btn" id="${uniqueId}-wildcard-shuffle-btn" type="button" title="Reshuffle the pick order">${icon("shuffle")}Reshuffle</button>
+                    </div>
+                    <label class="lg-field">Pick order
+                        <select class="lg-select" id="${uniqueId}-wildcard-rng-select">
+                            <option value="seed_stable">Follow the seed</option>
+                            <option value="shuffle">Shuffled order</option>
+                            <option value="fresh">Fresh every run</option>
+                        </select>
+                    </label>
+                </section>
+                <section class="lg-section">
+                    <div class="lg-label">Seed</div>
+                    <div class="lg-row">
+                        <button class="lg-icon-btn" id="${uniqueId}-seed-dec" type="button" aria-label="Previous seed">&lsaquo;</button>
+                        <input class="lg-input" id="${uniqueId}-seed-input" type="number" value="0" aria-label="Seed">
+                        <button class="lg-icon-btn" id="${uniqueId}-seed-inc" type="button" aria-label="Next seed">&rsaquo;</button>
+                    </div>
+                    <label class="lg-field">After each run
+                        <select class="lg-select" id="${uniqueId}-control-select">
+                            <option value="fixed">Keep seed</option>
+                            <option value="increment">Increment</option>
+                            <option value="decrement">Decrement</option>
+                            <option value="randomize">Randomize</option>
+                        </select>
+                    </label>
+                </section>
+                <section class="lg-section">
+                    <label class="lg-check"><input id="${uniqueId}-wildcard-auto-attach" type="checkbox"><span>Use the output as the picked card's thumbnail</span></label>
+                </section>
+            </div>
+        </div>
+        <span class="lg-spacer"></span>
+        <div class="lg-anchor">
+            <button class="lg-icon-btn" id="${uniqueId}-size-toggle-btn" type="button" title="Display" aria-label="Display">${icon("sliders")}</button>
+            <div class="lg-popover lg-align-end" id="${uniqueId}-size-controls" hidden>
+                <section class="lg-section">
+                    <div class="lg-label">Active stack</div>
+                    <div class="lg-row">
+                        <select class="lg-select" id="${uniqueId}-active-display-mode" aria-label="Active stack layout">${DISPLAY_MODE_OPTIONS}</select>
+                        <input class="lg-range" id="${uniqueId}-active-thumbnail-size-slider" type="range" min="${THUMBNAIL_SIZE_MIN}" max="${THUMBNAIL_SIZE_MAX}" step="1" aria-label="Active thumbnail size">
+                    </div>
+                    <label class="lg-check"><input id="${uniqueId}-active-wide" type="checkbox"><span>Wide stack for large thumbnails</span></label>
+                    <label class="lg-check"><input id="${uniqueId}-active-hover-open" type="checkbox"><span>Open on hover</span></label>
+                </section>
+                <section class="lg-section">
+                    <div class="lg-label">Cards</div>
+                    <div class="lg-row">
+                        <select class="lg-select" id="${uniqueId}-cards-display-mode" aria-label="Card layout">${DISPLAY_MODE_OPTIONS}</select>
+                        <input class="lg-range" id="${uniqueId}-thumbnail-size-slider" type="range" min="${THUMBNAIL_SIZE_MIN}" max="${THUMBNAIL_SIZE_MAX}" step="1" aria-label="Card thumbnail size">
+                    </div>
+                    <select class="lg-select" id="${uniqueId}-main-sort-select" aria-label="Sort cards">
+                        <option value="manual">Manual order</option>
+                        <option value="az">A to Z</option>
+                        <option value="za">Z to A</option>
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                    </select>
+                </section>
+                <section class="lg-section">
+                    <div class="lg-label">Card manager</div>
+                    <div class="lg-row">
+                        <input class="lg-range" id="${uniqueId}-card-manager-size-slider" type="range" min="${CARD_MANAGER_CARD_SIZE_MIN}" max="${CARD_MANAGER_CARD_SIZE_MAX}" step="1" aria-label="Card manager card size">
+                        <button class="lg-text-btn" id="${uniqueId}-card-manager-size-reset" type="button">Reset</button>
+                    </div>
+                </section>
+                <section class="lg-section">
+                    <label class="lg-check"><input id="${uniqueId}-promote-selected" type="checkbox"><span>Selected cards first</span></label>
+                    <label class="lg-check"><input id="${uniqueId}-dim-unselected" type="checkbox"><span>Dim unselected cards</span></label>
+                    <label class="lg-check"><input id="${uniqueId}-auto-hide-bar" type="checkbox"><span>Auto-hide bottom bar</span></label>
+                </section>
+                <section class="lg-section">
+                    <div class="lg-label">Prompt source</div>
+                    <select class="lg-select" id="${uniqueId}-prompt-source-select" aria-label="Prompt source"></select>
+                    <p class="lg-note">Show Text node that "From Last Output" reads the prompt from.</p>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
     `;
 }

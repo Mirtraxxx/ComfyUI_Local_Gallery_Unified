@@ -4,14 +4,14 @@ import test from "node:test";
 
 const backendUrl = new URL("../backend/Local_Prompt_Gallery.py", import.meta.url);
 const promptApiUrl = new URL("../js/api/promptApi.js", import.meta.url);
-const promptUiUrl = new URL("../js/prompt/ui.js", import.meta.url);
+const promptGalleryNodeUrl = new URL("../js/prompt/galleryNode.js", import.meta.url);
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
 
 test("Card Manager selection mode exposes an explicit sequential rename action", async () => {
     const [backend, api, ui, browse] = await Promise.all([
         readFile(backendUrl, "utf8"),
         readFile(promptApiUrl, "utf8"),
-        readFile(promptUiUrl, "utf8"),
+        readFile(promptGalleryNodeUrl, "utf8"),
         readFile(browseUrl, "utf8"),
     ]);
 

@@ -11,8 +11,8 @@ test("template bottom bar has Add New Prompt button", async () => {
     const template = await readFile(templateUrl, "utf8");
 
     assert.match(template, /id="\$\{uniqueId\}-add-prompt-btn"/);
-    assert.match(template, /title="Add New Prompt"/);
-    assert.match(template, /aria-label="Add New Prompt"/);
+    assert.match(template, /title="New prompt"/);
+    assert.match(template, /aria-label="New prompt"/);
 });
 
 test("ui.js binds Add New Prompt button to showAddPromptWorkspace", async () => {
@@ -47,11 +47,8 @@ test("workspaceActions exposes showAddPromptWorkspace and showAddPromptDialog", 
     assert.match(workspaceActions, /initialTab:\s*"direct"/);
 });
 
-test("showFromLastOutputDialog delegates to showAddPromptDialog with from_last_output tab", async () => {
+test("add prompt page opens on the requested tab", async () => {
     const dialogs = await readFile(dialogsUrl, "utf8");
 
-    assert.match(
-        dialogs,
-        /export async function showFromLastOutputDialog\(\{[\s\S]*?showAddPromptDialog\(\{[\s\S]*?initialTab:\s*"from_last_output"/,
-    );
+    assert.match(dialogs, /const activeTab = initialTab === "from_last_output" \? "from_last_output" : "direct";/);
 });

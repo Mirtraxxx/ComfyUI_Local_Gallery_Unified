@@ -7,7 +7,7 @@ const GROUP_LABELS = { all: "All terms", characters: "Characters", franchises: "
 
 function createInsightsHtml() {
     return `
-        <div class="localprompt-modal-overlay localprompt-card-insights-overlay">
+        <div class="lg-root localprompt-modal-overlay localprompt-card-insights-overlay">
             <section class="localprompt-modal localprompt-card-insights-dialog" role="dialog" aria-modal="true" aria-labelledby="card-insights-title">
                 <header class="localprompt-modal-header">
                     <div><h3 id="card-insights-title">Card Stats</h3><p class="localprompt-stats-subtitle">Inspect library coverage and recurring prompt terms.</p></div>
@@ -22,16 +22,16 @@ function createInsightsHtml() {
                         <fieldset class="localprompt-card-insights-categories" data-insights-categories><legend>Category scope</legend><div data-insights-category-options>Loading categories…</div></fieldset>
                         <p class="localprompt-card-insights-limit" data-insights-limit aria-live="polite"></p>
                         <div class="localprompt-stats-controls">
-                            <div class="localprompt-stats-tabs" role="tablist">${Object.entries(GROUP_LABELS).map(([value, label]) => `<button type="button" class="localprompt-btn${value === "all" ? " active" : ""}" data-stats-group="${value}">${label}</button>`).join("")}</div>
-                            <label class="localprompt-stats-search"><span class="sr-only">Filter prompt terms</span><input type="search" placeholder="Filter terms…" data-stats-search></label>
-                            <select data-stats-sort aria-label="Sort prompt terms"><option value="count">Most common</option><option value="name">A to Z</option></select>
+                            <div class="localprompt-stats-tabs" role="tablist">${Object.entries(GROUP_LABELS).map(([value, label]) => `<button type="button" class="lg-text-btn${value === "all" ? " active" : ""}" data-stats-group="${value}">${label}</button>`).join("")}</div>
+                            <label class="localprompt-stats-search"><span class="sr-only">Filter prompt terms</span><input class="lg-input" type="search" placeholder="Filter terms…" data-stats-search></label>
+                            <select class="lg-select" data-stats-sort aria-label="Sort prompt terms"><option value="count">Most common</option><option value="name">A to Z</option></select>
                         </div>
                         <p class="localprompt-stats-note" data-stats-note></p>
                         <div class="localprompt-stats-list" data-stats-list></div>
                         <div class="localprompt-stats-empty" data-stats-empty hidden>No matching prompt terms.</div>
                     </section>
                 </div>
-                <footer class="localprompt-modal-footer localprompt-stats-footer"><div class="localprompt-stats-pagination" data-stats-pagination><button type="button" class="localprompt-btn" data-stats-prev>Prev</button><span data-stats-page>Page 1 of 1</span><button type="button" class="localprompt-btn" data-stats-next>Next</button></div><button type="button" class="localprompt-btn" data-insights-close>Close</button></footer>
+                <footer class="localprompt-modal-footer localprompt-stats-footer"><div class="localprompt-stats-pagination" data-stats-pagination><button type="button" class="lg-text-btn" data-stats-prev>Prev</button><span data-stats-page>Page 1 of 1</span><button type="button" class="lg-text-btn" data-stats-next>Next</button></div><button type="button" class="lg-text-btn" data-insights-close>Close</button></footer>
             </section>
         </div>`;
 }

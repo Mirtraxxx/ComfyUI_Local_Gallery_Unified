@@ -2,7 +2,7 @@ import { escapeHtml } from "../shared/dom.js";
 
 function createOperationEditorHtml(selectedCount) {
     return `
-        <div class="localprompt-modal-overlay localprompt-bulk-edit-overlay">
+        <div class="lg-root localprompt-modal-overlay localprompt-bulk-edit-overlay">
             <div class="localprompt-modal localprompt-bulk-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="bulk-edit-title">
                 <div class="localprompt-modal-header">
                     <div>
@@ -62,8 +62,8 @@ function createOperationEditorHtml(selectedCount) {
                 </div>
                 <div class="localprompt-modal-footer localprompt-bulk-edit-footer">
                     <span id="bulk-edit-error" class="localprompt-bulk-edit-error" role="status"></span>
-                    <button type="button" class="localprompt-btn" data-bulk-edit-cancel>Cancel</button>
-                    <button type="button" class="localprompt-btn primary" data-bulk-edit-apply disabled>Apply changes</button>
+                    <button type="button" class="lg-text-btn" data-bulk-edit-cancel>Cancel</button>
+                    <button type="button" class="lg-text-btn primary" data-bulk-edit-apply disabled>Apply changes</button>
                 </div>
             </div>
         </div>

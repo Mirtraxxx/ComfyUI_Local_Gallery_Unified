@@ -10,13 +10,13 @@ import {
     ACTIVE_SIDEBAR_WIDTH_NORMAL_MIN,
 } from "../js/prompt/constants.js";
 import { clampActiveSidebarWidth, getActiveSidebarWidth, getActiveSidebarWidthBounds } from "../js/prompt/helpers.js";
-import { getPromptStyles } from "../js/prompt/styles.js";
+import { PROMPT_STYLES } from "../js/prompt/styles.js";
 
 const CLAMP_PATTERN =
     /clamp\(\s*(\d+)px\s*,\s*var\(--localprompt-active-sidebar-width\s*,\s*(\d+)px\s*\)\s*,\s*(\d+)px\s*\)/g;
 
 function readSidebarClamps() {
-    const css = getPromptStyles("node-1");
+    const css = PROMPT_STYLES;
     const matches = [...css.matchAll(CLAMP_PATTERN)].map((match) => ({
         min: Number(match[1]),
         fallback: Number(match[2]),

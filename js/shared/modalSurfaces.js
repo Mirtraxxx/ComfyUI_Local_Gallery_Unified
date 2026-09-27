@@ -37,8 +37,11 @@ export function createModalSurface({
     };
 }
 
+// Overlays live on document.body, outside the node, so they carry lg-root
+// themselves to pick up the shared chrome tokens and controls.
 export function createCenteredOverlay(documentRef = globalThis.document) {
     const overlay = documentRef.createElement("div");
+    overlay.className = "lg-root";
     overlay.style.cssText = `
         position: fixed;
         top: 0;
@@ -56,15 +59,8 @@ export function createCenteredOverlay(documentRef = globalThis.document) {
 
 export function createDialogPanel(width = 500, documentRef = globalThis.document) {
     const dialog = documentRef.createElement("div");
-    dialog.style.cssText = `
-        background: #2a2a2a;
-        border: 1px solid #555;
-        border-radius: 8px;
-        padding: 20px;
-        width: ${width}px;
-        max-width: 90%;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    `;
+    dialog.className = "lg-dialog";
+    dialog.style.width = `${width}px`;
     return dialog;
 }
 

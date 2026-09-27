@@ -18,13 +18,6 @@ function readProfile(nodeInstance) {
     return profile;
 }
 
-export function hasWorkflowProfileSection(nodeInstance, section) {
-    if (!PROFILE_SECTIONS.has(section)) return false;
-    const profile = readProfile(nodeInstance);
-    const value = profile?.[section];
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
 export function readWorkflowProfileSection(nodeInstance, section) {
     if (!PROFILE_SECTIONS.has(section)) return null;
     const profile = readProfile(nodeInstance);
@@ -64,12 +57,4 @@ export function writeWorkflowProfileSection(nodeInstance, section, value, { mark
         nodeInstance.setDirtyCanvas?.(true, true);
     }
     return true;
-}
-
-export function getWorkflowProfileStatus(nodeInstance) {
-    return {
-        version: WORKFLOW_PROFILE_VERSION,
-        prompt: hasWorkflowProfileSection(nodeInstance, "prompt_ui"),
-        lora: hasWorkflowProfileSection(nodeInstance, "lora_ui"),
-    };
 }

@@ -3,7 +3,6 @@ import { showCardManagerModal as openCardManager } from "./browse.js";
 import {
     showAddPromptDialog as openAddPromptDialog,
     showEditPromptDialog as openEditPromptDialog,
-    showFromLastOutputDialog as openFromLastOutputDialog,
     showImportDialog as openImportDialog,
     showExportDialog as openExportDialog,
     showUploadThumbnailDialog as openUploadThumbnailDialog,
@@ -18,7 +17,6 @@ export function createPromptWorkspaceActions({
     galleryNode,
     uniqueId,
     categoriesWidget,
-    wildcardAutoAttachThumbnailWidget,
     getCurrentWildcardMode,
     setCurrentWildcardMode,
     getWildcardAutoAttachThumbnail,
@@ -30,9 +28,7 @@ export function createPromptWorkspaceActions({
     getActiveLibraryTab,
     renderLibraryDrawer,
     loadCategories,
-    loadPromptsForGallery,
     getPromptSourceNode,
-    insertPromptIntoCurrentGallery,
     updateLocalPromptAfterMetadataSave,
     refreshAllSections,
     addPromptToSelection,
@@ -58,57 +54,9 @@ export function createPromptWorkspaceActions({
             galleryNode,
             updateLocalPromptAfterMetadataSave,
             loadCategories,
-            loadPromptsForGallery,
             refreshAllSections,
             onRefresh,
             operationFeedback,
-        });
-    }
-
-    async function showFromLastOutputDialog(onRefresh = null) {
-        await openFromLastOutputDialog({
-            galleryNode,
-            nodeInstance,
-            getPromptSourceNode,
-            insertPromptIntoCurrentGallery,
-            loadPromptsForGallery,
-            loadCategories,
-            refreshAllSections,
-            onRefresh,
-            operationFeedback,
-        });
-    }
-
-    async function showFromLastOutputWorkspace(onRefresh = null) {
-        const host = setWorkspaceMode("add_prompt");
-        await openFromLastOutputDialog({
-            galleryNode,
-            nodeInstance,
-            getPromptSourceNode,
-            insertPromptIntoCurrentGallery,
-            loadPromptsForGallery,
-            loadCategories,
-            refreshAllSections,
-            onRefresh,
-            operationFeedback,
-            workspaceContainer: host,
-            onClose: returnToGallery,
-        });
-        if (host && !host.hasChildNodes()) returnToGallery();
-    }
-
-    async function showAddPromptDialog(onRefresh = null) {
-        await openAddPromptDialog({
-            galleryNode,
-            nodeInstance,
-            getPromptSourceNode,
-            insertPromptIntoCurrentGallery,
-            loadCategories,
-            loadPromptsForGallery,
-            refreshAllSections,
-            onRefresh,
-            operationFeedback,
-            initialTab: "direct",
         });
     }
 
@@ -118,9 +66,7 @@ export function createPromptWorkspaceActions({
             galleryNode,
             nodeInstance,
             getPromptSourceNode,
-            insertPromptIntoCurrentGallery,
             loadCategories,
-            loadPromptsForGallery,
             refreshAllSections,
             onRefresh,
             operationFeedback,
@@ -131,24 +77,12 @@ export function createPromptWorkspaceActions({
         if (host && !host.hasChildNodes()) returnToGallery();
     }
 
-    async function showImportDialog(onRefresh = null) {
-        await openImportDialog({
-            galleryNode,
-            loadCategories,
-            loadPromptsForGallery,
-            refreshAllSections,
-            onRefresh,
-            operationFeedback,
-        });
-    }
-
     async function showImportWorkspace(onClose = returnToGallery) {
         const host = renderLibraryShell("import");
         if (!host) return;
         await openImportDialog({
             galleryNode,
             loadCategories,
-            loadPromptsForGallery,
             refreshAllSections,
             operationFeedback,
             workspaceContainer: host,
@@ -190,11 +124,9 @@ export function createPromptWorkspaceActions({
             getActiveLibraryTab,
             renderLibraryDrawer,
             operationFeedback,
-            ...(workspaceContainer ? {
-                workspaceContainer,
-                onClose,
-                librarySubnavHtml: getLibrarySubnavHtml(page),
-            } : {}),
+            workspaceContainer,
+            onClose,
+            librarySubnavHtml: getLibrarySubnavHtml(page),
         };
     }
 
@@ -204,13 +136,8 @@ export function createPromptWorkspaceActions({
         await openPresetsModal(buildPresetOptions(host, onClose));
     }
 
-    async function showPresetsModal() {
-        await openPresetsModal(buildPresetOptions(null, null));
-    }
-
     function buildCardManagerOptions(workspaceContainer, onClose, page = "cards") {
         return {
-            app,
             nodeInstance,
             galleryNode,
             ownerId: uniqueId,
@@ -230,11 +157,9 @@ export function createPromptWorkspaceActions({
             persistManualOrder: persistPromptManualOrder,
             onPromptsLoaded,
             operationFeedback,
-            ...(workspaceContainer ? {
-                workspaceContainer,
-                onClose,
-                librarySubnavHtml: getLibrarySubnavHtml(page),
-            } : {}),
+            workspaceContainer,
+            onClose,
+            librarySubnavHtml: getLibrarySubnavHtml(page),
         };
     }
 
@@ -244,12 +169,8 @@ export function createPromptWorkspaceActions({
         await openCardManager(buildCardManagerOptions(host, onClose));
     }
 
-    async function showCardManagerModal() {
-        await openCardManager(buildCardManagerOptions(null, null));
-    }
-
     function showUploadThumbnailDialog(prompt, onRefresh = null) {
-        openUploadThumbnailDialog({ prompt, galleryNode, loadPromptsForGallery, onRefresh, operationFeedback });
+        openUploadThumbnailDialog({ prompt, galleryNode, refreshAllSections, onRefresh, operationFeedback });
     }
 
     async function deletePromptWithConfirm(prompt) {
@@ -277,11 +198,10 @@ export function createPromptWorkspaceActions({
         }
         try {
             await loadCategories();
-            await loadPromptsForGallery(galleryNode.currentPage);
             await refreshAllSections?.();
         } catch (error) {
             operationFeedback?.warning("Prompt deleted. View refresh failed.", {
-                action: () => loadPromptsForGallery(galleryNode.currentPage),
+                action: () => refreshAllSections?.(),
                 actionLabel: "Retry",
             });
         }
@@ -289,18 +209,12 @@ export function createPromptWorkspaceActions({
 
     return {
         showEditPromptDialog,
-        showFromLastOutputDialog,
-        showFromLastOutputWorkspace,
-        showAddPromptDialog,
         showAddPromptWorkspace,
-        showImportDialog,
         showImportWorkspace,
         showExportDialog,
         showExportWorkspace,
         showPresetsWorkspace,
-        showPresetsModal,
         showBrowseWorkspace,
-        showCardManagerModal,
         showUploadThumbnailDialog,
         deletePromptWithConfirm,
     };

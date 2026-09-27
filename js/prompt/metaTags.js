@@ -1,5 +1,6 @@
 import { confirmAction } from "../shared/nativeDialogs.js";
 import { createDebouncedCommitter } from "./performance.js";
+import { icon } from "../shared/icons.js";
 export function createMetaTagsController({
     app,
     nodeInstance,
@@ -135,7 +136,7 @@ export function createMetaTagsController({
                 </span>
                 <button class="localprompt-meta-toggle ${tag.enabled ? "on" : "off"}" type="button" title="Toggle Hidden Prompt">${tag.enabled ? "ON" : "OFF"}</button>
                 <textarea class="localprompt-meta-text" rows="1" placeholder="Hidden Prompt" title="Hidden Prompt text">${escapeHtml(tag.prompt_text)}</textarea>
-                <button class="localprompt-btn localprompt-meta-action localprompt-clear-btn" data-meta-action="delete" title="Delete Hidden Prompt">x</button>
+                <button class="lg-icon-btn localprompt-meta-action" type="button" data-meta-action="delete" title="Delete hidden prompt" aria-label="Delete hidden prompt">${icon("close")}</button>
             `;
 
             const toggleBtn = row.querySelector(".localprompt-meta-toggle");

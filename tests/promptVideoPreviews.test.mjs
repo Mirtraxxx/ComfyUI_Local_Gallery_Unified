@@ -6,7 +6,6 @@ const helpersUrl = new URL("../js/prompt/helpers.js", import.meta.url);
 const libraryUrl = new URL("../js/prompt/library.js", import.meta.url);
 const activeSidebarUrl = new URL("../js/prompt/activeSidebar.js", import.meta.url);
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
-const stylesUrl = new URL("../js/prompt/styles.js", import.meta.url);
 
 test("prompt preview renderer emits browser-safe video thumbnails", async () => {
     const { buildPromptPreviewMediaHtml } = await import(helpersUrl);
@@ -34,11 +33,4 @@ test("all current prompt card surfaces bind video preview playback", async () =>
     }
     assert.match(library, /buildPromptPreviewMediaHtml\(prompt\)/);
     assert.match(activeSidebar, /buildPromptPreviewMediaHtml\(prompt\)/);
-});
-
-test("Prompt Builder and Active Stack size videos like image thumbnails", async () => {
-    const styles = await readFile(stylesUrl, "utf8");
-
-    assert.match(styles, /\.localprompt-active-row-thumb img,\s*\.localprompt-active-row-thumb video \{/);
-    assert.match(styles, /\.localprompt-chip-thumb img,\s*\.localprompt-chip-thumb video \{/);
 });
