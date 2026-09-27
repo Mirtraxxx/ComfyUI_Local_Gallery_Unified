@@ -156,7 +156,7 @@ class LoraCompareModeTests(unittest.TestCase):
             result = node_class().process(
                 "base-model",
                 "base-clip",
-                lora_execution_mode="compare",
+                lora_selection_data=json.dumps({"version": 1, "items": [], "execution": {"mode": "compare"}}),
             )
 
         self.assertEqual(

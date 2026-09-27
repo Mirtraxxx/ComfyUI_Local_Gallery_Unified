@@ -83,17 +83,16 @@ class LocalGalleryPromptLora:
         return ""
 
     @staticmethod
-    def _get_lora_execution_options(lora_selection_data, mode="stack", strengths="1.0"):
+    def _get_lora_execution_options(lora_selection_data):
         try:
             parsed = json.loads(lora_selection_data or "[]") if isinstance(lora_selection_data, str) else None
         except (TypeError, ValueError, json.JSONDecodeError):
             parsed = None
         execution = parsed.get("execution") if isinstance(parsed, dict) else None
-        if isinstance(execution, dict):
-            mode = execution.get("mode", mode)
-            strengths = execution.get("strengths", strengths)
-        normalized_mode = "compare" if str(mode or "").strip().lower() == "compare" else "stack"
-        normalized_strengths = str(strengths or "1.0").strip() or "1.0"
+        if not isinstance(execution, dict):
+            execution = {}
+        normalized_mode = "compare" if str(execution.get("mode") or "").strip().lower() == "compare" else "stack"
+        normalized_strengths = str(execution.get("strengths") or "1.0").strip() or "1.0"
         return normalized_mode, normalized_strengths
 
     @classmethod
@@ -148,8 +147,6 @@ class LocalGalleryPromptLora:
         clip,
         seed=0,
         lora_selection_data="[]",
-        lora_execution_mode="stack",
-        lora_compare_strengths="1.0",
         prompt_selection_data="[]",
         prompt_meta_tags="[]",
         wildcard_categories="",
@@ -160,11 +157,7 @@ class LocalGalleryPromptLora:
         active_tab="prompt",
         **kwargs,
     ):
-        lora_execution_mode, lora_compare_strengths = cls._get_lora_execution_options(
-            lora_selection_data,
-            lora_execution_mode,
-            lora_compare_strengths,
-        )
+        lora_execution_mode, lora_compare_strengths = cls._get_lora_execution_options(lora_selection_data)
         lora_changed = cls._get_lora_change_signature(LocalLoraGallery, lora_selection_data)
         uses_wildcards = (wildcard_mode or "off") != "off" and cls._has_wildcard_categories(wildcard_categories)
 
@@ -216,8 +209,6 @@ class LocalGalleryPromptLora:
         clip,
         seed=0,
         lora_selection_data="[]",
-        lora_execution_mode="stack",
-        lora_compare_strengths="1.0",
         prompt_selection_data="[]",
         prompt_meta_tags="[]",
         wildcard_categories="",
@@ -230,11 +221,7 @@ class LocalGalleryPromptLora:
     ):
         prompt_node = LocalPromptGallery()
 
-        execution_mode, lora_compare_strengths = self._get_lora_execution_options(
-            lora_selection_data,
-            lora_execution_mode,
-            lora_compare_strengths,
-        )
+        execution_mode, lora_compare_strengths = self._get_lora_execution_options(lora_selection_data)
         if execution_mode == "compare":
             models_out, clips_out, trigger_words_out, variant_metadata = self._get_cached_lora_compare_outputs(
                 model,

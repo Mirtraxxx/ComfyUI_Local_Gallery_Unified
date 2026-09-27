@@ -78,10 +78,7 @@ class MetadataTransaction(AbstractContextManager):
     performs no write.
     """
 
-    def __init__(self, include_pending_usage=True):
-        # include_pending_usage is accepted for older call sites and ignored.
-        # Card usage counting was removed; it rewrote the multi-MB library file
-        # during generation and is no longer tracked.
+    def __init__(self):
         self.metadata = None
         self._committed = False
 
@@ -623,43 +620,31 @@ UI_PREF_DEFAULTS = {
     "cards_display_mode": "thumbnails",
     "active_display_mode": "compact",
     "library_tabs": ["pinned"],
-    "library_tab_layout": "scroll",
     "thumbnail_size": "medium",
     "thumbnail_size_px": 96,
     "active_thumbnail_size_px": 110,
     "card_manager_card_size_px": 150,
-    "bars_size_scale": 100,
     "pinned_categories": None,
-    "visible_pinned_category_count": 5,
     "pinned_order": [],
     "prompt_manual_orders": {},
     "category_colors": {},
     "active_sidebar_open": False,
-    "active_sidebar_width": 392,
+    "active_sidebar_width": 420,
     "active_sidebar_hover_open": True,
     "auto_hide_toolbars": False,
     "prompt_sort_mode": "manual",
     "prompt_sort_modes": {},
-    "meta_tags_button_side": "right",
     "wildcard_cycle_state": {},
     "last_created_category": "",
     "card_insights_categories": [],
     "from_last_output_name_default": "time",
-    "active_border_theme": "default",
-    "active_border_custom_1": "#ff0000",
-    "active_border_custom_2": "#0000ff",
     "promote_selected_prompts": True,
     "card_contrast_mode": "off",
     "active_card_size_mode": "default",
-    "category_overflow_grouping": "alpha",
 }
 
 DISPLAY_MODES = {"compact", "thumbnails"}
 SORT_MODES = {"manual", "newest", "oldest", "az", "za"}
-ACTIVE_BORDER_THEMES = {
-    "default", "cyberpunk", "sunset", "aurora", "ice", "fire-ice",
-    "golden-mint", "rainbow-sync", "rainbow-split", "custom",
-}
 CARD_CONTRAST_MODES = {"off", "dim_inactive", "dim_by_default"}
 
 def _normalize_choice(value, allowed, fallback):
@@ -715,10 +700,6 @@ def _normalize_sort_modes(value):
         if scope and mode in SORT_MODES
     }
 
-def _normalize_hex_color(value, fallback):
-    color = str(value).strip()
-    return color if color.startswith("#") and len(color) in (4, 7, 9) else fallback
-
 def _normalize_dict(value):
     return value if isinstance(value, dict) else {}
 
@@ -730,14 +711,11 @@ UI_PREF_VALIDATORS = {
     "cards_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["cards_display_mode"]),
     "active_display_mode": lambda value, prefs: _normalize_display_mode(value, UI_PREF_DEFAULTS["active_display_mode"]),
     "library_tabs": lambda value, prefs: [tab for tab in _normalize_str_list(value) if tab != "most_used"],
-    "library_tab_layout": lambda value, prefs: _normalize_choice(value, {"scroll", "wrap"}, UI_PREF_DEFAULTS["library_tab_layout"]),
     "thumbnail_size": lambda value, prefs: _normalize_choice(value, {"small", "medium", "large"}, UI_PREF_DEFAULTS["thumbnail_size"]),
     "thumbnail_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["thumbnail_size_px"], 40, 320),
     "active_thumbnail_size_px": lambda value, prefs: _normalize_int(value, prefs.get("thumbnail_size_px", UI_PREF_DEFAULTS["active_thumbnail_size_px"]), 40, 320),
     "card_manager_card_size_px": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["card_manager_card_size_px"], 100, 320),
-    "bars_size_scale": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["bars_size_scale"], 60, 160),
     "pinned_categories": lambda value, prefs: _normalize_nullable_str_list(value),
-    "visible_pinned_category_count": lambda value, prefs: _normalize_int(value, UI_PREF_DEFAULTS["visible_pinned_category_count"], 1, 20),
     "pinned_order": lambda value, prefs: _normalize_str_list(value),
     "prompt_manual_orders": lambda value, prefs: _normalize_manual_orders(value),
     "category_colors": lambda value, prefs: _normalize_category_colors(value),
@@ -747,18 +725,13 @@ UI_PREF_VALIDATORS = {
     "auto_hide_toolbars": lambda value, prefs: bool(value),
     "prompt_sort_mode": lambda value, prefs: _normalize_choice(value, SORT_MODES, UI_PREF_DEFAULTS["prompt_sort_mode"]),
     "prompt_sort_modes": lambda value, prefs: _normalize_sort_modes(value),
-    "meta_tags_button_side": lambda value, prefs: _normalize_choice(value, {"left", "right"}, UI_PREF_DEFAULTS["meta_tags_button_side"]),
     "wildcard_cycle_state": lambda value, prefs: _normalize_dict(value),
     "last_created_category": lambda value, prefs: str(value or ""),
     "card_insights_categories": lambda value, prefs: _normalize_card_insights_categories(value),
     "from_last_output_name_default": lambda value, prefs: _normalize_choice(value, {"time", "blank"}, UI_PREF_DEFAULTS["from_last_output_name_default"]),
-    "active_border_theme": lambda value, prefs: _normalize_choice(value, ACTIVE_BORDER_THEMES, UI_PREF_DEFAULTS["active_border_theme"]),
-    "active_border_custom_1": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_1"]),
-    "active_border_custom_2": lambda value, prefs: _normalize_hex_color(value, UI_PREF_DEFAULTS["active_border_custom_2"]),
     "promote_selected_prompts": lambda value, prefs: bool(value),
     "card_contrast_mode": lambda value, prefs: _normalize_choice(value, CARD_CONTRAST_MODES, UI_PREF_DEFAULTS["card_contrast_mode"]),
     "active_card_size_mode": lambda value, prefs: _normalize_choice(value, {"default", "large"}, UI_PREF_DEFAULTS["active_card_size_mode"]),
-    "category_overflow_grouping": lambda value, prefs: _normalize_choice(value, {"alpha", "color"}, UI_PREF_DEFAULTS["category_overflow_grouping"]),
 }
 
 def normalize_ui_prefs(raw_prefs):
@@ -790,12 +763,6 @@ def normalize_ui_prefs(raw_prefs):
             "thumbnail_size_px",
             UI_PREF_DEFAULTS["active_thumbnail_size_px"],
         )
-    prefs["bars_size_scale"] = _normalize_int(
-        prefs.get("bars_size_scale"),
-        UI_PREF_DEFAULTS["bars_size_scale"],
-        60,
-        160,
-    )
     prefs["cards_display_mode"] = _normalize_display_mode(
         prefs.get("cards_display_mode"),
         UI_PREF_DEFAULTS["cards_display_mode"],
@@ -1061,18 +1028,18 @@ async def get_prompt_endpoint(request):
         prompt_id = request.query.get('prompt_id')
         if not prompt_id:
             return web.json_response({"status": "error", "message": "Missing prompt_id"}, status=400)
-            
+
         metadata = load_metadata()
         if prompt_id not in metadata:
             return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-            
+
         data = metadata[prompt_id]
         preview_type = data.get('preview_type')
         preview_url = None
         if preview_type:
             preview_version = data.get('preview_version', 0)
             preview_url = f"/localgalleryunified/prompt/thumbnail/{prompt_id}?v={preview_version}"
-            
+
         prompt = {
             'id': prompt_id,
             'name': data.get('name', prompt_id),
@@ -1190,7 +1157,7 @@ async def update_metadata_endpoint(request):
     try:
         data = await request.json()
         prompt_id = data.get('prompt_id')
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
             if prompt_id not in metadata:
@@ -1207,7 +1174,7 @@ async def update_metadata_endpoint(request):
             prompt = prompt_response(prompt_id, metadata[prompt_id], include_usage=True)
 
         return web.json_response({"status": "ok", "prompt": prompt})
-    
+
     except Exception as e:
         print(f"Error updating metadata: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1788,10 +1755,10 @@ async def create_prompt_endpoint(request):
         name = data.get('name', '')
         prompt_text = data.get('prompt_text', '')
         category = data.get('category', '')
-        
+
         if not name:
             return web.json_response({"status": "error", "message": "Name is required"}, status=400)
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
             prompt_id = generate_unique_prompt_id(metadata, name)
@@ -1811,7 +1778,7 @@ async def create_prompt_endpoint(request):
             "prompt_id": prompt_id,
             "prompt": prompt_response(prompt_id, prompt_data, include_usage=True),
         })
-    
+
     except Exception as e:
         print(f"Error creating prompt: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1890,7 +1857,7 @@ async def delete_prompt_endpoint(request):
     try:
         data = await request.json()
         prompt_id = data.get('prompt_id')
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
             if prompt_id in metadata:
@@ -1902,7 +1869,7 @@ async def delete_prompt_endpoint(request):
                 return web.json_response({"status": "ok"})
 
             return web.json_response({"status": "error", "message": "Prompt not found"}, status=404)
-    
+
     except Exception as e:
         print(f"Error deleting prompt: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -1952,17 +1919,17 @@ async def upload_thumbnail_endpoint(request):
         prompt_id = None
         file_data = None
         filename = None
-        
+
         async for field in reader:
             if field.name == 'prompt_id':
                 prompt_id = (await field.read()).decode('utf-8')
             elif field.name == 'file':
                 filename = field.filename
                 file_data = await field.read()
-        
+
         if not prompt_id or not file_data:
             return web.json_response({"status": "error", "message": "Missing data"}, status=400)
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
 
@@ -2007,9 +1974,9 @@ async def upload_thumbnail_endpoint(request):
                 except Exception:
                     pass
                 raise
-        
+
         return web.json_response({"status": "ok", "preview_type": preview_type})
-    
+
     except Exception as e:
         print(f"Error uploading thumbnail: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -2022,7 +1989,7 @@ async def assign_thumbnail_endpoint(request):
         filename = data.get('filename')
         subfolder = data.get('subfolder', '')
         folder_type = data.get('type', 'output') # output or temp
-        
+
         if not prompt_id or not filename:
             return web.json_response({"status": "error", "message": "Missing data"}, status=400)
 
@@ -2167,9 +2134,9 @@ async def serve_thumbnail(request):
             thumb_path = _safe_thumbnail_path(prompt_id, ext)
             if thumb_path is not None and os.path.exists(thumb_path):
                 return web.FileResponse(thumb_path)
-        
+
         return web.Response(status=404)
-    
+
     except Exception as e:
         print(f"Error serving thumbnail: {e}")
         return web.Response(status=500)
@@ -2180,10 +2147,10 @@ async def delete_category_endpoint(request):
     try:
         data = await request.json()
         category = data.get('category')
-        
+
         if not category:
             return web.json_response({"status": "error", "message": "Category is required"}, status=400)
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
 
@@ -2207,10 +2174,10 @@ async def delete_category_endpoint(request):
             for thumb_path in thumbnail_paths:
                 backup_and_remove_thumbnail(thumb_path)
         return web.json_response({
-            "status": "ok", 
+            "status": "ok",
             "message": f"Deleted {deleted_count} prompts from category '{category}'"
         })
-    
+
     except Exception as e:
         print(f"Error deleting category: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -2221,7 +2188,7 @@ async def toggle_favorite_endpoint(request):
         data = await request.json()
         prompt_id = data.get('prompt_id')
         category = data.get('category')
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
 
@@ -2254,7 +2221,7 @@ async def set_favorite_color_endpoint(request):
         data = await request.json()
         prompt_id = data.get('prompt_id')
         color = data.get('color')  # hex string like "#ff6b6b" or None to clear
-        
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
 
@@ -2327,10 +2294,10 @@ async def save_preset_endpoint(request):
     try:
         data = await request.json()
         name = data.get("name", "").strip()
-        
+
         if not name:
             return web.json_response({"status": "error", "message": "Preset name is required"}, status=400)
-        
+
         with _json_file_lock:
             presets = load_presets()
             presets[name] = {
@@ -2340,7 +2307,7 @@ async def save_preset_endpoint(request):
                 "wildcard_auto_attach_thumbnail": data.get("wildcard_auto_attach_thumbnail", "off"),
             }
             save_presets(presets)
-        
+
         return web.json_response({"status": "ok", "message": f"Preset '{name}' saved"})
     except Exception as e:
         print(f"Error saving preset: {e}")
@@ -2352,15 +2319,15 @@ async def load_preset_endpoint(request):
     try:
         data = await request.json()
         name = data.get("name", "").strip()
-        
+
         if not name:
             return web.json_response({"status": "error", "message": "Preset name is required"}, status=400)
-        
+
         presets = load_presets()
-        
+
         if name not in presets:
             return web.json_response({"status": "error", "message": f"Preset '{name}' not found"}, status=404)
-        
+
         preset = presets[name]
         return web.json_response({
             "status": "ok",
@@ -2382,10 +2349,10 @@ async def delete_preset_endpoint(request):
     try:
         data = await request.json()
         name = data.get("name", "").strip()
-        
+
         if not name:
             return web.json_response({"status": "error", "message": "Preset name is required"}, status=400)
-        
+
         with _json_file_lock:
             presets = load_presets()
 
@@ -2394,7 +2361,7 @@ async def delete_preset_endpoint(request):
 
             del presets[name]
             save_presets(presets)
-        
+
         return web.json_response({"status": "ok", "message": f"Preset '{name}' deleted"})
     except Exception as e:
         print(f"Error deleting preset: {e}")
@@ -2406,15 +2373,15 @@ async def upload_wildcard_file_endpoint(request):
         reader = await request.multipart()
         file_data = None
         filename = None
-        
+
         async for field in reader:
             if field.name == 'file':
                 filename = field.filename
                 file_data = await field.read()
-                
+
         if not file_data or not filename:
             return web.json_response({"status": "error", "message": "No file uploaded"}, status=400)
-            
+
         # Security check: filename
         filename = os.path.basename(filename)
         if not filename:
@@ -2438,7 +2405,7 @@ async def upload_wildcard_file_endpoint(request):
             raise
 
         return web.json_response({"status": "ok", "filename": filename})
-        
+
     except Exception as e:
         print(f"Error uploading wildcard file: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -2457,7 +2424,7 @@ async def import_wildcard_file_endpoint(request):
         file_path = os.path.join(WILDCARDS_DIR, filename)
         if not os.path.exists(file_path):
             return web.json_response({"status": "error", "message": "File not found"}, status=404)
-            
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
             count = 0
@@ -2495,9 +2462,9 @@ async def import_wildcard_file_endpoint(request):
                 count += 1
 
             transaction.commit()
-        
+
         return web.json_response({"status": "ok", "message": f"Imported {count} prompts into '{category}'."})
-        
+
     except Exception as e:
         print(f"Error importing wildcard file: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -2587,10 +2554,10 @@ async def get_or_create_prompts_endpoint(request):
     try:
         data = await request.json()
         prompts = data.get('prompts', [])
-        
+
         if not prompts or not isinstance(prompts, list):
             return web.json_response({"status": "error", "message": "List of prompts is required"}, status=400)
-            
+
         with MetadataTransaction() as transaction:
             metadata = transaction.metadata
             indexes = build_metadata_indexes(metadata)
@@ -2651,9 +2618,9 @@ async def get_or_create_prompts_endpoint(request):
 
             if needs_save:
                 transaction.commit()
-            
+
         return web.json_response({"status": "ok", "prompts": results})
-        
+
     except Exception as e:
         print(f"Error in get_or_create_prompts: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -2684,7 +2651,7 @@ class LocalPromptGallery:
                 "wildcard_auto_attach_thumbnail": "STRING",
             }
         }
-        
+
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("combined_prompt",)
     FUNCTION = "process"
@@ -2717,7 +2684,7 @@ class LocalPromptGallery:
             },
             sort_keys=True,
         )
-    
+
     def process(self, **kwargs):
         global _ui_prefs_cache
 
@@ -2814,7 +2781,7 @@ class LocalPromptGallery:
                     continue
                 category = cat_info.get("category", "")
                 weight = finite_float(cat_info.get("weight", 1.0), 1.0)
-                
+
                 if not category:
                     continue
 
@@ -2912,7 +2879,7 @@ class LocalPromptGallery:
                     load_ui_prefs()
                 _ui_prefs_cache["wildcard_cycle_state"] = wildcard_cycle_state
             _schedule_wildcard_cycle_state_flush(wildcard_cycle_state)
-        
+
         return {
             "ui": {
                 "text": [combined_prompt],
