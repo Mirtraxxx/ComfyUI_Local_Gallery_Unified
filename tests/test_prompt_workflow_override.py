@@ -24,7 +24,7 @@ def _import_prompt_backend():
             ),
         ),
     )
-    return importlib.import_module("backend.Local_Prompt_Gallery")
+    return importlib.import_module("backend.prompt_node")
 
 
 class PromptWorkflowOverrideTests(unittest.TestCase):

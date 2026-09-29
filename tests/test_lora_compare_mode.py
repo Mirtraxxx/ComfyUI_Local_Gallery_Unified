@@ -39,7 +39,7 @@ def _import_modules():
             NODE_CLASS_MAPPINGS={},
         ),
     )
-    backend = importlib.import_module("backend.Local_Lora_Gallery")
+    backend = importlib.import_module("backend.lora_nodes")
     unified = importlib.import_module("Local_Gallery_Unified")
     return backend, unified
 

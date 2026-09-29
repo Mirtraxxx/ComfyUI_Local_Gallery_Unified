@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const backendUrl = new URL("../backend/Local_Prompt_Gallery.py", import.meta.url);
+const backendUrl = new URL("../backend/prompt_routes_edit.py", import.meta.url);
 const promptApiUrl = new URL("../js/api/promptApi.js", import.meta.url);
 const promptGalleryNodeUrl = new URL("../js/prompt/galleryNode.js", import.meta.url);
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
@@ -31,7 +31,7 @@ test("Card Manager selection mode exposes an explicit sequential rename action",
     assert.match(ui, /promptApi\.renamePromptsSequential\(selection, options\)/);
     assert.match(backend, /@server\.PromptServer\.instance\.routes\.post\("\/localgalleryunified\/prompt\/rename_prompts_sequential"\)/);
     assert.match(backend, /resolve_sequential_rename_ids\(metadata, data\)/);
-    assert.match(backend, /_resolve_bulk_selection\(metadata, selection\)/);
+    assert.match(backend, /resolve_bulk_selection\(metadata, selection\)/);
     assert.match(backend, /base_revision is required when applying a sequential rename/);
     assert.match(backend, /build_sequential_rename_plan\(metadata, prompt_ids\)/);
     assert.match(backend, /metadata\[prompt_id\]\["name"\] = name/);

@@ -44,6 +44,7 @@ class LoraTriggerPresetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.backend = _import_lora_backend()
+        cls.nodes = importlib.import_module("backend.lora_nodes")
 
     def test_single_selected_preset_replaces_default_triggers(self):
         metadata = {
@@ -56,7 +57,7 @@ class LoraTriggerPresetTests(unittest.TestCase):
         }
 
         self.assertEqual(
-            self.backend.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
+            self.nodes.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
             "portrait trigger",
         )
 
@@ -74,7 +75,7 @@ class LoraTriggerPresetTests(unittest.TestCase):
         }
 
         self.assertEqual(
-            self.backend.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
+            self.nodes.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
             "portrait trigger, lighting trigger",
         )
 
@@ -89,7 +90,7 @@ class LoraTriggerPresetTests(unittest.TestCase):
         }
 
         self.assertEqual(
-            self.backend.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
+            self.nodes.BaseLoraGallery._get_trigger_words_for_config(metadata, config),
             "portrait trigger",
         )
 

@@ -5,7 +5,7 @@ import test from "node:test";
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
 const insightsUrl = new URL("../js/prompt/wildcardStats.js", import.meta.url);
 const promptApiUrl = new URL("../js/api/promptApi.js", import.meta.url);
-const backendUrl = new URL("../backend/Local_Prompt_Gallery.py", import.meta.url);
+const backendUrl = new URL("../backend/prompt_routes_query.py", import.meta.url);
 
 test("Card Manager owns same-window card selection while Stats stays separate", async () => {
     const [browseSource, insightsSource] = await Promise.all([

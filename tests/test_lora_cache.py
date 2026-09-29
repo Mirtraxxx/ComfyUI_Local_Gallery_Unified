@@ -8,6 +8,8 @@ import types
 import unittest
 from unittest.mock import patch
 
+from PIL import Image
+
 
 class _Routes:
     @staticmethod
@@ -40,10 +42,12 @@ def _import_lora_backend():
 class LoraInventoryCacheTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = _import_lora_backend()
+        _import_lora_backend()
+        cls.library = importlib.import_module("backend.lora_library")
+        cls.previews = importlib.import_module("backend.lora_routes_previews")
 
     def setUp(self):
-        self.backend.invalidate_lora_inventory()
+        self.library.invalidate_lora_inventory()
 
     def test_inventory_reuses_unchanged_entries_and_explicit_invalidation_rebuilds(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -52,28 +56,28 @@ class LoraInventoryCacheTests(unittest.TestCase):
                 handle.write(b"lora")
             preview_calls = []
 
-            with patch.object(self.backend.folder_paths, "get_filename_list", return_value=["example.safetensors"]), \
-                 patch.object(self.backend.folder_paths, "get_folder_paths", return_value=[directory]), \
-                 patch.object(self.backend.folder_paths, "get_full_path", return_value=lora_path), \
-                 patch.object(self.backend, "load_metadata", return_value={}), \
-                 patch.object(self.backend, "get_lora_preview_asset_info", side_effect=lambda name: (preview_calls.append(name) or ("", "none"))):
-                first = self.backend.get_lora_inventory()
-                second = self.backend.get_lora_inventory()
+            with patch.object(self.library.folder_paths, "get_filename_list", return_value=["example.safetensors"]), \
+                 patch.object(self.library.folder_paths, "get_folder_paths", return_value=[directory]), \
+                 patch.object(self.previews.folder_paths, "get_full_path", return_value=lora_path), \
+                 patch.object(self.library, "load_metadata", return_value={}), \
+                 patch.object(self.library, "get_lora_preview_asset_info", side_effect=lambda name: (preview_calls.append(name) or ("", "none"))):
+                first = self.library.get_lora_inventory()
+                second = self.library.get_lora_inventory()
                 self.assertIs(first, second)
                 self.assertEqual(preview_calls, ["example.safetensors"])
 
-                self.backend.invalidate_lora_inventory()
-                third = self.backend.get_lora_inventory()
+                self.library.invalidate_lora_inventory()
+                third = self.library.get_lora_inventory()
                 self.assertIsNot(first, third)
                 self.assertEqual(preview_calls, ["example.safetensors", "example.safetensors"])
 
     def test_execution_metadata_cache_tracks_revision(self):
-        with patch.object(self.backend, "_file_signature", side_effect=[("one", 1), ("one", 1), ("two", 2)]), \
-             patch.object(self.backend, "load_metadata", side_effect=[{"version": 1}, {"version": 2}]) as load:
-            self.backend._EXECUTION_METADATA_CACHE = {"signature": None, "data": None}
-            self.assertEqual(self.backend.load_execution_metadata(), {"version": 1})
-            self.assertEqual(self.backend.load_execution_metadata(), {"version": 1})
-            self.assertEqual(self.backend.load_execution_metadata(), {"version": 2})
+        with patch.object(self.library, "file_signature", side_effect=[("one", 1), ("one", 1), ("two", 2)]), \
+             patch.object(self.library, "load_metadata", side_effect=[{"version": 1}, {"version": 2}]) as load:
+            self.library._EXECUTION_METADATA_CACHE = {"signature": None, "data": None}
+            self.assertEqual(self.library.load_execution_metadata(), {"version": 1})
+            self.assertEqual(self.library.load_execution_metadata(), {"version": 1})
+            self.assertEqual(self.library.load_execution_metadata(), {"version": 2})
             self.assertEqual(load.call_count, 2)
 
     def test_last_output_replaces_preview_and_preserves_backup(self):
@@ -101,10 +105,10 @@ class LoraInventoryCacheTests(unittest.TestCase):
             with open(manager_metadata_path, "w", encoding="utf-8") as handle:
                 json.dump({"preview_url": old_preview_path.replace(os.sep, "/")}, handle)
 
-            with patch.object(self.backend.folder_paths, "get_full_path", return_value=lora_path), \
-                 patch.object(self.backend.folder_paths, "get_output_directory", return_value=output_directory, create=True), \
-                 patch.object(self.backend, "PREVIEW_BACKUP_DIR", backup_directory):
-                preview_url, preview_type = self.backend.assign_lora_preview_file(
+            with patch.object(self.previews.folder_paths, "get_full_path", return_value=lora_path), \
+                 patch.object(self.previews.folder_paths, "get_output_directory", return_value=output_directory, create=True), \
+                 patch.object(self.previews, "PREVIEW_BACKUP_DIR", backup_directory):
+                preview_url, preview_type = self.previews.assign_lora_preview_file(
                     "example.safetensors",
                     "latest.png",
                 )
@@ -112,7 +116,7 @@ class LoraInventoryCacheTests(unittest.TestCase):
             new_preview_path = os.path.join(lora_directory, "example.webp")
             self.assertEqual(preview_type, "image")
             self.assertIn("/localgalleryunified/lora/preview?", preview_url)
-            with self.backend.Image.open(new_preview_path) as image:
+            with Image.open(new_preview_path) as image:
                 self.assertEqual(image.format, "WEBP")
             self.assertFalse(os.path.exists(old_preview_path))
             with open(manager_metadata_path, "r", encoding="utf-8") as handle:

@@ -1,3 +1,4 @@
+import importlib
 import json
 import unittest
 from unittest.mock import patch
@@ -8,7 +9,8 @@ from test_lora_cache import _import_lora_backend
 class LoraLotteryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = _import_lora_backend()
+        _import_lora_backend()
+        cls.backend = importlib.import_module("backend.lora_nodes")
 
     def test_resolution_draws_from_the_selected_folder_and_keeps_manual_items(self):
         selection = json.dumps({

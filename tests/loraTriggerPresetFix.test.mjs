@@ -1,3 +1,4 @@
+import { readBackendSource } from "./backendSource.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -5,7 +6,6 @@ import test from "node:test";
 const presetControlsUrl = new URL("../js/lora/presetControls.js", import.meta.url);
 const uiUrl = new URL("../js/lora/ui.js", import.meta.url);
 const activeStackUrl = new URL("../js/lora/activeStackController.js", import.meta.url);
-const backendUrl = new URL("../backend/Local_Lora_Gallery.py", import.meta.url);
 
 test("trigger preset apply persists selected_preset/selected_presets and rebuilds visual state", async () => {
     const [presetControls, ui, activeStack] = await Promise.all([
@@ -41,7 +41,7 @@ test("trigger preset apply persists selected_preset/selected_presets and rebuild
 });
 
 test("backend falls through empty selected_presets to selected_preset", async () => {
-    const backend = await readFile(backendUrl, "utf8");
+    const backend = await readBackendSource("lora");
     assert.match(backend, /Empty list must fall through to selected_preset/);
     assert.match(
         backend,

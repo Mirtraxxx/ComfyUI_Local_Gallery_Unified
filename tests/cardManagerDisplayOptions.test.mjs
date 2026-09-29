@@ -4,7 +4,7 @@ import test from "node:test";
 
 const browseUrl = new URL("../js/prompt/browse.js", import.meta.url);
 const preferencesUrl = new URL("../js/prompt/preferences.js", import.meta.url);
-const backendUrl = new URL("../backend/Local_Prompt_Gallery.py", import.meta.url);
+const backendUrl = new URL("../backend/prompt_prefs.py", import.meta.url);
 const templateUrl = new URL("../js/prompt/template.js", import.meta.url);
 const controllerUrl = new URL("../js/prompt/displayPreferencesController.js", import.meta.url);
 const workspaceActionsUrl = new URL("../js/prompt/workspaceActions.js", import.meta.url);

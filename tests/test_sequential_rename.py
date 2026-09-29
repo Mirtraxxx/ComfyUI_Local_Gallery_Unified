@@ -1,32 +1,15 @@
-import ast
 import copy
-import math
-from pathlib import Path
 import unittest
 
-
-BACKEND_PATH = Path(__file__).resolve().parents[1] / "backend" / "Local_Prompt_Gallery.py"
+from backend import prompt_bulk, prompt_cards
 
 
 def load_rename_helpers():
-    """Load the pure ordering helpers without importing ComfyUI runtime modules."""
-    tree = ast.parse(BACKEND_PATH.read_text(encoding="utf-8"), filename=str(BACKEND_PATH))
-    wanted = {
-        "_prompt_created_at_value",
-        "_wildcard_order_sort_value",
-        "build_sequential_rename_plan",
-        "_normalize_bulk_ids",
-        "_resolve_bulk_selection",
-        "_sequential_rename_selection_from_request",
-        "resolve_sequential_rename_ids",
-    }
-    functions = [
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name in wanted
-    ]
-    namespace = {"math": math}
-    exec(compile(ast.Module(body=functions, type_ignores=[]), str(BACKEND_PATH), "exec"), namespace)
-    return namespace
+    """Collect the pure ordering and selection helpers by name."""
+    helpers = {}
+    for module in (prompt_cards, prompt_bulk):
+        helpers.update(vars(module))
+    return helpers
 
 
 class SequentialRenameTests(unittest.TestCase):

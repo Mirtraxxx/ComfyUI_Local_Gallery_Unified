@@ -1,3 +1,4 @@
+import { readBackendSource } from "./backendSource.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -8,7 +9,7 @@ const uiSource = [
 ].join("\n");
 const metadataEditorSource = await readFile(new URL("../js/lora/metadataEditor.js", import.meta.url), "utf8");
 const apiSource = await readFile(new URL("../js/api/loraApi.js", import.meta.url), "utf8");
-const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
+const backendSource = await readBackendSource("lora");
 
 test("LoRA details editor exposes latest-result thumbnail assignment", () => {
     assert.match(uiSource, /class="lg-text-btn use-last-output-thumbnail-btn"/);

@@ -46,7 +46,8 @@ class _Request:
 class LoraPreviewRouteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = _import_lora_backend()
+        _import_lora_backend()
+        cls.backend = importlib.import_module("backend.lora_routes_previews")
 
     def _serve(self, lora_name, filename):
         with tempfile.TemporaryDirectory() as directory:

@@ -4,9 +4,22 @@
 
 - One primary ComfyUI node: `LocalGalleryPromptLora` (`Local Gallery: Prompt + LoRA`).
 - The node applies selected LoRAs, builds the visible prompt, then appends enabled hidden prompts.
-- Backend entrypoints: `Local_Gallery_Unified.py`, `backend/Local_Prompt_Gallery.py`, and
-  `backend/Local_Lora_Gallery.py`. `backend/card_thumbnails.py` serves downscaled WebP card
-  thumbnails (`/prompt/thumbnail/{id}?w=`), cached in `data/prompt_gallery/card_thumbnail_cache/`.
+- Backend entrypoints: `Local_Gallery_Unified.py`, `backend/Local_Prompt_Gallery.py` (a thin facade that
+  imports the Prompt route modules and node), and `backend/Local_Lora_Gallery.py` (the same for LoRA).
+- Prompt backend modules (`backend/`): `prompt_store.py` (paths, JSON IO, metadata cache and
+  `MetadataTransaction`), `prompt_prefs.py` (UI prefs and presets), `prompt_cards.py` and `prompt_bulk.py`
+  (pure ordering, indexing and bulk-edit logic), `prompt_media.py` (thumbnail files),
+  `prompt_wildcards.py` (export ordering, debounced cycle-state flush), `comfy_queue.py`,
+  `prompt_routes_{query,edit,thumbnails,settings,wildcards}.py` (one route group each), and
+  `prompt_node.py` (the `LocalPromptGallery` node). Module-level caches rebound with `global` live only in
+  the module that owns them; other modules go through that module's functions.
+  `backend/card_thumbnails.py` serves downscaled WebP card thumbnails (`/prompt/thumbnail/{id}?w=`),
+  cached in `data/prompt_gallery/card_thumbnail_cache/`.
+- LoRA backend modules (`backend/`): `lora_json.py` (guarded JSON IO and backups), `lora_lookup.py` (pure
+  metadata matching by hash or basename), `lora_previews.py` (preview files), `lora_library.py` (data paths,
+  metadata/UI-state/preset storage, and the inventory cache), `lora_routes_{previews,civitai,library}.py`
+  (route groups), and `lora_nodes.py` (`LocalLoraGallery`, `LocalLoraGalleryModelOnly`, Nunchaku detection).
+  The tests in `tests/` patch names on the module that uses them, not on the facade.
 - Frontend entrypoint: `js/Local_Gallery_Unified.js`; Prompt and LoRA tabs are coordinated by
   `js/prompt/ui.js` and `js/lora/ui.js`. `js/tabs.js` mounts the Prompts | LoRAs switch at the
   start of each gallery's top bar.
@@ -83,7 +96,7 @@ Run checks proportional to the change:
 ```powershell
 node --input-type=module --check < <changed-js-file>   # plain --check misses ESM errors
 node --test tests\*.test.mjs
-python -m py_compile Local_Gallery_Unified.py __init__.py backend\Local_Prompt_Gallery.py backend\Local_Lora_Gallery.py backend\card_thumbnails.py
+python -m py_compile Local_Gallery_Unified.py __init__.py backend\*.py
 python -m unittest discover -s tests -p 'test_*.py'
 git diff --check
 ```

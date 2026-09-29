@@ -1,3 +1,4 @@
+import { readBackendSource } from "./backendSource.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -5,7 +6,7 @@ import test from "node:test";
 const uiSource = await readFile(new URL("../js/lora/ui.js", import.meta.url), "utf8");
 const activeStackControllerSource = await readFile(new URL("../js/lora/activeStackController.js", import.meta.url), "utf8");
 const rendererSource = await readFile(new URL("../js/lora/renderers.js", import.meta.url), "utf8");
-const backendSource = await readFile(new URL("../backend/Local_Lora_Gallery.py", import.meta.url), "utf8");
+const backendSource = await readBackendSource("lora");
 
 test("display slider release persists without requesting another gallery fetch", () => {
     for (const slider of ["lora-active-thumbnail-size-slider", "lora-thumbnail-size-slider"]) {
